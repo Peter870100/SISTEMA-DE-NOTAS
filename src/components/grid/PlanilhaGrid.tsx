@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash2, UserPlus, Settings2 } from "lucide-react";
+import { Trash2, UserPlus, Settings2, FileSpreadsheet } from "lucide-react";
 import type { Aluno, AtividadeColuna } from "@/lib/types";
 import { parseEntradaCelula, type ValorCelula } from "@/lib/status";
 import type { CelulasMap } from "@/lib/celulas";
 import { LIMIAR_CRITICO, mediaAluno as calcularMediaAluno, paraEscala10 } from "@/lib/analytics";
+import { exportarExcel } from "@/lib/exportarExcel";
 import { upsertCelula } from "@/actions/notas";
 import { addAluno, deleteAluno } from "@/actions/alunos";
 import { CelulaNota } from "./CelulaNota";
@@ -17,6 +18,8 @@ import { AlunoDashboardDrawer } from "@/components/aluno/AlunoDashboardDrawer";
 
 type PlanilhaGridProps = {
   turmaId: string;
+  turmaNome: string;
+  turmaBimestre: string;
   colunas: AtividadeColuna[];
   alunos: Aluno[];
   celulas: CelulasMap;
@@ -27,6 +30,8 @@ type PlanilhaGridProps = {
 
 export function PlanilhaGrid({
   turmaId,
+  turmaNome,
+  turmaBimestre,
   colunas,
   alunos,
   celulas,
@@ -38,6 +43,7 @@ export function PlanilhaGrid({
   const [editing, setEditing] = useState(false);
   const [editingValue, setEditingValue] = useState("");
   const [erro, setErro] = useState<string | null>(null);
+  const [exportando, setExportando] = useState(false);
 
   const [novoAlunoNome, setNovoAlunoNome] = useState("");
   const [salvandoAluno, setSalvandoAluno] = useState(false);
@@ -187,6 +193,18 @@ export function PlanilhaGrid({
     }
   }
 
+  async function handleExportar() {
+    if (exportando) return;
+    setExportando(true);
+    try {
+      await exportarExcel({ turmaNome, turmaBimestre, colunas, alunos, celulas });
+    } catch {
+      setErro("Não foi possível exportar a planilha. Tente novamente.");
+    } finally {
+      setExportando(false);
+    }
+  }
+
   const mediaTurma = (() => {
     const valores = Object.values(celulas)
       .flatMap((linha) => Object.values(linha))
@@ -207,7 +225,15 @@ export function PlanilhaGrid({
         </div>
       )}
 
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={handleExportar}
+          disabled={exportando}
+          className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 hover:shadow disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        >
+          <FileSpreadsheet size={16} />
+          {exportando ? "Exportando..." : "Exportar Excel"}
+        </button>
         <button
           onClick={() => setGestaoColunasAberto(true)}
           className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 hover:shadow dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"

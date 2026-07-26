@@ -57,6 +57,8 @@ export function TurmaDashboard({
           <KpiCards totalAlunos={alunos.length} taxaCritico={taxaCritico} mediaTurma={mediaTurma10} />
           <PlanilhaGrid
             turmaId={turma.id}
+            turmaNome={turma.nome}
+            turmaBimestre={turma.bimestre}
             colunas={colunas}
             alunos={alunos}
             celulas={celulas}
