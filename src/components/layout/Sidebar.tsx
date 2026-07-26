@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap, Home, Settings, Users } from "lucide-react";
+import { GraduationCap, Home, LogOut, Settings, Users } from "lucide-react";
+import { logout } from "@/actions/auth";
 
 const ITENS = [
   { href: "/", icon: Home, label: "Início" },
@@ -11,6 +12,8 @@ const ITENS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+
+  if (pathname === "/login") return null;
 
   return (
     <aside className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-neutral-200 bg-white py-4 dark:border-neutral-800 dark:bg-neutral-900">
@@ -42,6 +45,15 @@ export function Sidebar() {
       >
         <Settings size={18} />
       </button>
+      <form action={logout}>
+        <button
+          type="submit"
+          title="Sair"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
+        >
+          <LogOut size={18} />
+        </button>
+      </form>
     </aside>
   );
 }
