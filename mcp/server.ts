@@ -103,6 +103,34 @@ server.registerTool(
 );
 
 server.registerTool(
+  "criar_turma",
+  {
+    title: "Criar turma (planilha nova)",
+    description:
+      "Cria uma turma/planilha nova do zero, vazia (sem alunos nem atividades ainda). Use quando não existir nenhuma turma parecida — confira com listar_turmas antes pra não duplicar.",
+    inputSchema: {
+      nome: z.string().describe('Nome da turma, ex: "1ª série C"'),
+      bimestre: z.string().optional().describe('Ex: "2º Bimestre" — se omitido, usa o padrão do sistema'),
+      ano_letivo: z.string().optional().describe('Ex: "2026" — se omitido, usa o padrão do sistema'),
+    },
+  },
+  async ({ nome, bimestre, ano_letivo }) => {
+    const nomeLimpo = nome.trim();
+    if (!nomeLimpo) throw new Error("Informe o nome da turma.");
+
+    const insert: { nome: string; bimestre?: string; ano_letivo?: string } = { nome: nomeLimpo };
+    if (bimestre) insert.bimestre = bimestre.trim();
+    if (ano_letivo) insert.ano_letivo = ano_letivo.trim();
+
+    const { data, error } = await supabase.from("turmas").insert(insert).select().single();
+    if (error) throw new Error(error.message);
+    return texto(
+      `Turma "${data.nome}" criada (${data.bimestre}, ${data.ano_letivo}). Agora use criar_alunos_em_lote ou criar_aluno pra adicionar os alunos, e criar_atividade pra adicionar as colunas de nota.`
+    );
+  }
+);
+
+server.registerTool(
   "ver_planilha",
   {
     title: "Ver planilha da turma",
@@ -289,6 +317,50 @@ server.registerTool(
       .single();
     if (error) throw new Error(error.message);
     return texto(`Aluno "${data.nome}" criado na turma ${turma.nome}.`);
+  }
+);
+
+server.registerTool(
+  "criar_alunos_em_lote",
+  {
+    title: "Criar vários alunos de uma vez",
+    description:
+      "Adiciona vários alunos a uma turma numa chamada só — ideal quando os nomes vêm de uma lista ou foto de chamada. Ignora nomes que já existirem na turma (não duplica).",
+    inputSchema: {
+      turma_nome: z.string(),
+      bimestre: z.string().optional(),
+      nomes: z.array(z.string()).min(1).describe("Lista de nomes dos alunos a adicionar"),
+    },
+  },
+  async ({ turma_nome, bimestre, nomes }) => {
+    const turma = await resolverTurma(turma_nome, bimestre);
+    const { data: existentes, count } = await supabase
+      .from("alunos")
+      .select("nome", { count: "exact" })
+      .eq("turma_id", turma.id);
+    const nomesExistentes = new Set((existentes ?? []).map((a) => normalizar(a.nome)));
+
+    const resultados: string[] = [];
+    let ordem = count ?? 0;
+    for (const nomeBruto of nomes) {
+      const nome = nomeBruto.trim();
+      if (!nome) continue;
+      if (nomesExistentes.has(normalizar(nome))) {
+        resultados.push(`IGNORADO (já existe): ${nome}`);
+        continue;
+      }
+      const { error } = await supabase
+        .from("alunos")
+        .insert({ turma_id: turma.id, nome, ordem });
+      if (error) {
+        resultados.push(`FALHOU: ${nome}: ${error.message}`);
+      } else {
+        resultados.push(`OK: ${nome}`);
+        nomesExistentes.add(normalizar(nome));
+        ordem++;
+      }
+    }
+    return texto(resultados.join("\n"));
   }
 );
 
