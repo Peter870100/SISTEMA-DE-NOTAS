@@ -367,8 +367,9 @@ server.registerTool(
 server.registerTool(
   "criar_atividade",
   {
-    title: "Criar coluna de atividade",
-    description: "Adiciona uma nova coluna de atividade/avaliação a uma turma.",
+    title: "Criar atividade (também chamada de \"planilha\" pelo professor)",
+    description:
+      'Cria uma nova coluna de atividade/avaliação dentro de uma turma — o professor às vezes chama isso de "criar uma planilha" (ex: "criar uma planilha do texto Terras Raras"). Depois de criar, use lancar_nota ou lancar_notas_em_lote pra lançar as notas dos alunos nela.',
     inputSchema: {
       turma_nome: z.string(),
       titulo: z.string(),
