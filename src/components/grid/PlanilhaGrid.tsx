@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash2, UserPlus, Settings2, FileSpreadsheet } from "lucide-react";
+import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2 } from "lucide-react";
 import type { Aluno, AtividadeColuna } from "@/lib/types";
 import { parseEntradaCelula, type ValorCelula } from "@/lib/status";
 import type { CelulasMap } from "@/lib/celulas";
@@ -26,6 +26,8 @@ type PlanilhaGridProps = {
   onColunasChange: (colunas: AtividadeColuna[]) => void;
   onAlunosChange: (alunos: Aluno[]) => void;
   onCelulasChange: (updater: (prev: CelulasMap) => CelulasMap) => void;
+  maximizado: boolean;
+  onToggleMaximizar: () => void;
 };
 
 export function PlanilhaGrid({
@@ -38,6 +40,8 @@ export function PlanilhaGrid({
   onColunasChange,
   onAlunosChange,
   onCelulasChange,
+  maximizado,
+  onToggleMaximizar,
 }: PlanilhaGridProps) {
   const [active, setActive] = useState<{ row: number; col: number } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -226,6 +230,13 @@ export function PlanilhaGrid({
       )}
 
       <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={onToggleMaximizar}
+          className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 hover:shadow dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        >
+          {maximizado ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          {maximizado ? "Restaurar" : "Maximizar"}
+        </button>
         <button
           onClick={handleExportar}
           disabled={exportando}

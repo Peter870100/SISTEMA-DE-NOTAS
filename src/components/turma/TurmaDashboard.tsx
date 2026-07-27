@@ -28,6 +28,7 @@ export function TurmaDashboard({
   const [colunas, setColunas] = useState(colunasIniciais);
   const [alunos, setAlunos] = useState(alunosIniciais);
   const [celulas, setCelulas] = useState<CelulasMap>(() => celulasIniciaisDe(notasIniciais));
+  const [maximizado, setMaximizado] = useState(false);
 
   const mediaTurma10 = useMemo(() => {
     const valores = Object.values(celulas)
@@ -51,7 +52,9 @@ export function TurmaDashboard({
     <div className="flex flex-col gap-5">
       <TurmaHeader />
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <AnaliseAprendizagem colunas={colunas} alunos={alunos} celulas={celulas} />
+        {!maximizado && (
+          <AnaliseAprendizagem colunas={colunas} alunos={alunos} celulas={celulas} />
+        )}
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <FiltrosTurma turma={turma} todasTurmas={todasTurmas} />
           <KpiCards totalAlunos={alunos.length} taxaCritico={taxaCritico} mediaTurma={mediaTurma10} />
@@ -65,6 +68,8 @@ export function TurmaDashboard({
             onColunasChange={setColunas}
             onAlunosChange={setAlunos}
             onCelulasChange={setCelulas}
+            maximizado={maximizado}
+            onToggleMaximizar={() => setMaximizado((m) => !m)}
           />
         </div>
       </div>
