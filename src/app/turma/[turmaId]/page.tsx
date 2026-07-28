@@ -39,7 +39,7 @@ export default async function TurmaPage({ params }: PageProps) {
     : { data: [] };
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 py-6">
+    <main className="mx-auto flex w-full min-w-0 max-w-7xl flex-1 flex-col px-4 py-6 sm:px-6">
       <TurmaDashboard
         turma={turma}
         todasTurmas={todasTurmas ?? [turma]}

@@ -49,9 +49,9 @@ export function TurmaDashboard({
   }, [alunos, celulas]);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-5">
       <TurmaHeader />
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start">
         {!maximizado && (
           <AnaliseAprendizagem colunas={colunas} alunos={alunos} celulas={celulas} />
         )}
