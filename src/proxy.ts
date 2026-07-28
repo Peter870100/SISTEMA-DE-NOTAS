@@ -5,7 +5,7 @@ import { COOKIE_NOME, tokenEsperado } from "@/lib/auth";
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/login")) {
+  if (pathname.startsWith("/login") || pathname.startsWith("/api/mcp")) {
     return NextResponse.next();
   }
 
