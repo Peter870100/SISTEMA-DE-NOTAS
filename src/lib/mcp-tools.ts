@@ -13,7 +13,7 @@ export function criarSupabaseClient(): SupabaseClient {
 
 type Turma = { id: string; nome: string; bimestre: string; ano_letivo: string };
 type Aluno = { id: string; turma_id: string; nome: string; numero: number | null; ordem: number };
-type Coluna = { id: string; turma_id: string; titulo: string; ordem: number };
+type Coluna = { id: string; turma_id: string; titulo: string; ordem: number; tipo?: string };
 
 function texto(s: string) {
   return { content: [{ type: "text" as const, text: s }] };
@@ -383,6 +383,87 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         .single();
       if (error) throw new Error(error.message);
       return texto(`Atividade "${data.titulo}" criada na turma ${turma.nome}.`);
+    }
+  );
+
+  server.registerTool(
+    "lancar_presenca_em_lote",
+    {
+      title: "Lançar presença do dia (chamada)",
+      description:
+        'Registra a chamada de um dia pra uma turma: cria (ou reaproveita, se já existir) a coluna de presença daquela data e lança "P" (presente) ou "F" (falta) pra cada aluno informado. Ideal pra automação diária — rodar de novo pra mesma turma e mesma data reaproveita a coluna existente e sobrescreve os valores, em vez de duplicar. Chame listar_turmas antes se precisar confirmar o nome exato da turma.',
+      inputSchema: {
+        turma_nome: z.string(),
+        data: z.string().describe('Data da chamada, ex: "14/08/26"'),
+        bimestre: z.string().optional(),
+        presencas: z
+          .array(
+            z.object({
+              aluno_nome: z.string(),
+              status: z.string().describe('"P" (presente) ou "F" (falta)'),
+            })
+          )
+          .min(1),
+      },
+    },
+    async ({ turma_nome, data, bimestre, presencas }) => {
+      const turma = await resolverTurma(turma_nome, bimestre);
+      const dataLimpa = data.trim();
+      if (!dataLimpa) throw new Error('Informe a data da chamada, ex: "14/08/26".');
+
+      const { data: existentes, error: errBusca } = await supabase
+        .from("atividades_colunas")
+        .select("*")
+        .eq("turma_id", turma.id)
+        .eq("tipo", "presenca")
+        .eq("titulo", dataLimpa);
+      if (errBusca) throw new Error(errBusca.message);
+
+      let coluna = existentes?.[0] as Coluna | undefined;
+      let colunaCriada = false;
+      if (!coluna) {
+        const { count } = await supabase
+          .from("atividades_colunas")
+          .select("id", { count: "exact", head: true })
+          .eq("turma_id", turma.id);
+        const { data: nova, error: errCriar } = await supabase
+          .from("atividades_colunas")
+          .insert({ turma_id: turma.id, titulo: dataLimpa, tipo: "presenca", ordem: count ?? 0 })
+          .select()
+          .single();
+        if (errCriar) throw new Error(errCriar.message);
+        coluna = nova;
+        colunaCriada = true;
+      }
+
+      const resultados: string[] = [];
+      for (const item of presencas) {
+        try {
+          const statusNormalizado = item.status.trim().toUpperCase();
+          if (statusNormalizado !== "P" && statusNormalizado !== "F") {
+            throw new Error('status deve ser "P" (presente) ou "F" (falta)');
+          }
+          const aluno = await resolverAluno(turma.id, item.aluno_nome);
+          const { error } = await supabase.from("notas_celulas").upsert(
+            {
+              aluno_id: aluno.id,
+              coluna_id: coluna!.id,
+              valor: null,
+              status_texto: statusNormalizado,
+            },
+            { onConflict: "aluno_id,coluna_id" }
+          );
+          if (error) throw new Error(error.message);
+          resultados.push(`OK: ${aluno.nome} — ${statusNormalizado}`);
+        } catch (e) {
+          resultados.push(
+            `FALHOU: ${item.aluno_nome}: ${e instanceof Error ? e.message : String(e)}`
+          );
+        }
+      }
+      return texto(
+        `Chamada de ${dataLimpa} — ${turma.nome} (coluna ${colunaCriada ? "criada" : "reaproveitada"}):\n${resultados.join("\n")}`
+      );
     }
   );
 }

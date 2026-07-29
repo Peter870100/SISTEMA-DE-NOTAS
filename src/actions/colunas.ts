@@ -1,19 +1,20 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import type { AtividadeColuna } from "@/lib/types";
+import type { AtividadeColuna, TipoColuna } from "@/lib/types";
 
 export async function addColuna(
   turmaId: string,
   titulo: string,
-  ordem: number
+  ordem: number,
+  tipo: TipoColuna = "nota"
 ): Promise<AtividadeColuna> {
   const tituloLimpo = titulo.trim();
   if (!tituloLimpo) throw new Error("Título da coluna não pode ser vazio");
 
   const { data, error } = await supabase
     .from("atividades_colunas")
-    .insert({ turma_id: turmaId, titulo: tituloLimpo, ordem })
+    .insert({ turma_id: turmaId, titulo: tituloLimpo, tipo, ordem })
     .select()
     .single();
   if (error || !data) throw new Error(error?.message ?? "Falha ao criar coluna");

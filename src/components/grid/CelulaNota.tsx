@@ -2,10 +2,12 @@
 
 import { useEffect, useRef } from "react";
 import { Pencil } from "lucide-react";
-import { STATUS_SUGESTOES, corStatus, type ValorCelula } from "@/lib/status";
+import { STATUS_SUGESTOES, STATUS_PRESENCA, corStatus, corPresenca, type ValorCelula } from "@/lib/status";
+import type { TipoColuna } from "@/lib/types";
 
 type CelulaNotaProps = {
   value: ValorCelula;
+  tipo: TipoColuna;
   active: boolean;
   editing: boolean;
   editingValue: string;
@@ -19,6 +21,7 @@ type CelulaNotaProps = {
 
 export function CelulaNota({
   value,
+  tipo,
   active,
   editing,
   editingValue,
@@ -34,6 +37,26 @@ export function CelulaNota({
   useEffect(() => {
     if (editing) inputRef.current?.focus();
   }, [editing]);
+
+  if (editing && tipo === "presenca") {
+    return (
+      <div
+        ref={cellRef}
+        className="relative flex items-center gap-1 border border-blue-500 bg-white px-1 py-1 dark:bg-neutral-900"
+      >
+        {STATUS_PRESENCA.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onSelectStatus(s)}
+            className={`flex-1 rounded py-1 text-xs font-semibold ${corPresenca(s)}`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    );
+  }
 
   if (editing) {
     return (
@@ -80,7 +103,11 @@ export function CelulaNota({
     >
       <span>
         {value.status_texto ? (
-          <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${corStatus()}`}>
+          <span
+            className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+              tipo === "presenca" ? corPresenca(value.status_texto) : corStatus()
+            }`}
+          >
             {value.status_texto}
           </span>
         ) : value.valor !== null ? (

@@ -117,6 +117,12 @@ export function PlanilhaGrid({
   }
 
   function handleKeyDown(e: React.KeyboardEvent, row: number, col: number) {
+    if (!editing && colunas[col]?.tipo === "presenca" && /^[pPfF]$/.test(e.key)) {
+      e.preventDefault();
+      handleSelectStatus(row, col, e.key.toUpperCase());
+      return;
+    }
+
     if (editing) {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -272,9 +278,14 @@ export function PlanilhaGrid({
                   <button
                     onClick={() => setColunaEstatistica(c)}
                     className="hover:text-blue-700 hover:underline"
-                    title="Ver estatística desta atividade"
+                    title={c.tipo === "presenca" ? "Chamada — ver estatística" : "Ver estatística desta atividade"}
                   >
                     {c.titulo}
+                    {c.tipo === "presenca" && (
+                      <span className="ml-1 rounded bg-blue-100 px-1 py-0.5 text-[10px] font-normal text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+                        chamada
+                      </span>
+                    )}
                   </button>
                 </th>
               ))}
@@ -314,6 +325,7 @@ export function PlanilhaGrid({
                     <td key={coluna.id} className="p-0">
                       <CelulaNota
                         value={getCelula(aluno.id, coluna.id)}
+                        tipo={coluna.tipo}
                         active={active?.row === row && active?.col === col}
                         editing={
                           editing && active?.row === row && active?.col === col

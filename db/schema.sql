@@ -28,9 +28,10 @@ create index idx_alunos_turma on alunos(turma_id);
 create table atividades_colunas (
     id uuid primary key default gen_random_uuid(),
     turma_id uuid not null references turmas(id) on delete cascade,
-    titulo varchar(255) not null,          -- ex: "MUSEUS", "LEITURAS"
+    titulo varchar(255) not null,          -- ex: "MUSEUS", "LEITURAS", ou a data da chamada ("14/08/26")
     tema text,
     peso numeric(4,2) not null default 1.0,
+    tipo varchar(20) not null default 'nota' check (tipo in ('nota', 'presenca')), -- 'presenca' = chamada diária (P/F)
     ordem int not null default 0,
     created_at timestamptz not null default now()
 );

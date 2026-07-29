@@ -2,9 +2,18 @@
 
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, Plus, Trash2, X } from "lucide-react";
-import type { AtividadeColuna } from "@/lib/types";
+import type { AtividadeColuna, TipoColuna } from "@/lib/types";
 import { addColuna, deleteColuna, renameColuna, reordenarColunas } from "@/actions/colunas";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+
+/** Data de hoje no formato usado pelas colunas de chamada, ex: "14/08/26". */
+function dataDeHoje(): string {
+  const hoje = new Date();
+  const dia = String(hoje.getDate()).padStart(2, "0");
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const ano = String(hoje.getFullYear()).slice(-2);
+  return `${dia}/${mes}/${ano}`;
+}
 
 type GestaoColunasModalProps = {
   open: boolean;
@@ -22,10 +31,18 @@ export function GestaoColunasModal({
   onColunasChange,
 }: GestaoColunasModalProps) {
   const [novoTitulo, setNovoTitulo] = useState("");
+  const [novoTipo, setNovoTipo] = useState<TipoColuna>("nota");
   const [salvando, setSalvando] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<AtividadeColuna | null>(null);
 
   if (!open) return null;
+
+  function handleEscolherTipo(tipo: TipoColuna) {
+    setNovoTipo(tipo);
+    if (tipo === "presenca" && !novoTitulo.trim()) {
+      setNovoTitulo(dataDeHoje());
+    }
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -33,9 +50,10 @@ export function GestaoColunasModal({
     if (!titulo || salvando) return;
     setSalvando(true);
     try {
-      const coluna = await addColuna(turmaId, titulo, colunas.length);
+      const coluna = await addColuna(turmaId, titulo, colunas.length, novoTipo);
       onColunasChange([...colunas, coluna]);
       setNovoTitulo("");
+      setNovoTipo("nota");
     } finally {
       setSalvando(false);
     }
@@ -91,6 +109,11 @@ export function GestaoColunasModal({
               key={coluna.id}
               className="flex items-center gap-1.5 rounded-md border border-neutral-200 px-2 py-1.5 dark:border-neutral-800"
             >
+              {coluna.tipo === "presenca" && (
+                <span className="shrink-0 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+                  chamada
+                </span>
+              )}
               <input
                 defaultValue={coluna.titulo}
                 onBlur={(e) => handleRename(coluna, e.target.value)}
@@ -128,11 +151,35 @@ export function GestaoColunasModal({
           )}
         </ul>
 
-        <form onSubmit={handleAdd} className="mt-4 flex items-center gap-2">
+        <div className="mt-4 flex items-center gap-1 text-xs">
+          <button
+            type="button"
+            onClick={() => handleEscolherTipo("nota")}
+            className={`rounded-md px-2 py-1 font-medium ${
+              novoTipo === "nota"
+                ? "bg-neutral-800 text-white dark:bg-neutral-100 dark:text-neutral-900"
+                : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+            }`}
+          >
+            Atividade
+          </button>
+          <button
+            type="button"
+            onClick={() => handleEscolherTipo("presenca")}
+            className={`rounded-md px-2 py-1 font-medium ${
+              novoTipo === "presenca"
+                ? "bg-blue-600 text-white"
+                : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+            }`}
+          >
+            Chamada (P/F)
+          </button>
+        </div>
+        <form onSubmit={handleAdd} className="mt-2 flex items-center gap-2">
           <input
             value={novoTitulo}
             onChange={(e) => setNovoTitulo(e.target.value)}
-            placeholder="Nova coluna (ex: SIMULADO)"
+            placeholder={novoTipo === "presenca" ? "Data da chamada (ex: 14/08/26)" : "Nova coluna (ex: SIMULADO)"}
             className="min-w-0 flex-1 rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
           />
           <button

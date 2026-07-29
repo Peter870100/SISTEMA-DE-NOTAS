@@ -15,12 +15,15 @@ export type Aluno = {
   created_at: string;
 };
 
+export type TipoColuna = "nota" | "presenca";
+
 export type AtividadeColuna = {
   id: string;
   turma_id: string;
   titulo: string;
   tema: string | null;
   peso: number;
+  tipo: TipoColuna;
   ordem: number;
   created_at: string;
 };
