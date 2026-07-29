@@ -25,6 +25,24 @@ export function mediaAluno(
   return mediaDeValores(valores);
 }
 
+/** % de presença (P) entre as chamadas (colunas tipo 'presenca') já lançadas pro aluno. */
+export function frequenciaAluno(
+  colunasPresenca: AtividadeColuna[],
+  celulasAluno: Record<string, ValorCelula> | undefined
+): number | null {
+  if (!celulasAluno) return null;
+  let presentes = 0;
+  let total = 0;
+  for (const coluna of colunasPresenca) {
+    const status = celulasAluno[coluna.id]?.status_texto?.trim().toUpperCase();
+    if (status === "P" || status === "F") {
+      total++;
+      if (status === "P") presentes++;
+    }
+  }
+  return total === 0 ? null : (presentes / total) * 100;
+}
+
 /**
  * Diferença entre a média das últimas `janela` atividades lançadas (em ordem)
  * e a média geral do aluno no bimestre — indica se ele está melhorando ou piorando.

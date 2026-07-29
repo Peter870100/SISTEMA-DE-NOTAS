@@ -2,10 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2 } from "lucide-react";
-import type { Aluno, AtividadeColuna } from "@/lib/types";
+import type { Aluno, AtividadeColuna, TipoColuna } from "@/lib/types";
 import { parseEntradaCelula, type ValorCelula } from "@/lib/status";
 import type { CelulasMap } from "@/lib/celulas";
-import { LIMIAR_CRITICO, mediaAluno as calcularMediaAluno, paraEscala10 } from "@/lib/analytics";
+import {
+  LIMIAR_CRITICO,
+  frequenciaAluno,
+  mediaAluno as calcularMediaAluno,
+  paraEscala10,
+} from "@/lib/analytics";
 import { exportarExcel } from "@/lib/exportarExcel";
 import { upsertCelula } from "@/actions/notas";
 import { addAluno, deleteAluno } from "@/actions/alunos";
@@ -20,6 +25,7 @@ type PlanilhaGridProps = {
   turmaId: string;
   turmaNome: string;
   turmaBimestre: string;
+  tipoColuna: TipoColuna;
   colunas: AtividadeColuna[];
   alunos: Aluno[];
   celulas: CelulasMap;
@@ -34,6 +40,7 @@ export function PlanilhaGrid({
   turmaId,
   turmaNome,
   turmaBimestre,
+  tipoColuna,
   colunas,
   alunos,
   celulas,
@@ -207,7 +214,14 @@ export function PlanilhaGrid({
     if (exportando) return;
     setExportando(true);
     try {
-      await exportarExcel({ turmaNome, turmaBimestre, colunas, alunos, celulas });
+      await exportarExcel({
+        turmaNome,
+        turmaBimestre,
+        colunas,
+        alunos,
+        celulas,
+        nomeAba: tipoColuna === "presenca" ? "Frequência" : "Notas",
+      });
     } catch {
       setErro("Não foi possível exportar a planilha. Tente novamente.");
     } finally {
@@ -256,7 +270,7 @@ export function PlanilhaGrid({
           className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 hover:shadow dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
         >
           <Settings2 size={16} />
-          Gerenciar colunas
+          {tipoColuna === "presenca" ? "Gerenciar chamadas" : "Gerenciar atividades"}
         </button>
       </div>
 
@@ -278,19 +292,14 @@ export function PlanilhaGrid({
                   <button
                     onClick={() => setColunaEstatistica(c)}
                     className="hover:text-blue-700 hover:underline"
-                    title={c.tipo === "presenca" ? "Chamada — ver estatística" : "Ver estatística desta atividade"}
+                    title={tipoColuna === "presenca" ? "Chamada — ver estatística" : "Ver estatística desta atividade"}
                   >
                     {c.titulo}
-                    {c.tipo === "presenca" && (
-                      <span className="ml-1 rounded bg-blue-100 px-1 py-0.5 text-[10px] font-normal text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
-                        chamada
-                      </span>
-                    )}
                   </button>
                 </th>
               ))}
               <th className="sticky top-0 w-20 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-                Média
+                {tipoColuna === "presenca" ? "Frequência" : "Média"}
               </th>
               <th className="sticky top-0 w-10 border border-neutral-200 bg-slate-50 dark:border-neutral-800 dark:bg-neutral-900" />
             </tr>
@@ -299,7 +308,12 @@ export function PlanilhaGrid({
             {alunos.map((aluno, row) => {
               const media = calcularMediaAluno(celulas[aluno.id]);
               const media10 = media !== null ? paraEscala10(media) : null;
-              const critico = media10 !== null && media10 < LIMIAR_CRITICO;
+              const frequencia = frequenciaAluno(colunas, celulas[aluno.id]);
+              const valorResumo = tipoColuna === "presenca" ? frequencia : media10;
+              const critico =
+                tipoColuna === "presenca"
+                  ? frequencia !== null && frequencia < 75
+                  : media10 !== null && media10 < LIMIAR_CRITICO;
               const zebra = row % 2 === 1;
               const bgLinha = zebra ? "bg-neutral-50" : "bg-white";
               return (
@@ -353,7 +367,11 @@ export function PlanilhaGrid({
                         : "text-neutral-600 dark:text-neutral-300"
                     }`}
                   >
-                    {media10 !== null ? media10.toFixed(2) : "—"}
+                    {valorResumo !== null
+                      ? tipoColuna === "presenca"
+                        ? `${valorResumo.toFixed(0)}%`
+                        : valorResumo.toFixed(2)
+                      : "—"}
                   </td>
                   <td className="border border-neutral-200 text-center dark:border-neutral-800">
                     <button
@@ -402,6 +420,7 @@ export function PlanilhaGrid({
       <GestaoColunasModal
         open={gestaoColunasAberto}
         turmaId={turmaId}
+        tipo={tipoColuna}
         colunas={colunas}
         onClose={() => setGestaoColunasAberto(false)}
         onColunasChange={onColunasChange}

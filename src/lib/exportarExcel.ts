@@ -8,6 +8,7 @@ type ExportarExcelParams = {
   colunas: AtividadeColuna[];
   alunos: Aluno[];
   celulas: CelulasMap;
+  nomeAba?: string;
 };
 
 export async function exportarExcel({
@@ -16,6 +17,7 @@ export async function exportarExcel({
   colunas,
   alunos,
   celulas,
+  nomeAba = "Notas",
 }: ExportarExcelParams) {
   const XLSX = await import("xlsx");
 
@@ -51,7 +53,7 @@ export async function exportarExcel({
   ];
 
   const livro = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(livro, planilha, "Notas");
+  XLSX.utils.book_append_sheet(livro, planilha, nomeAba);
 
   const nomeArquivo = `${turmaNome} - ${turmaBimestre}`.replace(/[\\/:*?"<>|]/g, "").trim();
   XLSX.writeFile(livro, `${nomeArquivo}.xlsx`);
