@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { CalendarCheck2, ClipboardList } from "lucide-react";
 import type { Aluno, AtividadeColuna, NotaCelula, TipoColuna, Turma } from "@/lib/types";
 import { celulasIniciaisDe, type CelulasMap } from "@/lib/celulas";
 import { mediaAluno, mediaDeValores, paraEscala10 } from "@/lib/analytics";
@@ -71,25 +72,27 @@ export function TurmaDashboard({
           <FiltrosTurma turma={turma} todasTurmas={todasTurmas} />
           <KpiCards totalAlunos={alunos.length} taxaCritico={taxaCritico} mediaTurma={mediaTurma10} />
 
-          <div className="flex items-center gap-1 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="inline-flex w-fit items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-100 p-1 dark:border-neutral-800 dark:bg-neutral-900">
             <button
               onClick={() => setAba("nota")}
-              className={`border-b-2 px-3 py-2 text-sm font-medium ${
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                 aba === "nota"
-                  ? "border-blue-600 text-blue-700 dark:text-blue-400"
-                  : "border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
+                  ? "bg-white text-blue-700 shadow-sm dark:bg-neutral-700 dark:text-blue-300"
+                  : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
               }`}
             >
+              <ClipboardList size={15} />
               Notas
             </button>
             <button
               onClick={() => setAba("presenca")}
-              className={`border-b-2 px-3 py-2 text-sm font-medium ${
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                 aba === "presenca"
-                  ? "border-blue-600 text-blue-700 dark:text-blue-400"
-                  : "border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
+                  ? "bg-white text-blue-700 shadow-sm dark:bg-neutral-700 dark:text-blue-300"
+                  : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
               }`}
             >
+              <CalendarCheck2 size={15} />
               Frequência
             </button>
           </div>
