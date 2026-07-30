@@ -14,20 +14,27 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-6 shadow-sm"
       >
         <h1 className="text-lg font-semibold text-neutral-900">Planilha Viva</h1>
-        <p className="mt-1 text-sm text-neutral-500">Digite a senha de acesso.</p>
+        <p className="mt-1 text-sm text-neutral-500">Entre com seu email e senha.</p>
 
         {erro && (
           <p className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            Senha incorreta. Tente novamente.
+            Email ou senha incorretos. Tente novamente.
           </p>
         )}
 
         <input
+          type="email"
+          name="email"
+          autoFocus
+          placeholder="Email"
+          className="mt-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+        />
+
+        <input
           type="password"
           name="senha"
-          autoFocus
           placeholder="Senha"
-          className="mt-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          className="mt-3 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
         />
 
         <button

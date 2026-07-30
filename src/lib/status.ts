@@ -34,7 +34,12 @@ export function corPresenca(status: string): string {
   return corStatus();
 }
 
-export type ValorCelula = { valor: number | null; status_texto: string | null };
+export type ValorCelula = {
+  valor: number | null;
+  status_texto: string | null;
+  atualizadoPorNome?: string | null;
+  atualizadoEm?: string | null;
+};
 
 export function parseEntradaCelula(raw: string): ValorCelula {
   const trimmed = raw.trim();

@@ -4,13 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GraduationCap, Home, LogOut, Settings, Users } from "lucide-react";
 import { logout } from "@/actions/auth";
+import { Avatar } from "@/components/ui/Avatar";
+import type { Professor } from "@/lib/types";
 
 const ITENS = [
   { href: "/", icon: Home, label: "Início" },
   { href: "/", icon: Users, label: "Turmas" },
 ] as const;
 
-export function Sidebar() {
+type SidebarProps = {
+  professor: Professor | null;
+};
+
+export function Sidebar({ professor }: SidebarProps) {
   const pathname = usePathname();
 
   if (pathname === "/login") return null;
@@ -37,15 +43,34 @@ export function Sidebar() {
           </Link>
         );
       })}
-      <button
-        type="button"
-        disabled
-        title="Configurações (em breve)"
-        className="mt-auto flex h-9 w-9 items-center justify-center rounded-lg text-neutral-300 dark:text-neutral-700"
-      >
-        <Settings size={18} />
-      </button>
-      <form action={logout}>
+      {professor?.role === "admin" ? (
+        <Link
+          href="/admin/professores"
+          title="Gerenciar professores"
+          className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+            pathname === "/admin/professores"
+              ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
+              : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
+          }`}
+        >
+          <Settings size={18} />
+        </Link>
+      ) : (
+        <button
+          type="button"
+          disabled
+          title="Configurações (só para admin)"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-neutral-300 dark:text-neutral-700"
+        >
+          <Settings size={18} />
+        </button>
+      )}
+      {professor && (
+        <div className="mt-auto mb-1" title={`Logado como ${professor.nome}`}>
+          <Avatar nome={professor.nome} />
+        </div>
+      )}
+      <form action={logout} className={professor ? "" : "mt-auto"}>
         <button
           type="submit"
           title="Sair"

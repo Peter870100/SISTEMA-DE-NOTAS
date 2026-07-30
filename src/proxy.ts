@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { COOKIE_NOME, tokenEsperado } from "@/lib/auth";
+import { COOKIE_NOME, verificarSessao } from "@/lib/auth";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -14,7 +14,7 @@ export function proxy(request: NextRequest) {
   }
 
   const cookie = request.cookies.get(COOKIE_NOME)?.value;
-  if (cookie !== tokenEsperado()) {
+  if (!verificarSessao(cookie)) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

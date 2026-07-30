@@ -2,8 +2,8 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { CalendarCheck2, ClipboardList } from "lucide-react";
-import type { Aluno, AtividadeColuna, NotaCelula, TipoColuna, Turma } from "@/lib/types";
-import { celulasIniciaisDe, type CelulasMap } from "@/lib/celulas";
+import type { Aluno, AtividadeColuna, TipoColuna, Turma } from "@/lib/types";
+import { celulasIniciaisDe, type CelulasMap, type NotaCelulaComAutor } from "@/lib/celulas";
 import { mediaAluno, mediaDeValores, paraEscala10 } from "@/lib/analytics";
 import { PlanilhaGrid } from "@/components/grid/PlanilhaGrid";
 import { TurmaHeader } from "./TurmaHeader";
@@ -16,7 +16,7 @@ type TurmaDashboardProps = {
   todasTurmas: Turma[];
   colunasIniciais: AtividadeColuna[];
   alunosIniciais: Aluno[];
-  notasIniciais: NotaCelula[];
+  notasIniciais: NotaCelulaComAutor[];
 };
 
 export function TurmaDashboard({

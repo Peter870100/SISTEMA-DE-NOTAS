@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { TurmaDashboard } from "@/components/turma/TurmaDashboard";
+import type { NotaCelula } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -35,8 +36,17 @@ export default async function TurmaPage({ params }: PageProps) {
 
   const alunoIds = (alunos ?? []).map((a) => a.id);
   const { data: notas } = alunoIds.length
-    ? await supabase.from("notas_celulas").select("*").in("aluno_id", alunoIds)
+    ? await supabase
+        .from("notas_celulas")
+        .select("*, professores(nome)")
+        .in("aluno_id", alunoIds)
     : { data: [] };
+
+  type NotaComJoin = NotaCelula & { professores: { nome: string } | null };
+  const notasComAutor = ((notas ?? []) as NotaComJoin[]).map(({ professores, ...resto }) => ({
+    ...resto,
+    professor_nome: professores?.nome ?? null,
+  }));
 
   return (
     <main className="mx-auto flex w-full min-w-0 max-w-7xl flex-1 flex-col px-4 py-6 sm:px-6">
@@ -45,7 +55,7 @@ export default async function TurmaPage({ params }: PageProps) {
         todasTurmas={todasTurmas ?? [turma]}
         colunasIniciais={colunas ?? []}
         alunosIniciais={alunos ?? []}
-        notasIniciais={notas ?? []}
+        notasIniciais={notasComAutor}
       />
     </main>
   );

@@ -34,8 +34,22 @@ export type NotaCelula = {
   coluna_id: string;
   valor: number | null;
   status_texto: string | null;
+  atualizado_por: string | null;
   updated_at: string;
 };
+
+export type ProfessorRole = "admin" | "professor";
+
+export type Professor = {
+  id: string;
+  nome: string;
+  email: string;
+  role: ProfessorRole;
+  created_at: string;
+};
+
+/** Linha crua de professores (inclui o hash) — só usada dentro de actions server-side de auth. */
+export type ProfessorComSenha = Professor & { senha_hash: string };
 
 export type Database = {
   public: {
@@ -71,6 +85,16 @@ export type Database = {
           coluna_id: string;
         };
         Update: Partial<Omit<NotaCelula, "id" | "updated_at">>;
+        Relationships: [];
+      };
+      professores: {
+        Row: ProfessorComSenha;
+        Insert: Partial<Omit<ProfessorComSenha, "id" | "created_at">> & {
+          nome: string;
+          email: string;
+          senha_hash: string;
+        };
+        Update: Partial<Omit<ProfessorComSenha, "id" | "created_at">>;
         Relationships: [];
       };
     };

@@ -98,15 +98,25 @@ export function PlanilhaGrid({
     }));
     setEditing(false);
 
-    upsertCelula(aluno.id, coluna.id, patch).catch(() => {
-      onCelulasChange((prev) => ({
-        ...prev,
-        [aluno.id]: { ...prev[aluno.id], [coluna.id]: anterior },
-      }));
-      setErro(
-        `Não foi possível salvar a célula de "${aluno.nome}" em "${coluna.titulo}". Tente novamente.`
-      );
-    });
+    upsertCelula(aluno.id, coluna.id, patch)
+      .then(({ atualizadoPorNome, atualizadoEm }) => {
+        onCelulasChange((prev) => ({
+          ...prev,
+          [aluno.id]: {
+            ...prev[aluno.id],
+            [coluna.id]: { ...patch, atualizadoPorNome, atualizadoEm },
+          },
+        }));
+      })
+      .catch(() => {
+        onCelulasChange((prev) => ({
+          ...prev,
+          [aluno.id]: { ...prev[aluno.id], [coluna.id]: anterior },
+        }));
+        setErro(
+          `Não foi possível salvar a célula de "${aluno.nome}" em "${coluna.titulo}". Tente novamente.`
+        );
+      });
   }
 
   function iniciarEdicao(row: number, col: number, valorInicial?: string) {

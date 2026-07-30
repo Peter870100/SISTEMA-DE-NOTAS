@@ -88,6 +88,14 @@ export function CelulaNota({
     );
   }
 
+  const temValor = value.status_texto !== null || value.valor !== null;
+  const tituloAutor =
+    temValor && value.atualizadoPorNome
+      ? `Atualizado por ${value.atualizadoPorNome}${
+          value.atualizadoEm ? ` em ${new Date(value.atualizadoEm).toLocaleString("pt-BR")}` : ""
+        }`
+      : undefined;
+
   return (
     <div
       ref={cellRef}
@@ -95,6 +103,7 @@ export function CelulaNota({
       onFocus={onActivate}
       onClick={onStartEdit}
       onKeyDown={onKeyDown}
+      title={tituloAutor}
       className={`flex min-h-9 items-center justify-between gap-1 rounded border px-2 py-1.5 text-sm outline-none ${
         active
           ? "border-blue-500 bg-white ring-1 ring-blue-500 dark:bg-neutral-900"

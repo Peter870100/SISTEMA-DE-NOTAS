@@ -37,6 +37,16 @@ create table atividades_colunas (
 );
 create index idx_colunas_turma on atividades_colunas(turma_id);
 
+-- Professores com acesso ao sistema (login individual, admin ou professor comum)
+create table professores (
+    id uuid primary key default gen_random_uuid(),
+    nome varchar(255) not null,
+    email varchar(255) not null unique,
+    senha_hash varchar(255) not null,
+    role varchar(20) not null default 'professor' check (role in ('admin', 'professor')),
+    created_at timestamptz not null default now()
+);
+
 -- Células de nota/status (matriz aluno x coluna)
 create table notas_celulas (
     id uuid primary key default gen_random_uuid(),
@@ -44,6 +54,7 @@ create table notas_celulas (
     coluna_id uuid not null references atividades_colunas(id) on delete cascade,
     valor numeric(6,2) check (valor >= 0 and valor <= 1000),
     status_texto varchar(150),             -- 'ok', 'FALTOU -25-06', 'NF', livre
+    atualizado_por uuid references professores(id), -- quem lançou/alterou por último
     updated_at timestamptz not null default now(),
     unique (aluno_id, coluna_id),
     check (not (valor is not null and status_texto is not null))  -- célula é nota OU status, nunca os dois
@@ -63,13 +74,17 @@ create trigger trg_notas_updated_at
 before update on notas_celulas
 for each row execute function set_updated_at();
 
--- RLS: modo demo sem login — acesso liberado (link privado, uso individual do professor)
+-- RLS: acesso controlado na camada da aplicação (login por professor via cookie
+-- assinado, não pelo auth.uid() do Supabase) — RLS aqui continua permissiva, igual
+-- ao modo demo original (link privado, uso restrito aos professores cadastrados).
 alter table turmas enable row level security;
 alter table alunos enable row level security;
 alter table atividades_colunas enable row level security;
 alter table notas_celulas enable row level security;
+alter table professores enable row level security;
 
 create policy "acesso_total_turmas" on turmas for all using (true) with check (true);
 create policy "acesso_total_alunos" on alunos for all using (true) with check (true);
 create policy "acesso_total_colunas" on atividades_colunas for all using (true) with check (true);
 create policy "acesso_total_notas" on notas_celulas for all using (true) with check (true);
+create policy "acesso_total_professores" on professores for all using (true) with check (true);
