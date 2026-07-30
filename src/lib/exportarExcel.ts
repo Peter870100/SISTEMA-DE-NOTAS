@@ -1,6 +1,6 @@
-import type { Aluno, AtividadeColuna } from "./types";
+import type { Aluno, AtividadeColuna, TipoColuna } from "./types";
 import type { CelulasMap } from "./celulas";
-import { mediaAluno, paraEscala10 } from "./analytics";
+import { frequenciaAluno, mediaAluno, paraEscala10 } from "./analytics";
 
 type ExportarExcelParams = {
   turmaNome: string;
@@ -9,6 +9,7 @@ type ExportarExcelParams = {
   alunos: Aluno[];
   celulas: CelulasMap;
   nomeAba?: string;
+  tipo?: TipoColuna;
 };
 
 export async function exportarExcel({
@@ -18,6 +19,7 @@ export async function exportarExcel({
   alunos,
   celulas,
   nomeAba = "Notas",
+  tipo = "nota",
 }: ExportarExcelParams) {
   const XLSX = await import("xlsx");
 
@@ -25,12 +27,18 @@ export async function exportarExcel({
     "Nº",
     "Nome do Aluno",
     ...colunas.map((c) => c.titulo),
-    "Média",
+    tipo === "presenca" ? "Frequência (%)" : "Média",
   ];
 
   const linhas = alunos.map((aluno, i) => {
     const celulasAluno = celulas[aluno.id];
-    const media = mediaAluno(celulasAluno);
+    const resumo =
+      tipo === "presenca"
+        ? frequenciaAluno(colunas, celulasAluno)
+        : (() => {
+            const media = mediaAluno(celulasAluno);
+            return media !== null ? paraEscala10(media) : null;
+          })();
     const valoresColunas = colunas.map((c) => {
       const cell = celulasAluno?.[c.id];
       if (!cell) return "";
@@ -40,7 +48,7 @@ export async function exportarExcel({
       aluno.numero ?? i + 1,
       aluno.nome,
       ...valoresColunas,
-      media !== null ? Number(paraEscala10(media).toFixed(2)) : "",
+      resumo !== null ? Number(resumo.toFixed(tipo === "presenca" ? 0 : 2)) : "",
     ];
   });
 

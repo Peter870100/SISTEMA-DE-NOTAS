@@ -221,6 +221,7 @@ export function PlanilhaGrid({
         alunos,
         celulas,
         nomeAba: tipoColuna === "presenca" ? "Frequência" : "Notas",
+        tipo: tipoColuna,
       });
     } catch {
       setErro("Não foi possível exportar a planilha. Tente novamente.");
