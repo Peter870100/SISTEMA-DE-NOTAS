@@ -45,11 +45,16 @@ export type Professor = {
   nome: string;
   email: string;
   role: ProfessorRole;
+  email_verificado: boolean;
   created_at: string;
 };
 
-/** Linha crua de professores (inclui o hash) — só usada dentro de actions server-side de auth. */
-export type ProfessorComSenha = Professor & { senha_hash: string };
+/** Linha crua de professores (inclui hash e token) — só usada dentro de actions server-side de auth. */
+export type ProfessorComSenha = Professor & {
+  senha_hash: string;
+  token_verificacao: string | null;
+  token_verificacao_expira: string | null;
+};
 
 export type Database = {
   public: {

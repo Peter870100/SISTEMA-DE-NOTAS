@@ -16,7 +16,7 @@ export async function listarProfessores(): Promise<Professor[]> {
   await exigirAdmin();
   const { data, error } = await supabase
     .from("professores")
-    .select("id, nome, email, role, created_at")
+    .select("id, nome, email, role, email_verificado, created_at")
     .order("nome");
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -39,8 +39,14 @@ export async function criarProfessor(
   const senhaHash = await bcrypt.hash(senha, 10);
   const { data, error } = await supabase
     .from("professores")
-    .insert({ nome: nomeLimpo, email: emailLimpo, senha_hash: senhaHash, role })
-    .select("id, nome, email, role, created_at")
+    .insert({
+      nome: nomeLimpo,
+      email: emailLimpo,
+      senha_hash: senhaHash,
+      role,
+      email_verificado: true,
+    })
+    .select("id, nome, email, role, email_verificado, created_at")
     .single();
   if (error) throw new Error(error.message);
   return data;

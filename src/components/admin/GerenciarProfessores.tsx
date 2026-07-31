@@ -21,6 +21,10 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (salvando) return;
+    if (!nome.trim() || !email.trim() || !senha) {
+      setErro("Preencha nome, email e senha.");
+      return;
+    }
     setSalvando(true);
     setErro(null);
     try {
@@ -86,7 +90,7 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
 
         <button
           type="submit"
-          disabled={salvando || !nome.trim() || !email.trim() || !senha}
+          disabled={salvando}
           className="flex w-fit items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-600/30 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/40 disabled:opacity-50 disabled:shadow-none"
         >
           <UserPlus size={15} />
@@ -101,6 +105,7 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Nome</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Email</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Papel</th>
+              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Verificado</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Desde</th>
             </tr>
           </thead>
@@ -118,6 +123,17 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
                     }`}
                   >
                     {p.role}
+                  </span>
+                </td>
+                <td className="px-3 py-2">
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                      p.email_verificado
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                    }`}
+                  >
+                    {p.email_verificado ? "verificado" : "pendente"}
                   </span>
                 </td>
                 <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">

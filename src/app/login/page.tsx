@@ -1,7 +1,13 @@
+import Link from "next/link";
 import { login } from "@/actions/auth";
 
 type LoginPageProps = {
   searchParams: Promise<{ erro?: string }>;
+};
+
+const MENSAGENS_ERRO: Record<string, string> = {
+  "1": "Email ou senha incorretos. Tente novamente.",
+  "nao-verificado": "Confirme seu email antes de entrar — veja sua caixa de entrada.",
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -18,7 +24,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
         {erro && (
           <p className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            Email ou senha incorretos. Tente novamente.
+            {MENSAGENS_ERRO[erro] ?? "Não foi possível entrar. Tente novamente."}
           </p>
         )}
 
@@ -43,6 +49,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         >
           Entrar
         </button>
+
+        <Link href="/cadastro" className="mt-3 block text-center text-sm text-neutral-500 hover:underline">
+          Não tem conta? Cadastre-se
+        </Link>
       </form>
     </main>
   );

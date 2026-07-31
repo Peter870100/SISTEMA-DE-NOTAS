@@ -7,6 +7,8 @@ export function proxy(request: NextRequest) {
 
   if (
     pathname.startsWith("/login") ||
+    pathname.startsWith("/cadastro") ||
+    pathname.startsWith("/verificar-email") ||
     pathname.startsWith("/api/mcp") ||
     /\.(?:png|jpe?g|webp|svg|ico|gif)$/i.test(pathname)
   ) {

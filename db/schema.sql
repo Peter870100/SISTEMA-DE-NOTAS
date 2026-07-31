@@ -44,6 +44,9 @@ create table professores (
     email varchar(255) not null unique,
     senha_hash varchar(255) not null,
     role varchar(20) not null default 'professor' check (role in ('admin', 'professor')),
+    email_verificado boolean not null default false,   -- true se criado pelo admin, ou após confirmar o link do email
+    token_verificacao varchar(255),                    -- token do link de confirmação (auto-cadastro)
+    token_verificacao_expira timestamptz,
     created_at timestamptz not null default now()
 );
 
