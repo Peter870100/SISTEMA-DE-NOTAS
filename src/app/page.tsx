@@ -19,7 +19,7 @@ export default async function HomePage() {
     <>
       <div className="relative w-full">
         <Image
-          src="/banner-cabecalho.png"
+          src="/banner-cabecalho-base.png"
           alt="Status Avalia — Avaliação inteligente com secretária virtual"
           width={2172}
           height={724}
