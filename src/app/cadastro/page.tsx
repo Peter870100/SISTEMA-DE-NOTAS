@@ -6,6 +6,7 @@ type CadastroPageProps = {
 };
 
 const MENSAGENS_ERRO: Record<string, string> = {
+  codigo: "Código de convite inválido.",
   campos: "Preencha nome, email e senha.",
   duplicado: "Esse email já tem uma conta confirmada. Tente entrar em vez de se cadastrar.",
   falha: "Não foi possível criar a conta. Tente novamente.",
@@ -39,7 +40,9 @@ export default async function CadastroPage({ searchParams }: CadastroPageProps) 
         className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-6 shadow-sm"
       >
         <h1 className="text-lg font-semibold text-neutral-900">Criar conta</h1>
-        <p className="mt-1 text-sm text-neutral-500">Preencha seus dados pra criar sua conta.</p>
+        <p className="mt-1 text-sm text-neutral-500">
+          Peça o código de convite pra quem administra o sistema.
+        </p>
 
         {erro && (
           <p className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -63,6 +66,12 @@ export default async function CadastroPage({ searchParams }: CadastroPageProps) 
           type="password"
           name="senha"
           placeholder="Senha"
+          className="mt-3 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+        />
+        <input
+          name="codigo"
+          inputMode="numeric"
+          placeholder="Código de convite"
           className="mt-3 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
         />
 

@@ -10,7 +10,11 @@ export async function cadastrar(formData: FormData) {
   const nome = String(formData.get("nome") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const senha = String(formData.get("senha") ?? "");
+  const codigo = String(formData.get("codigo") ?? "").trim();
 
+  if (!process.env.CODIGO_CONVITE || codigo !== process.env.CODIGO_CONVITE) {
+    redirect("/cadastro?erro=codigo");
+  }
   if (!nome || !email || !senha) {
     redirect("/cadastro?erro=campos");
   }
