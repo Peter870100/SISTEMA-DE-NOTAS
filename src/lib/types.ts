@@ -56,6 +56,12 @@ export type ProfessorComSenha = Professor & {
   token_verificacao_expira: string | null;
 };
 
+export type Configuracoes = {
+  id: true;
+  codigo_convite: string;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -100,6 +106,12 @@ export type Database = {
           senha_hash: string;
         };
         Update: Partial<Omit<ProfessorComSenha, "id" | "created_at">>;
+        Relationships: [];
+      };
+      configuracoes: {
+        Row: Configuracoes;
+        Insert: Partial<Configuracoes>;
+        Update: Partial<Omit<Configuracoes, "id">>;
         Relationships: [];
       };
     };

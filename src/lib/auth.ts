@@ -45,3 +45,11 @@ export async function getProfessorAtual(): Promise<Professor | null> {
     .maybeSingle();
   return data ?? null;
 }
+
+/** Lança erro se o professor logado não existir ou não for admin. */
+export async function exigirAdmin(): Promise<void> {
+  const atual = await getProfessorAtual();
+  if (!atual || atual.role !== "admin") {
+    throw new Error("Apenas administradores podem fazer isso.");
+  }
+}

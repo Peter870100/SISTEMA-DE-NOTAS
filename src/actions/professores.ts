@@ -2,15 +2,8 @@
 
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
-import { getProfessorAtual } from "@/lib/auth";
+import { exigirAdmin } from "@/lib/auth";
 import type { Professor, ProfessorRole } from "@/lib/types";
-
-async function exigirAdmin(): Promise<void> {
-  const atual = await getProfessorAtual();
-  if (!atual || atual.role !== "admin") {
-    throw new Error("Apenas administradores podem gerenciar professores.");
-  }
-}
 
 export async function listarProfessores(): Promise<Professor[]> {
   await exigirAdmin();

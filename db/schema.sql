@@ -50,6 +50,14 @@ create table professores (
     created_at timestamptz not null default now()
 );
 
+-- Configurações do sistema (linha única) — hoje só o código de convite do cadastro
+create table configuracoes (
+    id boolean primary key default true check (id),
+    codigo_convite varchar(50) not null,
+    updated_at timestamptz not null default now()
+);
+insert into configuracoes (id, codigo_convite) values (true, '689166');
+
 -- Células de nota/status (matriz aluno x coluna)
 create table notas_celulas (
     id uuid primary key default gen_random_uuid(),
@@ -85,9 +93,11 @@ alter table alunos enable row level security;
 alter table atividades_colunas enable row level security;
 alter table notas_celulas enable row level security;
 alter table professores enable row level security;
+alter table configuracoes enable row level security;
 
 create policy "acesso_total_turmas" on turmas for all using (true) with check (true);
 create policy "acesso_total_alunos" on alunos for all using (true) with check (true);
 create policy "acesso_total_colunas" on atividades_colunas for all using (true) with check (true);
 create policy "acesso_total_notas" on notas_celulas for all using (true) with check (true);
 create policy "acesso_total_professores" on professores for all using (true) with check (true);
+create policy "acesso_total_configuracoes" on configuracoes for all using (true) with check (true);
