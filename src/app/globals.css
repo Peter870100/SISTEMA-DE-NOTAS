@@ -17,7 +17,16 @@
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  /* Linhas de caderno bem sutis, lembrando papel de redação — só aparecem
+     nos espaços vazios entre cards/tabelas, que continuam sólidos e legíveis. */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 27px,
+    rgba(37, 99, 235, 0.07) 27px,
+    rgba(37, 99, 235, 0.07) 28px
+  );
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
