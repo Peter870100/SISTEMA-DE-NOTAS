@@ -30,20 +30,3 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
-
-/* Brilho pulsante sobre o nome "Status Avalia" no banner do cabeçalho — um
-   glow (gradiente radial transparente nas bordas, sem canto nenhum visível)
-   em vez de esconder/mostrar a imagem, que deixava um contorno marcado. */
-@keyframes piscar-brilho {
-  0%,
-  100% {
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-.animate-piscar-brilho {
-  animation: piscar-brilho 1.6s ease-in-out infinite;
-}
