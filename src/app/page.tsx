@@ -1,16 +1,21 @@
-import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { TurmasLista } from "@/components/home/TurmasLista";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const { data: turmas, error } = await supabase
-    .from("turmas")
-    .select("*")
-    .order("nome");
+  const [{ data: turmas, error }, { data: alunos }] = await Promise.all([
+    supabase.from("turmas").select("*").order("nome").order("bimestre"),
+    supabase.from("alunos").select("turma_id"),
+  ]);
+
+  const contagemPorTurma: Record<string, number> = {};
+  for (const a of alunos ?? []) {
+    contagemPorTurma[a.turma_id] = (contagemPorTurma[a.turma_id] ?? 0) + 1;
+  }
 
   return (
-    <main className="mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
+    <main className="mx-auto flex w-full min-w-0 max-w-4xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <div>
         <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
           Planilha Viva — Notas de Redação
@@ -26,28 +31,7 @@ export default async function HomePage() {
         </div>
       )}
 
-      <ul className="flex flex-col gap-2">
-        {turmas?.map((turma) => (
-          <li key={turma.id}>
-            <Link
-              href={`/turma/${turma.id}`}
-              className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white px-4 py-3 shadow-sm hover:border-blue-400 hover:shadow dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-blue-700"
-            >
-              <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                {turma.nome}
-              </span>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                {turma.bimestre} · {turma.ano_letivo}
-              </span>
-            </Link>
-          </li>
-        ))}
-        {turmas?.length === 0 && (
-          <li className="rounded-lg border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
-            Nenhuma turma cadastrada ainda.
-          </li>
-        )}
-      </ul>
+      <TurmasLista turmas={turmas ?? []} contagemPorTurma={contagemPorTurma} />
     </main>
   );
 }
