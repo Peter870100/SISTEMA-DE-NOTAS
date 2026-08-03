@@ -29,7 +29,7 @@ export default async function HomePage() {
         <div className="h-9 w-px bg-neutral-200 dark:bg-neutral-800" />
         <div>
           <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-            Planilha Viva — Notas de Redação
+            Avalia — Notas de Redação
           </h1>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
             Selecione uma turma para lançar e acompanhar as notas do bimestre.

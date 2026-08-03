@@ -19,7 +19,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         action={login}
         className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-6 shadow-sm"
       >
-        <h1 className="text-lg font-semibold text-neutral-900">Planilha Viva</h1>
+        <h1 className="text-lg font-semibold text-neutral-900">Avalia</h1>
         <p className="mt-1 text-sm text-neutral-500">Entre com seu email e senha.</p>
 
         {erro && (

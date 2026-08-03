@@ -12,12 +12,12 @@ export async function enviarEmailVerificacao(
   link: string
 ): Promise<void> {
   const { error } = await client().emails.send({
-    from: "Planilha Viva <onboarding@resend.dev>",
+    from: "Avalia <onboarding@resend.dev>",
     to: destinatario,
-    subject: "Confirme seu email — Planilha Viva",
+    subject: "Confirme seu email — Avalia",
     html: `
       <p>Olá, ${nome}!</p>
-      <p>Confirme seu email pra ativar sua conta na Planilha Viva:</p>
+      <p>Confirme seu email pra ativar sua conta no Avalia:</p>
       <p><a href="${link}">${link}</a></p>
       <p>Esse link expira em 24 horas. Se você não pediu esse cadastro, pode ignorar este email.</p>
     `,

@@ -30,7 +30,7 @@ export default async function VerificarEmailPage({ searchParams }: VerificarEmai
   return (
     <main className="flex flex-1 items-center justify-center bg-neutral-100 px-4">
       <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-6 text-center shadow-sm">
-        <h1 className="text-lg font-semibold text-neutral-900">Planilha Viva</h1>
+        <h1 className="text-lg font-semibold text-neutral-900">Avalia</h1>
         {sucesso ? (
           <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
             Email confirmado! Sua conta já está liberada.

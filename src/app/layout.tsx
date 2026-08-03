@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Planilha Viva — Notas de Redação",
+  title: "Avalia — Notas de Redação",
   description: "Gestão de notas de redação por turma",
 };
 

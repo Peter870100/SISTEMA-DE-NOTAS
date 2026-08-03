@@ -24,7 +24,7 @@ export default async function ProfessoresPage() {
         Gerenciar professores
       </h1>
       <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-        Contas com acesso à Planilha Viva. Apenas administradores veem esta página.
+        Contas com acesso ao Avalia. Apenas administradores veem esta página.
       </p>
       {codigoConvite && (
         <div className="mt-6">
