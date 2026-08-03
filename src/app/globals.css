@@ -30,3 +30,18 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Piscar do nome "Status Avalia" sobreposto no banner do cabeçalho. */
+@keyframes piscar {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-piscar {
+  animation: piscar 1.6s ease-in-out infinite;
+}

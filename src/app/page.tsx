@@ -17,14 +17,24 @@ export default async function HomePage() {
 
   return (
     <>
-      <Image
-        src="/banner-cabecalho.png"
-        alt="Status Avalia — Avaliação inteligente com secretária virtual"
-        width={2172}
-        height={724}
-        className="w-full h-auto"
-        priority
-      />
+      <div className="relative w-full">
+        <Image
+          src="/banner-cabecalho.png"
+          alt="Status Avalia — Avaliação inteligente com secretária virtual"
+          width={2172}
+          height={724}
+          className="w-full h-auto"
+          priority
+        />
+        <Image
+          src="/banner-logo-crop.png"
+          alt=""
+          aria-hidden="true"
+          width={550}
+          height={220}
+          className="animate-piscar absolute left-[5.75%] top-[26.93%] h-auto w-[25.32%]"
+        />
+      </div>
       <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
         <p className="text-center text-sm text-neutral-500 dark:text-neutral-400">
           Selecione uma turma para lançar e acompanhar as notas do bimestre.
