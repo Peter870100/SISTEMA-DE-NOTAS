@@ -19,20 +19,21 @@ export default async function HomePage() {
     <>
       <div className="relative w-full">
         <Image
-          src="/banner-cabecalho-base.png"
+          src="/banner-cabecalho.png"
           alt="Status Avalia — Avaliação inteligente com secretária virtual"
           width={2172}
           height={724}
           className="w-full h-auto"
           priority
         />
-        <Image
-          src="/banner-logo-crop.png"
-          alt=""
+        <div
           aria-hidden="true"
-          width={550}
-          height={220}
-          className="animate-piscar absolute left-[5.75%] top-[26.93%] h-auto w-[25.32%]"
+          className="animate-piscar-brilho absolute left-[5.75%] top-[26.93%] w-[25.32%]"
+          style={{
+            aspectRatio: "550 / 220",
+            background: "radial-gradient(ellipse at center, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 72%)",
+            mixBlendMode: "screen",
+          }}
         />
       </div>
       <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">

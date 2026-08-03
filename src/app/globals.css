@@ -31,17 +31,19 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
-/* Piscar do nome "Status Avalia" sobreposto no banner do cabeçalho. */
-@keyframes piscar {
+/* Brilho pulsante sobre o nome "Status Avalia" no banner do cabeçalho — um
+   glow (gradiente radial transparente nas bordas, sem canto nenhum visível)
+   em vez de esconder/mostrar a imagem, que deixava um contorno marcado. */
+@keyframes piscar-brilho {
   0%,
   100% {
-    opacity: 1;
+    opacity: 0;
   }
   50% {
-    opacity: 0;
+    opacity: 1;
   }
 }
 
-.animate-piscar {
-  animation: piscar 1.6s ease-in-out infinite;
+.animate-piscar-brilho {
+  animation: piscar-brilho 1.6s ease-in-out infinite;
 }
