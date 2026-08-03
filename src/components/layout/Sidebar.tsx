@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap, Home, LogOut, Settings, Users } from "lucide-react";
+import { Home, LogOut, Settings, Users } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Avatar } from "@/components/ui/Avatar";
 import type { Professor } from "@/lib/types";
@@ -23,9 +24,19 @@ export function Sidebar({ professor }: SidebarProps) {
 
   return (
     <aside className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-neutral-200 bg-white py-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/40">
-        <GraduationCap size={18} />
-      </div>
+      <Link
+        href="/"
+        title="Colégio Status"
+        className="relative mb-4 h-9 w-9 shrink-0 overflow-hidden rounded-lg"
+      >
+        <Image
+          src="/LOGO2025_CURVAS.png"
+          alt="Colégio Status"
+          fill
+          className="object-cover object-left"
+          priority
+        />
+      </Link>
       {ITENS.map(({ href, icon: Icon, label }) => {
         const ativo = pathname === href;
         return (
