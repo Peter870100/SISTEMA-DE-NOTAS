@@ -16,7 +16,7 @@ export default async function HomePage() {
   }
 
   return (
-    <main className="mx-auto flex w-full min-w-0 max-w-4xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
+    <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <div className="flex items-center gap-3">
         <Image
           src="/LOGO2025_CURVAS.png"

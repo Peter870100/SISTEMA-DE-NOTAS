@@ -62,7 +62,7 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
             <GraduationCap size={16} className="text-blue-600" />
             {serie}
           </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {turmasDaSerie.map((turma) => {
               const { resto } = partesDaTurma(turma.nome);
               const alunos = contagemPorTurma[turma.id] ?? 0;
@@ -70,10 +70,10 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
                 <Link
                   key={turma.id}
                   href={`/turma/${turma.id}`}
-                  className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 shadow-sm transition hover:border-blue-400 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-blue-700"
+                  className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-5 py-4 shadow-sm transition hover:border-blue-400 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-blue-700"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
-                    <BookOpen size={17} />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
+                    <BookOpen size={19} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-neutral-800 dark:text-neutral-200">
