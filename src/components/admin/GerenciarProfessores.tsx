@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus } from "lucide-react";
+import { KeyRound, Trash2, UserPlus } from "lucide-react";
 import type { Professor, ProfessorRole } from "@/lib/types";
-import { criarProfessor, verificarProfessorManualmente } from "@/actions/professores";
+import { criarProfessor, definirSenhaProvisoria, excluirProfessor } from "@/actions/professores";
 
 type GerenciarProfessoresProps = {
   professoresIniciais: Professor[];
@@ -17,23 +17,11 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
   const [role, setRole] = useState<ProfessorRole>("professor");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [verificandoId, setVerificandoId] = useState<string | null>(null);
 
-  async function handleVerificar(id: string) {
-    if (verificandoId) return;
-    setVerificandoId(id);
-    setErro(null);
-    try {
-      await verificarProfessorManualmente(id);
-      setProfessores((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, email_verificado: true } : p))
-      );
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível verificar o professor.");
-    } finally {
-      setVerificandoId(null);
-    }
-  }
+  const [senhaAbertaId, setSenhaAbertaId] = useState<string | null>(null);
+  const [novaSenhaProvisoria, setNovaSenhaProvisoria] = useState("");
+  const [definindoId, setDefinindoId] = useState<string | null>(null);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -55,6 +43,51 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
       setErro(e instanceof Error ? e.message : "Não foi possível criar o professor.");
     } finally {
       setSalvando(false);
+    }
+  }
+
+  function handleAbrirSenha(id: string) {
+    setSenhaAbertaId(id);
+    setNovaSenhaProvisoria("");
+    setErro(null);
+  }
+
+  async function handleDefinirSenha(id: string) {
+    if (definindoId) return;
+    if (novaSenhaProvisoria.length < 6) {
+      setErro("A senha provisória precisa ter pelo menos 6 caracteres.");
+      return;
+    }
+    setDefinindoId(id);
+    setErro(null);
+    try {
+      await definirSenhaProvisoria(id, novaSenhaProvisoria);
+      setProfessores((prev) =>
+        prev.map((p) =>
+          p.id === id ? { ...p, email_verificado: true, senha_provisoria: true } : p
+        )
+      );
+      setSenhaAbertaId(null);
+      setNovaSenhaProvisoria("");
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível definir a senha.");
+    } finally {
+      setDefinindoId(null);
+    }
+  }
+
+  async function handleExcluir(p: Professor) {
+    if (excluindoId) return;
+    if (!window.confirm(`Excluir ${p.nome}? Essa ação não pode ser desfeita.`)) return;
+    setExcluindoId(p.id);
+    setErro(null);
+    try {
+      await excluirProfessor(p.id);
+      setProfessores((prev) => prev.filter((x) => x.id !== p.id));
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível excluir o professor.");
+    } finally {
+      setExcluindoId(null);
     }
   }
 
@@ -115,15 +148,16 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800">
+      <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 dark:bg-neutral-900">
             <tr>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Nome</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Email</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Papel</th>
-              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Verificado</th>
+              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Status</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Desde</th>
+              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -143,7 +177,7 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
                   </span>
                 </td>
                 <td className="px-3 py-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span
                       className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                         p.email_verificado
@@ -153,20 +187,64 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
                     >
                       {p.email_verificado ? "verificado" : "pendente"}
                     </span>
-                    {!p.email_verificado && (
-                      <button
-                        type="button"
-                        onClick={() => handleVerificar(p.id)}
-                        disabled={verificandoId === p.id}
-                        className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-50"
-                      >
-                        {verificandoId === p.id ? "Verificando..." : "Verificar manualmente"}
-                      </button>
+                    {p.senha_provisoria && (
+                      <span className="rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
+                        senha provisória
+                      </span>
                     )}
                   </div>
                 </td>
                 <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">
                   {new Date(p.created_at).toLocaleDateString("pt-BR")}
+                </td>
+                <td className="px-3 py-2">
+                  {senhaAbertaId === p.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="password"
+                        value={novaSenhaProvisoria}
+                        onChange={(e) => setNovaSenhaProvisoria(e.target.value)}
+                        autoFocus
+                        placeholder="Nova senha"
+                        className="w-32 rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDefinirSenha(p.id)}
+                        disabled={definindoId === p.id}
+                        className="rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {definindoId === p.id ? "Salvando..." : "Salvar"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSenhaAbertaId(null)}
+                        className="text-xs text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleAbrirSenha(p.id)}
+                        className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+                      >
+                        <KeyRound size={12} />
+                        Senha provisória
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExcluir(p)}
+                        disabled={excluindoId === p.id}
+                        className="flex items-center gap-1 text-xs font-medium text-rose-600 hover:underline disabled:opacity-50"
+                      >
+                        <Trash2 size={12} />
+                        {excluindoId === p.id ? "Excluindo..." : "Excluir"}
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

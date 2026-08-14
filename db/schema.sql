@@ -47,6 +47,7 @@ create table professores (
     email_verificado boolean not null default false,   -- true se criado pelo admin, ou após confirmar o link do email
     token_verificacao varchar(255),                    -- token do link de confirmação (auto-cadastro)
     token_verificacao_expira timestamptz,
+    senha_provisoria boolean not null default false,   -- true = senha definida pelo admin; força troca no próximo login
     created_at timestamptz not null default now()
 );
 

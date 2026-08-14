@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { Geist_Mono, Manrope } from "next/font/google";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { getProfessorAtual } from "@/lib/auth";
@@ -25,6 +27,13 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const professor = await getProfessorAtual();
+
+  if (professor?.senha_provisoria) {
+    const pathname = (await headers()).get("x-pathname");
+    if (pathname && pathname !== "/trocar-senha") {
+      redirect("/trocar-senha");
+    }
+  }
 
   return (
     <html

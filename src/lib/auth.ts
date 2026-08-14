@@ -40,7 +40,7 @@ export async function getProfessorAtual(): Promise<Professor | null> {
 
   const { data } = await supabase
     .from("professores")
-    .select("id, nome, email, role, email_verificado, created_at")
+    .select("id, nome, email, role, email_verificado, senha_provisoria, created_at")
     .eq("id", professorId)
     .maybeSingle();
   return data ?? null;

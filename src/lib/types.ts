@@ -46,6 +46,7 @@ export type Professor = {
   email: string;
   role: ProfessorRole;
   email_verificado: boolean;
+  senha_provisoria: boolean;
   created_at: string;
 };
 

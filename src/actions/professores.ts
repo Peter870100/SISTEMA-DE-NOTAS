@@ -2,26 +2,48 @@
 
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
-import { exigirAdmin } from "@/lib/auth";
+import { exigirAdmin, getProfessorAtual } from "@/lib/auth";
 import type { Professor, ProfessorRole } from "@/lib/types";
 
 export async function listarProfessores(): Promise<Professor[]> {
   await exigirAdmin();
   const { data, error } = await supabase
     .from("professores")
-    .select("id, nome, email, role, email_verificado, created_at")
+    .select("id, nome, email, role, email_verificado, senha_provisoria, created_at")
     .order("nome");
   if (error) throw new Error(error.message);
   return data ?? [];
 }
 
-/** Confirma o email de um professor sem depender do envio de email (ex.: quando o Resend recusa o destinatário). */
-export async function verificarProfessorManualmente(id: string): Promise<void> {
+/**
+ * Define uma senha provisória pro professor (ativa cadastros pendentes sem depender de email,
+ * e também serve pra resetar a senha de quem já tem conta). Ele é forçado a trocar no próximo login.
+ */
+export async function definirSenhaProvisoria(id: string, senha: string): Promise<void> {
   await exigirAdmin();
+  if (senha.length < 6) {
+    throw new Error("A senha provisória precisa ter pelo menos 6 caracteres.");
+  }
+  const senhaHash = await bcrypt.hash(senha, 10);
   const { error } = await supabase
     .from("professores")
-    .update({ email_verificado: true, token_verificacao: null, token_verificacao_expira: null })
+    .update({
+      senha_hash: senhaHash,
+      senha_provisoria: true,
+      email_verificado: true,
+      token_verificacao: null,
+      token_verificacao_expira: null,
+    })
     .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function excluirProfessor(id: string): Promise<void> {
+  const atual = await exigirAdmin().then(() => getProfessorAtual());
+  if (atual?.id === id) {
+    throw new Error("Você não pode excluir sua própria conta.");
+  }
+  const { error } = await supabase.from("professores").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 

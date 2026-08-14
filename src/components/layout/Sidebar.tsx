@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, LogOut, Settings, Users } from "lucide-react";
+import { Home, KeyRound, LogOut, Settings, Users } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Avatar } from "@/components/ui/Avatar";
 import type { Professor } from "@/lib/types";
@@ -75,6 +75,19 @@ export function Sidebar({ professor }: SidebarProps) {
         >
           <Settings size={18} />
         </button>
+      )}
+      {professor && (
+        <Link
+          href="/trocar-senha"
+          title="Trocar senha"
+          className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+            pathname === "/trocar-senha"
+              ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
+              : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
+          }`}
+        >
+          <KeyRound size={18} />
+        </Link>
       )}
       {professor && (
         <div className="mt-auto mb-1" title={`Logado como ${professor.nome}`}>
