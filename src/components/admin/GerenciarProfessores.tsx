@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { UserPlus } from "lucide-react";
 import type { Professor, ProfessorRole } from "@/lib/types";
-import { criarProfessor } from "@/actions/professores";
+import { criarProfessor, verificarProfessorManualmente } from "@/actions/professores";
 
 type GerenciarProfessoresProps = {
   professoresIniciais: Professor[];
@@ -17,6 +17,23 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
   const [role, setRole] = useState<ProfessorRole>("professor");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [verificandoId, setVerificandoId] = useState<string | null>(null);
+
+  async function handleVerificar(id: string) {
+    if (verificandoId) return;
+    setVerificandoId(id);
+    setErro(null);
+    try {
+      await verificarProfessorManualmente(id);
+      setProfessores((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, email_verificado: true } : p))
+      );
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível verificar o professor.");
+    } finally {
+      setVerificandoId(null);
+    }
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -126,15 +143,27 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
                   </span>
                 </td>
                 <td className="px-3 py-2">
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                      p.email_verificado
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
-                    }`}
-                  >
-                    {p.email_verificado ? "verificado" : "pendente"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                        p.email_verificado
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                      }`}
+                    >
+                      {p.email_verificado ? "verificado" : "pendente"}
+                    </span>
+                    {!p.email_verificado && (
+                      <button
+                        type="button"
+                        onClick={() => handleVerificar(p.id)}
+                        disabled={verificandoId === p.id}
+                        className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-50"
+                      >
+                        {verificandoId === p.id ? "Verificando..." : "Verificar manualmente"}
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">
                   {new Date(p.created_at).toLocaleDateString("pt-BR")}

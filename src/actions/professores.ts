@@ -15,6 +15,16 @@ export async function listarProfessores(): Promise<Professor[]> {
   return data ?? [];
 }
 
+/** Confirma o email de um professor sem depender do envio de email (ex.: quando o Resend recusa o destinatário). */
+export async function verificarProfessorManualmente(id: string): Promise<void> {
+  await exigirAdmin();
+  const { error } = await supabase
+    .from("professores")
+    .update({ email_verificado: true, token_verificacao: null, token_verificacao_expira: null })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function criarProfessor(
   nome: string,
   email: string,
