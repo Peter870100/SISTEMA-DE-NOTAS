@@ -468,6 +468,31 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
   );
 
   server.registerTool(
+    "corrigir_tipo_atividade",
+    {
+      title: "Corrigir tipo de uma atividade (nota vs presença)",
+      description:
+        'Corrige o tipo de uma coluna já criada — use quando uma chamada/presença foi lançada por engano como atividade de nota comum (ex: criada com criar_atividade + lancar_nota em vez de lancar_presenca_em_lote), pra recategorizar sem apagar os valores já lançados. Prefira sempre lancar_presenca_em_lote pra presença nova; esta ferramenta é só pra corrigir o que já foi criado errado.',
+      inputSchema: {
+        turma_nome: z.string(),
+        atividade_titulo: z.string(),
+        tipo: z.enum(["nota", "presenca"]).describe("Tipo correto pra essa coluna"),
+        bimestre: z.string().optional(),
+        ...professorTelefoneField,
+      },
+    },
+    async ({ turma_nome, atividade_titulo, tipo, bimestre, professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
+      const atividade = await resolverAtividade(turma.id, atividade_titulo);
+      const { error } = await supabase.from("atividades_colunas").update({ tipo }).eq("id", atividade.id);
+      if (error) throw new Error(error.message);
+      return texto(`OK: "${atividade.titulo}" (${turma.nome}) agora é do tipo "${tipo}".`);
+    }
+  );
+
+  server.registerTool(
     "lancar_presenca_em_lote",
     {
       title: "Lançar presença do dia (chamada)",
