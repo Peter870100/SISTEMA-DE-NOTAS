@@ -50,6 +50,7 @@ create table professores (
     senha_provisoria boolean not null default false,   -- true = senha definida pelo admin; força troca no próximo login
     acesso_restrito boolean not null default false,     -- true = só vê as turmas listadas em professor_turma_acesso
     telefone varchar(20) unique,                        -- usado pra identificar o professor no agente do Telegram
+    ultimo_acesso timestamptz,                          -- atualizado (com throttle) a cada página carregada logado
     created_at timestamptz not null default now()
 );
 

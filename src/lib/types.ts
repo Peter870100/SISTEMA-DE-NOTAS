@@ -49,6 +49,7 @@ export type Professor = {
   senha_provisoria: boolean;
   acesso_restrito: boolean;
   telefone: string | null;
+  ultimo_acesso: string | null;
   created_at: string;
 };
 

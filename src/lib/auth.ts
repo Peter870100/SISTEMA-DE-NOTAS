@@ -32,6 +32,8 @@ export function verificarSessao(cookieValue: string | undefined): string | null 
   return professorId;
 }
 
+const THROTTLE_ULTIMO_ACESSO_MS = 60_000;
+
 /** Professor logado na requisição atual (via cookie), ou null se não autenticado. */
 export async function getProfessorAtual(): Promise<Professor | null> {
   const cookieStore = await cookies();
@@ -40,10 +42,22 @@ export async function getProfessorAtual(): Promise<Professor | null> {
 
   const { data } = await supabase
     .from("professores")
-    .select("id, nome, email, role, email_verificado, senha_provisoria, acesso_restrito, telefone, created_at")
+    .select(
+      "id, nome, email, role, email_verificado, senha_provisoria, acesso_restrito, telefone, ultimo_acesso, created_at"
+    )
     .eq("id", professorId)
     .maybeSingle();
-  return data ?? null;
+  if (!data) return null;
+
+  const desatualizado =
+    !data.ultimo_acesso || Date.now() - new Date(data.ultimo_acesso).getTime() > THROTTLE_ULTIMO_ACESSO_MS;
+  if (desatualizado) {
+    const agora = new Date().toISOString();
+    await supabase.from("professores").update({ ultimo_acesso: agora }).eq("id", professorId);
+    data.ultimo_acesso = agora;
+  }
+
+  return data;
 }
 
 /** Lança erro se o professor logado não existir ou não for admin. */

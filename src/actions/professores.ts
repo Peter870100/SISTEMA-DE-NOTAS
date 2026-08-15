@@ -9,7 +9,9 @@ export async function listarProfessores(): Promise<Professor[]> {
   await exigirAdmin();
   const { data, error } = await supabase
     .from("professores")
-    .select("id, nome, email, role, email_verificado, senha_provisoria, acesso_restrito, telefone, created_at")
+    .select(
+      "id, nome, email, role, email_verificado, senha_provisoria, acesso_restrito, telefone, ultimo_acesso, created_at"
+    )
     .order("nome");
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -122,7 +124,9 @@ export async function criarProfessor(
       role,
       email_verificado: true,
     })
-    .select("id, nome, email, role, email_verificado, senha_provisoria, acesso_restrito, telefone, created_at")
+    .select(
+      "id, nome, email, role, email_verificado, senha_provisoria, acesso_restrito, telefone, ultimo_acesso, created_at"
+    )
     .single();
   if (error) throw new Error(error.message);
   return data;

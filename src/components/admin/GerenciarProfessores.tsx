@@ -11,6 +11,20 @@ import {
   atualizarTelefoneProfessor,
 } from "@/actions/professores";
 
+const ONLINE_LIMITE_MS = 3 * 60 * 1000;
+
+function statusPresenca(ultimoAcesso: string | null): { online: boolean; texto: string } {
+  if (!ultimoAcesso) return { online: false, texto: "nunca acessou" };
+  const diffMs = Date.now() - new Date(ultimoAcesso).getTime();
+  if (diffMs < ONLINE_LIMITE_MS) return { online: true, texto: "online agora" };
+  const minutos = Math.round(diffMs / 60_000);
+  if (minutos < 60) return { online: false, texto: `visto há ${minutos} min` };
+  const horas = Math.round(minutos / 60);
+  if (horas < 24) return { online: false, texto: `visto há ${horas}h` };
+  const dias = Math.round(horas / 24);
+  return { online: false, texto: `visto há ${dias}d` };
+}
+
 type GerenciarProfessoresProps = {
   professoresIniciais: Professor[];
   nomesTurmas: string[];
@@ -253,7 +267,22 @@ export function GerenciarProfessores({
           <tbody>
             {professores.map((p) => (
               <tr key={p.id} className="border-t border-neutral-200 dark:border-neutral-800 align-top">
-                <td className="px-3 py-2 text-neutral-800 dark:text-neutral-200">{p.nome}</td>
+                <td className="px-3 py-2 text-neutral-800 dark:text-neutral-200">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      title={statusPresenca(p.ultimo_acesso).texto}
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                        statusPresenca(p.ultimo_acesso).online
+                          ? "bg-emerald-500"
+                          : "bg-neutral-300 dark:bg-neutral-600"
+                      }`}
+                    />
+                    {p.nome}
+                  </div>
+                  <p className="mt-0.5 pl-3 text-[11px] text-neutral-400 dark:text-neutral-500">
+                    {statusPresenca(p.ultimo_acesso).texto}
+                  </p>
+                </td>
                 <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{p.email}</td>
                 <td className="px-3 py-2">
                   {telefoneAbertoId === p.id ? (
