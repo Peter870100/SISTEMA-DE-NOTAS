@@ -1,12 +1,13 @@
 import Image from "next/image";
 import { supabase } from "@/lib/supabase/client";
 import { TurmasLista } from "@/components/home/TurmasLista";
+import { listarTurmasAcessiveis } from "@/actions/turmas";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [{ data: turmas, error }, { data: alunos }] = await Promise.all([
-    supabase.from("turmas").select("*").order("nome").order("bimestre"),
+  const [turmas, { data: alunos }] = await Promise.all([
+    listarTurmasAcessiveis(),
     supabase.from("alunos").select("turma_id"),
   ]);
 
@@ -30,13 +31,7 @@ export default async function HomePage() {
           Selecione uma turma para lançar e acompanhar as notas do bimestre.
         </p>
 
-        {error && (
-          <div className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
-            Não foi possível carregar as turmas: {error.message}
-          </div>
-        )}
-
-        <TurmasLista turmas={turmas ?? []} contagemPorTurma={contagemPorTurma} />
+        <TurmasLista turmas={turmas} contagemPorTurma={contagemPorTurma} />
       </main>
     </>
   );

@@ -1,16 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound, Trash2, UserPlus } from "lucide-react";
+import { KeyRound, Pencil, School, Trash2, UserPlus } from "lucide-react";
 import type { Professor, ProfessorRole } from "@/lib/types";
-import { criarProfessor, definirSenhaProvisoria, excluirProfessor } from "@/actions/professores";
+import {
+  criarProfessor,
+  definirSenhaProvisoria,
+  excluirProfessor,
+  atualizarAcessoTurmas,
+  atualizarTelefoneProfessor,
+} from "@/actions/professores";
 
 type GerenciarProfessoresProps = {
   professoresIniciais: Professor[];
+  nomesTurmas: string[];
+  acessoInicialPorProfessor: Record<string, string[]>;
 };
 
-export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessoresProps) {
+export function GerenciarProfessores({
+  professoresIniciais,
+  nomesTurmas,
+  acessoInicialPorProfessor,
+}: GerenciarProfessoresProps) {
   const [professores, setProfessores] = useState(professoresIniciais);
+  const [acessoPorProfessor, setAcessoPorProfessor] = useState(acessoInicialPorProfessor);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -22,6 +35,21 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
   const [novaSenhaProvisoria, setNovaSenhaProvisoria] = useState("");
   const [definindoId, setDefinindoId] = useState<string | null>(null);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
+
+  const [telefoneAbertoId, setTelefoneAbertoId] = useState<string | null>(null);
+  const [telefoneEdit, setTelefoneEdit] = useState("");
+  const [salvandoTelefoneId, setSalvandoTelefoneId] = useState<string | null>(null);
+
+  const [turmasAbertaId, setTurmasAbertaId] = useState<string | null>(null);
+  const [restritoEdit, setRestritoEdit] = useState(false);
+  const [turmasSelecionadas, setTurmasSelecionadas] = useState<Set<string>>(new Set());
+  const [salvandoTurmasId, setSalvandoTurmasId] = useState<string | null>(null);
+
+  function fecharPaineis() {
+    setSenhaAbertaId(null);
+    setTelefoneAbertoId(null);
+    setTurmasAbertaId(null);
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -47,6 +75,7 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
   }
 
   function handleAbrirSenha(id: string) {
+    fecharPaineis();
     setSenhaAbertaId(id);
     setNovaSenhaProvisoria("");
     setErro(null);
@@ -88,6 +117,64 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
       setErro(e instanceof Error ? e.message : "Não foi possível excluir o professor.");
     } finally {
       setExcluindoId(null);
+    }
+  }
+
+  function handleAbrirTelefone(p: Professor) {
+    fecharPaineis();
+    setTelefoneAbertoId(p.id);
+    setTelefoneEdit(p.telefone ?? "");
+    setErro(null);
+  }
+
+  async function handleSalvarTelefone(id: string) {
+    if (salvandoTelefoneId) return;
+    setSalvandoTelefoneId(id);
+    setErro(null);
+    try {
+      await atualizarTelefoneProfessor(id, telefoneEdit);
+      setProfessores((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, telefone: telefoneEdit.trim() || null } : p))
+      );
+      setTelefoneAbertoId(null);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível salvar o telefone.");
+    } finally {
+      setSalvandoTelefoneId(null);
+    }
+  }
+
+  function handleAbrirTurmas(p: Professor) {
+    fecharPaineis();
+    setTurmasAbertaId(p.id);
+    setRestritoEdit(p.acesso_restrito);
+    setTurmasSelecionadas(new Set(acessoPorProfessor[p.id] ?? []));
+    setErro(null);
+  }
+
+  function toggleTurma(nomeTurma: string) {
+    setTurmasSelecionadas((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(nomeTurma)) novo.delete(nomeTurma);
+      else novo.add(nomeTurma);
+      return novo;
+    });
+  }
+
+  async function handleSalvarTurmas(id: string) {
+    if (salvandoTurmasId) return;
+    setSalvandoTurmasId(id);
+    setErro(null);
+    try {
+      const lista = [...turmasSelecionadas];
+      await atualizarAcessoTurmas(id, restritoEdit, lista);
+      setProfessores((prev) => prev.map((p) => (p.id === id ? { ...p, acesso_restrito: restritoEdit } : p)));
+      setAcessoPorProfessor((prev) => ({ ...prev, [id]: restritoEdit ? lista : [] }));
+      setTurmasAbertaId(null);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível salvar o acesso às turmas.");
+    } finally {
+      setSalvandoTurmasId(null);
     }
   }
 
@@ -146,6 +233,9 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
           <UserPlus size={15} />
           {salvando ? "Criando..." : "Criar professor"}
         </button>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          Depois de criar, use os botões "Telefone" e "Turmas" na tabela abaixo pra configurar o acesso dele.
+        </p>
       </form>
 
       <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
@@ -154,17 +244,54 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
             <tr>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Nome</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Email</th>
+              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Telefone</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Papel</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Status</th>
-              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Desde</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Ações</th>
             </tr>
           </thead>
           <tbody>
             {professores.map((p) => (
-              <tr key={p.id} className="border-t border-neutral-200 dark:border-neutral-800">
+              <tr key={p.id} className="border-t border-neutral-200 dark:border-neutral-800 align-top">
                 <td className="px-3 py-2 text-neutral-800 dark:text-neutral-200">{p.nome}</td>
                 <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{p.email}</td>
+                <td className="px-3 py-2">
+                  {telefoneAbertoId === p.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        value={telefoneEdit}
+                        onChange={(e) => setTelefoneEdit(e.target.value)}
+                        autoFocus
+                        placeholder="(00) 00000-0000"
+                        className="w-32 rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSalvarTelefone(p.id)}
+                        disabled={salvandoTelefoneId === p.id}
+                        className="rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {salvandoTelefoneId === p.id ? "..." : "Salvar"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTelefoneAbertoId(null)}
+                        className="text-xs text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleAbrirTelefone(p)}
+                      className="flex items-center gap-1 text-xs text-neutral-500 hover:text-blue-600 dark:text-neutral-400"
+                    >
+                      {p.telefone ?? "—"}
+                      <Pencil size={11} />
+                    </button>
+                  )}
+                </td>
                 <td className="px-3 py-2">
                   <span
                     className={`rounded px-1.5 py-0.5 text-xs font-medium ${
@@ -193,9 +320,15 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
                       </span>
                     )}
                   </div>
-                </td>
-                <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">
-                  {new Date(p.created_at).toLocaleDateString("pt-BR")}
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                    {p.role === "admin"
+                      ? "todas as turmas"
+                      : p.acesso_restrito
+                        ? (acessoPorProfessor[p.id]?.length ?? 0) > 0
+                          ? acessoPorProfessor[p.id].join(", ")
+                          : "nenhuma turma"
+                        : "todas as turmas"}
+                  </p>
                 </td>
                 <td className="px-3 py-2">
                   {senhaAbertaId === p.id ? (
@@ -224,8 +357,50 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
                         Cancelar
                       </button>
                     </div>
+                  ) : turmasAbertaId === p.id ? (
+                    <div className="flex w-56 flex-col gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                        <input
+                          type="checkbox"
+                          checked={restritoEdit}
+                          onChange={(e) => setRestritoEdit(e.target.checked)}
+                        />
+                        Restringir a turmas específicas
+                      </label>
+                      {restritoEdit && (
+                        <div className="flex flex-col gap-1 border-t border-neutral-200 pt-1.5 dark:border-neutral-700">
+                          {nomesTurmas.map((t) => (
+                            <label key={t} className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
+                              <input
+                                type="checkbox"
+                                checked={turmasSelecionadas.has(t)}
+                                onChange={() => toggleTurma(t)}
+                              />
+                              {t}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSalvarTurmas(p.id)}
+                          disabled={salvandoTurmasId === p.id}
+                          className="rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {salvandoTurmasId === p.id ? "Salvando..." : "Salvar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTurmasAbertaId(null)}
+                          className="text-xs text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
                   ) : (
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <button
                         type="button"
                         onClick={() => handleAbrirSenha(p.id)}
@@ -234,6 +409,16 @@ export function GerenciarProfessores({ professoresIniciais }: GerenciarProfessor
                         <KeyRound size={12} />
                         Senha provisória
                       </button>
+                      {p.role !== "admin" && (
+                        <button
+                          type="button"
+                          onClick={() => handleAbrirTurmas(p)}
+                          className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+                        >
+                          <School size={12} />
+                          Turmas
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleExcluir(p)}

@@ -48,7 +48,17 @@ create table professores (
     token_verificacao varchar(255),                    -- token do link de confirmação (auto-cadastro)
     token_verificacao_expira timestamptz,
     senha_provisoria boolean not null default false,   -- true = senha definida pelo admin; força troca no próximo login
+    acesso_restrito boolean not null default false,     -- true = só vê as turmas listadas em professor_turma_acesso
+    telefone varchar(20) unique,                        -- usado pra identificar o professor no agente do Telegram
     created_at timestamptz not null default now()
+);
+
+-- Turmas liberadas por professor, quando acesso_restrito = true (por nome da turma,
+-- não por bimestre específico — assim o acesso continua valendo quando um bimestre novo é criado)
+create table professor_turma_acesso (
+    professor_id uuid not null references professores(id) on delete cascade,
+    turma_nome varchar(255) not null,
+    primary key (professor_id, turma_nome)
 );
 
 -- Configurações do sistema (linha única) — hoje só o código de convite do cadastro
@@ -73,6 +83,21 @@ create table notas_celulas (
 );
 create index idx_notas_coluna on notas_celulas(coluna_id);
 
+-- Histórico de alterações de nota feitas por professores comuns (não-admin), pro admin auditar
+create table notas_historico (
+    id uuid primary key default gen_random_uuid(),
+    aluno_id uuid not null references alunos(id) on delete cascade,
+    coluna_id uuid not null references atividades_colunas(id) on delete cascade,
+    valor_anterior numeric(6,2),
+    status_anterior varchar(150),
+    valor_novo numeric(6,2),
+    status_novo varchar(150),
+    alterado_por uuid references professores(id),
+    created_at timestamptz not null default now()
+);
+create index idx_historico_aluno on notas_historico(aluno_id);
+create index idx_historico_professor on notas_historico(alterado_por);
+
 -- updated_at automático
 create or replace function set_updated_at()
 returns trigger language plpgsql as $$
@@ -95,6 +120,8 @@ alter table atividades_colunas enable row level security;
 alter table notas_celulas enable row level security;
 alter table professores enable row level security;
 alter table configuracoes enable row level security;
+alter table professor_turma_acesso enable row level security;
+alter table notas_historico enable row level security;
 
 create policy "acesso_total_turmas" on turmas for all using (true) with check (true);
 create policy "acesso_total_alunos" on alunos for all using (true) with check (true);
@@ -102,3 +129,5 @@ create policy "acesso_total_colunas" on atividades_colunas for all using (true) 
 create policy "acesso_total_notas" on notas_celulas for all using (true) with check (true);
 create policy "acesso_total_professores" on professores for all using (true) with check (true);
 create policy "acesso_total_configuracoes" on configuracoes for all using (true) with check (true);
+create policy "acesso_total_professor_turma_acesso" on professor_turma_acesso for all using (true) with check (true);
+create policy "acesso_total_notas_historico" on notas_historico for all using (true) with check (true);

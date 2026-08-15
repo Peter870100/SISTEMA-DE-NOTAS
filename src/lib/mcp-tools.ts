@@ -14,6 +14,16 @@ export function criarSupabaseClient(): SupabaseClient {
 type Turma = { id: string; nome: string; bimestre: string; ano_letivo: string };
 type Aluno = { id: string; turma_id: string; nome: string; numero: number | null; ordem: number };
 type Coluna = { id: string; turma_id: string; titulo: string; ordem: number; tipo?: string };
+type ProfessorInfo = { id: string; role: string; acesso_restrito: boolean } | null;
+
+const professorTelefoneField = {
+  professor_telefone: z
+    .string()
+    .optional()
+    .describe(
+      "Telefone de quem está pedindo (se conhecido). Usado pra restringir o acesso quando o professor só pode ver turmas específicas."
+    ),
+};
 
 function texto(s: string) {
   return { content: [{ type: "text" as const, text: s }] };
@@ -30,7 +40,67 @@ function normalizar(s: string): string {
 
 /** Registra todas as ferramentas de leitura/escrita da Planilha Viva no servidor MCP informado. */
 export function registrarFerramentas(server: McpServer, supabase: SupabaseClient) {
-  async function resolverTurma(nomeQuery: string, bimestreQuery?: string): Promise<Turma> {
+  /** Identifica o professor pelo telefone informado, se algum. */
+  async function resolverProfessorInfo(telefone: string | undefined): Promise<ProfessorInfo> {
+    if (!telefone?.trim()) return null;
+    const { data } = await supabase
+      .from("professores")
+      .select("id, role, acesso_restrito")
+      .eq("telefone", telefone.trim())
+      .maybeSingle();
+    return data ?? null;
+  }
+
+  /** Nomes de turma liberados pro professor, ou null se ele pode ver todas (admin, sem restrição, ou telefone não identificado). */
+  async function turmasLiberadas(professor: ProfessorInfo): Promise<Set<string> | null> {
+    if (!professor || professor.role === "admin" || !professor.acesso_restrito) return null;
+    const { data } = await supabase
+      .from("professor_turma_acesso")
+      .select("turma_nome")
+      .eq("professor_id", professor.id);
+    return new Set((data ?? []).map((r) => r.turma_nome));
+  }
+
+  /** Upsert de nota_celula que também registra no histórico quando quem alterou é professor comum. */
+  async function upsertCelulaComHistorico(
+    alunoId: string,
+    colunaId: string,
+    valor: number | null,
+    status: string | null,
+    professor: ProfessorInfo
+  ) {
+    const { data: atual } = await supabase
+      .from("notas_celulas")
+      .select("valor, status_texto")
+      .eq("aluno_id", alunoId)
+      .eq("coluna_id", colunaId)
+      .maybeSingle();
+
+    const { error } = await supabase.from("notas_celulas").upsert(
+      { aluno_id: alunoId, coluna_id: colunaId, valor, status_texto: status, atualizado_por: professor?.id ?? null },
+      { onConflict: "aluno_id,coluna_id" }
+    );
+    if (error) throw new Error(error.message);
+
+    const mudou = (atual?.valor ?? null) !== valor || (atual?.status_texto ?? null) !== status;
+    if (professor?.role === "professor" && mudou) {
+      await supabase.from("notas_historico").insert({
+        aluno_id: alunoId,
+        coluna_id: colunaId,
+        valor_anterior: atual?.valor ?? null,
+        status_anterior: atual?.status_texto ?? null,
+        valor_novo: valor,
+        status_novo: status,
+        alterado_por: professor.id,
+      });
+    }
+  }
+
+  async function resolverTurma(
+    nomeQuery: string,
+    bimestreQuery?: string,
+    liberadas?: Set<string> | null
+  ): Promise<Turma> {
     const { data, error } = await supabase.from("turmas").select("*");
     if (error) throw new Error(error.message);
     const alvo = normalizar(nomeQuery);
@@ -39,8 +109,13 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       const alvoBimestre = normalizar(bimestreQuery);
       candidatos = candidatos.filter((t) => normalizar(t.bimestre).includes(alvoBimestre));
     }
+    if (liberadas) {
+      candidatos = candidatos.filter((t) => liberadas.has(t.nome));
+    }
     if (candidatos.length === 0) {
-      throw new Error(`Nenhuma turma encontrada com nome parecido com "${nomeQuery}".`);
+      throw new Error(
+        `Nenhuma turma encontrada com nome parecido com "${nomeQuery}"${liberadas ? " (ou você não tem acesso a ela)" : ""}.`
+      );
     }
     if (candidatos.length > 1) {
       const opcoes = candidatos.map((t) => `"${t.nome}" (${t.bimestre})`).join(", ");
@@ -87,13 +162,16 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       title: "Listar turmas",
       description:
         "Lista todas as turmas cadastradas (nome, bimestre, ano letivo). Use antes de qualquer outra ferramenta pra saber os nomes exatos disponíveis.",
-      inputSchema: {},
+      inputSchema: { ...professorTelefoneField },
     },
-    async () => {
+    async ({ professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
       const { data, error } = await supabase.from("turmas").select("*").order("nome");
       if (error) throw new Error(error.message);
-      if (!data || data.length === 0) return texto("Nenhuma turma cadastrada.");
-      const linhas = data.map((t) => `- ${t.nome} — ${t.bimestre} (${t.ano_letivo})`);
+      const visiveis = liberadas ? (data ?? []).filter((t) => liberadas.has(t.nome)) : data ?? [];
+      if (visiveis.length === 0) return texto("Nenhuma turma cadastrada (ou nenhuma liberada pra esse professor).");
+      const linhas = visiveis.map((t) => `- ${t.nome} — ${t.bimestre} (${t.ano_letivo})`);
       return texto(linhas.join("\n"));
     }
   );
@@ -135,10 +213,13 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       inputSchema: {
         turma_nome: z.string().describe('Nome da turma, ex: "1ª série A"'),
         bimestre: z.string().optional().describe('Opcional, ex: "2º Bimestre" — só necessário se houver ambiguidade'),
+        ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, bimestre }) => {
-      const turma = await resolverTurma(turma_nome, bimestre);
+    async ({ turma_nome, bimestre, professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
       const [{ data: colunas }, { data: alunos }] = await Promise.all([
         supabase.from("atividades_colunas").select("*").eq("turma_id", turma.id).order("ordem"),
         supabase.from("alunos").select("*").eq("turma_id", turma.id).order("ordem"),
@@ -177,10 +258,13 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         turma_nome: z.string(),
         busca: z.string().describe('Parte do nome do aluno, ex: "ana"'),
         bimestre: z.string().optional(),
+        ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, busca, bimestre }) => {
-      const turma = await resolverTurma(turma_nome, bimestre);
+    async ({ turma_nome, busca, bimestre, professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
       const { data: todos, error } = await supabase
         .from("alunos")
         .select("*")
@@ -201,6 +285,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     valor: z.number().min(0).max(1000).optional().describe("Nota numérica de 0 a 1000"),
     status: z.string().optional().describe('Status em texto livre, ex: "ok", "NF", "FALTOU"'),
     bimestre: z.string().optional(),
+    ...professorTelefoneField,
   };
 
   server.registerTool(
@@ -211,25 +296,18 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         "Lança (ou substitui) a nota/status de um aluno numa atividade específica. Informe exatamente um dos dois: valor OU status.",
       inputSchema: notaInput,
     },
-    async ({ turma_nome, aluno_nome, atividade_titulo, valor, status, bimestre }) => {
+    async ({ turma_nome, aluno_nome, atividade_titulo, valor, status, bimestre, professor_telefone }) => {
       if ((valor === undefined) === (status === undefined)) {
         throw new Error("Informe exatamente um dos dois: valor (número) OU status (texto), não ambos nem nenhum.");
       }
-      const turma = await resolverTurma(turma_nome, bimestre);
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
       const [aluno, atividade] = await Promise.all([
         resolverAluno(turma.id, aluno_nome),
         resolverAtividade(turma.id, atividade_titulo),
       ]);
-      const { error } = await supabase.from("notas_celulas").upsert(
-        {
-          aluno_id: aluno.id,
-          coluna_id: atividade.id,
-          valor: valor ?? null,
-          status_texto: status ?? null,
-        },
-        { onConflict: "aluno_id,coluna_id" }
-      );
-      if (error) throw new Error(error.message);
+      await upsertCelulaComHistorico(aluno.id, atividade.id, valor ?? null, status ?? null, professor);
       return texto(`OK: ${aluno.nome} — ${atividade.titulo} = ${valor ?? status}`);
     }
   );
@@ -253,10 +331,13 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
             })
           )
           .min(1),
+        ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, bimestre, notas }) => {
-      const turma = await resolverTurma(turma_nome, bimestre);
+    async ({ turma_nome, bimestre, notas, professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
       const resultados: string[] = [];
       for (const item of notas) {
         try {
@@ -267,16 +348,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
             resolverAluno(turma.id, item.aluno_nome),
             resolverAtividade(turma.id, item.atividade_titulo),
           ]);
-          const { error } = await supabase.from("notas_celulas").upsert(
-            {
-              aluno_id: aluno.id,
-              coluna_id: atividade.id,
-              valor: item.valor ?? null,
-              status_texto: item.status ?? null,
-            },
-            { onConflict: "aluno_id,coluna_id" }
-          );
-          if (error) throw new Error(error.message);
+          await upsertCelulaComHistorico(aluno.id, atividade.id, item.valor ?? null, item.status ?? null, professor);
           resultados.push(`OK: ${aluno.nome} — ${atividade.titulo} = ${item.valor ?? item.status}`);
         } catch (e) {
           resultados.push(
@@ -298,10 +370,13 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         nome: z.string(),
         numero: z.number().optional(),
         bimestre: z.string().optional(),
+        ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, nome, numero, bimestre }) => {
-      const turma = await resolverTurma(turma_nome, bimestre);
+    async ({ turma_nome, nome, numero, bimestre, professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
       const { count } = await supabase
         .from("alunos")
         .select("id", { count: "exact", head: true })
@@ -326,10 +401,13 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         turma_nome: z.string(),
         bimestre: z.string().optional(),
         nomes: z.array(z.string()).min(1).describe("Lista de nomes dos alunos a adicionar"),
+        ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, bimestre, nomes }) => {
-      const turma = await resolverTurma(turma_nome, bimestre);
+    async ({ turma_nome, bimestre, nomes, professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
       const { data: existentes, count } = await supabase
         .from("alunos")
         .select("nome", { count: "exact" })
@@ -368,10 +446,13 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         turma_nome: z.string(),
         titulo: z.string(),
         bimestre: z.string().optional(),
+        ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, titulo, bimestre }) => {
-      const turma = await resolverTurma(turma_nome, bimestre);
+    async ({ turma_nome, titulo, bimestre, professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
       const { count } = await supabase
         .from("atividades_colunas")
         .select("id", { count: "exact", head: true })
@@ -404,10 +485,13 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
             })
           )
           .min(1),
+        ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, data, bimestre, presencas }) => {
-      const turma = await resolverTurma(turma_nome, bimestre);
+    async ({ turma_nome, data, bimestre, presencas, professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
       const dataLimpa = data.trim();
       if (!dataLimpa) throw new Error('Informe a data da chamada, ex: "14/08/26".');
 
@@ -444,16 +528,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
             throw new Error('status deve ser "P" (presente) ou "F" (falta)');
           }
           const aluno = await resolverAluno(turma.id, item.aluno_nome);
-          const { error } = await supabase.from("notas_celulas").upsert(
-            {
-              aluno_id: aluno.id,
-              coluna_id: coluna!.id,
-              valor: null,
-              status_texto: statusNormalizado,
-            },
-            { onConflict: "aluno_id,coluna_id" }
-          );
-          if (error) throw new Error(error.message);
+          await upsertCelulaComHistorico(aluno.id, coluna!.id, null, statusNormalizado, professor);
           resultados.push(`OK: ${aluno.nome} — ${statusNormalizado}`);
         } catch (e) {
           resultados.push(

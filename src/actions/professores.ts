@@ -9,10 +9,61 @@ export async function listarProfessores(): Promise<Professor[]> {
   await exigirAdmin();
   const { data, error } = await supabase
     .from("professores")
-    .select("id, nome, email, role, email_verificado, senha_provisoria, created_at")
+    .select("id, nome, email, role, email_verificado, senha_provisoria, acesso_restrito, telefone, created_at")
     .order("nome");
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+/** Mapa professor_id -> nomes de turma liberados, pra exibir/editar no admin. */
+export async function listarAcessoTurmasPorProfessor(): Promise<Record<string, string[]>> {
+  await exigirAdmin();
+  const { data, error } = await supabase.from("professor_turma_acesso").select("professor_id, turma_nome");
+  if (error) throw new Error(error.message);
+  const mapa: Record<string, string[]> = {};
+  for (const row of data ?? []) {
+    (mapa[row.professor_id] ??= []).push(row.turma_nome);
+  }
+  return mapa;
+}
+
+/** Define quais turmas (por nome) o professor pode acessar. `restrito = false` libera todas. */
+export async function atualizarAcessoTurmas(
+  id: string,
+  restrito: boolean,
+  turmaNomes: string[]
+): Promise<void> {
+  await exigirAdmin();
+
+  const { error: erroUpdate } = await supabase
+    .from("professores")
+    .update({ acesso_restrito: restrito })
+    .eq("id", id);
+  if (erroUpdate) throw new Error(erroUpdate.message);
+
+  const { error: erroDelete } = await supabase.from("professor_turma_acesso").delete().eq("professor_id", id);
+  if (erroDelete) throw new Error(erroDelete.message);
+
+  if (restrito && turmaNomes.length > 0) {
+    const { error: erroInsert } = await supabase
+      .from("professor_turma_acesso")
+      .insert(turmaNomes.map((turma_nome) => ({ professor_id: id, turma_nome })));
+    if (erroInsert) throw new Error(erroInsert.message);
+  }
+}
+
+/** Telefone usado pra identificar o professor no agente do Telegram. */
+export async function atualizarTelefoneProfessor(id: string, telefone: string): Promise<void> {
+  await exigirAdmin();
+  const telefoneLimpo = telefone.trim();
+  const { error } = await supabase
+    .from("professores")
+    .update({ telefone: telefoneLimpo || null })
+    .eq("id", id);
+  if (error) {
+    if (error.code === "23505") throw new Error("Esse telefone já está em uso por outro professor.");
+    throw new Error(error.message);
+  }
 }
 
 /**
@@ -71,7 +122,7 @@ export async function criarProfessor(
       role,
       email_verificado: true,
     })
-    .select("id, nome, email, role, email_verificado, senha_provisoria, created_at")
+    .select("id, nome, email, role, email_verificado, senha_provisoria, acesso_restrito, telefone, created_at")
     .single();
   if (error) throw new Error(error.message);
   return data;

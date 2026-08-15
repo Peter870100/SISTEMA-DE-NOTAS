@@ -1,7 +1,28 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
+import { exigirAdmin, getProfessorAtual, professorTemAcessoATurma, turmasLiberadasPara } from "@/lib/auth";
 import type { Turma } from "@/lib/types";
+
+/** Turmas visíveis pro professor logado — todas, ou só as liberadas se ele tiver acesso restrito. */
+export async function listarTurmasAcessiveis(): Promise<Turma[]> {
+  const professor = await getProfessorAtual();
+  const { data, error } = await supabase.from("turmas").select("*").order("nome").order("bimestre");
+  if (error) throw new Error(error.message);
+
+  if (!professor) return data ?? [];
+  const liberadas = await turmasLiberadasPara(professor);
+  if (liberadas === null) return data ?? [];
+  return (data ?? []).filter((t) => liberadas.has(t.nome));
+}
+
+/** Nomes distintos de turma (ex: "1ª série A"), pra montar a lista de acesso no admin. */
+export async function listarNomesTurmas(): Promise<string[]> {
+  await exigirAdmin();
+  const { data, error } = await supabase.from("turmas").select("nome").order("nome");
+  if (error) throw new Error(error.message);
+  return [...new Set((data ?? []).map((t) => t.nome))];
+}
 
 /**
  * Cria um novo bimestre para a mesma turma (mesmo nome/ano letivo), copiando
@@ -22,6 +43,11 @@ export async function criarBimestre(
     .single();
   if (erroTurma || !turmaAtual) {
     throw new Error(erroTurma?.message ?? "Turma não encontrada");
+  }
+
+  const professor = await getProfessorAtual();
+  if (!professor || !(await professorTemAcessoATurma(professor, turmaAtual.nome))) {
+    throw new Error("Você não tem acesso a essa turma.");
   }
 
   const { data: novaTurma, error: erroNovaTurma } = await supabase

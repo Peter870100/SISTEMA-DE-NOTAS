@@ -47,6 +47,8 @@ export type Professor = {
   role: ProfessorRole;
   email_verificado: boolean;
   senha_provisoria: boolean;
+  acesso_restrito: boolean;
+  telefone: string | null;
   created_at: string;
 };
 
@@ -61,6 +63,24 @@ export type Configuracoes = {
   id: true;
   codigo_convite: string;
   updated_at: string;
+};
+
+/** Turma liberada pro professor quando `acesso_restrito` é true (por nome, vale pra todo bimestre). */
+export type ProfessorTurmaAcesso = {
+  professor_id: string;
+  turma_nome: string;
+};
+
+export type NotaHistorico = {
+  id: string;
+  aluno_id: string;
+  coluna_id: string;
+  valor_anterior: number | null;
+  status_anterior: string | null;
+  valor_novo: number | null;
+  status_novo: string | null;
+  alterado_por: string | null;
+  created_at: string;
 };
 
 export type Database = {
@@ -113,6 +133,21 @@ export type Database = {
         Row: Configuracoes;
         Insert: Partial<Configuracoes>;
         Update: Partial<Omit<Configuracoes, "id">>;
+        Relationships: [];
+      };
+      professor_turma_acesso: {
+        Row: ProfessorTurmaAcesso;
+        Insert: ProfessorTurmaAcesso;
+        Update: Partial<ProfessorTurmaAcesso>;
+        Relationships: [];
+      };
+      notas_historico: {
+        Row: NotaHistorico;
+        Insert: Partial<Omit<NotaHistorico, "id" | "created_at">> & {
+          aluno_id: string;
+          coluna_id: string;
+        };
+        Update: Partial<Omit<NotaHistorico, "id" | "created_at">>;
         Relationships: [];
       };
     };

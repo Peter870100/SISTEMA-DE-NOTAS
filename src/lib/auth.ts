@@ -40,7 +40,7 @@ export async function getProfessorAtual(): Promise<Professor | null> {
 
   const { data } = await supabase
     .from("professores")
-    .select("id, nome, email, role, email_verificado, senha_provisoria, created_at")
+    .select("id, nome, email, role, email_verificado, senha_provisoria, acesso_restrito, telefone, created_at")
     .eq("id", professorId)
     .maybeSingle();
   return data ?? null;
@@ -52,4 +52,23 @@ export async function exigirAdmin(): Promise<void> {
   if (!atual || atual.role !== "admin") {
     throw new Error("Apenas administradores podem fazer isso.");
   }
+}
+
+/**
+ * Nomes de turma liberados pro professor, ou null se ele enxerga todas (admin, ou
+ * `acesso_restrito` desligado — o padrão pra quem já existia antes dessa trava existir).
+ */
+export async function turmasLiberadasPara(professor: Professor): Promise<Set<string> | null> {
+  if (professor.role === "admin" || !professor.acesso_restrito) return null;
+  const { data } = await supabase
+    .from("professor_turma_acesso")
+    .select("turma_nome")
+    .eq("professor_id", professor.id);
+  return new Set((data ?? []).map((r) => r.turma_nome));
+}
+
+/** True se o professor pode acessar uma turma com esse nome (admin ou sem restrição sempre pode). */
+export async function professorTemAcessoATurma(professor: Professor, turmaNome: string): Promise<boolean> {
+  const liberadas = await turmasLiberadasPara(professor);
+  return liberadas === null || liberadas.has(turmaNome);
 }
