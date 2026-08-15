@@ -106,6 +106,7 @@ export function TurmaDashboard({
             colunas={colunasAba}
             alunos={alunos}
             celulas={celulas}
+            todasTurmas={todasTurmas}
             onColunasChange={handleColunasAbaChange}
             onAlunosChange={setAlunos}
             onCelulasChange={setCelulas}

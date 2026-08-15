@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2 } from "lucide-react";
-import type { Aluno, AtividadeColuna, TipoColuna } from "@/lib/types";
+import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft } from "lucide-react";
+import type { Aluno, AtividadeColuna, TipoColuna, Turma } from "@/lib/types";
 import { parseEntradaCelula, type ValorCelula } from "@/lib/status";
 import type { CelulasMap } from "@/lib/celulas";
 import {
@@ -13,12 +13,13 @@ import {
 } from "@/lib/analytics";
 import { exportarExcel } from "@/lib/exportarExcel";
 import { upsertCelula } from "@/actions/notas";
-import { addAluno, deleteAluno } from "@/actions/alunos";
+import { addAluno, deleteAluno, transferirAluno } from "@/actions/alunos";
 import { CelulaNota } from "./CelulaNota";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { GestaoColunasModal } from "./GestaoColunasModal";
 import { EstatisticaColunaModal } from "./EstatisticaColunaModal";
+import { TransferirAlunoModal } from "./TransferirAlunoModal";
 import { AlunoDashboardDrawer } from "@/components/aluno/AlunoDashboardDrawer";
 
 type PlanilhaGridProps = {
@@ -29,6 +30,7 @@ type PlanilhaGridProps = {
   colunas: AtividadeColuna[];
   alunos: Aluno[];
   celulas: CelulasMap;
+  todasTurmas: Turma[];
   onColunasChange: (colunas: AtividadeColuna[]) => void;
   onAlunosChange: (alunos: Aluno[]) => void;
   onCelulasChange: (updater: (prev: CelulasMap) => CelulasMap) => void;
@@ -44,6 +46,7 @@ export function PlanilhaGrid({
   colunas,
   alunos,
   celulas,
+  todasTurmas,
   onColunasChange,
   onAlunosChange,
   onCelulasChange,
@@ -65,6 +68,7 @@ export function PlanilhaGrid({
   const [gestaoColunasAberto, setGestaoColunasAberto] = useState(false);
   const [drawerAlunoId, setDrawerAlunoId] = useState<string | null>(null);
   const [colunaEstatistica, setColunaEstatistica] = useState<AtividadeColuna | null>(null);
+  const [transferindo, setTransferindo] = useState<{ id: string; nome: string } | null>(null);
 
   const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -218,6 +222,18 @@ export function PlanilhaGrid({
     } catch {
       setErro("Não foi possível excluir o aluno. Tente novamente.");
     }
+  }
+
+  async function handleTransferir(turmaDestinoId: string) {
+    if (!transferindo) return;
+    const { id } = transferindo;
+    await transferirAluno(id, turmaDestinoId);
+    onAlunosChange(alunos.filter((a) => a.id !== id));
+    onCelulasChange((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
 
   async function handleExportar() {
@@ -385,15 +401,24 @@ export function PlanilhaGrid({
                       : "—"}
                   </td>
                   <td className="border border-neutral-200 text-center dark:border-neutral-800">
-                    <button
-                      onClick={() =>
-                        setConfirmDelete({ id: aluno.id, nome: aluno.nome })
-                      }
-                      className="p-1.5 text-neutral-400 hover:text-rose-600"
-                      title="Excluir aluno"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={() => setTransferindo({ id: aluno.id, nome: aluno.nome })}
+                        className="p-1.5 text-neutral-400 hover:text-blue-600"
+                        title="Transferir pra outra turma"
+                      >
+                        <ArrowRightLeft size={15} />
+                      </button>
+                      <button
+                        onClick={() =>
+                          setConfirmDelete({ id: aluno.id, nome: aluno.nome })
+                        }
+                        className="p-1.5 text-neutral-400 hover:text-rose-600"
+                        title="Excluir aluno"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -450,6 +475,14 @@ export function PlanilhaGrid({
         alunos={alunos}
         celulas={celulas}
         onClose={() => setColunaEstatistica(null)}
+      />
+
+      <TransferirAlunoModal
+        aluno={transferindo}
+        turmaAtualId={turmaId}
+        turmasDisponiveis={todasTurmas}
+        onClose={() => setTransferindo(null)}
+        onConfirmar={handleTransferir}
       />
     </div>
   );
