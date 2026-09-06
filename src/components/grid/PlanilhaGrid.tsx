@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft, Pencil, CalendarDays } from "lucide-react";
+import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft, Pencil, CalendarDays, GripVertical, ArrowDownAZ } from "lucide-react";
 import type { Aluno, AtividadeColuna, TipoColuna, Turma } from "@/lib/types";
 import { parseEntradaCelula, type ValorCelula } from "@/lib/status";
 import type { CelulasMap } from "@/lib/celulas";
@@ -13,7 +13,13 @@ import {
 } from "@/lib/analytics";
 import { exportarExcel } from "@/lib/exportarExcel";
 import { upsertCelula } from "@/actions/notas";
-import { addAluno, deleteAluno, renomearAluno, transferirAluno } from "@/actions/alunos";
+import {
+  addAluno,
+  deleteAluno,
+  renomearAluno,
+  reordenarAlunos,
+  transferirAluno,
+} from "@/actions/alunos";
 import { CelulaNota } from "./CelulaNota";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -73,6 +79,10 @@ export function PlanilhaGrid({
   const [colunaEstatistica, setColunaEstatistica] = useState<AtividadeColuna | null>(null);
   const [transferindo, setTransferindo] = useState<{ id: string; nome: string } | null>(null);
   const [editandoNome, setEditandoNome] = useState<{ id: string; valor: string } | null>(null);
+  const [arrastando, setArrastando] = useState<number | null>(null);
+  const [linhaAlvo, setLinhaAlvo] = useState<number | null>(null);
+  const [podeArrastar, setPodeArrastar] = useState(false);
+  const [reordenando, setReordenando] = useState(false);
 
   const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -228,6 +238,48 @@ export function PlanilhaGrid({
     }
   }
 
+  /** Salva a lista na ordem recebida, renumerando a chamada (1 = primeiro da lista). */
+  async function aplicarNovaOrdem(lista: Aluno[]) {
+    const anterior = alunos;
+    const comOrdem = lista.map((a, i) => ({ ...a, ordem: i, numero: i + 1 }));
+
+    setActive(null);
+    setEditing(false);
+    onAlunosChange(comOrdem);
+    setReordenando(true);
+    try {
+      await reordenarAlunos(
+        comOrdem.map((a) => ({ id: a.id, ordem: a.ordem, numero: a.numero }))
+      );
+    } catch {
+      onAlunosChange(anterior);
+      setErro("Não foi possível salvar a nova ordem. Tente novamente.");
+    } finally {
+      setReordenando(false);
+    }
+  }
+
+  function ordenarAlfabeticamente() {
+    const ordenados = [...alunos].sort((a, b) =>
+      a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })
+    );
+    if (ordenados.every((a, i) => a.id === alunos[i].id)) return;
+    aplicarNovaOrdem(ordenados);
+  }
+
+  function soltarLinha(destino: number) {
+    const origem = arrastando;
+    setArrastando(null);
+    setLinhaAlvo(null);
+    setPodeArrastar(false);
+    if (origem === null || origem === destino) return;
+
+    const lista = [...alunos];
+    const [movido] = lista.splice(origem, 1);
+    lista.splice(destino, 0, movido);
+    aplicarNovaOrdem(lista);
+  }
+
   async function salvarNome() {
     if (!editandoNome) return;
     const { id, valor } = editandoNome;
@@ -301,6 +353,15 @@ export function PlanilhaGrid({
 
       <div className="flex items-center justify-end gap-2">
         <button
+          onClick={ordenarAlfabeticamente}
+          disabled={reordenando || alunos.length < 2}
+          className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 hover:shadow disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          title="Coloca a turma em ordem alfabética e renumera a chamada"
+        >
+          <ArrowDownAZ size={16} />
+          {reordenando ? "Ordenando..." : "Ordenar A–Z"}
+        </button>
+        <button
           onClick={onToggleMaximizar}
           className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 hover:shadow dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
         >
@@ -328,10 +389,10 @@ export function PlanilhaGrid({
         <table className="w-full table-fixed border-collapse">
           <thead className="sticky top-0 z-10">
             <tr className="bg-slate-50 dark:bg-neutral-900">
-              <th className="sticky top-0 left-0 z-20 w-12 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+              <th className="sticky top-0 left-0 z-20 w-16 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                 Nº
               </th>
-              <th className="sticky top-0 left-12 z-20 w-48 border border-neutral-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+              <th className="sticky top-0 left-16 z-20 w-48 border border-neutral-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                 Nome do Aluno
               </th>
               {colunas.map((c) => {
@@ -381,14 +442,46 @@ export function PlanilhaGrid({
               const zebra = row % 2 === 1;
               const bgLinha = zebra ? "bg-neutral-50" : "bg-white";
               return (
-                <tr key={aluno.id} className={zebra ? "bg-neutral-50" : "bg-white"}>
+                <tr
+                  key={aluno.id}
+                  draggable={podeArrastar}
+                  onDragStart={() => setArrastando(row)}
+                  onDragOver={(e) => {
+                    if (arrastando === null) return;
+                    e.preventDefault();
+                    setLinhaAlvo(row);
+                  }}
+                  onDrop={() => soltarLinha(row)}
+                  onDragEnd={() => {
+                    setArrastando(null);
+                    setLinhaAlvo(null);
+                    setPodeArrastar(false);
+                  }}
+                  className={`group ${zebra ? "bg-neutral-50" : "bg-white"} ${
+                    arrastando === row ? "opacity-40" : ""
+                  } ${
+                    linhaAlvo === row && arrastando !== row
+                      ? "outline-2 -outline-offset-2 outline-blue-500"
+                      : ""
+                  }`}
+                >
                   <td
-                    className={`sticky left-0 z-[5] border border-neutral-200 ${bgLinha} px-2 py-1.5 text-center text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950`}
+                    className={`sticky left-0 z-[5] border border-neutral-200 ${bgLinha} px-1 py-1.5 text-center text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950`}
                   >
-                    {aluno.numero ?? row + 1}
+                    <span className="flex items-center justify-center gap-0.5">
+                      <span
+                        onMouseDown={() => setPodeArrastar(true)}
+                        onMouseUp={() => setPodeArrastar(false)}
+                        className="cursor-grab text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing dark:text-neutral-600"
+                        title="Arraste pra mudar a ordem"
+                      >
+                        <GripVertical size={13} />
+                      </span>
+                      {aluno.numero ?? row + 1}
+                    </span>
                   </td>
                   <td
-                    className={`sticky left-12 z-[5] border border-neutral-200 ${bgLinha} px-3 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-950`}
+                    className={`sticky left-16 z-[5] border border-neutral-200 ${bgLinha} px-3 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-950`}
                   >
                     {editandoNome?.id === aluno.id ? (
                       <input

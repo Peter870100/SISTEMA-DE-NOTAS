@@ -134,6 +134,23 @@ export async function deleteAluno(alunoId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Grava a nova ordem da turma (arrastar uma linha ou ordenar A–Z). O `numero` de
+ * chamada acompanha a posição, que é como a escola numera: 1 é o primeiro da lista.
+ * Vai em paralelo porque uma turma passa fácil de 40 alunos.
+ */
+export async function reordenarAlunos(
+  ordens: { id: string; ordem: number; numero: number }[]
+): Promise<void> {
+  const resultados = await Promise.all(
+    ordens.map(({ id, ordem, numero }) =>
+      supabase.from("alunos").update({ ordem, numero }).eq("id", id)
+    )
+  );
+  const falha = resultados.find((r) => r.error);
+  if (falha?.error) throw new Error(falha.error.message);
+}
+
 /** Renomeia o aluno e marca quando foi editado, pra planilha mostrar o selo "editado". */
 export async function renomearAluno(alunoId: string, nome: string): Promise<Aluno> {
   const nomeLimpo = nome.trim();
