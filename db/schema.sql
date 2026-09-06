@@ -20,6 +20,8 @@ create table alunos (
     numero int,
     nome varchar(255) not null,
     ordem int not null default 0,
+    nome_editado_em timestamptz,          -- preenchido quando o professor renomeia o aluno (marca "editado" na planilha)
+    transferido_em timestamptz,           -- preenchido quando o aluno vem de outra turma
     created_at timestamptz not null default now()
 );
 create index idx_alunos_turma on alunos(turma_id);

@@ -103,7 +103,11 @@ export async function transferirAluno(alunoId: string, turmaDestinoId: string): 
 
   const { error: erroMove } = await supabase
     .from("alunos")
-    .update({ turma_id: turmaDestinoId, ordem: count ?? 0 })
+    .update({
+      turma_id: turmaDestinoId,
+      ordem: count ?? 0,
+      transferido_em: new Date().toISOString(),
+    })
     .eq("id", alunoId);
   if (erroMove) throw new Error(erroMove.message);
 }
@@ -128,4 +132,19 @@ export async function addAluno(
 export async function deleteAluno(alunoId: string): Promise<void> {
   const { error } = await supabase.from("alunos").delete().eq("id", alunoId);
   if (error) throw new Error(error.message);
+}
+
+/** Renomeia o aluno e marca quando foi editado, pra planilha mostrar o selo "editado". */
+export async function renomearAluno(alunoId: string, nome: string): Promise<Aluno> {
+  const nomeLimpo = nome.trim();
+  if (!nomeLimpo) throw new Error("Nome do aluno não pode ser vazio");
+
+  const { data, error } = await supabase
+    .from("alunos")
+    .update({ nome: nomeLimpo, nome_editado_em: new Date().toISOString() })
+    .eq("id", alunoId)
+    .select()
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Falha ao renomear aluno");
+  return data;
 }

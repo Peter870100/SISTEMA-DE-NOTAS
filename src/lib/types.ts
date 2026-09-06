@@ -12,6 +12,8 @@ export type Aluno = {
   numero: number | null;
   nome: string;
   ordem: number;
+  nome_editado_em: string | null;
+  transferido_em: string | null;
   created_at: string;
 };
 

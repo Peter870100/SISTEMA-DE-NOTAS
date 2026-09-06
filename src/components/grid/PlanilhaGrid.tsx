@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft } from "lucide-react";
+import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft, Pencil } from "lucide-react";
 import type { Aluno, AtividadeColuna, TipoColuna, Turma } from "@/lib/types";
 import { parseEntradaCelula, type ValorCelula } from "@/lib/status";
 import type { CelulasMap } from "@/lib/celulas";
@@ -13,7 +13,7 @@ import {
 } from "@/lib/analytics";
 import { exportarExcel } from "@/lib/exportarExcel";
 import { upsertCelula } from "@/actions/notas";
-import { addAluno, deleteAluno, transferirAluno } from "@/actions/alunos";
+import { addAluno, deleteAluno, renomearAluno, transferirAluno } from "@/actions/alunos";
 import { CelulaNota } from "./CelulaNota";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -69,6 +69,7 @@ export function PlanilhaGrid({
   const [drawerAlunoId, setDrawerAlunoId] = useState<string | null>(null);
   const [colunaEstatistica, setColunaEstatistica] = useState<AtividadeColuna | null>(null);
   const [transferindo, setTransferindo] = useState<{ id: string; nome: string } | null>(null);
+  const [editandoNome, setEditandoNome] = useState<{ id: string; valor: string } | null>(null);
 
   const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -224,6 +225,25 @@ export function PlanilhaGrid({
     }
   }
 
+  async function salvarNome() {
+    if (!editandoNome) return;
+    const { id, valor } = editandoNome;
+    const alunoAtual = alunos.find((a) => a.id === id);
+    setEditandoNome(null);
+
+    const nome = valor.trim();
+    if (!alunoAtual || !nome || nome === alunoAtual.nome) return;
+
+    onAlunosChange(alunos.map((a) => (a.id === id ? { ...a, nome } : a)));
+    try {
+      const atualizado = await renomearAluno(id, nome);
+      onAlunosChange(alunos.map((a) => (a.id === id ? atualizado : a)));
+    } catch {
+      onAlunosChange(alunos.map((a) => (a.id === id ? alunoAtual : a)));
+      setErro("Não foi possível renomear o aluno. Tente novamente.");
+    }
+  }
+
   async function handleTransferir(turmaDestinoId: string) {
     if (!transferindo) return;
     const { id } = transferindo;
@@ -328,7 +348,7 @@ export function PlanilhaGrid({
               <th className="sticky top-0 w-20 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                 {tipoColuna === "presenca" ? "Frequência" : "Média"}
               </th>
-              <th className="sticky top-0 w-10 border border-neutral-200 bg-slate-50 dark:border-neutral-800 dark:bg-neutral-900" />
+              <th className="sticky top-0 w-24 border border-neutral-200 bg-slate-50 dark:border-neutral-800 dark:bg-neutral-900" />
             </tr>
           </thead>
           <tbody>
@@ -353,14 +373,66 @@ export function PlanilhaGrid({
                   <td
                     className={`sticky left-12 z-[5] border border-neutral-200 ${bgLinha} px-3 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-950`}
                   >
-                    <button
-                      onClick={() => setDrawerAlunoId(aluno.id)}
-                      className="flex items-center gap-2 text-left font-medium text-neutral-800 hover:text-blue-700 dark:text-neutral-200"
-                      title="Ver rendimento do aluno"
-                    >
-                      <Avatar nome={aluno.nome} />
-                      <span className="hover:underline">{aluno.nome}</span>
-                    </button>
+                    {editandoNome?.id === aluno.id ? (
+                      <input
+                        autoFocus
+                        value={editandoNome.valor}
+                        onChange={(e) =>
+                          setEditandoNome({ id: aluno.id, valor: e.target.value })
+                        }
+                        onBlur={salvarNome}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            salvarNome();
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            setEditandoNome(null);
+                          }
+                        }}
+                        className="w-full rounded border border-blue-500 bg-white px-1.5 py-0.5 text-sm outline-none dark:bg-neutral-900"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => setDrawerAlunoId(aluno.id)}
+                        className="flex w-full items-center gap-2 text-left font-medium text-neutral-800 hover:text-blue-700 dark:text-neutral-200"
+                        title="Ver rendimento do aluno"
+                      >
+                        <Avatar nome={aluno.nome} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate hover:underline">
+                            {aluno.nome}
+                          </span>
+                          {(aluno.nome_editado_em || aluno.transferido_em) && (
+                            <span className="block text-[10px] font-normal leading-tight text-neutral-400 dark:text-neutral-500">
+                              {aluno.nome_editado_em && (
+                                <span
+                                  title={`Nome editado em ${new Date(
+                                    aluno.nome_editado_em
+                                  ).toLocaleString("pt-BR")}`}
+                                >
+                                  editado
+                                </span>
+                              )}
+                              {aluno.nome_editado_em && aluno.transferido_em && " · "}
+                              {aluno.transferido_em && (
+                                <span
+                                  title={`Transferido pra esta turma em ${new Date(
+                                    aluno.transferido_em
+                                  ).toLocaleString("pt-BR")}`}
+                                >
+                                  transf.{" "}
+                                  {new Date(aluno.transferido_em).toLocaleDateString(
+                                    "pt-BR",
+                                    { day: "2-digit", month: "2-digit", year: "2-digit" }
+                                  )}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    )}
                   </td>
                   {colunas.map((coluna, col) => (
                     <td key={coluna.id} className="p-0">
@@ -402,6 +474,15 @@ export function PlanilhaGrid({
                   </td>
                   <td className="border border-neutral-200 text-center dark:border-neutral-800">
                     <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={() =>
+                          setEditandoNome({ id: aluno.id, valor: aluno.nome })
+                        }
+                        className="p-1.5 text-neutral-400 hover:text-blue-600"
+                        title="Editar nome"
+                      >
+                        <Pencil size={15} />
+                      </button>
                       <button
                         onClick={() => setTransferindo({ id: aluno.id, nome: aluno.nome })}
                         className="p-1.5 text-neutral-400 hover:text-blue-600"
