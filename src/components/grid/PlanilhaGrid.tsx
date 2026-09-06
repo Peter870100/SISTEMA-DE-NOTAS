@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft, Pencil } from "lucide-react";
+import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft, Pencil, CalendarDays } from "lucide-react";
 import type { Aluno, AtividadeColuna, TipoColuna, Turma } from "@/lib/types";
 import { parseEntradaCelula, type ValorCelula } from "@/lib/status";
 import type { CelulasMap } from "@/lib/celulas";
@@ -21,6 +21,9 @@ import { GestaoColunasModal } from "./GestaoColunasModal";
 import { EstatisticaColunaModal } from "./EstatisticaColunaModal";
 import { TransferirAlunoModal } from "./TransferirAlunoModal";
 import { AlunoDashboardDrawer } from "@/components/aluno/AlunoDashboardDrawer";
+
+/** Título que é só uma data ("03/08", "21-05", "14/08/26") — a coluna ganha destaque de chamada. */
+const RE_TITULO_DATA = /^\d{1,2}[/\-.]\d{1,2}([/\-.]\d{2,4})?$/;
 
 type PlanilhaGridProps = {
   turmaId: string;
@@ -331,20 +334,34 @@ export function PlanilhaGrid({
               <th className="sticky top-0 left-12 z-20 w-48 border border-neutral-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                 Nome do Aluno
               </th>
-              {colunas.map((c) => (
-                <th
-                  key={c.id}
-                  className="sticky top-0 w-32 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
-                >
-                  <button
-                    onClick={() => setColunaEstatistica(c)}
-                    className="hover:text-blue-700 hover:underline"
-                    title={tipoColuna === "presenca" ? "Chamada — ver estatística" : "Ver estatística desta atividade"}
+              {colunas.map((c) => {
+                const ehData = RE_TITULO_DATA.test(c.titulo.trim());
+                return (
+                  <th
+                    key={c.id}
+                    className="sticky top-0 w-32 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
                   >
-                    {c.titulo}
-                  </button>
-                </th>
-              ))}
+                    <button
+                      onClick={() => setColunaEstatistica(c)}
+                      className={`inline-flex max-w-full items-center justify-center gap-1 rounded-md px-2 py-1 transition-all active:scale-95 ${
+                        ehData
+                          ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:shadow-sm dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-900/60"
+                          : "hover:bg-blue-50 hover:text-blue-700 hover:shadow-sm dark:hover:bg-blue-950/50 dark:hover:text-blue-300"
+                      }`}
+                      title={
+                        ehData
+                          ? `${c.titulo} — ver estatística desta data`
+                          : tipoColuna === "presenca"
+                            ? "Chamada — ver estatística"
+                            : "Ver estatística desta atividade"
+                      }
+                    >
+                      {ehData && <CalendarDays size={12} className="shrink-0 opacity-70" />}
+                      <span className="truncate">{c.titulo}</span>
+                    </button>
+                  </th>
+                );
+              })}
               <th className="sticky top-0 w-20 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                 {tipoColuna === "presenca" ? "Frequência" : "Média"}
               </th>
@@ -404,9 +421,10 @@ export function PlanilhaGrid({
                             {aluno.nome}
                           </span>
                           {(aluno.nome_editado_em || aluno.transferido_em) && (
-                            <span className="block text-[10px] font-normal leading-tight text-neutral-400 dark:text-neutral-500">
+                            <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] font-normal leading-tight">
                               {aluno.nome_editado_em && (
                                 <span
+                                  className="rounded px-1 py-px text-neutral-500 ring-1 ring-neutral-200 dark:text-neutral-400 dark:ring-neutral-700"
                                   title={`Nome editado em ${new Date(
                                     aluno.nome_editado_em
                                   ).toLocaleString("pt-BR")}`}
@@ -414,14 +432,14 @@ export function PlanilhaGrid({
                                   editado
                                 </span>
                               )}
-                              {aluno.nome_editado_em && aluno.transferido_em && " · "}
                               {aluno.transferido_em && (
                                 <span
+                                  className="inline-flex items-center gap-0.5 rounded bg-amber-50 px-1 py-px text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
                                   title={`Transferido pra esta turma em ${new Date(
                                     aluno.transferido_em
                                   ).toLocaleString("pt-BR")}`}
                                 >
-                                  transf.{" "}
+                                  <ArrowRightLeft size={9} className="shrink-0" />
                                   {new Date(aluno.transferido_em).toLocaleDateString(
                                     "pt-BR",
                                     { day: "2-digit", month: "2-digit", year: "2-digit" }
@@ -478,14 +496,14 @@ export function PlanilhaGrid({
                         onClick={() =>
                           setEditandoNome({ id: aluno.id, valor: aluno.nome })
                         }
-                        className="p-1.5 text-neutral-400 hover:text-blue-600"
+                        className="rounded-md p-1.5 text-blue-500 transition-all hover:bg-blue-50 hover:text-blue-700 hover:shadow-sm active:scale-90 dark:text-blue-400 dark:hover:bg-blue-950/50"
                         title="Editar nome"
                       >
                         <Pencil size={15} />
                       </button>
                       <button
                         onClick={() => setTransferindo({ id: aluno.id, nome: aluno.nome })}
-                        className="p-1.5 text-neutral-400 hover:text-blue-600"
+                        className="rounded-md p-1.5 text-amber-500 transition-all hover:bg-amber-50 hover:text-amber-700 hover:shadow-sm active:scale-90 dark:text-amber-400 dark:hover:bg-amber-950/50"
                         title="Transferir pra outra turma"
                       >
                         <ArrowRightLeft size={15} />
@@ -494,7 +512,7 @@ export function PlanilhaGrid({
                         onClick={() =>
                           setConfirmDelete({ id: aluno.id, nome: aluno.nome })
                         }
-                        className="p-1.5 text-neutral-400 hover:text-rose-600"
+                        className="rounded-md p-1.5 text-rose-500 transition-all hover:bg-rose-50 hover:text-rose-700 hover:shadow-sm active:scale-90 dark:text-rose-400 dark:hover:bg-rose-950/50"
                         title="Excluir aluno"
                       >
                         <Trash2 size={15} />
