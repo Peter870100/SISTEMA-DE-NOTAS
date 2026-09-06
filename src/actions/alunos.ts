@@ -1,7 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
+import { exigirAcessoATurmaId, getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
 import type { Aluno } from "@/lib/types";
 
 /** Remove acentos e caixa pra comparar títulos de atividade entre turmas diferentes. */
@@ -120,6 +120,9 @@ export async function addAluno(
   const nomeLimpo = nome.trim();
   if (!nomeLimpo) throw new Error("Nome do aluno não pode ser vazio");
 
+  const professor = await getProfessorAtual();
+  await exigirAcessoATurmaId(professor, turmaId);
+
   const { data, error } = await supabase
     .from("alunos")
     .insert({ turma_id: turmaId, nome: nomeLimpo, ordem })
@@ -130,6 +133,17 @@ export async function addAluno(
 }
 
 export async function deleteAluno(alunoId: string): Promise<void> {
+  const professor = await getProfessorAtual();
+  if (professor) {
+    const { data: aluno } = await supabase
+      .from("alunos")
+      .select("turma_id")
+      .eq("id", alunoId)
+      .single();
+    if (!aluno) throw new Error("Aluno não encontrado.");
+    await exigirAcessoATurmaId(professor, aluno.turma_id);
+  }
+
   const { error } = await supabase.from("alunos").delete().eq("id", alunoId);
   if (error) throw new Error(error.message);
 }
@@ -140,8 +154,12 @@ export async function deleteAluno(alunoId: string): Promise<void> {
  * Vai em paralelo porque uma turma passa fácil de 40 alunos.
  */
 export async function reordenarAlunos(
+  turmaId: string,
   ordens: { id: string; ordem: number; numero: number }[]
 ): Promise<void> {
+  const professor = await getProfessorAtual();
+  await exigirAcessoATurmaId(professor, turmaId);
+
   const resultados = await Promise.all(
     ordens.map(({ id, ordem, numero }) =>
       supabase.from("alunos").update({ ordem, numero }).eq("id", id)
@@ -155,6 +173,17 @@ export async function reordenarAlunos(
 export async function renomearAluno(alunoId: string, nome: string): Promise<Aluno> {
   const nomeLimpo = nome.trim();
   if (!nomeLimpo) throw new Error("Nome do aluno não pode ser vazio");
+
+  const professor = await getProfessorAtual();
+  if (professor) {
+    const { data: aluno } = await supabase
+      .from("alunos")
+      .select("turma_id")
+      .eq("id", alunoId)
+      .single();
+    if (!aluno) throw new Error("Aluno não encontrado.");
+    await exigirAcessoATurmaId(professor, aluno.turma_id);
+  }
 
   const { data, error } = await supabase
     .from("alunos")

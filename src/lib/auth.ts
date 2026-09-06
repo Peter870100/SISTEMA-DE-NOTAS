@@ -86,3 +86,19 @@ export async function professorTemAcessoATurma(professor: Professor, turmaNome: 
   const liberadas = await turmasLiberadasPara(professor);
   return liberadas === null || liberadas.has(turmaNome);
 }
+
+/**
+ * Lança erro se houver um professor logado (requisição anônima direta passa —
+ * mesmo modelo permissivo de `upsertCelula`) e ele não tiver acesso à turma do id dado.
+ * Usar em toda Server Action que mexe em dado de uma turma específica.
+ */
+export async function exigirAcessoATurmaId(
+  professor: Professor | null,
+  turmaId: string
+): Promise<void> {
+  if (!professor) return;
+  const { data: turma } = await supabase.from("turmas").select("nome").eq("id", turmaId).single();
+  if (!turma || !(await professorTemAcessoATurma(professor, turma.nome))) {
+    throw new Error("Você não tem acesso a essa turma.");
+  }
+}

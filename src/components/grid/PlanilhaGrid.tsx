@@ -249,6 +249,7 @@ export function PlanilhaGrid({
     setReordenando(true);
     try {
       await reordenarAlunos(
+        turmaId,
         comOrdem.map((a) => ({ id: a.id, ordem: a.ordem, numero: a.numero }))
       );
     } catch {
