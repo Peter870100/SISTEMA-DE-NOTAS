@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft, Pencil, CalendarDays, GripVertical, ArrowDownAZ, Search, X, ListPlus } from "lucide-react";
+import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft, Pencil, CalendarDays, GripVertical, ArrowDownAZ, Search, X, ListPlus, Undo2 } from "lucide-react";
 import type { Aluno, AtividadeColuna, TipoColuna, Turma } from "@/lib/types";
 import { parseEntradaCelula, type ValorCelula } from "@/lib/status";
 import type { CelulasMap } from "@/lib/celulas";
@@ -19,6 +19,7 @@ import {
   deleteAluno,
   renomearAluno,
   reordenarAlunos,
+  restaurarAlunoExcluido,
   transferirAluno,
 } from "@/actions/alunos";
 import { CelulaNota } from "./CelulaNota";
@@ -96,6 +97,46 @@ export function PlanilhaGrid({
   const [modoVarios, setModoVarios] = useState(false);
   const [textoVarios, setTextoVarios] = useState("");
   const [salvandoVarios, setSalvandoVarios] = useState(false);
+  const [ultimaAcao, setUltimaAcao] = useState<{
+    label: string;
+    desfazer: () => Promise<void>;
+  } | null>(null);
+  const [desfazendo, setDesfazendo] = useState(false);
+
+  const alunosRef = useRef(alunos);
+  useEffect(() => {
+    alunosRef.current = alunos;
+  }, [alunos]);
+
+  function registrarUndo(label: string, desfazer: () => Promise<void>) {
+    setUltimaAcao({ label, desfazer });
+  }
+
+  async function desfazerUltimaAcao() {
+    if (!ultimaAcao || desfazendo) return;
+    setDesfazendo(true);
+    try {
+      await ultimaAcao.desfazer();
+      setUltimaAcao(null);
+    } catch {
+      setErro("Não foi possível desfazer. Tente novamente.");
+    } finally {
+      setDesfazendo(false);
+    }
+  }
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!ultimaAcao || desfazendo) return;
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.key.toLowerCase() !== "z") return;
+      const tag = (document.activeElement?.tagName ?? "").toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+      e.preventDefault();
+      desfazerUltimaAcao();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [ultimaAcao, desfazendo]);
 
   const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -227,6 +268,10 @@ export function PlanilhaGrid({
       const aluno = await addAluno(turmaId, nome, alunos.length);
       onAlunosChange([...alunos, aluno]);
       setNovoAlunoNome("");
+      registrarUndo(`"${aluno.nome}" adicionado`, async () => {
+        await deleteAluno(aluno.id);
+        onAlunosChange(alunosRef.current.filter((a) => a.id !== aluno.id));
+      });
     } catch {
       setErro("Não foi possível adicionar o aluno. Tente novamente.");
     } finally {
@@ -247,6 +292,14 @@ export function PlanilhaGrid({
       onAlunosChange([...alunos, ...novos]);
       setTextoVarios("");
       setModoVarios(false);
+      const idsNovos = new Set(novos.map((n) => n.id));
+      registrarUndo(
+        `${novos.length} ${novos.length === 1 ? "aluno adicionado" : "alunos adicionados"}`,
+        async () => {
+          await Promise.all(novos.map((n) => deleteAluno(n.id)));
+          onAlunosChange(alunosRef.current.filter((a) => !idsNovos.has(a.id)));
+        }
+      );
     } catch {
       setErro("Não foi possível adicionar os alunos. Tente novamente.");
     } finally {
@@ -257,6 +310,8 @@ export function PlanilhaGrid({
   async function handleConfirmDelete() {
     if (!confirmDelete) return;
     const { id } = confirmDelete;
+    const alunoRemovido = alunos.find((a) => a.id === id);
+    const celulasRemovidas = celulas[id] ?? {};
     setConfirmDelete(null);
     try {
       await deleteAluno(id);
@@ -266,13 +321,25 @@ export function PlanilhaGrid({
         delete next[id];
         return next;
       });
+      if (alunoRemovido) {
+        registrarUndo(`"${alunoRemovido.nome}" excluído`, async () => {
+          const restaurado = await restaurarAlunoExcluido(
+            alunoRemovido,
+            Object.entries(celulasRemovidas).map(([colunaId, valor]) => ({ colunaId, valor }))
+          );
+          onAlunosChange(
+            [...alunosRef.current, restaurado].sort((a, b) => a.ordem - b.ordem)
+          );
+          onCelulasChange((prev) => ({ ...prev, [restaurado.id]: celulasRemovidas }));
+        });
+      }
     } catch {
       setErro("Não foi possível excluir o aluno. Tente novamente.");
     }
   }
 
   /** Salva a lista na ordem recebida, renumerando a chamada (1 = primeiro da lista). */
-  async function aplicarNovaOrdem(lista: Aluno[]) {
+  async function aplicarNovaOrdem(lista: Aluno[], label: string) {
     const anterior = alunos;
     const comOrdem = lista.map((a, i) => ({ ...a, ordem: i, numero: i + 1 }));
 
@@ -285,6 +352,13 @@ export function PlanilhaGrid({
         turmaId,
         comOrdem.map((a) => ({ id: a.id, ordem: a.ordem, numero: a.numero }))
       );
+      registrarUndo(label, async () => {
+        onAlunosChange(anterior);
+        await reordenarAlunos(
+          turmaId,
+          anterior.map((a) => ({ id: a.id, ordem: a.ordem, numero: a.numero }))
+        );
+      });
     } catch {
       onAlunosChange(anterior);
       setErro("Não foi possível salvar a nova ordem. Tente novamente.");
@@ -298,7 +372,7 @@ export function PlanilhaGrid({
       a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })
     );
     if (ordenados.every((a, i) => a.id === alunos[i].id)) return;
-    aplicarNovaOrdem(ordenados);
+    aplicarNovaOrdem(ordenados, "Turma ordenada A–Z");
   }
 
   function soltarLinha(destino: number) {
@@ -311,7 +385,7 @@ export function PlanilhaGrid({
     const lista = [...alunos];
     const [movido] = lista.splice(origem, 1);
     lista.splice(destino, 0, movido);
-    aplicarNovaOrdem(lista);
+    aplicarNovaOrdem(lista, `"${movido.nome}" reordenado`);
   }
 
   async function salvarNome() {
@@ -327,6 +401,12 @@ export function PlanilhaGrid({
     try {
       const atualizado = await renomearAluno(id, nome);
       onAlunosChange(alunos.map((a) => (a.id === id ? atualizado : a)));
+      registrarUndo(`Nome de "${alunoAtual.nome}" alterado`, async () => {
+        const restaurado = await renomearAluno(id, alunoAtual.nome, {
+          nomeEditadoEm: alunoAtual.nome_editado_em,
+        });
+        onAlunosChange(alunosRef.current.map((a) => (a.id === id ? restaurado : a)));
+      });
     } catch {
       onAlunosChange(alunos.map((a) => (a.id === id ? alunoAtual : a)));
       setErro("Não foi possível renomear o aluno. Tente novamente.");
@@ -387,6 +467,29 @@ export function PlanilhaGrid({
           <button onClick={() => setErro(null)} className="font-medium underline">
             fechar
           </button>
+        </div>
+      )}
+
+      {ultimaAcao && (
+        <div className="flex items-center justify-between rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+          <span>{ultimaAcao.label}</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={desfazerUltimaAcao}
+              disabled={desfazendo}
+              className="flex items-center gap-1 font-medium underline disabled:opacity-50"
+            >
+              <Undo2 size={13} />
+              {desfazendo ? "Desfazendo..." : "Desfazer (Ctrl+Z)"}
+            </button>
+            <button
+              onClick={() => setUltimaAcao(null)}
+              className="text-blue-400 hover:text-blue-700 dark:hover:text-blue-200"
+              title="Dispensar"
+            >
+              <X size={14} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -768,7 +871,7 @@ export function PlanilhaGrid({
       <ConfirmDialog
         open={confirmDelete !== null}
         title="Excluir aluno"
-        message={`Tem certeza que deseja excluir "${confirmDelete?.nome}"? Todas as notas dele serão apagadas. Essa ação não pode ser desfeita.`}
+        message={`Tem certeza que deseja excluir "${confirmDelete?.nome}"? Todas as notas dele vão junto. Dá pra desfazer com Ctrl+Z logo em seguida — mas não depois de sair ou recarregar a página.`}
         confirmLabel="Excluir"
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmDelete(null)}

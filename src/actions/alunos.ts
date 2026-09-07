@@ -3,6 +3,7 @@
 import { supabase } from "@/lib/supabase/client";
 import { exigirAcessoATurmaId, getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
 import type { Aluno } from "@/lib/types";
+import type { ValorCelula } from "@/lib/status";
 
 /** Remove acentos e caixa pra comparar títulos de atividade entre turmas diferentes. */
 function normalizar(s: string): string {
@@ -169,13 +170,54 @@ export async function deleteAluno(alunoId: string): Promise<void> {
 }
 
 /**
+ * Desfaz uma exclusão: recria o aluno com o mesmo id e devolve as notas que ele tinha,
+ * pra Ctrl+Z logo após excluir não perder nada. Só funciona enquanto a tela não foi
+ * recarregada — a lista de notas vem da memória do navegador, não de um backup no banco.
+ */
+export async function restaurarAlunoExcluido(
+  aluno: Aluno,
+  celulas: { colunaId: string; valor: ValorCelula }[]
+): Promise<Aluno> {
+  const professor = await getProfessorAtual();
+  await exigirAcessoATurmaId(professor, aluno.turma_id);
+
+  const { data, error } = await supabase
+    .from("alunos")
+    .insert({
+      turma_id: aluno.turma_id,
+      numero: aluno.numero,
+      nome: aluno.nome,
+      ordem: aluno.ordem,
+      nome_editado_em: aluno.nome_editado_em,
+      transferido_em: aluno.transferido_em,
+    })
+    .select()
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Falha ao restaurar aluno");
+
+  if (celulas.length > 0) {
+    const { error: erroNotas } = await supabase.from("notas_celulas").insert(
+      celulas.map(({ colunaId, valor }) => ({
+        aluno_id: data.id,
+        coluna_id: colunaId,
+        valor: valor.valor,
+        status_texto: valor.status_texto,
+      }))
+    );
+    if (erroNotas) throw new Error(erroNotas.message);
+  }
+
+  return data;
+}
+
+/**
  * Grava a nova ordem da turma (arrastar uma linha ou ordenar A–Z). O `numero` de
  * chamada acompanha a posição, que é como a escola numera: 1 é o primeiro da lista.
  * Vai em paralelo porque uma turma passa fácil de 40 alunos.
  */
 export async function reordenarAlunos(
   turmaId: string,
-  ordens: { id: string; ordem: number; numero: number }[]
+  ordens: { id: string; ordem: number; numero: number | null }[]
 ): Promise<void> {
   const professor = await getProfessorAtual();
   await exigirAcessoATurmaId(professor, turmaId);
@@ -189,8 +231,16 @@ export async function reordenarAlunos(
   if (falha?.error) throw new Error(falha.error.message);
 }
 
-/** Renomeia o aluno e marca quando foi editado, pra planilha mostrar o selo "editado". */
-export async function renomearAluno(alunoId: string, nome: string): Promise<Aluno> {
+/**
+ * Renomeia o aluno e marca quando foi editado, pra planilha mostrar o selo "editado".
+ * `nomeEditadoEm` deixa passar por cima da data automática — usado só pelo Ctrl+Z, que
+ * restaura o valor de antes (ou limpa, se essa era a primeira edição) em vez de gravar "agora".
+ */
+export async function renomearAluno(
+  alunoId: string,
+  nome: string,
+  opts?: { nomeEditadoEm?: string | null }
+): Promise<Aluno> {
   const nomeLimpo = nome.trim();
   if (!nomeLimpo) throw new Error("Nome do aluno não pode ser vazio");
 
@@ -205,9 +255,11 @@ export async function renomearAluno(alunoId: string, nome: string): Promise<Alun
     await exigirAcessoATurmaId(professor, aluno.turma_id);
   }
 
+  const nome_editado_em = opts?.nomeEditadoEm !== undefined ? opts.nomeEditadoEm : new Date().toISOString();
+
   const { data, error } = await supabase
     .from("alunos")
-    .update({ nome: nomeLimpo, nome_editado_em: new Date().toISOString() })
+    .update({ nome: nomeLimpo, nome_editado_em })
     .eq("id", alunoId)
     .select()
     .single();
