@@ -132,6 +132,26 @@ export async function addAluno(
   return data;
 }
 
+/** Adiciona vários alunos de uma vez (um nome por linha, colados na tela). */
+export async function adicionarAlunos(
+  turmaId: string,
+  nomes: string[],
+  ordemInicial: number
+): Promise<Aluno[]> {
+  const limpos = nomes.map((n) => n.trim()).filter(Boolean);
+  if (limpos.length === 0) throw new Error("Nenhum nome informado.");
+
+  const professor = await getProfessorAtual();
+  await exigirAcessoATurmaId(professor, turmaId);
+
+  const { data, error } = await supabase
+    .from("alunos")
+    .insert(limpos.map((nome, i) => ({ turma_id: turmaId, nome, ordem: ordemInicial + i })))
+    .select();
+  if (error || !data) throw new Error(error?.message ?? "Falha ao adicionar alunos");
+  return data;
+}
+
 export async function deleteAluno(alunoId: string): Promise<void> {
   const professor = await getProfessorAtual();
   if (professor) {

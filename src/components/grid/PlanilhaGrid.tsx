@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft, Pencil, CalendarDays, GripVertical, ArrowDownAZ } from "lucide-react";
+import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft, Pencil, CalendarDays, GripVertical, ArrowDownAZ, Search, X, ListPlus } from "lucide-react";
 import type { Aluno, AtividadeColuna, TipoColuna, Turma } from "@/lib/types";
 import { parseEntradaCelula, type ValorCelula } from "@/lib/status";
 import type { CelulasMap } from "@/lib/celulas";
@@ -15,6 +15,7 @@ import { exportarExcel } from "@/lib/exportarExcel";
 import { upsertCelula } from "@/actions/notas";
 import {
   addAluno,
+  adicionarAlunos,
   deleteAluno,
   renomearAluno,
   reordenarAlunos,
@@ -30,6 +31,14 @@ import { AlunoDashboardDrawer } from "@/components/aluno/AlunoDashboardDrawer";
 
 /** Título que é só uma data ("03/08", "21-05", "14/08/26") — a coluna ganha destaque de chamada. */
 const RE_TITULO_DATA = /^\d{1,2}[/\-.]\d{1,2}([/\-.]\d{2,4})?$/;
+
+/** Remove acentos e caixa pra busca não se importar com "José" x "jose". */
+function normalizarBusca(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
 
 type PlanilhaGridProps = {
   turmaId: string;
@@ -83,6 +92,10 @@ export function PlanilhaGrid({
   const [linhaAlvo, setLinhaAlvo] = useState<number | null>(null);
   const [podeArrastar, setPodeArrastar] = useState(false);
   const [reordenando, setReordenando] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [modoVarios, setModoVarios] = useState(false);
+  const [textoVarios, setTextoVarios] = useState("");
+  const [salvandoVarios, setSalvandoVarios] = useState(false);
 
   const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -221,6 +234,26 @@ export function PlanilhaGrid({
     }
   }
 
+  const nomesVarios = textoVarios
+    .split("\n")
+    .map((n) => n.trim())
+    .filter(Boolean);
+
+  async function handleAddVarios() {
+    if (nomesVarios.length === 0 || salvandoVarios) return;
+    setSalvandoVarios(true);
+    try {
+      const novos = await adicionarAlunos(turmaId, nomesVarios, alunos.length);
+      onAlunosChange([...alunos, ...novos]);
+      setTextoVarios("");
+      setModoVarios(false);
+    } catch {
+      setErro("Não foi possível adicionar os alunos. Tente novamente.");
+    } finally {
+      setSalvandoVarios(false);
+    }
+  }
+
   async function handleConfirmDelete() {
     if (!confirmDelete) return;
     const { id } = confirmDelete;
@@ -332,6 +365,11 @@ export function PlanilhaGrid({
     }
   }
 
+  const buscaLimpa = busca.trim();
+  const alunosFiltrados = buscaLimpa
+    ? alunos.filter((a) => normalizarBusca(a.nome).includes(normalizarBusca(buscaLimpa)))
+    : alunos;
+
   const mediaTurma = (() => {
     const valores = Object.values(celulas)
       .flatMap((linha) => Object.values(linha))
@@ -352,7 +390,33 @@ export function PlanilhaGrid({
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="relative w-full max-w-56">
+          <Search
+            size={15}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400"
+          />
+          <input
+            value={busca}
+            onChange={(e) => {
+              setBusca(e.target.value);
+              setActive(null);
+              setEditing(false);
+            }}
+            placeholder="Buscar aluno..."
+            className="w-full rounded-md border border-neutral-300 py-1.5 pl-8 pr-7 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
+          />
+          {busca && (
+            <button
+              onClick={() => setBusca("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+              title="Limpar busca"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={ordenarAlfabeticamente}
           disabled={reordenando || alunos.length < 2}
@@ -384,6 +448,7 @@ export function PlanilhaGrid({
           <Settings2 size={16} />
           {tipoColuna === "presenca" ? "Gerenciar chamadas" : "Gerenciar atividades"}
         </button>
+        </div>
       </div>
 
       <div className="max-h-[65vh] overflow-auto rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800">
@@ -431,7 +496,18 @@ export function PlanilhaGrid({
             </tr>
           </thead>
           <tbody>
-            {alunos.map((aluno, row) => {
+            {alunosFiltrados.length === 0 && (
+              <tr>
+                <td
+                  colSpan={colunas.length + 4}
+                  className="px-3 py-6 text-center text-sm text-neutral-400 dark:text-neutral-500"
+                >
+                  Nenhum aluno encontrado pra &quot;{buscaLimpa}&quot;.
+                </td>
+              </tr>
+            )}
+            {alunosFiltrados.map((aluno, posicaoVisivel) => {
+              const row = alunos.indexOf(aluno);
               const media = calcularMediaAluno(celulas[aluno.id]);
               const media10 = media !== null ? paraEscala10(media) : null;
               const frequencia = frequenciaAluno(colunas, celulas[aluno.id]);
@@ -440,12 +516,12 @@ export function PlanilhaGrid({
                 tipoColuna === "presenca"
                   ? frequencia !== null && frequencia < 75
                   : media10 !== null && media10 < LIMIAR_CRITICO;
-              const zebra = row % 2 === 1;
+              const zebra = posicaoVisivel % 2 === 1;
               const bgLinha = zebra ? "bg-neutral-50" : "bg-white";
               return (
                 <tr
                   key={aluno.id}
-                  draggable={podeArrastar}
+                  draggable={podeArrastar && !buscaLimpa}
                   onDragStart={() => setArrastando(row)}
                   onDragOver={(e) => {
                     if (arrastando === null) return;
@@ -471,10 +547,18 @@ export function PlanilhaGrid({
                   >
                     <span className="flex items-center justify-center gap-0.5">
                       <span
-                        onMouseDown={() => setPodeArrastar(true)}
+                        onMouseDown={() => !buscaLimpa && setPodeArrastar(true)}
                         onMouseUp={() => setPodeArrastar(false)}
-                        className="cursor-grab text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing dark:text-neutral-600"
-                        title="Arraste pra mudar a ordem"
+                        className={`text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-neutral-600 ${
+                          buscaLimpa
+                            ? "cursor-not-allowed"
+                            : "cursor-grab active:cursor-grabbing"
+                        }`}
+                        title={
+                          buscaLimpa
+                            ? "Limpe a busca pra reordenar"
+                            : "Arraste pra mudar a ordem"
+                        }
                       >
                         <GripVertical size={13} />
                       </span>
@@ -620,22 +704,66 @@ export function PlanilhaGrid({
         </table>
       </div>
 
-      <form onSubmit={handleAddAluno} className="flex items-center gap-2">
-        <UserPlus size={16} className="text-neutral-400" />
-        <input
-          value={novoAlunoNome}
-          onChange={(e) => setNovoAlunoNome(e.target.value)}
-          placeholder="Nome do novo aluno"
-          className="w-64 rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
-        />
-        <button
-          type="submit"
-          disabled={salvandoAluno || !novoAlunoNome.trim()}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-600/30 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/40 disabled:opacity-50 disabled:shadow-none"
-        >
-          Adicionar aluno
-        </button>
-      </form>
+      {modoVarios ? (
+        <div className="flex flex-col gap-2 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+          <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+            Um nome por linha — cole a lista da chamada direto aqui
+          </label>
+          <textarea
+            autoFocus
+            value={textoVarios}
+            onChange={(e) => setTextoVarios(e.target.value)}
+            rows={6}
+            placeholder={"Ana Beatriz\nBruno Silva\nCarla Souza..."}
+            className="w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleAddVarios}
+              disabled={salvandoVarios || nomesVarios.length === 0}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-600/30 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/40 disabled:opacity-50 disabled:shadow-none"
+            >
+              {salvandoVarios
+                ? "Adicionando..."
+                : `Adicionar ${nomesVarios.length || ""} ${nomesVarios.length === 1 ? "aluno" : "alunos"}`}
+            </button>
+            <button
+              onClick={() => {
+                setModoVarios(false);
+                setTextoVarios("");
+              }}
+              className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleAddAluno} className="flex flex-wrap items-center gap-2">
+          <UserPlus size={16} className="text-neutral-400" />
+          <input
+            value={novoAlunoNome}
+            onChange={(e) => setNovoAlunoNome(e.target.value)}
+            placeholder="Nome do novo aluno"
+            className="w-64 rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
+          />
+          <button
+            type="submit"
+            disabled={salvandoAluno || !novoAlunoNome.trim()}
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-600/30 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/40 disabled:opacity-50 disabled:shadow-none"
+          >
+            Adicionar aluno
+          </button>
+          <button
+            type="button"
+            onClick={() => setModoVarios(true)}
+            className="flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-blue-700 dark:text-neutral-400 dark:hover:text-blue-400"
+          >
+            <ListPlus size={15} />
+            adicionar vários de uma vez
+          </button>
+        </form>
+      )}
 
       <ConfirmDialog
         open={confirmDelete !== null}
