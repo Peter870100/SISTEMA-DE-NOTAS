@@ -10,6 +10,7 @@ import {
   atualizarAcessoTurmas,
   atualizarTelefoneProfessor,
 } from "@/actions/professores";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const ONLINE_LIMITE_MS = 3 * 60 * 1000;
 
@@ -49,6 +50,7 @@ export function GerenciarProfessores({
   const [novaSenhaProvisoria, setNovaSenhaProvisoria] = useState("");
   const [definindoId, setDefinindoId] = useState<string | null>(null);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  const [confirmExcluir, setConfirmExcluir] = useState<Professor | null>(null);
 
   const [telefoneAbertoId, setTelefoneAbertoId] = useState<string | null>(null);
   const [telefoneEdit, setTelefoneEdit] = useState("");
@@ -119,9 +121,10 @@ export function GerenciarProfessores({
     }
   }
 
-  async function handleExcluir(p: Professor) {
-    if (excluindoId) return;
-    if (!window.confirm(`Excluir ${p.nome}? Essa ação não pode ser desfeita.`)) return;
+  async function handleExcluir() {
+    if (!confirmExcluir || excluindoId) return;
+    const p = confirmExcluir;
+    setConfirmExcluir(null);
     setExcluindoId(p.id);
     setErro(null);
     try {
@@ -450,7 +453,7 @@ export function GerenciarProfessores({
                       )}
                       <button
                         type="button"
-                        onClick={() => handleExcluir(p)}
+                        onClick={() => setConfirmExcluir(p)}
                         disabled={excluindoId === p.id}
                         className="flex items-center gap-1 text-xs font-medium text-rose-600 hover:underline disabled:opacity-50"
                       >
@@ -465,6 +468,15 @@ export function GerenciarProfessores({
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={confirmExcluir !== null}
+        title="Excluir professor"
+        message={`Tem certeza que deseja excluir "${confirmExcluir?.nome}"? Essa ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        onConfirm={handleExcluir}
+        onCancel={() => setConfirmExcluir(null)}
+      />
     </div>
   );
 }

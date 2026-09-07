@@ -16,16 +16,51 @@ export type HistoricoLinha = {
   atividade_titulo: string | null;
 };
 
-/** Últimas alterações de nota feitas por professores comuns (admin não entra aqui). */
-export async function listarHistorico(): Promise<HistoricoLinha[]> {
+export type HistoricoPagina = {
+  linhas: HistoricoLinha[];
+  proximoCursor: string | null;
+};
+
+export type HistoricoFiltro = {
+  turmaId?: string;
+  professorId?: string;
+  /** `created_at` da última linha da página anterior — busca só o que veio antes dela. */
+  cursor?: string;
+  limit?: number;
+};
+
+/**
+ * Alterações de nota feitas por professores comuns (admin não entra aqui), paginadas por
+ * `created_at` (mais recente primeiro) e opcionalmente filtradas por turma e/ou professor.
+ */
+export async function listarHistorico(filtro: HistoricoFiltro = {}): Promise<HistoricoPagina> {
   await exigirAdmin();
-  const { data: linhas, error } = await supabase
+  const limite = filtro.limit ?? 50;
+
+  let alunoIdsDaTurma: string[] | null = null;
+  if (filtro.turmaId) {
+    const { data } = await supabase.from("alunos").select("id").eq("turma_id", filtro.turmaId);
+    alunoIdsDaTurma = (data ?? []).map((a) => a.id);
+    if (alunoIdsDaTurma.length === 0) return { linhas: [], proximoCursor: null };
+  }
+
+  let query = supabase
     .from("notas_historico")
     .select("id, created_at, valor_anterior, status_anterior, valor_novo, status_novo, aluno_id, coluna_id, alterado_por")
     .order("created_at", { ascending: false })
-    .limit(300);
+    .limit(limite + 1);
+
+  if (filtro.cursor) query = query.lt("created_at", filtro.cursor);
+  if (filtro.professorId) query = query.eq("alterado_por", filtro.professorId);
+  if (alunoIdsDaTurma) query = query.in("aluno_id", alunoIdsDaTurma);
+
+  const { data: brutas, error } = await query;
   if (error) throw new Error(error.message);
-  if (!linhas || linhas.length === 0) return [];
+  if (!brutas || brutas.length === 0) return { linhas: [], proximoCursor: null };
+
+  const temMais = brutas.length > limite;
+  const linhas = temMais ? brutas.slice(0, limite) : brutas;
+  const proximoCursor = temMais ? linhas[linhas.length - 1].created_at : null;
 
   const alunoIds = [...new Set(linhas.map((l) => l.aluno_id))];
   const colunaIds = [...new Set(linhas.map((l) => l.coluna_id))];
@@ -49,19 +84,22 @@ export async function listarHistorico(): Promise<HistoricoLinha[]> {
   const tituloColunaPorId = new Map((colunas ?? []).map((c) => [c.id, c.titulo]));
   const nomeProfessorPorId = new Map((professores ?? []).map((p) => [p.id, p.nome]));
 
-  return linhas.map((l) => {
-    const aluno = alunoPorId.get(l.aluno_id);
-    return {
-      id: l.id,
-      created_at: l.created_at,
-      valor_anterior: l.valor_anterior,
-      status_anterior: l.status_anterior,
-      valor_novo: l.valor_novo,
-      status_novo: l.status_novo,
-      professor_nome: l.alterado_por ? (nomeProfessorPorId.get(l.alterado_por) ?? null) : null,
-      aluno_nome: aluno?.nome ?? null,
-      turma_nome: aluno ? (nomeTurmaPorId.get(aluno.turma_id) ?? null) : null,
-      atividade_titulo: tituloColunaPorId.get(l.coluna_id) ?? null,
-    };
-  });
+  return {
+    linhas: linhas.map((l) => {
+      const aluno = alunoPorId.get(l.aluno_id);
+      return {
+        id: l.id,
+        created_at: l.created_at,
+        valor_anterior: l.valor_anterior,
+        status_anterior: l.status_anterior,
+        valor_novo: l.valor_novo,
+        status_novo: l.status_novo,
+        professor_nome: l.alterado_por ? (nomeProfessorPorId.get(l.alterado_por) ?? null) : null,
+        aluno_nome: aluno?.nome ?? null,
+        turma_nome: aluno ? (nomeTurmaPorId.get(aluno.turma_id) ?? null) : null,
+        atividade_titulo: tituloColunaPorId.get(l.coluna_id) ?? null,
+      };
+    }),
+    proximoCursor,
+  };
 }
