@@ -63,6 +63,7 @@ export default async function TurmaPage({ params }: PageProps) {
         colunasIniciais={colunas ?? []}
         alunosIniciais={alunos ?? []}
         notasIniciais={notasComAutor}
+        professorNome={professor.nome}
       />
     </main>
   );

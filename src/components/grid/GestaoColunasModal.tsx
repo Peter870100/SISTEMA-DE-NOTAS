@@ -35,6 +35,7 @@ export function GestaoColunasModal({
   const [novoTitulo, setNovoTitulo] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<AtividadeColuna | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
 
   if (!open) return null;
 
@@ -47,6 +48,8 @@ export function GestaoColunasModal({
       const coluna = await addColuna(turmaId, titulo, colunas.length, tipo);
       onColunasChange([...colunas, coluna]);
       setNovoTitulo("");
+    } catch {
+      setErro("Não foi possível adicionar a coluna. Tente novamente.");
     } finally {
       setSalvando(false);
     }
@@ -57,7 +60,12 @@ export function GestaoColunasModal({
     onColunasChange(
       colunas.map((c) => (c.id === coluna.id ? { ...c, titulo: titulo.trim() } : c))
     );
-    await renameColuna(coluna.id, titulo.trim());
+    try {
+      await renameColuna(coluna.id, titulo.trim());
+    } catch {
+      onColunasChange(colunas.map((c) => (c.id === coluna.id ? coluna : c)));
+      setErro(`Não foi possível renomear "${coluna.titulo}". Tente novamente.`);
+    }
   }
 
   async function handleDelete() {
@@ -65,17 +73,28 @@ export function GestaoColunasModal({
     const alvo = confirmDelete;
     setConfirmDelete(null);
     onColunasChange(colunas.filter((c) => c.id !== alvo.id));
-    await deleteColuna(alvo.id);
+    try {
+      await deleteColuna(alvo.id);
+    } catch {
+      onColunasChange(colunas);
+      setErro(`Não foi possível excluir "${alvo.titulo}". Tente novamente.`);
+    }
   }
 
   async function handleMove(index: number, direction: -1 | 1) {
     const alvo = index + direction;
     if (alvo < 0 || alvo >= colunas.length) return;
+    const anterior = colunas;
     const reordenadas = [...colunas];
     [reordenadas[index], reordenadas[alvo]] = [reordenadas[alvo], reordenadas[index]];
     const comOrdem = reordenadas.map((c, i) => ({ ...c, ordem: i }));
     onColunasChange(comOrdem);
-    await reordenarColunas(comOrdem.map((c) => ({ id: c.id, ordem: c.ordem })));
+    try {
+      await reordenarColunas(comOrdem.map((c) => ({ id: c.id, ordem: c.ordem })));
+    } catch {
+      onColunasChange(anterior);
+      setErro("Não foi possível reordenar as colunas. Tente novamente.");
+    }
   }
 
   const ehPresenca = tipo === "presenca";
@@ -97,6 +116,15 @@ export function GestaoColunasModal({
             <X size={18} />
           </button>
         </div>
+
+        {erro && (
+          <div className="mt-3 flex items-center justify-between rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+            <span>{erro}</span>
+            <button onClick={() => setErro(null)} className="font-medium underline">
+              fechar
+            </button>
+          </div>
+        )}
 
         <ul className="mt-4 flex max-h-80 flex-col gap-1.5 overflow-y-auto">
           {colunas.map((coluna, index) => (

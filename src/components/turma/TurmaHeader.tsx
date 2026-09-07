@@ -3,7 +3,11 @@
 import Image from "next/image";
 import { RefreshCw } from "lucide-react";
 
-export function TurmaHeader() {
+type TurmaHeaderProps = {
+  professorNome: string;
+};
+
+export function TurmaHeader({ professorNome }: TurmaHeaderProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3">
@@ -17,7 +21,7 @@ export function TurmaHeader() {
         />
         <div className="h-8 w-px bg-neutral-200 dark:bg-neutral-800" />
         <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-          Dashboard de Rendimento em Redação - Profº Peter
+          Dashboard de Rendimento em Redação - Prof. {professorNome}
         </h1>
       </div>
       <button

@@ -17,6 +17,7 @@ type TurmaDashboardProps = {
   colunasIniciais: AtividadeColuna[];
   alunosIniciais: Aluno[];
   notasIniciais: NotaCelulaComAutor[];
+  professorNome: string;
 };
 
 export function TurmaDashboard({
@@ -25,6 +26,7 @@ export function TurmaDashboard({
   colunasIniciais,
   alunosIniciais,
   notasIniciais,
+  professorNome,
 }: TurmaDashboardProps) {
   const [colunas, setColunas] = useState(colunasIniciais);
   const [alunos, setAlunos] = useState(alunosIniciais);
@@ -63,7 +65,7 @@ export function TurmaDashboard({
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <TurmaHeader />
+      <TurmaHeader professorNome={professorNome} />
       <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start">
         {!maximizado && (
           <AnaliseAprendizagem colunas={colunasNota} alunos={alunos} celulas={celulas} />
