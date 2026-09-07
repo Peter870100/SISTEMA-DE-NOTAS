@@ -284,22 +284,41 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     atividade_titulo: z.string(),
     valor: z.number().min(0).max(1000).optional().describe("Nota numérica de 0 a 1000"),
     status: z.string().optional().describe('Status em texto livre, ex: "ok", "NF", "FALTOU"'),
+    limpar: z.boolean().optional().describe("true pra apagar a nota/status já lançado, deixando a célula vazia. Não use junto com valor/status."),
     bimestre: z.string().optional(),
     ...professorTelefoneField,
   };
+
+  /** Valida valor/status/limpar e devolve o par final a gravar (null, null se for pra limpar). */
+  function resolverValorStatus(
+    valor: number | undefined,
+    status: string | undefined,
+    limpar: boolean | undefined
+  ): { valorFinal: number | null; statusFinal: string | null } {
+    if (limpar) {
+      if (valor !== undefined || status !== undefined) {
+        throw new Error("Não informe valor/status junto com limpar — limpar sozinho já apaga a célula.");
+      }
+      return { valorFinal: null, statusFinal: null };
+    }
+    if ((valor === undefined) === (status === undefined)) {
+      throw new Error(
+        "Informe exatamente um dos três: valor (número), status (texto) ou limpar (true), não mais de um nem nenhum."
+      );
+    }
+    return { valorFinal: valor ?? null, statusFinal: status ?? null };
+  }
 
   server.registerTool(
     "lancar_nota",
     {
       title: "Lançar nota",
       description:
-        "Lança (ou substitui) a nota/status de um aluno numa atividade específica. Informe exatamente um dos dois: valor OU status.",
+        "Lança (ou substitui) a nota/status de um aluno numa atividade específica. Informe exatamente um dos três: valor, status, ou limpar (true) pra apagar o que já estava lançado.",
       inputSchema: notaInput,
     },
-    async ({ turma_nome, aluno_nome, atividade_titulo, valor, status, bimestre, professor_telefone }) => {
-      if ((valor === undefined) === (status === undefined)) {
-        throw new Error("Informe exatamente um dos dois: valor (número) OU status (texto), não ambos nem nenhum.");
-      }
+    async ({ turma_nome, aluno_nome, atividade_titulo, valor, status, limpar, bimestre, professor_telefone }) => {
+      const { valorFinal, statusFinal } = resolverValorStatus(valor, status, limpar);
       const professor = await resolverProfessorInfo(professor_telefone);
       const liberadas = await turmasLiberadas(professor);
       const turma = await resolverTurma(turma_nome, bimestre, liberadas);
@@ -307,8 +326,10 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         resolverAluno(turma.id, aluno_nome),
         resolverAtividade(turma.id, atividade_titulo),
       ]);
-      await upsertCelulaComHistorico(aluno.id, atividade.id, valor ?? null, status ?? null, professor);
-      return texto(`OK: ${aluno.nome} — ${atividade.titulo} = ${valor ?? status}`);
+      await upsertCelulaComHistorico(aluno.id, atividade.id, valorFinal, statusFinal, professor);
+      return texto(
+        `OK: ${aluno.nome} — ${atividade.titulo} = ${limpar ? "(limpo)" : (valorFinal ?? statusFinal)}`
+      );
     }
   );
 
@@ -317,7 +338,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     {
       title: "Lançar várias notas de uma vez",
       description:
-        "Lança várias notas na mesma turma numa chamada só. Cada item precisa de aluno_nome, atividade_titulo e valor OU status. Retorna o resultado item a item (alguns podem falhar sem afetar os outros).",
+        "Lança várias notas na mesma turma numa chamada só. Cada item precisa de aluno_nome, atividade_titulo e valor, status ou limpar:true. Retorna o resultado item a item (alguns podem falhar sem afetar os outros).",
       inputSchema: {
         turma_nome: z.string(),
         bimestre: z.string().optional(),
@@ -328,6 +349,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
               atividade_titulo: z.string(),
               valor: z.number().min(0).max(1000).optional(),
               status: z.string().optional(),
+              limpar: z.boolean().optional(),
             })
           )
           .min(1),
@@ -341,15 +363,15 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       const resultados: string[] = [];
       for (const item of notas) {
         try {
-          if ((item.valor === undefined) === (item.status === undefined)) {
-            throw new Error("informe exatamente um dos dois: valor OU status");
-          }
+          const { valorFinal, statusFinal } = resolverValorStatus(item.valor, item.status, item.limpar);
           const [aluno, atividade] = await Promise.all([
             resolverAluno(turma.id, item.aluno_nome),
             resolverAtividade(turma.id, item.atividade_titulo),
           ]);
-          await upsertCelulaComHistorico(aluno.id, atividade.id, item.valor ?? null, item.status ?? null, professor);
-          resultados.push(`OK: ${aluno.nome} — ${atividade.titulo} = ${item.valor ?? item.status}`);
+          await upsertCelulaComHistorico(aluno.id, atividade.id, valorFinal, statusFinal, professor);
+          resultados.push(
+            `OK: ${aluno.nome} — ${atividade.titulo} = ${item.limpar ? "(limpo)" : (valorFinal ?? statusFinal)}`
+          );
         } catch (e) {
           resultados.push(
             `FALHOU: ${item.aluno_nome} — ${item.atividade_titulo}: ${e instanceof Error ? e.message : String(e)}`
@@ -437,6 +459,59 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
   );
 
   server.registerTool(
+    "renomear_aluno",
+    {
+      title: "Renomear aluno (corrigir nome digitado errado)",
+      description: "Corrige o nome de um aluno já cadastrado — use quando o nome foi digitado com erro de digitação.",
+      inputSchema: {
+        turma_nome: z.string(),
+        aluno_nome: z.string().describe("Nome atual (ou parte dele) do aluno a renomear"),
+        novo_nome: z.string(),
+        bimestre: z.string().optional(),
+        ...professorTelefoneField,
+      },
+    },
+    async ({ turma_nome, aluno_nome, novo_nome, bimestre, professor_telefone }) => {
+      const novoNomeLimpo = novo_nome.trim();
+      if (!novoNomeLimpo) throw new Error("Informe o novo nome do aluno.");
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
+      const aluno = await resolverAluno(turma.id, aluno_nome);
+      const { error } = await supabase
+        .from("alunos")
+        .update({ nome: novoNomeLimpo, nome_editado_em: new Date().toISOString() })
+        .eq("id", aluno.id);
+      if (error) throw new Error(error.message);
+      return texto(`OK: "${aluno.nome}" agora é "${novoNomeLimpo}" (turma ${turma.nome}).`);
+    }
+  );
+
+  server.registerTool(
+    "excluir_aluno",
+    {
+      title: "Excluir aluno",
+      description:
+        "Remove um aluno de uma turma, junto com todas as notas dele. Ação destrutiva e sem confirmação por aqui — use com cuidado, ou peça pro professor confirmar antes de chamar.",
+      inputSchema: {
+        turma_nome: z.string(),
+        aluno_nome: z.string(),
+        bimestre: z.string().optional(),
+        ...professorTelefoneField,
+      },
+    },
+    async ({ turma_nome, aluno_nome, bimestre, professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
+      const aluno = await resolverAluno(turma.id, aluno_nome);
+      const { error } = await supabase.from("alunos").delete().eq("id", aluno.id);
+      if (error) throw new Error(error.message);
+      return texto(`OK: "${aluno.nome}" excluído da turma ${turma.nome}, com as notas dele.`);
+    }
+  );
+
+  server.registerTool(
     "criar_atividade",
     {
       title: 'Criar atividade (também chamada de "planilha" pelo professor)',
@@ -489,6 +564,59 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       const { error } = await supabase.from("atividades_colunas").update({ tipo }).eq("id", atividade.id);
       if (error) throw new Error(error.message);
       return texto(`OK: "${atividade.titulo}" (${turma.nome}) agora é do tipo "${tipo}".`);
+    }
+  );
+
+  server.registerTool(
+    "renomear_atividade",
+    {
+      title: "Renomear atividade/chamada",
+      description: "Corrige o título de uma atividade ou data de chamada já criada — mantém as notas já lançadas nela.",
+      inputSchema: {
+        turma_nome: z.string(),
+        atividade_titulo: z.string().describe("Título atual (ou parte dele) da atividade a renomear"),
+        novo_titulo: z.string(),
+        bimestre: z.string().optional(),
+        ...professorTelefoneField,
+      },
+    },
+    async ({ turma_nome, atividade_titulo, novo_titulo, bimestre, professor_telefone }) => {
+      const novoTituloLimpo = novo_titulo.trim();
+      if (!novoTituloLimpo) throw new Error("Informe o novo título da atividade.");
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
+      const atividade = await resolverAtividade(turma.id, atividade_titulo);
+      const { error } = await supabase
+        .from("atividades_colunas")
+        .update({ titulo: novoTituloLimpo })
+        .eq("id", atividade.id);
+      if (error) throw new Error(error.message);
+      return texto(`OK: "${atividade.titulo}" agora é "${novoTituloLimpo}" (turma ${turma.nome}).`);
+    }
+  );
+
+  server.registerTool(
+    "excluir_atividade",
+    {
+      title: "Excluir atividade/chamada",
+      description:
+        "Remove uma coluna de atividade ou chamada de uma turma, junto com todas as notas lançadas nela. Ação destrutiva e sem confirmação por aqui — use com cuidado, ou peça pro professor confirmar antes de chamar.",
+      inputSchema: {
+        turma_nome: z.string(),
+        atividade_titulo: z.string(),
+        bimestre: z.string().optional(),
+        ...professorTelefoneField,
+      },
+    },
+    async ({ turma_nome, atividade_titulo, bimestre, professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
+      const atividade = await resolverAtividade(turma.id, atividade_titulo);
+      const { error } = await supabase.from("atividades_colunas").delete().eq("id", atividade.id);
+      if (error) throw new Error(error.message);
+      return texto(`OK: "${atividade.titulo}" excluída da turma ${turma.nome}, com as notas lançadas nela.`);
     }
   );
 
