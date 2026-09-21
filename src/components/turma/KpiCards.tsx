@@ -25,7 +25,7 @@ function KpiCard({
         {icone}
       </div>
       <div className="min-w-0">
-        <div className="truncate text-xs text-neutral-500 dark:text-neutral-400">{label}</div>
+        <div className="text-sm text-neutral-500 dark:text-neutral-400">{label}</div>
         <div
           className={`text-xl font-semibold tabular-nums ${
             corValor ?? "text-neutral-900 dark:text-neutral-100"

@@ -3,106 +3,48 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, KeyRound, LogOut, Settings, Users } from "lucide-react";
+import { KeyRound, LogOut, Users, History, GraduationCap } from "lucide-react";
 import { logout } from "@/actions/auth";
-import { Avatar } from "@/components/ui/Avatar";
 import type { Professor } from "@/lib/types";
 
-const ITENS = [
-  { href: "/", icon: Home, label: "Início" },
-  { href: "/", icon: Users, label: "Turmas" },
-] as const;
-
-type SidebarProps = {
-  professor: Professor | null;
-};
-
-export function Sidebar({ professor }: SidebarProps) {
+export function Sidebar({ professor }: { professor: Professor | null }) {
   const pathname = usePathname();
+  if (!professor) return null;
 
-  if (pathname === "/login") return null;
+  const itens = [
+    { href: "/", icon: GraduationCap, label: "Turmas", ativo: pathname === "/" || pathname.startsWith("/turma/") },
+    ...(professor.role === "admin" ? [
+      { href: "/admin/professores", icon: Users, label: "Professores", ativo: pathname === "/admin/professores" },
+      { href: "/admin/historico", icon: History, label: "Histórico", ativo: pathname === "/admin/historico" },
+    ] : []),
+    { href: "/trocar-senha", icon: KeyRound, label: "Senha", ativo: pathname === "/trocar-senha" },
+  ];
 
   return (
-    <aside className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-neutral-200 bg-white py-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <Link
-        href="/"
-        title="Colégio Status"
-        className="relative mb-4 h-9 w-9 shrink-0 overflow-hidden rounded-lg"
-      >
-        <Image
-          src="/LOGO2025_CURVAS.png"
-          alt="Colégio Status"
-          fill
-          className="object-cover object-left"
-          priority
-        />
+    <aside className="flex shrink-0 flex-col gap-3 border-b border-neutral-200 bg-white p-3 md:w-36 md:border-r md:border-b-0 md:py-5">
+      <Link href="/" aria-label="Status Avalia — turmas" className="hidden rounded md:block">
+        <Image src="/LOGO2025_CURVAS.png" alt="Colégio Status" width={1580} height={513} className="h-auto w-full" priority />
       </Link>
-      {ITENS.map(({ href, icon: Icon, label }) => {
-        const ativo = pathname === href;
-        return (
+      <nav aria-label="Navegação principal" className="flex flex-wrap gap-1 md:flex-col">
+        {itens.map(({ href, icon: Icon, label, ativo }) => (
           <Link
-            key={label}
+            key={href}
             href={href}
-            title={label}
-            className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-              ativo
-                ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
-                : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
-            }`}
+            aria-current={ativo ? (pathname === href ? "page" : "location") : undefined}
+            className={"flex min-h-11 items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium " + (ativo ? "bg-blue-50 text-blue-700" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900")}
           >
-            <Icon size={18} />
+            <Icon size={18} aria-hidden="true" />
+            {label}
           </Link>
-        );
-      })}
-      {professor?.role === "admin" ? (
-        <Link
-          href="/admin/professores"
-          title="Gerenciar professores"
-          className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-            pathname === "/admin/professores"
-              ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
-              : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
-          }`}
-        >
-          <Settings size={18} />
-        </Link>
-      ) : (
-        <button
-          type="button"
-          disabled
-          title="Configurações (só para admin)"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-neutral-300 dark:text-neutral-700"
-        >
-          <Settings size={18} />
-        </button>
-      )}
-      {professor && (
-        <Link
-          href="/trocar-senha"
-          title="Trocar senha"
-          className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-            pathname === "/trocar-senha"
-              ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
-              : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
-          }`}
-        >
-          <KeyRound size={18} />
-        </Link>
-      )}
-      {professor && (
-        <div className="mt-auto mb-1" title={`Logado como ${professor.nome}`}>
-          <Avatar nome={professor.nome} />
-        </div>
-      )}
-      <form action={logout} className={professor ? "" : "mt-auto"}>
-        <button
-          type="submit"
-          title="Sair"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
-        >
-          <LogOut size={18} />
-        </button>
-      </form>
+        ))}
+        <form action={logout} className="ml-auto md:mt-4 md:ml-0">
+          <button type="submit" className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-neutral-600 hover:bg-rose-50 hover:text-rose-700">
+            <LogOut size={18} aria-hidden="true" />
+            Sair
+          </button>
+        </form>
+      </nav>
+      <p className="mt-auto hidden break-words px-2 text-sm text-neutral-500 md:block">{professor.nome}</p>
     </aside>
   );
 }

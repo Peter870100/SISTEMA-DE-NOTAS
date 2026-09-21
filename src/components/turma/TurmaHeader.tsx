@@ -10,7 +10,7 @@ type TurmaHeaderProps = {
 export function TurmaHeader({ professorNome }: TurmaHeaderProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
         <Image
           src="/LOGO2025_CURVAS.png"
           alt="Colégio Status"
@@ -19,10 +19,10 @@ export function TurmaHeader({ professorNome }: TurmaHeaderProps) {
           className="h-9 w-auto"
           priority
         />
-        <div className="h-8 w-px bg-neutral-200 dark:bg-neutral-800" />
-        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-          Dashboard de Rendimento em Redação - Prof. {professorNome}
-        </h1>
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Notas e frequência</h1>
+          <p className="break-words text-sm text-neutral-600">Redação · Prof. {professorNome}</p>
+        </div>
       </div>
       <button
         type="button"

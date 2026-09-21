@@ -77,13 +77,13 @@ export function AnaliseAprendizagem({ colunas, alunos, celulas }: AnaliseAprendi
   }, [alunos, celulas, colunas]);
 
   return (
-    <div className="flex w-full flex-col gap-4 lg:w-96 lg:shrink-0">
-      <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3">
+      <h2 className="lg:col-span-3 text-base font-semibold text-neutral-800 dark:text-neutral-200">
         Análise de Aprendizagem
       </h2>
 
       <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
           Evolução da Média da Turma
         </p>
         <div className="mt-2 h-40 w-full">
@@ -109,12 +109,12 @@ export function AnaliseAprendizagem({ colunas, alunos, celulas }: AnaliseAprendi
               />
               <YAxis
                 domain={[0, 10]}
-                tick={{ fontSize: 9 }}
-                width={22}
+                tick={{ fontSize: 12 }}
+                width={32}
                 stroke="currentColor"
                 className="text-neutral-400"
               />
-              <Tooltip contentStyle={{ fontSize: 11, borderRadius: 6 }} />
+              <Tooltip contentStyle={{ fontSize: 13, borderRadius: 6 }} />
               <Area
                 type="monotone"
                 dataKey="media"
@@ -131,7 +131,7 @@ export function AnaliseAprendizagem({ colunas, alunos, celulas }: AnaliseAprendi
       </div>
 
       <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
           Top 10 Melhores Alunos (Média Geral)
         </p>
         <div className="mt-2 h-56 w-full">
@@ -140,19 +140,19 @@ export function AnaliseAprendizagem({ colunas, alunos, celulas }: AnaliseAprendi
               <XAxis
                 type="number"
                 domain={[0, 10]}
-                tick={{ fontSize: 9 }}
+                tick={{ fontSize: 12 }}
                 stroke="currentColor"
                 className="text-neutral-400"
               />
               <YAxis
                 type="category"
                 dataKey="nome"
-                width={90}
-                tick={{ fontSize: 9 }}
+                width={110}
+                tick={{ fontSize: 12 }}
                 stroke="currentColor"
                 className="text-neutral-400"
               />
-              <Tooltip contentStyle={{ fontSize: 11, borderRadius: 6 }} />
+              <Tooltip contentStyle={{ fontSize: 13, borderRadius: 6 }} />
               <Bar
                 dataKey="media"
                 fill="#2563eb"
@@ -166,15 +166,15 @@ export function AnaliseAprendizagem({ colunas, alunos, celulas }: AnaliseAprendi
       </div>
 
       <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+        <p className="mb-2 text-sm font-medium text-neutral-500 dark:text-neutral-400">
           Alunos em Risco
         </p>
         {alunosEmRisco.length === 0 ? (
-          <p className="text-xs text-neutral-400">Nenhum aluno em risco no momento.</p>
+          <p className="text-sm text-neutral-400">Nenhum aluno em risco no momento.</p>
         ) : (
           <ul className="flex flex-col gap-1.5">
             {alunosEmRisco.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-2 text-xs">
+              <li key={r.id} className="flex items-center justify-between gap-2 text-sm">
                 <span className="flex min-w-0 items-center gap-1.5">
                   <Avatar nome={r.nome} />
                   <span className="truncate text-neutral-700 dark:text-neutral-300" title={r.nome}>

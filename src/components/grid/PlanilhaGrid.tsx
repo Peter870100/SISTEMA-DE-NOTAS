@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Trash2, UserPlus, Settings2, FileSpreadsheet, Maximize2, Minimize2, ArrowRightLeft, Pencil, CalendarDays, GripVertical, ArrowDownAZ, Search, X, ListPlus, Undo2 } from "lucide-react";
 import type { Aluno, AtividadeColuna, TipoColuna, Turma } from "@/lib/types";
 import { parseEntradaCelula, type ValorCelula } from "@/lib/status";
@@ -53,6 +53,7 @@ type PlanilhaGridProps = {
   onColunasChange: (colunas: AtividadeColuna[]) => void;
   onAlunosChange: (alunos: Aluno[]) => void;
   onCelulasChange: (updater: (prev: CelulasMap) => CelulasMap) => void;
+  onPendentesChange: (delta: number) => void;
   maximizado: boolean;
   onToggleMaximizar: () => void;
 };
@@ -69,6 +70,7 @@ export function PlanilhaGrid({
   onColunasChange,
   onAlunosChange,
   onCelulasChange,
+  onPendentesChange,
   maximizado,
   onToggleMaximizar,
 }: PlanilhaGridProps) {
@@ -77,6 +79,21 @@ export function PlanilhaGrid({
   const [editingValue, setEditingValue] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
+  const [pendentes, setPendentes] = useState(0);
+  const pendentesRef = useRef(0);
+  const [houveEdicao, setHouveEdicao] = useState(false);
+  const [falhaSalvamento, setFalhaSalvamento] = useState(false);
+  const falhasPorCelula = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (pendentes === 0) return;
+    const avisar = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [pendentes]);
 
   const [novoAlunoNome, setNovoAlunoNome] = useState("");
   const [salvandoAluno, setSalvandoAluno] = useState(false);
@@ -112,7 +129,7 @@ export function PlanilhaGrid({
     setUltimaAcao({ label, desfazer });
   }
 
-  async function desfazerUltimaAcao() {
+  const desfazerUltimaAcao = useCallback(async () => {
     if (!ultimaAcao || desfazendo) return;
     setDesfazendo(true);
     try {
@@ -123,7 +140,7 @@ export function PlanilhaGrid({
     } finally {
       setDesfazendo(false);
     }
-  }
+  }, [ultimaAcao, desfazendo]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -136,7 +153,7 @@ export function PlanilhaGrid({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [ultimaAcao, desfazendo]);
+  }, [ultimaAcao, desfazendo, desfazerUltimaAcao]);
 
   const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -170,8 +187,17 @@ export function PlanilhaGrid({
     }));
     setEditing(false);
 
+    const chaveCelula = `${aluno.id}:${coluna.id}`;
+    pendentesRef.current += 1;
+    setPendentes(pendentesRef.current);
+    setHouveEdicao(true);
+    onPendentesChange(1);
     upsertCelula(aluno.id, coluna.id, patch)
       .then(({ atualizadoPorNome, atualizadoEm }) => {
+        if (falhasPorCelula.current.delete(chaveCelula)) {
+          setFalhaSalvamento(falhasPorCelula.current.size > 0);
+          if (falhasPorCelula.current.size === 0) setErro(null);
+        }
         onCelulasChange((prev) => ({
           ...prev,
           [aluno.id]: {
@@ -181,6 +207,8 @@ export function PlanilhaGrid({
         }));
       })
       .catch(() => {
+        falhasPorCelula.current.add(chaveCelula);
+        setFalhaSalvamento(true);
         onCelulasChange((prev) => ({
           ...prev,
           [aluno.id]: { ...prev[aluno.id], [coluna.id]: anterior },
@@ -188,6 +216,11 @@ export function PlanilhaGrid({
         setErro(
           `Não foi possível salvar a célula de "${aluno.nome}" em "${coluna.titulo}". Tente novamente.`
         );
+      })
+      .finally(() => {
+        pendentesRef.current -= 1;
+        setPendentes(pendentesRef.current);
+        onPendentesChange(-1);
       });
   }
 
@@ -461,8 +494,15 @@ export function PlanilhaGrid({
 
   return (
     <div className="flex flex-col gap-3">
+      <p role="status" aria-live="polite" aria-atomic="true" className={`text-sm ${falhaSalvamento && pendentes === 0 ? "text-rose-700" : "text-neutral-600"}`}>
+        {pendentes > 0
+          ? `Salvando… (${pendentes} ${pendentes === 1 ? "alteração pendente" : "alterações pendentes"})`
+          : falhaSalvamento
+            ? "Uma alteração não foi salva. Confira a mensagem abaixo e tente novamente."
+            : houveEdicao ? "Salvo" : "As notas são salvas automaticamente ao confirmar a edição."}
+      </p>
       {erro && (
-        <div className="flex items-center justify-between rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+        <div role="alert" className="flex items-center justify-between rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
           <span>{erro}</span>
           <button onClick={() => setErro(null)} className="font-medium underline">
             fechar
@@ -486,6 +526,7 @@ export function PlanilhaGrid({
               onClick={() => setUltimaAcao(null)}
               className="text-blue-400 hover:text-blue-700 dark:hover:text-blue-200"
               title="Dispensar"
+              aria-label="Dispensar aviso"
             >
               <X size={14} />
             </button>
@@ -500,13 +541,14 @@ export function PlanilhaGrid({
             className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400"
           />
           <input
+            aria-label="Buscar aluno"
             value={busca}
             onChange={(e) => {
               setBusca(e.target.value);
               setActive(null);
               setEditing(false);
             }}
-            placeholder="Buscar aluno..."
+            placeholder="Buscar aluno…"
             className="w-full rounded-md border border-neutral-300 py-1.5 pl-8 pr-7 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
           />
           {busca && (
@@ -514,6 +556,7 @@ export function PlanilhaGrid({
               onClick={() => setBusca("")}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
               title="Limpar busca"
+              aria-label="Limpar busca de alunos"
             >
               <X size={14} />
             </button>
@@ -558,10 +601,10 @@ export function PlanilhaGrid({
         <table className="w-full table-fixed border-collapse">
           <thead className="sticky top-0 z-10">
             <tr className="bg-slate-50 dark:bg-neutral-900">
-              <th className="sticky top-0 left-0 z-20 w-16 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+              <th className="sticky top-0 left-0 z-20 w-12 sm:w-16 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                 Nº
               </th>
-              <th className="sticky top-0 left-16 z-20 w-48 border border-neutral-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+              <th className="sticky top-0 left-12 sm:left-16 z-20 w-32 sm:w-48 border border-neutral-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                 Nome do Aluno
               </th>
               {colunas.map((c) => {
@@ -669,7 +712,7 @@ export function PlanilhaGrid({
                     </span>
                   </td>
                   <td
-                    className={`sticky left-16 z-[5] border border-neutral-200 ${bgLinha} px-3 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-950`}
+                    className={`sticky left-12 sm:left-16 z-[5] border border-neutral-200 ${bgLinha} px-3 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-950`}
                   >
                     {editandoNome?.id === aluno.id ? (
                       <input

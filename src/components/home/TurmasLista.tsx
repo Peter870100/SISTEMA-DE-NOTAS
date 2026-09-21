@@ -37,9 +37,10 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
         />
         <input
+          aria-label="Buscar turma"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar turma..."
+          placeholder="Buscar turma…"
           className="w-full rounded-lg border border-neutral-300 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
         />
       </div>

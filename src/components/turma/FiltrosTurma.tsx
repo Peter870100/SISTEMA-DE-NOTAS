@@ -49,6 +49,7 @@ export function FiltrosTurma({ turma, todasTurmas }: FiltrosTurmaProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <select
+        aria-label="Turma"
         value={turma.nome}
         onChange={(e) => handleTrocarSerie(e.target.value)}
         className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-700 shadow-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
@@ -61,6 +62,7 @@ export function FiltrosTurma({ turma, todasTurmas }: FiltrosTurmaProps) {
       </select>
 
       <select
+        aria-label="Bimestre"
         value={turma.id}
         onChange={(e) => router.push(`/turma/${e.target.value}`)}
         className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-700 shadow-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"

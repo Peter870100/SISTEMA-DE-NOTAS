@@ -65,6 +65,7 @@ export function CelulaNota({
         className="relative flex items-center gap-1 border border-blue-500 bg-white px-1 py-1 dark:bg-neutral-900"
       >
         <input
+          aria-label="Nota ou status da atividade"
           ref={inputRef}
           value={editingValue}
           onChange={(e) => onChangeEditingValue(e.target.value)}
@@ -72,6 +73,7 @@ export function CelulaNota({
           className="min-w-0 flex-1 bg-transparent text-sm outline-none"
         />
         <select
+          aria-label="Selecionar status da atividade"
           value=""
           onChange={(e) => e.target.value && onSelectStatus(e.target.value)}
           className="w-8 shrink-0 rounded border border-neutral-300 bg-white text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800"
@@ -104,7 +106,7 @@ export function CelulaNota({
       onClick={onStartEdit}
       onKeyDown={onKeyDown}
       title={tituloAutor}
-      className={`flex min-h-9 items-center justify-between gap-1 rounded border px-2 py-1.5 text-sm outline-none ${
+      className={`flex min-h-11 items-center justify-between gap-1 rounded border px-2 py-1.5 text-sm outline-none ${
         active
           ? "border-blue-500 bg-white ring-1 ring-blue-500 dark:bg-neutral-900"
           : "border-neutral-200 bg-neutral-50 hover:bg-white dark:border-neutral-800 dark:bg-neutral-900/40"
@@ -132,6 +134,7 @@ export function CelulaNota({
         }}
         className="shrink-0 text-neutral-400 hover:text-blue-600 dark:text-neutral-600"
         title="Editar"
+        aria-label="Editar célula"
       >
         <Pencil size={12} />
       </button>
