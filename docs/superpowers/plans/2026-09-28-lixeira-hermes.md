@@ -931,3 +931,11 @@ Script temporário no scratchpad que cria uma turma `TESTE LIXEIRA (apagar)` com
 - [ ] **Step 3: Roteiro manual para o usuário**
 
 Passar ao usuário o roteiro da seção 8 da spec, incluindo pedir ao Hermes "exclua a planilha TESTE LIXEIRA" e conferir o item em `/admin/lixeira` como "Hermes, a pedido de …".
+
+---
+
+## Notas de execução (2026-09-28)
+
+- **Task 2:** declarar `Database.Functions` deixou o supabase-js mais estrito e passou a acusar o join `notas_celulas → professores` em `src/app/turma/[turmaId]/page.tsx`; a conversão passou a ir via `unknown` (comportamento igual).
+- **Task 3:** em produção o Next substitui a mensagem de exceções de server action por uma genérica. Por isso `restaurarDaLixeira`, `apagarDaLixeira` e `desfazerExclusao` devolvem `Resposta<T> = { ok: true; dados } | { ok: false; erro }` em vez de lançar erro (recomendação da doc do Next: "model expected errors as return values"). No Ctrl+Z da planilha, a mensagem chega à tela via `ErroParaUsuario`; `LixeiraLista` (Task 6) trata `r.ok`.
+- **Deploy:** os commits destas tasks ficaram só locais até o SQL da Task 1 ser aplicado no Supabase, porque cada push no `master` publica na Vercel e o código novo depende das colunas/funções novas.
