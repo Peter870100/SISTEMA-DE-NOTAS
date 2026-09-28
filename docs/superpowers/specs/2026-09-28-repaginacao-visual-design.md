@@ -90,14 +90,14 @@ com texto `gold-ink`. Sobre a moldura azul pode ser usado livremente.
 ### Faixa de moldura (componente novo `PageHeader`)
 - Faixa `frame` de altura fixa (~170px no desktop) atrás do topo da página. Linha 1: breadcrumb (`frame-muted`, caixa alta) e título em Space Grotesk branco à esquerda; **logo oficial branca à direita** (link para `/`). Linha 2: área de ações da página (abas de bimestre, atalho "Ctrl K Buscar").
 - O conteúdo (KPIs, cards) sobe e sobrepõe a borda inferior da faixa. É o efeito "cards flutuando sobre o azul".
-- Usada em: home, turma, admin/professores, admin/histórico, trocar-senha.
+- Usada em: home, turma, admin/professores, admin/histórico.
 
 ## 3. Telas
 
-### Login, cadastro, verificar e-mail
+### Login, cadastro, verificar e-mail, trocar senha
 - Fundo aurora: três radiais (dourado no alto à direita, azul claro embaixo à esquerda, `brand` ao centro) sobre `#06163F`, mais uma grade sutil de 40px com máscara radial. Tudo em CSS, sem imagem.
 - Card de vidro central (`bg white/8%`, blur, borda `white/18%`) com a logo oficial branca ocupando a largura do card no topo, título, inputs translúcidos (foco com borda `gold` e anel `gold/20%`) e botão principal `gold` com texto `gold-ink`.
-- Sem sidebar (a sidebar já some quando não há professor logado).
+- Sem sidebar no login/cadastro/verificar (a sidebar some quando não há professor logado). Em trocar-senha o professor está logado: a sidebar aparece e o card aurora ocupa a área de conteúdo.
 
 ### Home, lista de turmas (`src/app/page.tsx`, `TurmasLista.tsx`)
 - O banner `banner-cabecalho.png` sai. Entra o `PageHeader` "Suas turmas" com a saudação "Olá, Prof. <nome>".
@@ -107,7 +107,7 @@ com texto `gold-ink`. Sobre a moldura azul pode ser usado livremente.
 ### Turma (`TurmaDashboard`, `TurmaHeader`, `FiltrosTurma`, `KpiCards`, `PlanilhaGrid`, `CelulaNota`)
 - `TurmaHeader` vira o conteúdo do `PageHeader`: breadcrumb "Turmas / Redação · <ano>", título = nome da turma, abas de bimestre à direita e atalho Ctrl K. A logo colorida atual sai (a versão branca já está na faixa). O botão desabilitado "Sincronizar com Google" sai da tela.
 - Abas de bimestre: segmented control translúcido sobre a moldura; a ativa fica branca com texto `brand`. São links para as turmas irmãs (mesmo `nome`, outro `bimestre`), usando a mesma fonte de dados do seletor atual. A ação "novo bimestre" (`CriarBimestreModal`) vira um "+" no fim das abas.
-- KPIs: três cards brancos com ícone em quadrado tingido (azul / `danger` / âmbar); o card da média ganha filete superior `gold`; valores em mono.
+- KPIs: sempre visíveis (hoje ficam escondidos no `<details>` "Análise da turma"), sobrepondo a borda da faixa; ocultos só quando a planilha está maximizada. Os gráficos de `AnaliseAprendizagem` continuam no `<details>` recolhível. Três cards brancos com ícone em quadrado tingido (azul / `danger` / âmbar); o card da média ganha filete superior `gold`; valores em mono.
 - Planilha: dentro de um card branco com a toolbar embutida no topo (filtro, indicador "Tudo salvo" com ponto `ok`, Colunas, Exportar, botão primário "+ Atividade" em `brand` com "+" `gold`).
   - Cabeçalhos: fundo `surface-sunken`, caixa alta; colunas de atividade como chips brancos; colunas de presença (data) como chip tracejado com ícone de calendário.
   - Células: selecionada = contorno `brand-bright` + tinta azul leve; em edição = contorno `brand`, fundo branco, sombra azul; recém-salva = faixa `ok` que desbota em ~1,2s (a única animação nova da planilha).
@@ -118,11 +118,11 @@ com texto `gold-ink`. Sobre a moldura azul pode ser usado livremente.
 - Nenhuma mudança em teclado, desfazer (Ctrl+Z), drag-and-drop ou salvamento. Só a camada visual.
 
 ### Camadas flutuantes
-- Primitiva nova `components/ui/Modal.tsx`: overlay `frame-deep/40%` com blur de 4px e painel branco com raio 18px e sombra flutuante. Os 5 modais (`EstatisticaColunaModal`, `GestaoColunasModal`, `TransferirAlunoModal`, `CriarBimestreModal`, `ConfirmDialog`) passam a usá-la, mantendo o comportamento atual de foco/Esc de cada um.
+- Primitiva nova `components/ui/Modal.tsx`, baseada em `<dialog>` nativo como o `ConfirmDialog` atual (ganha Esc e foco preso de graça): overlay `frame-deep/40%` com blur de 4px e painel branco com raio 18px e sombra flutuante. Os 5 modais (`EstatisticaColunaModal`, `GestaoColunasModal`, `TransferirAlunoModal`, `CriarBimestreModal`, `ConfirmDialog`) passam a usá-la, que hoje são `div` sem Esc, passam a fechar com Esc.
 - `AlunoDashboardDrawer`: mesmo overlay; painel lateral branco com cabeçalho em `frame`.
 - Gráficos do Recharts (`AnaliseAprendizagem`, drawer): série principal `brand`, secundária `brand-bright`, destaque `gold`, crítico `danger`; grade `line-soft`.
 
-### Admin e trocar senha
+### Admin
 - `PageHeader` + conteúdo em cards brancos. Tabelas seguem o mesmo estilo da planilha (cabeçalho sunken, zebra, mono para datas e números).
 
 ## 4. Paleta de comandos (Ctrl+K)
@@ -153,7 +153,7 @@ com texto `gold-ink`. Sobre a moldura azul pode ser usado livremente.
 
 Cada etapa deixa o sistema funcionando e é commitada separadamente:
 
-1. **Fundação**: tokens em `globals.css`, fontes em `layout.tsx`, `DESIGN.md`, primitivas `Modal`/`Button`/`Input`.
+1. **Fundação**: tokens em `globals.css`, fontes em `layout.tsx`, `DESIGN.md`, primitivas `Modal` e constantes de classe em `components/ui/estilos.ts` (botões, inputs, cards).
 2. **Shell**: Sidebar em trilho + `PageHeader`.
 3. **Autenticação**: login, cadastro, verificar-email e trocar-senha (aurora).
 4. **Home**: lista de turmas.
