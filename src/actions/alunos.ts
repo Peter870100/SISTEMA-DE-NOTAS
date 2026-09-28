@@ -3,7 +3,6 @@
 import { supabase } from "@/lib/supabase/client";
 import { exigirAcessoATurmaId, getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
 import type { Aluno } from "@/lib/types";
-import type { ValorCelula } from "@/lib/status";
 
 /** Remove acentos e caixa pra comparar títulos de atividade entre turmas diferentes. */
 function normalizar(s: string): string {
@@ -153,7 +152,8 @@ export async function adicionarAlunos(
   return data;
 }
 
-export async function deleteAluno(alunoId: string): Promise<void> {
+/** Manda o aluno (com notas e histórico) pra lixeira. Devolve o id do item na lixeira, pro Ctrl+Z. */
+export async function deleteAluno(alunoId: string): Promise<string> {
   const professor = await getProfessorAtual();
   if (professor) {
     const { data: aluno } = await supabase
@@ -165,48 +165,13 @@ export async function deleteAluno(alunoId: string): Promise<void> {
     await exigirAcessoATurmaId(professor, aluno.turma_id);
   }
 
-  const { error } = await supabase.from("alunos").delete().eq("id", alunoId);
+  const { data, error } = await supabase.rpc("lixeira_excluir", {
+    p_tipo: "aluno",
+    p_id: alunoId,
+    p_ator: professor?.id ?? null,
+    p_via: "app",
+  });
   if (error) throw new Error(error.message);
-}
-
-/**
- * Desfaz uma exclusão: recria o aluno com o mesmo id e devolve as notas que ele tinha,
- * pra Ctrl+Z logo após excluir não perder nada. Só funciona enquanto a tela não foi
- * recarregada — a lista de notas vem da memória do navegador, não de um backup no banco.
- */
-export async function restaurarAlunoExcluido(
-  aluno: Aluno,
-  celulas: { colunaId: string; valor: ValorCelula }[]
-): Promise<Aluno> {
-  const professor = await getProfessorAtual();
-  await exigirAcessoATurmaId(professor, aluno.turma_id);
-
-  const { data, error } = await supabase
-    .from("alunos")
-    .insert({
-      turma_id: aluno.turma_id,
-      numero: aluno.numero,
-      nome: aluno.nome,
-      ordem: aluno.ordem,
-      nome_editado_em: aluno.nome_editado_em,
-      transferido_em: aluno.transferido_em,
-    })
-    .select()
-    .single();
-  if (error || !data) throw new Error(error?.message ?? "Falha ao restaurar aluno");
-
-  if (celulas.length > 0) {
-    const { error: erroNotas } = await supabase.from("notas_celulas").insert(
-      celulas.map(({ colunaId, valor }) => ({
-        aluno_id: data.id,
-        coluna_id: colunaId,
-        valor: valor.valor,
-        status_texto: valor.status_texto,
-      }))
-    );
-    if (erroNotas) throw new Error(erroNotas.message);
-  }
-
   return data;
 }
 

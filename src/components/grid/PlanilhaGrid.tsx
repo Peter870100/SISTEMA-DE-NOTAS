@@ -22,9 +22,9 @@ import {
   deleteAluno,
   renomearAluno,
   reordenarAlunos,
-  restaurarAlunoExcluido,
   transferirAluno,
 } from "@/actions/alunos";
+import { desfazerExclusao } from "@/actions/lixeira";
 import { CelulaNota } from "./CelulaNota";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -32,6 +32,9 @@ import { GestaoColunasModal } from "./GestaoColunasModal";
 import { EstatisticaColunaModal } from "./EstatisticaColunaModal";
 import { TransferirAlunoModal } from "./TransferirAlunoModal";
 import { AlunoDashboardDrawer } from "@/components/aluno/AlunoDashboardDrawer";
+
+/** Erro com texto pensado pro usuário (ex.: prazo do Ctrl+Z vencido) — exibido como está. */
+class ErroParaUsuario extends Error {}
 
 /** Título que é só uma data ("03/08", "21-05", "14/08/26") — a coluna ganha destaque de chamada. */
 const RE_TITULO_DATA = /^\d{1,2}[/\-.]\d{1,2}([/\-.]\d{2,4})?$/;
@@ -137,8 +140,8 @@ export function PlanilhaGrid({
     try {
       await ultimaAcao.desfazer();
       setUltimaAcao(null);
-    } catch {
-      setErro("Não foi possível desfazer. Tente novamente.");
+    } catch (e) {
+      setErro(e instanceof ErroParaUsuario ? e.message : "Não foi possível desfazer. Tente novamente.");
     } finally {
       setDesfazendo(false);
     }
@@ -357,7 +360,7 @@ export function PlanilhaGrid({
     const celulasRemovidas = celulas[id] ?? {};
     setConfirmDelete(null);
     try {
-      await deleteAluno(id);
+      const lixeiraId = await deleteAluno(id);
       onAlunosChange(alunos.filter((a) => a.id !== id));
       onCelulasChange((prev) => {
         const next = { ...prev };
@@ -366,14 +369,13 @@ export function PlanilhaGrid({
       });
       if (alunoRemovido) {
         registrarUndo(`"${alunoRemovido.nome}" excluído`, async () => {
-          const restaurado = await restaurarAlunoExcluido(
-            alunoRemovido,
-            Object.entries(celulasRemovidas).map(([colunaId, valor]) => ({ colunaId, valor }))
-          );
+          // A restauração recria o aluno com o mesmo id, então o que está em memória continua válido.
+          const resposta = await desfazerExclusao(lixeiraId);
+          if (!resposta.ok) throw new ErroParaUsuario(resposta.erro);
           onAlunosChange(
-            [...alunosRef.current, restaurado].sort((a, b) => a.ordem - b.ordem)
+            [...alunosRef.current, alunoRemovido].sort((a, b) => a.ordem - b.ordem)
           );
-          onCelulasChange((prev) => ({ ...prev, [restaurado.id]: celulasRemovidas }));
+          onCelulasChange((prev) => ({ ...prev, [alunoRemovido.id]: celulasRemovidas }));
         });
       }
     } catch {
@@ -971,7 +973,7 @@ export function PlanilhaGrid({
       <ConfirmDialog
         open={confirmDelete !== null}
         title="Excluir aluno"
-        message={`Tem certeza que deseja excluir "${confirmDelete?.nome}"? Todas as notas dele vão junto. Dá pra desfazer com Ctrl+Z logo em seguida — mas não depois de sair ou recarregar a página.`}
+        message={`Excluir "${confirmDelete?.nome}"? Ele e todas as notas dele vão para a lixeira. Dá pra desfazer com Ctrl+Z logo em seguida, e um administrador pode restaurar pela lixeira.`}
         confirmLabel="Excluir"
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmDelete(null)}

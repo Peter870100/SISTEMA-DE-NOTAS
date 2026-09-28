@@ -178,7 +178,7 @@ export function GestaoColunasModal({
       <ConfirmDialog
         open={confirmDelete !== null}
         title="Excluir coluna"
-        message={`Tem certeza que deseja excluir a coluna "${confirmDelete?.titulo}"? Todas as notas lançadas nela serão apagadas. Essa ação não pode ser desfeita.`}
+        message={`Excluir a coluna "${confirmDelete?.titulo}"? Ela e as notas lançadas nela vão para a lixeira; um administrador pode restaurá-las.`}
         confirmLabel="Excluir"
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}
