@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BookOpen, GraduationCap, Search, Users } from "lucide-react";
 import type { Turma } from "@/lib/types";
 import { corBimestre, partesDaTurma } from "@/lib/turmas";
+import { estilos } from "@/components/ui/estilos";
 
 type TurmasListaProps = {
   turmas: Turma[];
@@ -31,36 +32,36 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="relative">
+      <div className={`${estilos.card} relative p-2`}>
         <Search
           size={16}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+          className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-faint"
         />
         <input
           aria-label="Buscar turma"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar turma…"
-          className="w-full rounded-lg border border-neutral-300 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
+          className={`${estilos.input} border-transparent bg-surface-sunken pl-9`}
         />
       </div>
 
       {turmas.length === 0 && (
-        <div className="rounded-lg border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
+        <div className="rounded-card border border-dashed border-line bg-surface px-4 py-6 text-center text-sm text-muted">
           Nenhuma turma cadastrada ainda.
         </div>
       )}
 
       {turmas.length > 0 && grupos.length === 0 && (
-        <div className="rounded-lg border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
+        <div className="rounded-card border border-dashed border-line bg-surface px-4 py-6 text-center text-sm text-muted">
           Nenhuma turma encontrada pra &quot;{busca}&quot;.
         </div>
       )}
 
       {grupos.map(([serie, turmasDaSerie]) => (
         <div key={serie} className="flex flex-col gap-2.5">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-neutral-700 dark:text-neutral-300">
-            <GraduationCap size={16} className="text-blue-600" />
+          <h2 className={`flex items-center gap-1.5 ${estilos.rotulo}`}>
+            <GraduationCap size={16} className="text-brand" />
             {serie}
           </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -71,13 +72,13 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
                 <Link
                   key={turma.id}
                   href={`/turma/${turma.id}`}
-                  className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-5 py-4 shadow-sm transition hover:border-blue-400 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-blue-700"
+                  className="group flex items-center gap-3 rounded-card border border-line bg-surface px-5 py-4 shadow-card transition hover:-translate-y-0.5 hover:border-brand-bright/50 hover:shadow-[0_14px_36px_rgb(10_42_110_/_0.14)]"
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control bg-brand/10 text-brand transition group-hover:bg-brand group-hover:text-white">
                     <BookOpen size={19} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-neutral-800 dark:text-neutral-200">
+                    <p className="truncate font-display font-semibold text-ink">
                       {resto ? `Turma ${resto}` : turma.nome}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -86,7 +87,7 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
                       >
                         {turma.bimestre}
                       </span>
-                      <span className="flex items-center gap-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                      <span className="flex items-center gap-1 font-mono text-[11px] tabular-nums text-muted">
                         <Users size={11} />
                         {alunos}
                       </span>

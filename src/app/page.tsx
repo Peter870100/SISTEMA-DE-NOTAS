@@ -1,12 +1,14 @@
-import Image from "next/image";
 import { supabase } from "@/lib/supabase/client";
 import { TurmasLista } from "@/components/home/TurmasLista";
+import { PageLayout } from "@/components/layout/PageLayout";
 import { listarTurmasAcessiveis } from "@/actions/turmas";
+import { getProfessorAtual } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [turmas, { data: alunos }] = await Promise.all([
+  const [professor, turmas, { data: alunos }] = await Promise.all([
+    getProfessorAtual(),
     listarTurmasAcessiveis(),
     supabase.from("alunos").select("turma_id"),
   ]);
@@ -16,23 +18,16 @@ export default async function HomePage() {
     contagemPorTurma[a.turma_id] = (contagemPorTurma[a.turma_id] ?? 0) + 1;
   }
 
-  return (
-    <>
-      <Image
-        src="/banner-cabecalho.png"
-        alt="Status Avalia — Avaliação inteligente com secretária virtual"
-        width={2172}
-        height={724}
-        className="w-full h-auto"
-        priority
-      />
-      <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
-        <p className="text-center text-sm text-neutral-500 dark:text-neutral-400">
-          Selecione uma turma para lançar e acompanhar as notas do bimestre.
-        </p>
+  const primeiroNome = professor?.nome.trim().split(/\s+/)[0];
 
-        <TurmasLista turmas={turmas} contagemPorTurma={contagemPorTurma} />
-      </main>
-    </>
+  return (
+    <PageLayout
+      crumb="Redação · Colégio Status"
+      titulo="Suas turmas"
+      subtitulo={primeiroNome ? `Olá, Prof. ${primeiroNome}. Escolha uma turma para lançar e acompanhar as notas.` : undefined}
+      largura="max-w-6xl"
+    >
+      <TurmasLista turmas={turmas} contagemPorTurma={contagemPorTurma} />
+    </PageLayout>
   );
 }
