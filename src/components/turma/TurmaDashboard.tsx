@@ -10,6 +10,7 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos } from "@/components/ui/estilos";
 import { BimestreAbas } from "./BimestreAbas";
 import { KpiCards } from "./KpiCards";
+import { SeloHermes } from "@/components/ui/SeloHermes";
 import { AnaliseAprendizagem } from "./AnaliseAprendizagem";
 
 type TurmaDashboardProps = {
@@ -86,6 +87,7 @@ export function TurmaDashboard({
     <PageLayout
       crumb={`Turmas / Redação · ${turma.ano_letivo}`}
       titulo={turma.nome}
+      subtitulo={turma.criado_via === "hermes" ? <SeloHermes sobreMoldura /> : undefined}
       acoes={<BimestreAbas turma={turma} todasTurmas={todasTurmas} />}
     >
       {!maximizado && (

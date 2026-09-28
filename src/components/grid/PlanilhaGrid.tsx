@@ -31,6 +31,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { GestaoColunasModal } from "./GestaoColunasModal";
 import { EstatisticaColunaModal } from "./EstatisticaColunaModal";
 import { TransferirAlunoModal } from "./TransferirAlunoModal";
+import { SeloHermes } from "@/components/ui/SeloHermes";
 import { AlunoDashboardDrawer } from "@/components/aluno/AlunoDashboardDrawer";
 
 /** Erro com texto pensado pro usuário (ex.: prazo do Ctrl+Z vencido) — exibido como está. */
@@ -685,6 +686,7 @@ export function PlanilhaGrid({
                     >
                       {ehData && <CalendarDays size={12} className="shrink-0 opacity-70" />}
                       <span className="truncate">{c.titulo}</span>
+                      {c.criado_via === "hermes" && <SeloHermes />}
                     </button>
                   </th>
                 );
@@ -798,8 +800,9 @@ export function PlanilhaGrid({
                           <span className="block truncate hover:underline">
                             {aluno.nome}
                           </span>
-                          {(aluno.nome_editado_em || aluno.transferido_em) && (
+                          {(aluno.nome_editado_em || aluno.transferido_em || aluno.criado_via === "hermes") && (
                             <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] font-normal leading-tight">
+                              {aluno.criado_via === "hermes" && <SeloHermes />}
                               {aluno.nome_editado_em && (
                                 <span
                                   className="rounded px-1 py-px text-muted ring-1 ring-line"

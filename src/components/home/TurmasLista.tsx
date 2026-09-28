@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BookOpen, GraduationCap, Search, Users } from "lucide-react";
 import type { Turma } from "@/lib/types";
 import { corBimestre, partesDaTurma } from "@/lib/turmas";
+import { SeloHermes } from "@/components/ui/SeloHermes";
 import { estilos } from "@/components/ui/estilos";
 
 type TurmasListaProps = {
@@ -91,6 +92,7 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
                         <Users size={11} />
                         {alunos}
                       </span>
+                      {turma.criado_via === "hermes" && <SeloHermes />}
                     </div>
                   </div>
                 </Link>
