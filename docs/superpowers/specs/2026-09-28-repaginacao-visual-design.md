@@ -18,6 +18,7 @@ exceto uma server action nova de busca para o Ctrl+K.
 | Futurismo vem de | cards flutuantes com sombra azulada, números em fonte mono, contornos de foco, vidro fosco em camadas flutuantes, login "aurora" |
 | Inovação de interação | Só a paleta Ctrl+K nesta versão (heatmap, micro-animações extras, sidebar expansível ficaram de fora) |
 | Implementação | Abordagem A: camada de tokens semânticos + migração tela a tela; primitivas extraídas só onde há duplicação real (casca de modal, botão, input) |
+| Logo | Oficial, com o círculo **intacto** e só o texto "COLÉGIO STATUS" em **branco**, para uso sobre o azul (`public/logo-status-branca.png`). Sobre fundo branco usa-se o original `LOGO2025_CURVAS.png`. Nada de recorte nem de placa branca |
 | Tema escuro | Não há. As classes `dark:` existentes são código morto (nada ativa `.dark`) e serão removidas na migração |
 
 Mockups de referência (locais, não versionados): `.superpowers/brainstorm/*/content/hibrido-completo.html`.
@@ -73,15 +74,21 @@ com texto `gold-ink`. Sobre a moldura azul pode ser usado livremente.
 - O fundo "linhas de caderno" do `body` sai.
 - Respeitar `prefers-reduced-motion`: sem transições de brilho ou desfoque animado.
 
+### Logo
+
+- `public/logo-status-branca.png`: derivada do arquivo oficial. Pixels à direita da coluna 505 (o texto) pintados de branco, preservando o alpha; o círculo (colunas 0–489) fica idêntico. Já gerada e versionada junto com esta spec.
+- Uso: sobre `frame`/aurora, sempre a versão branca; sobre superfície branca (se algum dia necessário), o original. Nunca recolorir o círculo, distorcer ou recortar.
+- Tamanho: ~44px de altura na faixa do topo (desktop), largura total do card no login. Abaixo de `sm`, altura ~28px na barra superior do mobile. Se o "COLÉGIO" ficar ilegível nessa largura, mostrar só a logo sem título de página ao lado.
+
 ## 2. Estrutura das telas (shell)
 
 ### Sidebar (`src/components/layout/Sidebar.tsx`)
-- Desktop: trilho fixo de ~64px em `frame-deep`, só ícones com `aria-label` e tooltip. No topo, o símbolo circular da logo (recorte do "S" como imagem nova `public/logo-simbolo.png`, gerada a partir de `LOGO2025_CURVAS.png`). O item ativo fica com fundo `gold` e ícone `gold-ink`. No rodapé, um avatar com as iniciais do professor (reusar `components/ui/Avatar.tsx`), com o nome completo no tooltip, e o botão Sair.
+- Desktop: trilho fixo de ~64px em `frame-deep`, só ícones com `aria-label` e tooltip. Sem logo no trilho (a logo mora na faixa do topo). O item ativo fica com fundo `gold` e ícone `gold-ink`. No rodapé, um avatar com as iniciais do professor (reusar `components/ui/Avatar.tsx`), com o nome completo no tooltip, e o botão Sair.
 - Um botão de busca (ícone de lupa) abre o Ctrl+K, para quem não conhece o atalho.
-- Mobile (< md): barra horizontal no topo em `frame-deep`, mesmos itens, logo reduzida. Nada de trilho lateral.
+- Mobile (< md): barra horizontal no topo em `frame-deep`, mesmos itens, com a logo branca reduzida à esquerda. Nada de trilho lateral.
 
 ### Faixa de moldura (componente novo `PageHeader`)
-- Faixa `frame` de altura fixa (~170px no desktop) atrás do topo da página, com breadcrumb (`frame-muted`, caixa alta), título em Space Grotesk branco e uma área de ações à direita (abas de bimestre, atalho "Ctrl K Buscar").
+- Faixa `frame` de altura fixa (~170px no desktop) atrás do topo da página. Linha 1: breadcrumb (`frame-muted`, caixa alta) e título em Space Grotesk branco à esquerda; **logo oficial branca à direita** (link para `/`). Linha 2: área de ações da página (abas de bimestre, atalho "Ctrl K Buscar").
 - O conteúdo (KPIs, cards) sobe e sobrepõe a borda inferior da faixa. É o efeito "cards flutuando sobre o azul".
 - Usada em: home, turma, admin/professores, admin/histórico, trocar-senha.
 
@@ -89,7 +96,7 @@ com texto `gold-ink`. Sobre a moldura azul pode ser usado livremente.
 
 ### Login, cadastro, verificar e-mail
 - Fundo aurora: três radiais (dourado no alto à direita, azul claro embaixo à esquerda, `brand` ao centro) sobre `#06163F`, mais uma grade sutil de 40px com máscara radial. Tudo em CSS, sem imagem.
-- Card de vidro central (`bg white/8%`, blur, borda `white/18%`) com o símbolo da logo + "Status Avalia / COLÉGIO STATUS", título, inputs translúcidos (foco com borda `gold` e anel `gold/20%`) e botão principal `gold` com texto `gold-ink`.
+- Card de vidro central (`bg white/8%`, blur, borda `white/18%`) com a logo oficial branca ocupando a largura do card no topo, título, inputs translúcidos (foco com borda `gold` e anel `gold/20%`) e botão principal `gold` com texto `gold-ink`.
 - Sem sidebar (a sidebar já some quando não há professor logado).
 
 ### Home, lista de turmas (`src/app/page.tsx`, `TurmasLista.tsx`)
@@ -98,7 +105,7 @@ com texto `gold-ink`. Sobre a moldura azul pode ser usado livremente.
 - Mantém as cores por bimestre de `lib/turmas.ts` (`corBimestre`), remapeadas para tons compatíveis com o fundo claro.
 
 ### Turma (`TurmaDashboard`, `TurmaHeader`, `FiltrosTurma`, `KpiCards`, `PlanilhaGrid`, `CelulaNota`)
-- `TurmaHeader` vira o conteúdo do `PageHeader`: breadcrumb "Turmas / Redação · <ano>", título = nome da turma, abas de bimestre à direita e atalho Ctrl K. A logo grande sai (já está na sidebar). O botão desabilitado "Sincronizar com Google" sai da tela.
+- `TurmaHeader` vira o conteúdo do `PageHeader`: breadcrumb "Turmas / Redação · <ano>", título = nome da turma, abas de bimestre à direita e atalho Ctrl K. A logo colorida atual sai (a versão branca já está na faixa). O botão desabilitado "Sincronizar com Google" sai da tela.
 - Abas de bimestre: segmented control translúcido sobre a moldura; a ativa fica branca com texto `brand`. São links para as turmas irmãs (mesmo `nome`, outro `bimestre`), usando a mesma fonte de dados do seletor atual. A ação "novo bimestre" (`CriarBimestreModal`) vira um "+" no fim das abas.
 - KPIs: três cards brancos com ícone em quadrado tingido (azul / `danger` / âmbar); o card da média ganha filete superior `gold`; valores em mono.
 - Planilha: dentro de um card branco com a toolbar embutida no topo (filtro, indicador "Tudo salvo" com ponto `ok`, Colunas, Exportar, botão primário "+ Atividade" em `brand` com "+" `gold`).
@@ -146,7 +153,7 @@ com texto `gold-ink`. Sobre a moldura azul pode ser usado livremente.
 
 Cada etapa deixa o sistema funcionando e é commitada separadamente:
 
-1. **Fundação**: tokens em `globals.css`, fontes em `layout.tsx`, `DESIGN.md`, primitivas `Modal`/`Button`/`Input`, símbolo da logo.
+1. **Fundação**: tokens em `globals.css`, fontes em `layout.tsx`, `DESIGN.md`, primitivas `Modal`/`Button`/`Input`.
 2. **Shell**: Sidebar em trilho + `PageHeader`.
 3. **Autenticação**: login, cadastro, verificar-email e trocar-senha (aurora).
 4. **Home**: lista de turmas.
