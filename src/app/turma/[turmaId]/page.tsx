@@ -52,7 +52,7 @@ export default async function TurmaPage({ params, searchParams }: PageProps) {
     : { data: [] };
 
   type NotaComJoin = NotaCelula & { professores: { nome: string } | null };
-  const notasComAutor = ((notas ?? []) as NotaComJoin[]).map(({ professores, ...resto }) => ({
+  const notasComAutor = ((notas ?? []) as unknown as NotaComJoin[]).map(({ professores, ...resto }) => ({
     ...resto,
     professor_nome: professores?.nome ?? null,
   }));

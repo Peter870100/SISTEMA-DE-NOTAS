@@ -3,6 +3,7 @@ export type Turma = {
   nome: string;
   bimestre: string;
   ano_letivo: string;
+  criado_via: OrigemRegistro;
   created_at: string;
 };
 
@@ -14,10 +15,14 @@ export type Aluno = {
   ordem: number;
   nome_editado_em: string | null;
   transferido_em: string | null;
+  criado_via: OrigemRegistro;
   created_at: string;
 };
 
 export type TipoColuna = "nota" | "presenca";
+
+/** Quem criou/excluiu: a tela do sistema ou o agente de IA (Hermes, via MCP). */
+export type OrigemRegistro = "app" | "hermes";
 
 export type AtividadeColuna = {
   id: string;
@@ -27,6 +32,7 @@ export type AtividadeColuna = {
   peso: number;
   tipo: TipoColuna;
   ordem: number;
+  criado_via: OrigemRegistro;
   created_at: string;
 };
 
@@ -84,6 +90,30 @@ export type NotaHistorico = {
   status_novo: string | null;
   alterado_por: string | null;
   created_at: string;
+};
+
+export type TipoLixeira = "turma" | "aluno" | "atividade";
+
+export type ResumoLixeira = { alunos?: number; atividades?: number; notas?: number };
+
+/** Linha da lixeira sem a cópia (`dados`), que é pesada e só a função de restaurar usa. */
+export type ItemLixeira = {
+  id: string;
+  tipo: TipoLixeira;
+  titulo: string;
+  turma_id: string | null;
+  turma_nome: string | null;
+  resumo: ResumoLixeira;
+  excluido_por: string | null;
+  excluido_via: OrigemRegistro;
+  excluido_em: string;
+};
+
+export type ResultadoRestauracao = {
+  tipo: TipoLixeira;
+  turma_id: string | null;
+  notas_restauradas: number;
+  notas_puladas: number;
 };
 
 export type Database = {
@@ -153,9 +183,24 @@ export type Database = {
         Update: Partial<Omit<NotaHistorico, "id" | "created_at">>;
         Relationships: [];
       };
+      lixeira: {
+        Row: ItemLixeira & { dados: unknown };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      lixeira_excluir: {
+        Args: { p_tipo: TipoLixeira; p_id: string; p_ator?: string | null; p_via?: OrigemRegistro };
+        Returns: string;
+      };
+      lixeira_restaurar: {
+        Args: { p_lixeira_id: string };
+        Returns: ResultadoRestauracao;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
