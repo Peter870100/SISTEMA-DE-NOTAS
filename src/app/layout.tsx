@@ -47,7 +47,7 @@ export default async function RootLayout({
       lang="pt-BR"
       className={`${manrope.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col md:flex-row">
+      <body className="flex min-h-full flex-col bg-canvas md:flex-row">
         <Sidebar professor={professor} />
         <div className="flex min-h-full min-w-0 flex-1 flex-col">{children}</div>
       </body>

@@ -3,11 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KeyRound, LogOut, Users, History, GraduationCap } from "lucide-react";
+import { KeyRound, LogOut, Users, History, GraduationCap, Search } from "lucide-react";
 import { logout } from "@/actions/auth";
+import { Avatar } from "@/components/ui/Avatar";
 import type { Professor } from "@/lib/types";
 
-export function Sidebar({ professor }: { professor: Professor | null }) {
+type SidebarProps = {
+  professor: Professor | null;
+  onAbrirBusca?: () => void;
+};
+
+const itemBase =
+  "group relative flex h-11 w-11 items-center justify-center rounded-[11px] transition md:h-10 md:w-10";
+
+export function Sidebar({ professor, onAbrirBusca }: SidebarProps) {
   const pathname = usePathname();
   if (!professor) return null;
 
@@ -21,30 +30,39 @@ export function Sidebar({ professor }: { professor: Professor | null }) {
   ];
 
   return (
-    <aside className="flex shrink-0 flex-col gap-3 border-b border-neutral-200 bg-white p-3 md:w-36 md:border-r md:border-b-0 md:py-5">
-      <Link href="/" aria-label="Status Avalia — turmas" className="hidden rounded md:block">
-        <Image src="/LOGO2025_CURVAS.png" alt="Colégio Status" width={1580} height={513} className="h-auto w-full" priority />
+    <aside className="flex shrink-0 items-center gap-2 border-b border-frame-line bg-frame-deep px-3 py-2 md:sticky md:top-0 md:h-dvh md:w-16 md:flex-col md:border-r md:border-b-0 md:px-0 md:py-4">
+      <Link href="/" aria-label="Colégio Status — início" className="mr-auto rounded md:hidden">
+        <Image src="/logo-status-branca.png" alt="Colégio Status" width={1580} height={513} className="h-7 w-auto" priority />
       </Link>
-      <nav aria-label="Navegação principal" className="flex flex-wrap gap-1 md:flex-col">
+      <nav aria-label="Navegação principal" className="flex items-center gap-1 md:flex-col md:gap-2">
+        {onAbrirBusca && (
+          <button type="button" onClick={onAbrirBusca} aria-label="Buscar (Ctrl+K)" title="Buscar (Ctrl+K)" className={`${itemBase} text-frame-muted hover:bg-white/10 hover:text-white md:mb-2`}>
+            <Search size={18} aria-hidden="true" />
+          </button>
+        )}
         {itens.map(({ href, icon: Icon, label, ativo }) => (
           <Link
             key={href}
             href={href}
+            aria-label={label}
+            title={label}
             aria-current={ativo ? (pathname === href ? "page" : "location") : undefined}
-            className={"flex min-h-11 items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium " + (ativo ? "bg-blue-50 text-blue-700" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900")}
+            className={`${itemBase} ${ativo ? "bg-gold text-gold-ink shadow-[0_0_18px_rgb(245_217_10_/_0.4)]" : "text-frame-muted hover:bg-white/10 hover:text-white"}`}
           >
             <Icon size={18} aria-hidden="true" />
-            {label}
           </Link>
         ))}
-        <form action={logout} className="ml-auto md:mt-4 md:ml-0">
-          <button type="submit" className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-neutral-600 hover:bg-rose-50 hover:text-rose-700">
+      </nav>
+      <div className="flex items-center gap-1 md:mt-auto md:flex-col md:gap-3">
+        <span title={professor.nome} className="hidden md:block">
+          <Avatar nome={professor.nome} />
+        </span>
+        <form action={logout}>
+          <button type="submit" aria-label="Sair" title="Sair" className={`${itemBase} text-frame-muted hover:bg-danger/20 hover:text-white`}>
             <LogOut size={18} aria-hidden="true" />
-            Sair
           </button>
         </form>
-      </nav>
-      <p className="mt-auto hidden break-words px-2 text-sm text-neutral-500 md:block">{professor.nome}</p>
+      </div>
     </aside>
   );
 }
