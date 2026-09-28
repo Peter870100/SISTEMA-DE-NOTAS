@@ -35,14 +35,15 @@ async function buscarTudo<T>(ids: string[], consulta: (lote: string[], de: numbe
 }
 
 /**
- * Notas de todas as turmas (que o professor pode ver) de um único bimestre, pra exportar
- * num Excel só. Só entram colunas de nota — as de chamada (presença) ficam de fora.
+ * Notas das turmas que o professor pode ver — de um bimestre, ou de todos quando
+ * `bimestre` é null — pra exportar num Excel só. Só entram colunas de nota; as de
+ * chamada (presença) ficam de fora.
  */
-export async function dadosExportacaoBimestre(bimestre: string): Promise<TurmaParaExportar[]> {
+export async function dadosExportacao(bimestre: string | null): Promise<TurmaParaExportar[]> {
   const professor = await getProfessorAtual();
   if (!professor) throw new Error("Faça login novamente.");
 
-  const turmas = (await listarTurmasAcessiveis()).filter((t) => t.bimestre === bimestre);
+  const turmas = (await listarTurmasAcessiveis()).filter((t) => bimestre === null || t.bimestre === bimestre);
   if (turmas.length === 0) return [];
   const turmaIds = turmas.map((t) => t.id);
 

@@ -87,60 +87,82 @@ function nomeDeAba(base: string, usados: Set<string>): string {
   return nome;
 }
 
+/** "3º Bimestre" → "3º Bim", pra caber no nome da aba (máx. 31 caracteres). */
+function bimestreCurto(bimestre: string): string {
+  return bimestre.replace(/bimestre/i, "Bim").trim();
+}
+
 /**
- * Um Excel só com as notas de todas as turmas de um bimestre: a primeira aba junta
- * todos os alunos com a média; depois vem uma aba por turma com todas as atividades.
+ * Um Excel só com as notas de várias turmas. Cada bimestre ganha as suas abas (nunca
+ * mistura): primeiro uma aba juntando todos os alunos com a média, depois uma aba por
+ * turma com todas as atividades. Com um bimestre só, as abas ficam sem o sufixo.
  */
-export async function exportarExcelBimestre(bimestre: string, turmas: TurmaParaExportar[]) {
+export async function exportarExcelTurmas(rotulo: string, turmas: TurmaParaExportar[]) {
   const XLSX = await import("xlsx");
-  const livro = montarLivroBimestre(XLSX, turmas);
-  const nomeArquivo = `Notas - Todas as turmas - ${bimestre}`.replace(/[\\/:*?"<>|]/g, "").trim();
+  const livro = montarLivroTurmas(XLSX, turmas);
+  const nomeArquivo = `Notas - ${rotulo}`.replace(/[\/:*?"<>|]/g, "").trim();
   XLSX.writeFile(livro, `${nomeArquivo}.xlsx`);
 }
 
-export function montarLivroBimestre(XLSX: typeof import("xlsx"), turmas: TurmaParaExportar[]) {
+export function montarLivroTurmas(XLSX: typeof import("xlsx"), turmas: TurmaParaExportar[]) {
   const livro = XLSX.utils.book_new();
-  const abasUsadas = new Set<string>(["todas as turmas"]);
+  const abasUsadas = new Set<string>();
 
-  const ordenadas = [...turmas].sort((a, b) => a.turma.nome.localeCompare(b.turma.nome, "pt-BR", { numeric: true }));
+  const porBimestre = new Map<string, TurmaParaExportar[]>();
+  for (const t of turmas) {
+    if (!porBimestre.has(t.turma.bimestre)) porBimestre.set(t.turma.bimestre, []);
+    porBimestre.get(t.turma.bimestre)!.push(t);
+  }
+  const bimestres = [...porBimestre.keys()].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
+  const variosBimestres = bimestres.length > 1;
 
-  const geral: (string | number)[][] = [["Turma", "Nº", "Nome do Aluno", "Média"]];
-  const abasTurmas: { nome: string; planilha: ReturnType<typeof XLSX.utils.aoa_to_sheet> }[] = [];
+  for (const bimestre of bimestres) {
+    const sufixo = variosBimestres ? ` · ${bimestreCurto(bimestre)}` : "";
+    const ordenadas = porBimestre
+      .get(bimestre)!
+      .sort((a, b) => a.turma.nome.localeCompare(b.turma.nome, "pt-BR", { numeric: true }));
 
-  for (const { turma, colunas, alunos, notas } of ordenadas) {
-    const celulas: CelulasMap = {};
-    for (const n of notas) {
-      celulas[n.aluno_id] ??= {};
-      celulas[n.aluno_id][n.coluna_id] = { valor: n.valor, status_texto: n.status_texto };
+    const geral: (string | number)[][] = [["Turma", "Bimestre", "Nº", "Nome do Aluno", "Média"]];
+    const abasTurmas: { nome: string; planilha: ReturnType<typeof XLSX.utils.aoa_to_sheet> }[] = [];
+
+    for (const { turma, colunas, alunos, notas } of ordenadas) {
+      const celulas: CelulasMap = {};
+      for (const n of notas) {
+        celulas[n.aluno_id] ??= {};
+        celulas[n.aluno_id][n.coluna_id] = { valor: n.valor, status_texto: n.status_texto };
+      }
+
+      const cabecalho = ["Nº", "Nome do Aluno", ...colunas.map((c) => c.titulo), "Média"];
+      const linhas = alunos.map((aluno, i) => {
+        const celulasAluno = celulas[aluno.id];
+        const media = mediaExportada(celulasAluno);
+        geral.push([turma.nome, bimestre, aluno.numero ?? i + 1, aluno.nome, media]);
+        return [
+          aluno.numero ?? i + 1,
+          aluno.nome,
+          ...colunas.map((c) => {
+            const cell = celulasAluno?.[c.id];
+            return cell ? (cell.valor ?? cell.status_texto ?? "") : "";
+          }),
+          media,
+        ];
+      });
+
+      const planilha = XLSX.utils.aoa_to_sheet([cabecalho, ...linhas]);
+      planilha["!cols"] = [{ wch: 5 }, { wch: 32 }, ...colunas.map(() => ({ wch: 16 })), { wch: 8 }];
+      const { serie, resto } = partesDaTurma(turma.nome);
+      const nomeCurto = resto && serie !== "Outras turmas" ? `${serie.replace(" série", "")} ${resto}` : turma.nome;
+      abasTurmas.push({ nome: nomeDeAba(nomeCurto.slice(0, 31 - sufixo.length) + sufixo, abasUsadas), planilha });
     }
 
-    const cabecalho = ["Nº", "Nome do Aluno", ...colunas.map((c) => c.titulo), "Média"];
-    const linhas = alunos.map((aluno, i) => {
-      const celulasAluno = celulas[aluno.id];
-      const media = mediaExportada(celulasAluno);
-      geral.push([turma.nome, aluno.numero ?? i + 1, aluno.nome, media]);
-      return [
-        aluno.numero ?? i + 1,
-        aluno.nome,
-        ...colunas.map((c) => {
-          const cell = celulasAluno?.[c.id];
-          return cell ? (cell.valor ?? cell.status_texto ?? "") : "";
-        }),
-        media,
-      ];
-    });
-
-    const planilha = XLSX.utils.aoa_to_sheet([cabecalho, ...linhas]);
-    planilha["!cols"] = [{ wch: 5 }, { wch: 32 }, ...colunas.map(() => ({ wch: 16 })), { wch: 8 }];
-    const { serie, resto } = partesDaTurma(turma.nome);
-    const rotulo = resto && serie !== "Outras turmas" ? `${serie.replace(" série", "")} ${resto}` : turma.nome;
-    abasTurmas.push({ nome: nomeDeAba(rotulo, abasUsadas), planilha });
+    const planilhaGeral = XLSX.utils.aoa_to_sheet(geral);
+    planilhaGeral["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 5 }, { wch: 32 }, { wch: 8 }];
+    planilhaGeral["!autofilter"] = {
+      ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: geral.length - 1, c: 4 } }),
+    };
+    XLSX.utils.book_append_sheet(livro, planilhaGeral, nomeDeAba(`Todas as turmas${sufixo}`, abasUsadas));
+    for (const { nome, planilha } of abasTurmas) XLSX.utils.book_append_sheet(livro, planilha, nome);
   }
 
-  const planilhaGeral = XLSX.utils.aoa_to_sheet(geral);
-  planilhaGeral["!cols"] = [{ wch: 18 }, { wch: 5 }, { wch: 32 }, { wch: 8 }];
-  planilhaGeral["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: geral.length - 1, c: 3 } }) };
-  XLSX.utils.book_append_sheet(livro, planilhaGeral, "Todas as turmas");
-  for (const { nome, planilha } of abasTurmas) XLSX.utils.book_append_sheet(livro, planilha, nome);
   return livro;
 }
