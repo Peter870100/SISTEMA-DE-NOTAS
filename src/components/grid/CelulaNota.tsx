@@ -17,6 +17,7 @@ type CelulaNotaProps = {
   onKeyDown: (e: React.KeyboardEvent) => void;
   onSelectStatus: (status: string) => void;
   cellRef: (el: HTMLDivElement | null) => void;
+  recemSalva: boolean;
 };
 
 export function CelulaNota({
@@ -31,6 +32,7 @@ export function CelulaNota({
   onKeyDown,
   onSelectStatus,
   cellRef,
+  recemSalva,
 }: CelulaNotaProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -42,14 +44,15 @@ export function CelulaNota({
     return (
       <div
         ref={cellRef}
-        className="relative flex items-center gap-1 border border-blue-500 bg-white px-1 py-1 dark:bg-neutral-900"
+        data-bloqueia-atalhos
+        className="relative flex items-center gap-1 rounded-[6px] border-2 border-brand bg-surface px-1 py-1 shadow-[0_6px_18px_rgb(4_68_160_/_0.2)]"
       >
         {STATUS_PRESENCA.map((s) => (
           <button
             key={s}
             type="button"
             onClick={() => onSelectStatus(s)}
-            className={`flex-1 rounded py-1 text-xs font-semibold ${corPresenca(s)}`}
+            className={`flex-1 rounded-[6px] py-1 text-xs font-bold ${corPresenca(s)}`}
           >
             {s}
           </button>
@@ -62,7 +65,8 @@ export function CelulaNota({
     return (
       <div
         ref={cellRef}
-        className="relative flex items-center gap-1 border border-blue-500 bg-white px-1 py-1 dark:bg-neutral-900"
+        data-bloqueia-atalhos
+        className="relative flex items-center gap-1 rounded-[6px] border-2 border-brand bg-surface px-1 py-1 shadow-[0_6px_18px_rgb(4_68_160_/_0.2)]"
       >
         <input
           aria-label="Nota ou status da atividade"
@@ -70,13 +74,13 @@ export function CelulaNota({
           value={editingValue}
           onChange={(e) => onChangeEditingValue(e.target.value)}
           onKeyDown={onKeyDown}
-          className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+          className="min-w-0 flex-1 bg-transparent font-mono text-sm text-ink outline-none"
         />
         <select
           aria-label="Selecionar status da atividade"
           value=""
           onChange={(e) => e.target.value && onSelectStatus(e.target.value)}
-          className="w-8 shrink-0 rounded border border-neutral-300 bg-white text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800"
+          className="w-8 shrink-0 rounded-[6px] border border-line bg-surface text-xs text-muted"
           title="Status rápido"
         >
           <option value="">•••</option>
@@ -106,23 +110,23 @@ export function CelulaNota({
       onClick={onStartEdit}
       onKeyDown={onKeyDown}
       title={tituloAutor}
-      className={`flex min-h-11 items-center justify-between gap-1 rounded border px-2 py-1.5 text-sm outline-none ${
+      className={`group flex min-h-11 items-center justify-between gap-1 px-2 py-1.5 text-sm outline-none transition-colors ${
         active
-          ? "border-blue-500 bg-white ring-1 ring-blue-500 dark:bg-neutral-900"
-          : "border-neutral-200 bg-neutral-50 hover:bg-white dark:border-neutral-800 dark:bg-neutral-900/40"
-      }`}
+          ? "bg-brand-bright/5 ring-2 ring-inset ring-brand-bright"
+          : "hover:bg-brand-bright/[0.03]"
+      } ${recemSalva ? "animate-salvo" : ""}`}
     >
       <span>
         {value.status_texto ? (
           <span
-            className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+            className={`rounded-[6px] px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${
               tipo === "presenca" ? corPresenca(value.status_texto) : corStatus()
             }`}
           >
             {value.status_texto}
           </span>
         ) : value.valor !== null ? (
-          <span className="tabular-nums">{value.valor}</span>
+          <span className="font-mono tabular-nums text-ink">{value.valor}</span>
         ) : null}
       </span>
       <button
@@ -132,7 +136,7 @@ export function CelulaNota({
           e.stopPropagation();
           onStartEdit();
         }}
-        className="shrink-0 text-neutral-400 hover:text-blue-600 dark:text-neutral-600"
+        className="shrink-0 text-faint opacity-0 transition group-hover:opacity-100 hover:text-brand"
         title="Editar"
         aria-label="Editar célula"
       >

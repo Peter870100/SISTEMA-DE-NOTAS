@@ -12,6 +12,8 @@ import {
   paraEscala10,
 } from "@/lib/analytics";
 import { exportarExcel } from "@/lib/exportarExcel";
+import { normalizar } from "@/lib/comandos";
+import { estilos } from "@/components/ui/estilos";
 import { upsertCelula } from "@/actions/notas";
 import {
   addAluno,
@@ -32,14 +34,6 @@ import { AlunoDashboardDrawer } from "@/components/aluno/AlunoDashboardDrawer";
 
 /** Título que é só uma data ("03/08", "21-05", "14/08/26") — a coluna ganha destaque de chamada. */
 const RE_TITULO_DATA = /^\d{1,2}[/\-.]\d{1,2}([/\-.]\d{2,4})?$/;
-
-/** Remove acentos e caixa pra busca não se importar com "José" x "jose". */
-function normalizarBusca(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
-}
 
 type PlanilhaGridProps = {
   turmaId: string;
@@ -106,7 +100,9 @@ export function PlanilhaGrid({
     nome: string;
   } | null>(null);
   const [gestaoColunasAberto, setGestaoColunasAberto] = useState(false);
-  const [drawerAlunoId, setDrawerAlunoId] = useState<string | null>(null);
+  const [drawerEscolhidoId, setDrawerEscolhidoId] = useState<string | null>(null);
+  // O drawer abre pelo clique no nome ou por um pedido de foco vindo do Ctrl+K (?aluno=).
+  const drawerAlunoId = drawerEscolhidoId ?? alunoFocoId;
   const [colunaEstatistica, setColunaEstatistica] = useState<AtividadeColuna | null>(null);
   const [transferindo, setTransferindo] = useState<{ id: string; nome: string } | null>(null);
   const [editandoNome, setEditandoNome] = useState<{ id: string; valor: string } | null>(null);
@@ -123,6 +119,7 @@ export function PlanilhaGrid({
     desfazer: () => Promise<void>;
   } | null>(null);
   const [desfazendo, setDesfazendo] = useState(false);
+  const [recemSalvas, setRecemSalvas] = useState<Set<string>>(() => new Set());
 
   const alunosRef = useRef(alunos);
   useEffect(() => {
@@ -209,6 +206,14 @@ export function PlanilhaGrid({
             [coluna.id]: { ...patch, atualizadoPorNome, atualizadoEm },
           },
         }));
+        setRecemSalvas((prev) => new Set(prev).add(chaveCelula));
+        setTimeout(() => {
+          setRecemSalvas((prev) => {
+            const next = new Set(prev);
+            next.delete(chaveCelula);
+            return next;
+          });
+        }, 1200);
       })
       .catch(() => {
         falhasPorCelula.current.add(chaveCelula);
@@ -484,7 +489,7 @@ export function PlanilhaGrid({
 
   const buscaLimpa = busca.trim();
   const alunosFiltrados = buscaLimpa
-    ? alunos.filter((a) => normalizarBusca(a.nome).includes(normalizarBusca(buscaLimpa)))
+    ? alunos.filter((a) => normalizar(a.nome).includes(normalizar(buscaLimpa)))
     : alunos;
 
   const mediaTurma = (() => {
@@ -498,15 +503,8 @@ export function PlanilhaGrid({
 
   return (
     <div className="flex flex-col gap-3">
-      <p role="status" aria-live="polite" aria-atomic="true" className={`text-sm ${falhaSalvamento && pendentes === 0 ? "text-rose-700" : "text-neutral-600"}`}>
-        {pendentes > 0
-          ? `Salvando… (${pendentes} ${pendentes === 1 ? "alteração pendente" : "alterações pendentes"})`
-          : falhaSalvamento
-            ? "Uma alteração não foi salva. Confira a mensagem abaixo e tente novamente."
-            : houveEdicao ? "Salvo" : "As notas são salvas automaticamente ao confirmar a edição."}
-      </p>
       {erro && (
-        <div role="alert" className="flex items-center justify-between rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+        <div role="alert" className="flex items-center justify-between rounded-control border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
           <span>{erro}</span>
           <button onClick={() => setErro(null)} className="font-medium underline">
             fechar
@@ -515,7 +513,7 @@ export function PlanilhaGrid({
       )}
 
       {ultimaAcao && (
-        <div className="flex items-center justify-between rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+        <div className="flex items-center justify-between rounded-control border border-brand/15 bg-brand/5 px-3 py-2 text-sm text-brand">
           <span>{ultimaAcao.label}</span>
           <div className="flex items-center gap-3">
             <button
@@ -528,7 +526,7 @@ export function PlanilhaGrid({
             </button>
             <button
               onClick={() => setUltimaAcao(null)}
-              className="text-blue-400 hover:text-blue-700 dark:hover:text-blue-200"
+              className="text-brand/60 hover:text-brand"
               title="Dispensar"
               aria-label="Dispensar aviso"
             >
@@ -538,11 +536,12 @@ export function PlanilhaGrid({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className={`${estilos.card} overflow-hidden`}>
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2.5">
         <div className="relative w-full max-w-56">
           <Search
             size={15}
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400"
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint"
           />
           <input
             aria-label="Buscar aluno"
@@ -553,12 +552,12 @@ export function PlanilhaGrid({
               setEditing(false);
             }}
             placeholder="Buscar aluno…"
-            className="w-full rounded-md border border-neutral-300 py-1.5 pl-8 pr-7 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
+            className={`${estilos.input} border-transparent bg-surface-sunken py-1.5 pl-8 pr-7`}
           />
           {busca && (
             <button
               onClick={() => setBusca("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-ink"
               title="Limpar busca"
               aria-label="Limpar busca de alunos"
             >
@@ -566,11 +565,24 @@ export function PlanilhaGrid({
             </button>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <p role="status" aria-live="polite" aria-atomic="true" className={`flex items-center gap-1.5 text-xs ${falhaSalvamento && pendentes === 0 ? "text-danger" : "text-muted"}`}>
+          <span
+            aria-hidden="true"
+            className={`h-2 w-2 shrink-0 rounded-full ${
+              pendentes > 0 ? "animate-pulse bg-gold" : falhaSalvamento ? "bg-danger" : "bg-ok shadow-[0_0_0_3px_rgb(14_159_110_/_0.15)]"
+            }`}
+          />
+          {pendentes > 0
+            ? `Salvando… (${pendentes} ${pendentes === 1 ? "alteração pendente" : "alterações pendentes"})`
+            : falhaSalvamento
+              ? "Uma alteração não foi salva. Confira a mensagem acima e tente novamente."
+              : houveEdicao ? "Tudo salvo" : "Salvamento automático"}
+        </p>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
         <button
           onClick={ordenarAlfabeticamente}
           disabled={reordenando || alunos.length < 2}
-          className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 hover:shadow disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          className={`${estilos.botaoSecundario} min-h-9 py-1.5`}
           title="Coloca a turma em ordem alfabética e renumera a chamada"
         >
           <ArrowDownAZ size={16} />
@@ -578,7 +590,7 @@ export function PlanilhaGrid({
         </button>
         <button
           onClick={onToggleMaximizar}
-          className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 hover:shadow dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          className={`${estilos.botaoSecundario} min-h-9 py-1.5`}
         >
           {maximizado ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           {maximizado ? "Restaurar" : "Maximizar"}
@@ -586,29 +598,29 @@ export function PlanilhaGrid({
         <button
           onClick={handleExportar}
           disabled={exportando}
-          className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 hover:shadow disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          className={`${estilos.botaoSecundario} min-h-9 py-1.5`}
         >
           <FileSpreadsheet size={16} />
           {exportando ? "Exportando..." : "Exportar Excel"}
         </button>
         <button
           onClick={() => setGestaoColunasAberto(true)}
-          className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 hover:shadow dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          className={`${estilos.botaoPrimario} min-h-9 py-1.5`}
         >
-          <Settings2 size={16} />
+          <Settings2 size={16} className="text-gold" />
           {tipoColuna === "presenca" ? "Gerenciar chamadas" : "Gerenciar atividades"}
         </button>
         </div>
       </div>
 
-      <div className="max-h-[65vh] overflow-auto rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800">
-        <table className="w-full table-fixed border-collapse">
+      <div className="max-h-[65vh] overflow-auto">
+        <table className="w-full table-fixed border-separate border-spacing-0">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-slate-50 dark:bg-neutral-900">
-              <th className="sticky top-0 left-0 z-20 w-12 sm:w-16 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+            <tr>
+              <th className="sticky top-0 left-0 z-20 w-12 sm:w-16 border-b border-line bg-surface-sunken px-2 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
                 Nº
               </th>
-              <th className="sticky top-0 left-12 sm:left-16 z-20 w-32 sm:w-48 border border-neutral-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+              <th className="sticky top-0 left-12 sm:left-16 z-20 w-32 sm:w-48 border-b border-line bg-surface-sunken px-2 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted px-3 text-left">
                 Nome do Aluno
               </th>
               {colunas.map((c) => {
@@ -616,14 +628,14 @@ export function PlanilhaGrid({
                 return (
                   <th
                     key={c.id}
-                    className="sticky top-0 w-32 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+                    className="sticky top-0 w-32 border-b border-line bg-surface-sunken px-2 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted"
                   >
                     <button
                       onClick={() => setColunaEstatistica(c)}
-                      className={`inline-flex max-w-full items-center justify-center gap-1 rounded-md px-2 py-1 transition-all active:scale-95 ${
+                      className={`inline-flex max-w-full items-center justify-center gap-1 rounded-[6px] border bg-surface px-2 py-1 normal-case tracking-normal transition active:scale-95 hover:border-brand-bright/50 hover:text-brand ${
                         ehData
-                          ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:shadow-sm dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-900/60"
-                          : "hover:bg-blue-50 hover:text-blue-700 hover:shadow-sm dark:hover:bg-blue-950/50 dark:hover:text-blue-300"
+                          ? "border-dashed border-line text-muted"
+                          : "border-line text-ink"
                       }`}
                       title={
                         ehData
@@ -639,10 +651,10 @@ export function PlanilhaGrid({
                   </th>
                 );
               })}
-              <th className="sticky top-0 w-20 border border-neutral-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+              <th className="sticky top-0 w-20 border-b border-line bg-surface-sunken px-2 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted border-l">
                 {tipoColuna === "presenca" ? "Frequência" : "Média"}
               </th>
-              <th className="sticky top-0 w-24 border border-neutral-200 bg-slate-50 dark:border-neutral-800 dark:bg-neutral-900" />
+              <th className="sticky top-0 w-24 border-b border-line bg-surface-sunken" />
             </tr>
           </thead>
           <tbody>
@@ -650,7 +662,7 @@ export function PlanilhaGrid({
               <tr>
                 <td
                   colSpan={colunas.length + 4}
-                  className="px-3 py-6 text-center text-sm text-neutral-400 dark:text-neutral-500"
+                  className="px-3 py-6 text-center text-sm text-faint"
                 >
                   Nenhum aluno encontrado pra &quot;{buscaLimpa}&quot;.
                 </td>
@@ -667,7 +679,7 @@ export function PlanilhaGrid({
                   ? frequencia !== null && frequencia < 75
                   : media10 !== null && media10 < LIMIAR_CRITICO;
               const zebra = posicaoVisivel % 2 === 1;
-              const bgLinha = zebra ? "bg-neutral-50" : "bg-white";
+              const bgLinha = zebra ? "bg-zebra" : "bg-surface";
               return (
                 <tr
                   key={aluno.id}
@@ -684,22 +696,22 @@ export function PlanilhaGrid({
                     setLinhaAlvo(null);
                     setPodeArrastar(false);
                   }}
-                  className={`group ${zebra ? "bg-neutral-50" : "bg-white"} ${
+                  className={`group ${bgLinha} ${
                     arrastando === row ? "opacity-40" : ""
                   } ${
                     linhaAlvo === row && arrastando !== row
-                      ? "outline-2 -outline-offset-2 outline-blue-500"
+                      ? "outline-2 -outline-offset-2 outline-brand-bright"
                       : ""
                   }`}
                 >
                   <td
-                    className={`sticky left-0 z-[5] border border-neutral-200 ${bgLinha} px-1 py-1.5 text-center text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950`}
+                    className={`sticky left-0 z-[5] border-t border-line-soft ${bgLinha} px-1 py-1.5 text-center font-mono text-[11px] tabular-nums text-faint`}
                   >
                     <span className="flex items-center justify-center gap-0.5">
                       <span
                         onMouseDown={() => !buscaLimpa && setPodeArrastar(true)}
                         onMouseUp={() => setPodeArrastar(false)}
-                        className={`text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-neutral-600 ${
+                        className={`text-faint opacity-0 transition-opacity group-hover:opacity-100 ${
                           buscaLimpa
                             ? "cursor-not-allowed"
                             : "cursor-grab active:cursor-grabbing"
@@ -716,7 +728,7 @@ export function PlanilhaGrid({
                     </span>
                   </td>
                   <td
-                    className={`sticky left-12 sm:left-16 z-[5] border border-neutral-200 ${bgLinha} px-3 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-950`}
+                    className={`sticky left-12 sm:left-16 z-[5] border-t border-line-soft ${bgLinha} px-3 py-1.5 text-sm`}
                   >
                     {editandoNome?.id === aluno.id ? (
                       <input
@@ -735,12 +747,12 @@ export function PlanilhaGrid({
                             setEditandoNome(null);
                           }
                         }}
-                        className="w-full rounded border border-blue-500 bg-white px-1.5 py-0.5 text-sm outline-none dark:bg-neutral-900"
+                        className="w-full rounded-[6px] border border-brand bg-surface px-1.5 py-0.5 text-sm outline-none ring-2 ring-brand/15"
                       />
                     ) : (
                       <button
-                        onClick={() => setDrawerAlunoId(aluno.id)}
-                        className="flex w-full items-center gap-2 text-left font-medium text-neutral-800 hover:text-blue-700 dark:text-neutral-200"
+                        onClick={() => setDrawerEscolhidoId(aluno.id)}
+                        className="flex w-full items-center gap-2 text-left font-semibold text-ink hover:text-brand"
                         title="Ver rendimento do aluno"
                       >
                         <Avatar nome={aluno.nome} />
@@ -752,7 +764,7 @@ export function PlanilhaGrid({
                             <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] font-normal leading-tight">
                               {aluno.nome_editado_em && (
                                 <span
-                                  className="rounded px-1 py-px text-neutral-500 ring-1 ring-neutral-200 dark:text-neutral-400 dark:ring-neutral-700"
+                                  className="rounded px-1 py-px text-muted ring-1 ring-line"
                                   title={`Nome editado em ${new Date(
                                     aluno.nome_editado_em
                                   ).toLocaleString("pt-BR")}`}
@@ -762,7 +774,7 @@ export function PlanilhaGrid({
                               )}
                               {aluno.transferido_em && (
                                 <span
-                                  className="inline-flex items-center gap-0.5 rounded bg-amber-50 px-1 py-px text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                                  className="inline-flex items-center gap-0.5 rounded bg-warn/10 px-1 py-px font-bold text-warn"
                                   title={`Transferido pra esta turma em ${new Date(
                                     aluno.transferido_em
                                   ).toLocaleString("pt-BR")}`}
@@ -781,7 +793,7 @@ export function PlanilhaGrid({
                     )}
                   </td>
                   {colunas.map((coluna, col) => (
-                    <td key={coluna.id} className="p-0">
+                    <td key={coluna.id} className="border-t border-line-soft p-0">
                       <CelulaNota
                         value={getCelula(aluno.id, coluna.id)}
                         tipo={coluna.tipo}
@@ -797,6 +809,7 @@ export function PlanilhaGrid({
                         onSelectStatus={(status) =>
                           handleSelectStatus(row, col, status)
                         }
+                        recemSalva={recemSalvas.has(`${aluno.id}:${coluna.id}`)}
                         cellRef={(el) => {
                           const key = `${row}-${col}`;
                           if (el) cellRefs.current.set(key, el);
@@ -806,32 +819,34 @@ export function PlanilhaGrid({
                     </td>
                   ))}
                   <td
-                    className={`border border-neutral-200 px-2 py-1.5 text-center text-sm font-medium tabular-nums dark:border-neutral-800 ${
-                      critico
-                        ? "text-rose-600 dark:text-rose-400"
-                        : "text-neutral-600 dark:text-neutral-300"
+                    className={`border-t border-l border-line-soft border-l-line bg-surface-sunken px-2 py-1.5 text-center font-mono text-sm font-bold tabular-nums ${
+                      critico ? "text-danger" : "text-ink"
                     }`}
                   >
-                    {valorResumo !== null
-                      ? tipoColuna === "presenca"
-                        ? `${valorResumo.toFixed(0)}%`
-                        : valorResumo.toFixed(2)
-                      : "—"}
+                    {valorResumo !== null ? (
+                      <>
+                        {critico && <span aria-hidden="true" className="mr-0.5 align-[2px] text-[8px]">▼</span>}
+                        {critico && <span className="sr-only">Crítico: </span>}
+                        {tipoColuna === "presenca" ? `${valorResumo.toFixed(0)}%` : valorResumo.toFixed(2)}
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </td>
-                  <td className="border border-neutral-200 text-center dark:border-neutral-800">
+                  <td className="border-t border-line-soft text-center">
                     <div className="flex items-center justify-center gap-1">
                       <button
                         onClick={() =>
                           setEditandoNome({ id: aluno.id, valor: aluno.nome })
                         }
-                        className="rounded-md p-1.5 text-blue-500 transition-all hover:bg-blue-50 hover:text-blue-700 hover:shadow-sm active:scale-90 dark:text-blue-400 dark:hover:bg-blue-950/50"
+                        className="rounded-control p-1.5 text-faint transition hover:bg-surface-sunken active:scale-90 hover:text-brand"
                         title="Editar nome"
                       >
                         <Pencil size={15} />
                       </button>
                       <button
                         onClick={() => setTransferindo({ id: aluno.id, nome: aluno.nome })}
-                        className="rounded-md p-1.5 text-amber-500 transition-all hover:bg-amber-50 hover:text-amber-700 hover:shadow-sm active:scale-90 dark:text-amber-400 dark:hover:bg-amber-950/50"
+                        className="rounded-control p-1.5 text-faint transition hover:bg-surface-sunken active:scale-90 hover:text-warn"
                         title="Transferir pra outra turma"
                       >
                         <ArrowRightLeft size={15} />
@@ -840,7 +855,7 @@ export function PlanilhaGrid({
                         onClick={() =>
                           setConfirmDelete({ id: aluno.id, nome: aluno.nome })
                         }
-                        className="rounded-md p-1.5 text-rose-500 transition-all hover:bg-rose-50 hover:text-rose-700 hover:shadow-sm active:scale-90 dark:text-rose-400 dark:hover:bg-rose-950/50"
+                        className="rounded-control p-1.5 text-faint transition hover:bg-surface-sunken active:scale-90 hover:text-danger"
                         title="Excluir aluno"
                       >
                         <Trash2 size={15} />
@@ -853,10 +868,11 @@ export function PlanilhaGrid({
           </tbody>
         </table>
       </div>
+      </div>
 
       {modoVarios ? (
-        <div className="flex flex-col gap-2 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
-          <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+        <div className={`${estilos.card} flex flex-col gap-2 p-3`}>
+          <label className={estilos.rotulo}>
             Um nome por linha — cole a lista da chamada direto aqui
           </label>
           <textarea
@@ -865,13 +881,13 @@ export function PlanilhaGrid({
             onChange={(e) => setTextoVarios(e.target.value)}
             rows={6}
             placeholder={"Ana Beatriz\nBruno Silva\nCarla Souza..."}
-            className="w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
+            className={`${estilos.input} resize-y`}
           />
           <div className="flex items-center gap-2">
             <button
               onClick={handleAddVarios}
               disabled={salvandoVarios || nomesVarios.length === 0}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-600/30 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/40 disabled:opacity-50 disabled:shadow-none"
+              className={estilos.botaoPrimario}
             >
               {salvandoVarios
                 ? "Adicionando..."
@@ -882,32 +898,33 @@ export function PlanilhaGrid({
                 setModoVarios(false);
                 setTextoVarios("");
               }}
-              className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+              className={estilos.botaoFantasma}
             >
               Cancelar
             </button>
           </div>
         </div>
       ) : (
-        <form onSubmit={handleAddAluno} className="flex flex-wrap items-center gap-2">
-          <UserPlus size={16} className="text-neutral-400" />
+        <form onSubmit={handleAddAluno} className={`${estilos.card} flex flex-wrap items-center gap-2 p-3`}>
+          <UserPlus size={16} className="text-faint" />
           <input
             value={novoAlunoNome}
             onChange={(e) => setNovoAlunoNome(e.target.value)}
             placeholder="Nome do novo aluno"
-            className="w-64 rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
+            aria-label="Nome do novo aluno"
+            className={`${estilos.input} w-64 max-w-full`}
           />
           <button
             type="submit"
             disabled={salvandoAluno || !novoAlunoNome.trim()}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-600/30 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/40 disabled:opacity-50 disabled:shadow-none"
+            className={estilos.botaoPrimario}
           >
             Adicionar aluno
           </button>
           <button
             type="button"
             onClick={() => setModoVarios(true)}
-            className="flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-blue-700 dark:text-neutral-400 dark:hover:text-blue-400"
+            className="flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand"
           >
             <ListPlus size={15} />
             adicionar vários de uma vez
@@ -938,7 +955,10 @@ export function PlanilhaGrid({
         colunas={colunas}
         celulas={drawerAlunoId ? celulas[drawerAlunoId] ?? {} : {}}
         mediaTurma={mediaTurma}
-        onClose={() => setDrawerAlunoId(null)}
+        onClose={() => {
+          setDrawerEscolhidoId(null);
+          onAlunoFocoConsumido();
+        }}
       />
 
       <EstatisticaColunaModal
