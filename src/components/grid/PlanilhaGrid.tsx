@@ -80,6 +80,9 @@ export function PlanilhaGrid({
   const [active, setActive] = useState<{ row: number; col: number } | null>(null);
   const [editing, setEditing] = useState(false);
   const [editingValue, setEditingValue] = useState("");
+  // Célula em edição e o texto que ela tinha ao abrir. Ref (não state) porque o blur que
+  // salva ao sair do campo pode chegar depois de um Enter/Esc já ter encerrado a edição.
+  const edicaoRef = useRef<{ row: number; col: number; original: string } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
   const [pendentes, setPendentes] = useState(0);
@@ -186,6 +189,7 @@ export function PlanilhaGrid({
 
     const patch = parseEntradaCelula(raw);
     const anterior = getCelula(aluno.id, coluna.id);
+    edicaoRef.current = null;
 
     onCelulasChange((prev) => ({
       ...prev,
@@ -244,12 +248,22 @@ export function PlanilhaGrid({
     if (!aluno || !coluna) return;
     setActive({ row, col });
     setEditing(true);
-    if (valorInicial !== undefined) {
-      setEditingValue(valorInicial);
+    const atual = getCelula(aluno.id, coluna.id);
+    const original = atual.status_texto ?? (atual.valor !== null ? String(atual.valor) : "");
+    edicaoRef.current = { row, col, original };
+    setEditingValue(valorInicial ?? original);
+  }
+
+  /** Saiu do campo (clicou em outra célula, fora da planilha, trocou de janela): salva sem precisar de Enter. */
+  function handleBlurEdicao(row: number, col: number) {
+    const edicao = edicaoRef.current;
+    if (!edicao || edicao.row !== row || edicao.col !== col) return;
+    if (editingValue.trim() === edicao.original.trim()) {
+      edicaoRef.current = null;
+      setEditing(false);
       return;
     }
-    const atual = getCelula(aluno.id, coluna.id);
-    setEditingValue(atual.status_texto ?? (atual.valor !== null ? String(atual.valor) : ""));
+    commitEdit(row, col, editingValue);
   }
 
   function handleKeyDown(e: React.KeyboardEvent, row: number, col: number) {
@@ -270,6 +284,7 @@ export function PlanilhaGrid({
         moveActive(row, col + 1);
       } else if (e.key === "Escape") {
         e.preventDefault();
+        edicaoRef.current = null;
         setEditing(false);
         setEditingValue("");
       }
@@ -847,6 +862,7 @@ export function PlanilhaGrid({
                         onStartEdit={() => iniciarEdicao(row, col)}
                         onChangeEditingValue={setEditingValue}
                         onKeyDown={(e) => handleKeyDown(e, row, col)}
+                        onBlurEdicao={() => handleBlurEdicao(row, col)}
                         onSelectStatus={(status) =>
                           handleSelectStatus(row, col, status)
                         }

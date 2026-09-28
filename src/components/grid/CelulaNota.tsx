@@ -15,6 +15,7 @@ type CelulaNotaProps = {
   onStartEdit: () => void;
   onChangeEditingValue: (v: string) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
+  onBlurEdicao: () => void;
   onSelectStatus: (status: string) => void;
   cellRef: (el: HTMLDivElement | null) => void;
   recemSalva: boolean;
@@ -30,6 +31,7 @@ export function CelulaNota({
   onStartEdit,
   onChangeEditingValue,
   onKeyDown,
+  onBlurEdicao,
   onSelectStatus,
   cellRef,
   recemSalva,
@@ -66,6 +68,10 @@ export function CelulaNota({
       <div
         ref={cellRef}
         data-bloqueia-atalhos
+        onBlur={(e) => {
+          // Foco indo pro seletor de status da própria célula não conta como sair do campo.
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onBlurEdicao();
+        }}
         className="relative flex items-center gap-1 rounded-[6px] border-2 border-brand bg-surface px-1 py-1 shadow-[0_6px_18px_rgb(4_68_160_/_0.2)]"
       >
         <input
