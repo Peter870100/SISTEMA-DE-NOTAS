@@ -11,6 +11,7 @@ import {
   atualizarTelefoneProfessor,
 } from "@/actions/professores";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { estilos } from "@/components/ui/estilos";
 
 const ONLINE_LIMITE_MS = 3 * 60 * 1000;
 
@@ -196,17 +197,17 @@ export function GerenciarProfessores({
   }
 
   return (
-    <div className="mt-6 flex flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <form
         onSubmit={handleAdd}
-        className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+        className={`${estilos.card} flex flex-col gap-3 p-4`}
       >
-        <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+        <h2 className="font-display text-base font-semibold text-ink">
           Adicionar professor
         </h2>
 
         {erro && (
-          <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+          <p className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">
             {erro}
           </p>
         )}
@@ -216,26 +217,26 @@ export function GerenciarProfessores({
             value={nome}
             onChange={(e) => setNome(e.target.value)}
             placeholder="Nome"
-            className="min-w-40 flex-1 rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+            className={`${estilos.input} min-w-40 flex-1`}
           />
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
-            className="min-w-48 flex-1 rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+            className={`${estilos.input} min-w-48 flex-1`}
           />
           <input
             type="password"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
             placeholder="Senha inicial"
-            className="min-w-40 flex-1 rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+            className={`${estilos.input} min-w-40 flex-1`}
           />
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as ProfessorRole)}
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+            className={estilos.input}
           >
             <option value="professor">Professor</option>
             <option value="admin">Admin</option>
@@ -245,48 +246,48 @@ export function GerenciarProfessores({
         <button
           type="submit"
           disabled={salvando}
-          className="flex w-fit items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-600/30 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/40 disabled:opacity-50 disabled:shadow-none"
+          className={estilos.botaoPrimario}
         >
           <UserPlus size={15} />
           {salvando ? "Criando..." : "Criar professor"}
         </button>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          Depois de criar, use os botões "Telefone" e "Turmas" na tabela abaixo pra configurar o acesso dele.
+        <p className="text-xs text-muted">
+          Depois de criar, use os botões &quot;Telefone&quot; e &quot;Turmas&quot; na tabela abaixo pra configurar o acesso dele.
         </p>
       </form>
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+      <div className={`${estilos.card} overflow-x-auto`}>
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 dark:bg-neutral-900">
+          <thead className="bg-surface-sunken">
             <tr>
-              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Nome</th>
-              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Email</th>
-              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Telefone</th>
-              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Papel</th>
-              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Status</th>
-              <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Ações</th>
+              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Nome</th>
+              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Email</th>
+              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Telefone</th>
+              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Papel</th>
+              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Status</th>
+              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Ações</th>
             </tr>
           </thead>
           <tbody>
             {professores.map((p) => (
-              <tr key={p.id} className="border-t border-neutral-200 dark:border-neutral-800 align-top">
-                <td className="px-3 py-2 text-neutral-800 dark:text-neutral-200">
+              <tr key={p.id} className="border-t border-line align-top">
+                <td className="px-3 py-2 text-ink">
                   <div className="flex items-center gap-1.5">
                     <span
                       title={statusPresenca(p.ultimo_acesso).texto}
                       className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                         statusPresenca(p.ultimo_acesso).online
-                          ? "bg-emerald-500"
-                          : "bg-neutral-300 dark:bg-neutral-600"
+                          ? "bg-ok"
+                          : "bg-faint"
                       }`}
                     />
                     {p.nome}
                   </div>
-                  <p className="mt-0.5 pl-3 text-[11px] text-neutral-400 dark:text-neutral-500">
+                  <p className="mt-0.5 pl-3 text-[11px] text-faint">
                     {statusPresenca(p.ultimo_acesso).texto}
                   </p>
                 </td>
-                <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{p.email}</td>
+                <td className="px-3 py-2 text-muted">{p.email}</td>
                 <td className="px-3 py-2">
                   {telefoneAbertoId === p.id ? (
                     <div className="flex items-center gap-1.5">
@@ -295,20 +296,20 @@ export function GerenciarProfessores({
                         onChange={(e) => setTelefoneEdit(e.target.value)}
                         autoFocus
                         placeholder="(00) 00000-0000"
-                        className="w-32 rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+                        className={`${estilos.input} w-32 px-2 py-1 text-xs`}
                       />
                       <button
                         type="button"
                         onClick={() => handleSalvarTelefone(p.id)}
                         disabled={salvandoTelefoneId === p.id}
-                        className="rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                        className={`${estilos.botaoPrimario} min-h-0 px-2 py-1 text-xs`}
                       >
                         {salvandoTelefoneId === p.id ? "..." : "Salvar"}
                       </button>
                       <button
                         type="button"
                         onClick={() => setTelefoneAbertoId(null)}
-                        className="text-xs text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
+                        className="text-xs text-muted hover:text-ink"
                       >
                         Cancelar
                       </button>
@@ -317,7 +318,7 @@ export function GerenciarProfessores({
                     <button
                       type="button"
                       onClick={() => handleAbrirTelefone(p)}
-                      className="flex items-center gap-1 text-xs text-neutral-500 hover:text-blue-600 dark:text-neutral-400"
+                      className="flex items-center gap-1 text-xs text-muted hover:text-brand-bright"
                     >
                       {p.telefone ?? "—"}
                       <Pencil size={11} />
@@ -328,8 +329,8 @@ export function GerenciarProfessores({
                   <span
                     className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                       p.role === "admin"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
-                        : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+                        ? "bg-gold/40 text-gold-ink"
+                        : "bg-surface-sunken text-muted"
                     }`}
                   >
                     {p.role}
@@ -340,19 +341,19 @@ export function GerenciarProfessores({
                     <span
                       className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                         p.email_verificado
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                          ? "bg-ok/10 text-ok"
+                          : "bg-warn/10 text-warn"
                       }`}
                     >
                       {p.email_verificado ? "verificado" : "pendente"}
                     </span>
                     {p.senha_provisoria && (
-                      <span className="rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
+                      <span className="rounded bg-brand-bright/10 px-1.5 py-0.5 text-xs font-medium text-brand-bright">
                         senha provisória
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  <p className="mt-1 text-xs text-muted">
                     {p.role === "admin"
                       ? "todas as turmas"
                       : p.acesso_restrito
@@ -371,27 +372,27 @@ export function GerenciarProfessores({
                         onChange={(e) => setNovaSenhaProvisoria(e.target.value)}
                         autoFocus
                         placeholder="Nova senha"
-                        className="w-32 rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+                        className={`${estilos.input} w-32 px-2 py-1 text-xs`}
                       />
                       <button
                         type="button"
                         onClick={() => handleDefinirSenha(p.id)}
                         disabled={definindoId === p.id}
-                        className="rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                        className={`${estilos.botaoPrimario} min-h-0 px-2 py-1 text-xs`}
                       >
                         {definindoId === p.id ? "Salvando..." : "Salvar"}
                       </button>
                       <button
                         type="button"
                         onClick={() => setSenhaAbertaId(null)}
-                        className="text-xs text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
+                        className="text-xs text-muted hover:text-ink"
                       >
                         Cancelar
                       </button>
                     </div>
                   ) : turmasAbertaId === p.id ? (
-                    <div className="flex w-56 flex-col gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800">
-                      <label className="flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                    <div className="flex w-56 flex-col gap-2 rounded-control border border-line bg-surface-sunken p-2">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted">
                         <input
                           type="checkbox"
                           checked={restritoEdit}
@@ -400,9 +401,9 @@ export function GerenciarProfessores({
                         Restringir a turmas específicas
                       </label>
                       {restritoEdit && (
-                        <div className="flex flex-col gap-1 border-t border-neutral-200 pt-1.5 dark:border-neutral-700">
+                        <div className="flex flex-col gap-1 border-t border-line pt-1.5">
                           {nomesTurmas.map((t) => (
-                            <label key={t} className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
+                            <label key={t} className="flex items-center gap-1.5 text-xs text-muted">
                               <input
                                 type="checkbox"
                                 checked={turmasSelecionadas.has(t)}
@@ -418,14 +419,14 @@ export function GerenciarProfessores({
                           type="button"
                           onClick={() => handleSalvarTurmas(p.id)}
                           disabled={salvandoTurmasId === p.id}
-                          className="rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                          className={`${estilos.botaoPrimario} min-h-0 px-2 py-1 text-xs`}
                         >
                           {salvandoTurmasId === p.id ? "Salvando..." : "Salvar"}
                         </button>
                         <button
                           type="button"
                           onClick={() => setTurmasAbertaId(null)}
-                          className="text-xs text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
+                          className="text-xs text-muted hover:text-ink"
                         >
                           Cancelar
                         </button>
@@ -436,7 +437,7 @@ export function GerenciarProfessores({
                       <button
                         type="button"
                         onClick={() => handleAbrirSenha(p.id)}
-                        className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+                        className="flex items-center gap-1 text-xs font-medium text-brand hover:underline"
                       >
                         <KeyRound size={12} />
                         Senha provisória
@@ -445,7 +446,7 @@ export function GerenciarProfessores({
                         <button
                           type="button"
                           onClick={() => handleAbrirTurmas(p)}
-                          className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+                          className="flex items-center gap-1 text-xs font-medium text-brand hover:underline"
                         >
                           <School size={12} />
                           Turmas
@@ -455,7 +456,7 @@ export function GerenciarProfessores({
                         type="button"
                         onClick={() => setConfirmExcluir(p)}
                         disabled={excluindoId === p.id}
-                        className="flex items-center gap-1 text-xs font-medium text-rose-600 hover:underline disabled:opacity-50"
+                        className="flex items-center gap-1 text-xs font-medium text-danger hover:underline disabled:opacity-50"
                       >
                         <Trash2 size={12} />
                         {excluindoId === p.id ? "Excluindo..." : "Excluir"}

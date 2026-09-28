@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { KeyRound, Pencil } from "lucide-react";
 import { atualizarCodigoConvite } from "@/actions/configuracoes";
+import { estilos } from "@/components/ui/estilos";
 
 type CodigoConviteProps = {
   codigoInicial: string;
@@ -36,17 +37,17 @@ export function CodigoConvite({ codigoInicial }: CodigoConviteProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+    <div className={`${estilos.card} flex flex-col gap-2 p-4`}>
+      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
         <KeyRound size={15} />
         Código de convite
       </h2>
-      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+      <p className="text-xs text-muted">
         Exigido na tela pública de cadastro (<code>/cadastro</code>). Passe pra quem for se cadastrar.
       </p>
 
       {erro && (
-        <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+        <p className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">
           {erro}
         </p>
       )}
@@ -57,12 +58,12 @@ export function CodigoConvite({ codigoInicial }: CodigoConviteProps) {
             value={novoCodigo}
             onChange={(e) => setNovoCodigo(e.target.value)}
             autoFocus
-            className="min-w-0 flex-1 rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+            className={`${estilos.input} min-w-0 flex-1`}
           />
           <button
             type="submit"
             disabled={salvando}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-600/30 hover:bg-blue-700 disabled:opacity-50"
+            className={estilos.botaoPrimario}
           >
             {salvando ? "Salvando..." : "Salvar"}
           </button>
@@ -73,20 +74,20 @@ export function CodigoConvite({ codigoInicial }: CodigoConviteProps) {
               setNovoCodigo(codigo);
               setErro(null);
             }}
-            className="rounded-md px-3 py-1.5 text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
+            className={estilos.botaoFantasma}
           >
             Cancelar
           </button>
         </form>
       ) : (
         <div className="flex items-center gap-2">
-          <span className="rounded-md bg-neutral-100 px-3 py-1.5 font-mono text-sm text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200">
+          <span className="rounded-control bg-surface-sunken px-3 py-1.5 font-mono text-lg tracking-widest text-brand">
             {codigo}
           </span>
           <button
             type="button"
             onClick={() => setEditando(true)}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+            className="flex items-center gap-1 text-sm text-brand hover:underline"
           >
             <Pencil size={13} />
             Trocar

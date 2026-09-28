@@ -5,6 +5,7 @@ import { getProfessorAtual } from "@/lib/auth";
 import { listarHistorico } from "@/actions/historico";
 import { supabase } from "@/lib/supabase/client";
 import { HistoricoTable } from "@/components/admin/HistoricoTable";
+import { PageLayout } from "@/components/layout/PageLayout";
 
 export const dynamic = "force-dynamic";
 
@@ -21,27 +22,24 @@ export default async function HistoricoPage() {
   ]);
 
   return (
-    <main className="mx-auto flex w-full min-w-0 max-w-4xl flex-1 flex-col px-4 py-6 sm:px-6">
-      <Link
-        href="/admin/professores"
-        className="flex w-fit items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
-      >
-        <ArrowLeft size={14} />
-        Voltar
-      </Link>
-      <h1 className="mt-2 text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-        Histórico de alterações
-      </h1>
-      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-        Toda alteração de nota feita por professores (não-admin), mais recente primeiro.
-      </p>
-
+    <PageLayout
+      crumb="Administração"
+      titulo="Histórico de alterações"
+      subtitulo="Toda alteração de nota feita por professores (não-admin), mais recente primeiro."
+      largura="max-w-4xl"
+      acoes={
+        <Link href="/admin/professores" className="inline-flex items-center gap-1.5 rounded-control border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20">
+          <ArrowLeft size={14} />
+          Voltar
+        </Link>
+      }
+    >
       <HistoricoTable
         linhasIniciais={pagina.linhas}
         cursorInicial={pagina.proximoCursor}
         turmas={turmas ?? []}
         professores={professores ?? []}
       />
-    </main>
+    </PageLayout>
   );
 }

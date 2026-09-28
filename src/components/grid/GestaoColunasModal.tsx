@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react";
 import type { AtividadeColuna, TipoColuna } from "@/lib/types";
 import { addColuna, deleteColuna, renameColuna, reordenarColunas } from "@/actions/colunas";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Modal } from "@/components/ui/Modal";
+import { estilos } from "@/components/ui/estilos";
 
 /** Data de hoje no formato usado pelas colunas de chamada, ex: "14/08/26". */
 function dataDeHoje(): string {
@@ -100,25 +102,10 @@ export function GestaoColunasModal({
   const ehPresenca = tipo === "presenca";
 
   return (
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl dark:bg-neutral-900"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-            {ehPresenca ? "Gerenciar chamadas" : "Gerenciar atividades"}
-          </h2>
-          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-700">
-            <X size={18} />
-          </button>
-        </div>
-
+    <>
+      <Modal open onClose={onClose} titulo={ehPresenca ? "Gerenciar chamadas" : "Gerenciar atividades"} largura="md">
         {erro && (
-          <div className="mt-3 flex items-center justify-between rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+          <div role="alert" className="flex items-center justify-between rounded-control border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
             <span>{erro}</span>
             <button onClick={() => setErro(null)} className="font-medium underline">
               fechar
@@ -126,21 +113,22 @@ export function GestaoColunasModal({
           </div>
         )}
 
-        <ul className="mt-4 flex max-h-80 flex-col gap-1.5 overflow-y-auto">
+        <ul className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
           {colunas.map((coluna, index) => (
             <li
               key={coluna.id}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 px-2 py-1.5 dark:border-neutral-800"
+              className="flex items-center gap-1.5 rounded-control border border-line bg-surface px-2 py-1.5 focus-within:border-brand-bright"
             >
               <input
+                aria-label={`Título da coluna ${coluna.titulo}`}
                 defaultValue={coluna.titulo}
                 onBlur={(e) => handleRename(coluna, e.target.value)}
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+                className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none"
               />
               <button
                 onClick={() => handleMove(index, -1)}
                 disabled={index === 0}
-                className="p-1 text-neutral-400 hover:text-neutral-700 disabled:opacity-30"
+                className="rounded-[6px] p-1 text-faint hover:bg-surface-sunken hover:text-ink disabled:opacity-30"
                 title="Mover para esquerda"
               >
                 <ArrowLeft size={14} />
@@ -148,14 +136,14 @@ export function GestaoColunasModal({
               <button
                 onClick={() => handleMove(index, 1)}
                 disabled={index === colunas.length - 1}
-                className="p-1 text-neutral-400 hover:text-neutral-700 disabled:opacity-30"
+                className="rounded-[6px] p-1 text-faint hover:bg-surface-sunken hover:text-ink disabled:opacity-30"
                 title="Mover para direita"
               >
                 <ArrowRight size={14} />
               </button>
               <button
                 onClick={() => setConfirmDelete(coluna)}
-                className="p-1 text-neutral-400 hover:text-rose-600"
+                className="rounded-[6px] p-1 text-faint hover:bg-danger/10 hover:text-danger"
                 title="Excluir coluna"
               >
                 <Trash2 size={14} />
@@ -163,32 +151,29 @@ export function GestaoColunasModal({
             </li>
           ))}
           {colunas.length === 0 && (
-            <li className="py-4 text-center text-sm text-neutral-400">
+            <li className="py-4 text-center text-sm text-faint">
               {ehPresenca ? "Nenhuma chamada lançada ainda." : "Nenhuma coluna ainda."}
             </li>
           )}
         </ul>
 
-        <form onSubmit={handleAdd} className="mt-4 flex items-center gap-2">
+        <form onSubmit={handleAdd} className="flex items-center gap-2">
           <input
+            aria-label={ehPresenca ? "Data da nova chamada" : "Título da nova coluna"}
             value={novoTitulo}
             onChange={(e) => setNovoTitulo(e.target.value)}
             onFocus={() => {
               if (ehPresenca && !novoTitulo.trim()) setNovoTitulo(dataDeHoje());
             }}
             placeholder={ehPresenca ? "Data da chamada (ex: 14/08/26)" : "Nova coluna (ex: SIMULADO)"}
-            className="min-w-0 flex-1 rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+            className={`${estilos.input} min-w-0 flex-1`}
           />
-          <button
-            type="submit"
-            disabled={salvando || !novoTitulo.trim()}
-            className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-600/30 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/40 disabled:opacity-50 disabled:shadow-none"
-          >
-            <Plus size={15} />
+          <button type="submit" disabled={salvando || !novoTitulo.trim()} className={estilos.botaoPrimario}>
+            <Plus size={15} className="text-gold" />
             Adicionar
           </button>
         </form>
-      </div>
+      </Modal>
 
       <ConfirmDialog
         open={confirmDelete !== null}
@@ -198,6 +183,6 @@ export function GestaoColunasModal({
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}
       />
-    </div>
+    </>
   );
 }

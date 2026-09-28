@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { listarHistorico, type HistoricoLinha } from "@/actions/historico";
+import { estilos } from "@/components/ui/estilos";
 
 function formatarValor(valor: number | null, status: string | null): string {
   if (valor !== null) return String(valor);
@@ -66,15 +67,15 @@ export function HistoricoTable({
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-3">
+      <div className={`${estilos.card} flex flex-wrap items-center gap-2 p-3`}>
         <select
           value={turmaId}
           onChange={(e) => {
             setTurmaId(e.target.value);
             aplicarFiltro(e.target.value, professorId);
           }}
-          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+          className={estilos.input}
         >
           <option value="">Todas as turmas</option>
           {turmas.map((t) => (
@@ -89,7 +90,7 @@ export function HistoricoTable({
             setProfessorId(e.target.value);
             aplicarFiltro(turmaId, e.target.value);
           }}
-          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+          className={estilos.input}
         >
           <option value="">Todos os professores</option>
           {professores.map((p) => (
@@ -105,7 +106,7 @@ export function HistoricoTable({
               setProfessorId("");
               aplicarFiltro("", "");
             }}
-            className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+            className="text-sm font-medium text-muted hover:text-ink"
           >
             Limpar filtros
           </button>
@@ -113,7 +114,7 @@ export function HistoricoTable({
       </div>
 
       {erro && (
-        <div className="flex items-center justify-between rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+        <div className="flex items-center justify-between rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">
           <span>{erro}</span>
           <button onClick={() => setErro(null)} className="font-medium underline">
             fechar
@@ -122,37 +123,37 @@ export function HistoricoTable({
       )}
 
       {linhas.length === 0 ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm text-muted">
           {carregando ? "Carregando..." : "Nenhuma alteração encontrada."}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+        <div className={`${estilos.card} overflow-x-auto`}>
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-neutral-900">
+            <thead className="bg-surface-sunken">
               <tr>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Quando</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Professor</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Turma</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Aluno</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Atividade</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">De</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700 dark:text-neutral-300">Para</th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Quando</th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Professor</th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Turma</th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Aluno</th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Atividade</th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">De</th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Para</th>
               </tr>
             </thead>
             <tbody>
               {linhas.map((h) => (
-                <tr key={h.id} className="border-t border-neutral-200 dark:border-neutral-800">
-                  <td className="whitespace-nowrap px-3 py-2 text-neutral-500 dark:text-neutral-400">
+                <tr key={h.id} className="border-t border-line">
+                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs tabular-nums text-muted">
                     {new Date(h.created_at).toLocaleString("pt-BR")}
                   </td>
-                  <td className="px-3 py-2 text-neutral-800 dark:text-neutral-200">{h.professor_nome ?? "—"}</td>
-                  <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{h.turma_nome ?? "—"}</td>
-                  <td className="px-3 py-2 text-neutral-800 dark:text-neutral-200">{h.aluno_nome ?? "—"}</td>
-                  <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{h.atividade_titulo ?? "—"}</td>
-                  <td className="px-3 py-2 text-rose-600 dark:text-rose-400">
+                  <td className="px-3 py-2 text-ink">{h.professor_nome ?? "—"}</td>
+                  <td className="px-3 py-2 text-muted">{h.turma_nome ?? "—"}</td>
+                  <td className="px-3 py-2 text-ink">{h.aluno_nome ?? "—"}</td>
+                  <td className="px-3 py-2 text-muted">{h.atividade_titulo ?? "—"}</td>
+                  <td className="px-3 py-2 font-mono tabular-nums text-danger">
                     {formatarValor(h.valor_anterior, h.status_anterior)}
                   </td>
-                  <td className="px-3 py-2 font-medium text-emerald-600 dark:text-emerald-400">
+                  <td className="px-3 py-2 font-mono font-semibold tabular-nums text-ok">
                     {formatarValor(h.valor_novo, h.status_novo)}
                   </td>
                 </tr>
@@ -166,7 +167,7 @@ export function HistoricoTable({
         <button
           onClick={carregarMais}
           disabled={carregando}
-          className="w-fit rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          className={`${estilos.botaoSecundario} w-fit`}
         >
           {carregando ? "Carregando..." : "Carregar mais"}
         </button>
