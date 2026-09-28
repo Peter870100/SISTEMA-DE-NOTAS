@@ -11,9 +11,9 @@ export function criarSupabaseClient(): SupabaseClient {
   return createClient(url, key);
 }
 
-type Turma = { id: string; nome: string; bimestre: string; ano_letivo: string };
-type Aluno = { id: string; turma_id: string; nome: string; numero: number | null; ordem: number };
-type Coluna = { id: string; turma_id: string; titulo: string; ordem: number; tipo?: string };
+type Turma = { id: string; nome: string; bimestre: string; ano_letivo: string; criado_via?: string };
+type Aluno = { id: string; turma_id: string; nome: string; numero: number | null; ordem: number; criado_via?: string };
+type Coluna = { id: string; turma_id: string; titulo: string; ordem: number; tipo?: string; criado_via?: string };
 type ProfessorInfo = { id: string; role: string; acesso_restrito: boolean } | null;
 
 const professorTelefoneField = {
@@ -155,6 +155,23 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     }
     return candidatos[0];
   }
+  /** Manda pra lixeira (restaurável por admin). Devolve o resumo gravado, pra resposta ao agente. */
+  async function excluirParaLixeira(
+    tipo: "turma" | "aluno" | "atividade",
+    id: string,
+    professor: ProfessorInfo
+  ): Promise<{ alunos?: number; atividades?: number; notas?: number }> {
+    const { data: lixeiraId, error } = await supabase.rpc("lixeira_excluir", {
+      p_tipo: tipo,
+      p_id: id,
+      p_ator: professor?.id ?? null,
+      p_via: "hermes",
+    });
+    if (error) throw new Error(error.message);
+    const { data: item } = await supabase.from("lixeira").select("resumo").eq("id", lixeiraId).single();
+    return (item?.resumo ?? {}) as { alunos?: number; atividades?: number; notas?: number };
+  }
+
 
   server.registerTool(
     "listar_turmas",
@@ -171,7 +188,9 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       if (error) throw new Error(error.message);
       const visiveis = liberadas ? (data ?? []).filter((t) => liberadas.has(t.nome)) : data ?? [];
       if (visiveis.length === 0) return texto("Nenhuma turma cadastrada (ou nenhuma liberada pra esse professor).");
-      const linhas = visiveis.map((t) => `- ${t.nome} — ${t.bimestre} (${t.ano_letivo})`);
+      const linhas = visiveis.map(
+        (t) => `- ${t.nome} — ${t.bimestre} (${t.ano_letivo})${t.criado_via === "hermes" ? " (criada pelo Hermes)" : ""}`
+      );
       return texto(linhas.join("\n"));
     }
   );
@@ -192,7 +211,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       const nomeLimpo = nome.trim();
       if (!nomeLimpo) throw new Error("Informe o nome da turma.");
 
-      const insert: { nome: string; bimestre?: string; ano_letivo?: string } = { nome: nomeLimpo };
+      const insert: { nome: string; bimestre?: string; ano_letivo?: string; criado_via: string } = { nome: nomeLimpo, criado_via: "hermes" };
       if (bimestre) insert.bimestre = bimestre.trim();
       if (ano_letivo) insert.ano_letivo = ano_letivo.trim();
 
@@ -203,6 +222,29 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       );
     }
   );
+  server.registerTool(
+    "excluir_turma",
+    {
+      title: "Excluir turma (planilha inteira)",
+      description:
+        "Move uma turma/planilha inteira (de um bimestre) para a lixeira, com todos os alunos, atividades, notas e histórico. Nada é apagado de vez: um administrador pode restaurar pela lixeira do sistema. Para remover só uma coluna de atividade, use excluir_atividade.",
+      inputSchema: {
+        turma_nome: z.string().describe('Nome da turma, ex: "1ª série C"'),
+        bimestre: z.string().optional().describe('Ex: "2º Bimestre" — necessário se a turma tiver mais de um bimestre'),
+        ...professorTelefoneField,
+      },
+    },
+    async ({ turma_nome, bimestre, professor_telefone }) => {
+      const professor = await resolverProfessorInfo(professor_telefone);
+      const liberadas = await turmasLiberadas(professor);
+      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
+      const resumo = await excluirParaLixeira("turma", turma.id, professor);
+      return texto(
+        `Planilha "${turma.nome} · ${turma.bimestre}" movida para a lixeira (${resumo.alunos ?? 0} alunos, ${resumo.atividades ?? 0} atividades, ${resumo.notas ?? 0} notas). Um administrador pode restaurá-la em /admin/lixeira.`
+      );
+    }
+  );
+
 
   server.registerTool(
     "ver_planilha",
@@ -235,17 +277,28 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         notaPorAlunoColuna.set(`${n.aluno_id}:${n.coluna_id}`, valorTexto);
       }
 
-      const cabecalho = `Turma: ${turma.nome} — ${turma.bimestre} (${turma.ano_letivo})`;
-      const listaColunas = `Atividades: ${(colunas ?? []).map((c) => c.titulo).join(", ") || "(nenhuma)"}`;
+      const cabecalho = `Turma: ${turma.nome} — ${turma.bimestre} (${turma.ano_letivo})${turma.criado_via === "hermes" ? " (criada pelo Hermes)" : ""}`;
+      const marca = (via?: string) => (via === "hermes" ? "*" : "");
+      const listaColunas = `Atividades: ${(colunas ?? []).map((c) => c.titulo + marca(c.criado_via)).join(", ") || "(nenhuma)"}`;
+      const temMarca = [...(colunas ?? []), ...(alunos ?? [])].some((x) => x.criado_via === "hermes");
       const linhasAlunos = (alunos ?? []).map((a) => {
         const partes = (colunas ?? []).map((c) => {
           const v = notaPorAlunoColuna.get(`${a.id}:${c.id}`);
           return `${c.titulo}: ${v || "—"}`;
         });
-        return `${a.numero ?? "?"}. ${a.nome} — ${partes.join(" | ")}`;
+        return `${a.numero ?? "?"}. ${a.nome}${marca(a.criado_via)} — ${partes.join(" | ")}`;
       });
 
-      return texto([cabecalho, listaColunas, "", `Alunos (${alunos?.length ?? 0}):`, ...linhasAlunos].join("\n"));
+      return texto(
+        [
+          cabecalho,
+          listaColunas,
+          ...(temMarca ? ["(* = criado pelo Hermes)"] : []),
+          "",
+          `Alunos (${alunos?.length ?? 0}):`,
+          ...linhasAlunos,
+        ].join("\n")
+      );
     }
   );
 
@@ -405,7 +458,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         .eq("turma_id", turma.id);
       const { data, error } = await supabase
         .from("alunos")
-        .insert({ turma_id: turma.id, nome: nome.trim(), numero: numero ?? null, ordem: count ?? 0 })
+        .insert({ turma_id: turma.id, nome: nome.trim(), numero: numero ?? null, ordem: count ?? 0, criado_via: "hermes" })
         .select()
         .single();
       if (error) throw new Error(error.message);
@@ -445,7 +498,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
           resultados.push(`IGNORADO (já existe): ${nome}`);
           continue;
         }
-        const { error } = await supabase.from("alunos").insert({ turma_id: turma.id, nome, ordem });
+        const { error } = await supabase.from("alunos").insert({ turma_id: turma.id, nome, ordem, criado_via: "hermes" });
         if (error) {
           resultados.push(`FALHOU: ${nome}: ${error.message}`);
         } else {
@@ -492,7 +545,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     {
       title: "Excluir aluno",
       description:
-        "Remove um aluno de uma turma, junto com todas as notas dele. Ação destrutiva e sem confirmação por aqui — use com cuidado, ou peça pro professor confirmar antes de chamar.",
+        "Move um aluno de uma turma para a lixeira, junto com todas as notas dele. Nada é apagado de vez: um administrador pode restaurar pela lixeira do sistema.",
       inputSchema: {
         turma_nome: z.string(),
         aluno_nome: z.string(),
@@ -505,9 +558,10 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       const liberadas = await turmasLiberadas(professor);
       const turma = await resolverTurma(turma_nome, bimestre, liberadas);
       const aluno = await resolverAluno(turma.id, aluno_nome);
-      const { error } = await supabase.from("alunos").delete().eq("id", aluno.id);
-      if (error) throw new Error(error.message);
-      return texto(`OK: "${aluno.nome}" excluído da turma ${turma.nome}, com as notas dele.`);
+      const resumo = await excluirParaLixeira("aluno", aluno.id, professor);
+      return texto(
+        `OK: "${aluno.nome}" movido para a lixeira (${resumo.notas ?? 0} notas), da turma ${turma.nome}. Um administrador pode restaurá-lo em /admin/lixeira.`
+      );
     }
   );
 
@@ -534,7 +588,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         .eq("turma_id", turma.id);
       const { data, error } = await supabase
         .from("atividades_colunas")
-        .insert({ turma_id: turma.id, titulo: titulo.trim(), ordem: count ?? 0 })
+        .insert({ turma_id: turma.id, titulo: titulo.trim(), ordem: count ?? 0, criado_via: "hermes" })
         .select()
         .single();
       if (error) throw new Error(error.message);
@@ -601,7 +655,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     {
       title: "Excluir atividade/chamada",
       description:
-        "Remove uma coluna de atividade ou chamada de uma turma, junto com todas as notas lançadas nela. Ação destrutiva e sem confirmação por aqui — use com cuidado, ou peça pro professor confirmar antes de chamar.",
+        'Move uma coluna de atividade ou chamada (o professor às vezes chama de "planilha") para a lixeira, junto com as notas lançadas nela. Nada é apagado de vez: um administrador pode restaurar pela lixeira do sistema.',
       inputSchema: {
         turma_nome: z.string(),
         atividade_titulo: z.string(),
@@ -614,9 +668,10 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       const liberadas = await turmasLiberadas(professor);
       const turma = await resolverTurma(turma_nome, bimestre, liberadas);
       const atividade = await resolverAtividade(turma.id, atividade_titulo);
-      const { error } = await supabase.from("atividades_colunas").delete().eq("id", atividade.id);
-      if (error) throw new Error(error.message);
-      return texto(`OK: "${atividade.titulo}" excluída da turma ${turma.nome}, com as notas lançadas nela.`);
+      const resumo = await excluirParaLixeira("atividade", atividade.id, professor);
+      return texto(
+        `OK: "${atividade.titulo}" movida para a lixeira (${resumo.notas ?? 0} notas), da turma ${turma.nome}. Um administrador pode restaurá-la em /admin/lixeira.`
+      );
     }
   );
 
@@ -665,7 +720,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
           .eq("turma_id", turma.id);
         const { data: nova, error: errCriar } = await supabase
           .from("atividades_colunas")
-          .insert({ turma_id: turma.id, titulo: dataLimpa, tipo: "presenca", ordem: count ?? 0 })
+          .insert({ turma_id: turma.id, titulo: dataLimpa, tipo: "presenca", ordem: count ?? 0, criado_via: "hermes" })
           .select()
           .single();
         if (errCriar) throw new Error(errCriar.message);
