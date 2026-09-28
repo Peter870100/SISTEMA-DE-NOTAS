@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KeyRound, LogOut, Users, History, GraduationCap, Search } from "lucide-react";
+import { KeyRound, LogOut, Users, History, GraduationCap, Search, Trash2 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Avatar } from "@/components/ui/Avatar";
 import { useComandosOpcional } from "@/components/command/CommandProvider";
@@ -24,6 +24,7 @@ export function Sidebar({ professor }: { professor: Professor | null }) {
     ...(professor.role === "admin" ? [
       { href: "/admin/professores", icon: Users, label: "Professores", ativo: pathname === "/admin/professores" },
       { href: "/admin/historico", icon: History, label: "Histórico", ativo: pathname === "/admin/historico" },
+      { href: "/admin/lixeira", icon: Trash2, label: "Lixeira", ativo: pathname === "/admin/lixeira" },
     ] : []),
     { href: "/trocar-senha", icon: KeyRound, label: "Senha", ativo: pathname === "/trocar-senha" },
   ];

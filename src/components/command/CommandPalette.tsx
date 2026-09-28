@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GraduationCap, History, KeyRound, LogOut, Search, Users } from "lucide-react";
+import { GraduationCap, History, KeyRound, LogOut, Search, Trash2, Users } from "lucide-react";
 import type { Turma } from "@/lib/types";
 import { filtrarComandos, trechosDestacados, type ItemComando } from "@/lib/comandos";
 import { buscarAlunos, type AlunoBusca } from "@/actions/busca";
@@ -104,6 +104,7 @@ export function CommandPalette({ turmas, ehAdmin }: CommandPaletteProps) {
         ? ([
             { id: "ir-professores", grupo: "Ações", rotulo: "Professores", palavrasChave: ["admin"], executar: irPara("/admin/professores") },
             { id: "ir-historico", grupo: "Ações", rotulo: "Histórico de alterações", palavrasChave: ["admin", "log"], executar: irPara("/admin/historico") },
+            { id: "ir-lixeira", grupo: "Ações", rotulo: "Lixeira", palavrasChave: ["admin", "restaurar", "excluidos"], executar: irPara("/admin/lixeira") },
           ] satisfies ItemComando[])
         : []),
       { id: "trocar-senha", grupo: "Ações", rotulo: "Trocar senha", palavrasChave: ["senha", "password"], executar: irPara("/trocar-senha") },
@@ -150,6 +151,7 @@ export function CommandPalette({ turmas, ehAdmin }: CommandPaletteProps) {
     if (item.id === "ir-historico") return <History size={14} />;
     if (item.id === "trocar-senha") return <KeyRound size={14} />;
     if (item.id === "sair") return <LogOut size={14} />;
+    if (item.id === "ir-lixeira") return <Trash2 size={14} />;
     return <span aria-hidden="true">→</span>;
   };
 
