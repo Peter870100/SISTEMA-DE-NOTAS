@@ -2396,3 +2396,14 @@ git add -A
 git commit -m "Limpeza final da repaginacao: remove sobras do tema antigo e banner"
 git push origin master
 ```
+
+---
+
+## Notas de execução (2026-09-28)
+
+Desvios do plano feitos durante a implementação:
+
+- **Task 4:** os inputs do login não ganharam `required` (o plano sugeria). A validação de campo vazio continua no servidor, como antes.
+- **Task 8, Step 2:** o `useEffect` que abria o drawer a partir de `alunoFocoId` foi barrado pelo lint do React 19 (`react-hooks/set-state-in-effect`). No lugar dele, o drawer é derivado na renderização: `drawerAlunoId = drawerEscolhidoId ?? alunoFocoId`; fechar o drawer limpa os dois (`onAlunoFocoConsumido`).
+- **Task 9:** as classes dos componentes de admin foram migradas com um script que aplica o Mapa de migração, seguido de ajustes à mão (botões e inputs compactos na tabela, filtros do histórico dentro de card). O erro de lint antigo (aspas sem escape em `GerenciarProfessores.tsx`) foi corrigido junto.
+- **Task 10:** duas correções exigidas pelo lint do React 19 na `CommandPalette`: `Date.now()` passou a rodar só ao executar o item (`react-hooks/purity`), e o resultado da busca de alunos é guardado junto com o termo que o gerou, com a lista exibida derivada (sem `setState` síncrono dentro de efeito).

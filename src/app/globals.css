@@ -3,11 +3,6 @@
 /* Tema único "Híbrido Status": moldura azul da logo + área de trabalho clara.
    Tokens documentados em DESIGN.md — mudar aqui, mudar lá. */
 
-/* Mantém `dark:` preso à classe .dark (que nunca é aplicada) enquanto houver classes
-   dark: antigas no código — sem isso o Tailwind v4 as ligaria no modo escuro do SO.
-   Removido na Task 11, quando `grep -rn "dark:" src` estiver vazio. */
-@custom-variant dark (&:where(.dark, .dark *));
-
 @theme {
   --color-frame: #0a2a6e;
   --color-frame-deep: #062056;
