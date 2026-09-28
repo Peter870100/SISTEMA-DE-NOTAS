@@ -6,18 +6,17 @@ import { usePathname } from "next/navigation";
 import { KeyRound, LogOut, Users, History, GraduationCap, Search } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Avatar } from "@/components/ui/Avatar";
+import { useComandosOpcional } from "@/components/command/CommandProvider";
 import type { Professor } from "@/lib/types";
 
-type SidebarProps = {
-  professor: Professor | null;
-  onAbrirBusca?: () => void;
-};
 
 const itemBase =
   "group relative flex h-11 w-11 items-center justify-center rounded-[11px] transition md:h-10 md:w-10";
 
-export function Sidebar({ professor, onAbrirBusca }: SidebarProps) {
+export function Sidebar({ professor }: { professor: Professor | null }) {
   const pathname = usePathname();
+  const comandos = useComandosOpcional();
+  const onAbrirBusca = professor && !professor.senha_provisoria ? comandos?.abrir : undefined;
   if (!professor) return null;
 
   const itens = [

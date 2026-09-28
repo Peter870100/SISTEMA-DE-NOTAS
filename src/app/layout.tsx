@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { JetBrains_Mono, Manrope, Space_Grotesk } from "next/font/google";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { getProfessorAtual } from "@/lib/auth";
+import { CommandProvider } from "@/components/command/CommandProvider";
+import { CommandPalette } from "@/components/command/CommandPalette";
+import { listarTurmasAcessiveis } from "@/actions/turmas";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -42,14 +45,21 @@ export default async function RootLayout({
     }
   }
 
+  const turmasPaleta = professor && !professor.senha_provisoria ? await listarTurmasAcessiveis() : [];
+
   return (
     <html
       lang="pt-BR"
       className={`${manrope.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-canvas md:flex-row">
-        <Sidebar professor={professor} />
-        <div className="flex min-h-full min-w-0 flex-1 flex-col">{children}</div>
+        <CommandProvider>
+          <Sidebar professor={professor} />
+          <div className="flex min-h-full min-w-0 flex-1 flex-col">{children}</div>
+          {professor && !professor.senha_provisoria && (
+            <CommandPalette turmas={turmasPaleta} ehAdmin={professor.role === "admin"} />
+          )}
+        </CommandProvider>
       </body>
     </html>
   );

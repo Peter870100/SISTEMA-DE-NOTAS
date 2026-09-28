@@ -14,6 +14,7 @@ import {
 import { exportarExcel } from "@/lib/exportarExcel";
 import { normalizar } from "@/lib/comandos";
 import { estilos } from "@/components/ui/estilos";
+import { useComandosOpcional } from "@/components/command/CommandProvider";
 import { upsertCelula } from "@/actions/notas";
 import {
   addAluno,
@@ -486,6 +487,41 @@ export function PlanilhaGrid({
       setExportando(false);
     }
   }
+
+  // Ações desta turma na paleta Ctrl+K. O ref mantém o export com os dados mais recentes
+  // sem re-registrar as ações a cada render.
+  const comandos = useComandosOpcional();
+  const handleExportarRef = useRef(handleExportar);
+  useEffect(() => {
+    handleExportarRef.current = handleExportar;
+  });
+  useEffect(() => {
+    if (!comandos) return;
+    return comandos.registrarAcoes([
+      {
+        id: "turma-nova-coluna",
+        grupo: "Ações",
+        rotulo: tipoColuna === "presenca" ? "Gerenciar chamadas desta turma" : "Nova atividade nesta turma",
+        palavrasChave: ["coluna", "atividade", "chamada"],
+        executar: () => {
+          comandos.fechar();
+          setGestaoColunasAberto(true);
+        },
+      },
+      {
+        id: "turma-exportar",
+        grupo: "Ações",
+        rotulo: "Exportar planilha em Excel",
+        palavrasChave: ["excel", "xlsx", "baixar"],
+        executar: () => {
+          comandos.fechar();
+          void handleExportarRef.current();
+        },
+      },
+    ]);
+    // registrarAcoes/fechar são estáveis; re-registra só quando o tipo de coluna muda
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoColuna]);
 
   const buscaLimpa = busca.trim();
   const alunosFiltrados = buscaLimpa
