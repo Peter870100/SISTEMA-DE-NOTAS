@@ -1,4 +1,4 @@
-import { TrendingDown, TrendingUp, Users } from "lucide-react";
+import { Star, TrendingDown, Users } from "lucide-react";
 
 type KpiCardsProps = {
   totalAlunos: number;
@@ -11,28 +11,22 @@ function KpiCard({
   corIcone,
   label,
   valor,
-  corValor,
+  corValor = "text-ink",
+  destaque = false,
 }: {
   icone: React.ReactNode;
   corIcone: string;
   label: string;
   valor: string;
   corValor?: string;
+  destaque?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${corIcone}`}>
-        {icone}
-      </div>
+    <div className={`flex items-center gap-3 rounded-card border border-white bg-surface px-4 py-3 shadow-[0_8px_28px_rgb(10_42_110_/_0.12)] ${destaque ? "border-t-[3px] border-t-gold" : ""}`}>
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-control ${corIcone}`}>{icone}</div>
       <div className="min-w-0">
-        <div className="text-sm text-neutral-500 dark:text-neutral-400">{label}</div>
-        <div
-          className={`text-xl font-semibold tabular-nums ${
-            corValor ?? "text-neutral-900 dark:text-neutral-100"
-          }`}
-        >
-          {valor}
-        </div>
+        <div className="text-xs text-muted">{label}</div>
+        <div className={`font-mono text-2xl font-semibold tabular-nums ${corValor}`}>{valor}</div>
       </div>
     </div>
   );
@@ -41,24 +35,21 @@ function KpiCard({
 export function KpiCards({ totalAlunos, taxaCritico, mediaTurma }: KpiCardsProps) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <KpiCard
-        icone={<Users size={18} />}
-        corIcone="bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
-        label="Total de Alunos"
-        valor={String(totalAlunos)}
-      />
+      <KpiCard icone={<Users size={18} />} corIcone="bg-brand/10 text-brand" label="Total de alunos" valor={String(totalAlunos)} />
       <KpiCard
         icone={<TrendingDown size={18} />}
-        corIcone="bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400"
-        label="Taxa de Rendimento Crítico"
+        corIcone="bg-danger/10 text-danger"
+        label="Rendimento crítico"
         valor={`${taxaCritico.toFixed(0)}%`}
-        corValor="text-rose-600 dark:text-rose-400"
+        corValor="text-danger"
       />
       <KpiCard
-        icone={<TrendingUp size={18} />}
-        corIcone="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
-        label="Média da Turma"
+        icone={<Star size={18} />}
+        corIcone="bg-gold/40 text-gold-ink"
+        label="Média da turma"
         valor={mediaTurma !== null ? mediaTurma.toFixed(2) : "—"}
+        corValor="text-brand"
+        destaque
       />
     </div>
   );

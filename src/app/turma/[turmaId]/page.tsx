@@ -9,10 +9,12 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ turmaId: string }>;
+  searchParams: Promise<{ aluno?: string; t?: string }>;
 };
 
-export default async function TurmaPage({ params }: PageProps) {
+export default async function TurmaPage({ params, searchParams }: PageProps) {
   const { turmaId } = await params;
+  const { aluno: alunoParam, t } = await searchParams;
 
   const { data: turma } = await supabase
     .from("turmas")
@@ -56,15 +58,13 @@ export default async function TurmaPage({ params }: PageProps) {
   }));
 
   return (
-    <main className="mx-auto flex w-full min-w-0 max-w-7xl flex-1 flex-col px-4 py-6 sm:px-6">
-      <TurmaDashboard
-        turma={turma}
-        todasTurmas={todasTurmas.length > 0 ? todasTurmas : [turma]}
-        colunasIniciais={colunas ?? []}
-        alunosIniciais={alunos ?? []}
-        notasIniciais={notasComAutor}
-        professorNome={professor.nome}
-      />
-    </main>
+    <TurmaDashboard
+      turma={turma}
+      todasTurmas={todasTurmas.length > 0 ? todasTurmas : [turma]}
+      colunasIniciais={colunas ?? []}
+      alunosIniciais={alunos ?? []}
+      notasIniciais={notasComAutor}
+      alunoFoco={alunoParam ? { id: alunoParam, chave: `${alunoParam}|${t ?? ""}` } : null}
+    />
   );
 }

@@ -6,8 +6,9 @@ import type { Aluno, AtividadeColuna, TipoColuna, Turma } from "@/lib/types";
 import { celulasIniciaisDe, type CelulasMap, type NotaCelulaComAutor } from "@/lib/celulas";
 import { mediaAluno, mediaDeValores, paraEscala10 } from "@/lib/analytics";
 import { PlanilhaGrid } from "@/components/grid/PlanilhaGrid";
-import { TurmaHeader } from "./TurmaHeader";
-import { FiltrosTurma } from "./FiltrosTurma";
+import { PageLayout } from "@/components/layout/PageLayout";
+import { estilos } from "@/components/ui/estilos";
+import { BimestreAbas } from "./BimestreAbas";
 import { KpiCards } from "./KpiCards";
 import { AnaliseAprendizagem } from "./AnaliseAprendizagem";
 
@@ -17,7 +18,8 @@ type TurmaDashboardProps = {
   colunasIniciais: AtividadeColuna[];
   alunosIniciais: Aluno[];
   notasIniciais: NotaCelulaComAutor[];
-  professorNome: string;
+  /** Vem de ?aluno=<id>&t=<nonce> (Ctrl+K). `chave` muda a cada pedido, mesmo pro mesmo aluno. */
+  alunoFoco: { id: string; chave: string } | null;
 };
 
 export function TurmaDashboard({
@@ -26,7 +28,7 @@ export function TurmaDashboard({
   colunasIniciais,
   alunosIniciais,
   notasIniciais,
-  professorNome,
+  alunoFoco,
 }: TurmaDashboardProps) {
   const [colunas, setColunas] = useState(colunasIniciais);
   const [alunos, setAlunos] = useState(alunosIniciais);
@@ -37,6 +39,14 @@ export function TurmaDashboard({
   const handlePendentesChange = useCallback((delta: number) => {
     setSalvamentosPendentes((total) => total + delta);
   }, []);
+
+  // Pedido de abrir o drawer de um aluno: guardado até o grid consumir, e renovado quando a chave muda.
+  const [alunoFocoId, setAlunoFocoId] = useState<string | null>(alunoFoco?.id ?? null);
+  const [chaveFocoAnterior, setChaveFocoAnterior] = useState(alunoFoco?.chave ?? null);
+  if ((alunoFoco?.chave ?? null) !== chaveFocoAnterior) {
+    setChaveFocoAnterior(alunoFoco?.chave ?? null);
+    setAlunoFocoId(alunoFoco?.id ?? null);
+  }
 
   const colunasNota = useMemo(() => colunas.filter((c) => c.tipo !== "presenca"), [colunas]);
   const colunasPresenca = useMemo(() => colunas.filter((c) => c.tipo === "presenca"), [colunas]);
@@ -67,74 +77,62 @@ export function TurmaDashboard({
     return (criticos / alunos.length) * 100;
   }, [alunos, celulas]);
 
+  const abaClasse = (ativa: boolean) =>
+    `flex min-h-10 items-center gap-1.5 rounded-[8px] px-3 py-2 text-sm font-semibold transition disabled:cursor-wait disabled:opacity-60 ${
+      ativa ? "bg-surface text-brand shadow-sm" : "text-muted hover:text-ink"
+    }`;
+
   return (
-    <div className="flex min-w-0 flex-col gap-5">
-      <TurmaHeader professorNome={professorNome} />
-      <div className="flex min-w-0 flex-col gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <FiltrosTurma turma={turma} todasTurmas={todasTurmas} />
-          {!maximizado && (
-            <details className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-              <summary className="cursor-pointer rounded text-sm font-semibold text-blue-700">
-                Análise da turma e indicadores
-              </summary>
-              <div className="mt-4 flex flex-col gap-4">
-                <KpiCards totalAlunos={alunos.length} taxaCritico={taxaCritico} mediaTurma={mediaTurma10} />
-                <AnaliseAprendizagem colunas={colunasNota} alunos={alunos} celulas={celulas} />
-              </div>
-            </details>
-          )}
+    <PageLayout
+      crumb={`Turmas / Redação · ${turma.ano_letivo}`}
+      titulo={turma.nome}
+      acoes={<BimestreAbas turma={turma} todasTurmas={todasTurmas} />}
+    >
+      {!maximizado && (
+        <KpiCards totalAlunos={alunos.length} taxaCritico={taxaCritico} mediaTurma={mediaTurma10} />
+      )}
 
-          <div className="inline-flex w-fit items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-100 p-1 dark:border-neutral-800 dark:bg-neutral-900">
-            <button
-              type="button"
-              aria-pressed={aba === "nota"}
-              disabled={salvamentosPendentes > 0}
-              onClick={() => setAba("nota")}
-              className={`flex items-center gap-1.5 rounded-md min-h-11 px-3 py-2 text-sm font-medium transition-colors disabled:cursor-wait disabled:opacity-60 ${
-                aba === "nota"
-                  ? "bg-white text-blue-700 shadow-sm dark:bg-neutral-700 dark:text-blue-300"
-                  : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-              }`}
-            >
-              <ClipboardList size={15} />
-              Notas
-            </button>
-            <button
-              type="button"
-              aria-pressed={aba === "presenca"}
-              disabled={salvamentosPendentes > 0}
-              onClick={() => setAba("presenca")}
-              className={`flex items-center gap-1.5 rounded-md min-h-11 px-3 py-2 text-sm font-medium transition-colors disabled:cursor-wait disabled:opacity-60 ${
-                aba === "presenca"
-                  ? "bg-white text-blue-700 shadow-sm dark:bg-neutral-700 dark:text-blue-300"
-                  : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-              }`}
-            >
-              <CalendarCheck2 size={15} />
-              Frequência
-            </button>
+      {!maximizado && (
+        <details className={`${estilos.card} p-4`}>
+          <summary className="cursor-pointer rounded text-sm font-semibold text-brand">
+            Análise da turma
+          </summary>
+          <div className="mt-4">
+            <AnaliseAprendizagem colunas={colunasNota} alunos={alunos} celulas={celulas} />
           </div>
+        </details>
+      )}
 
-          <PlanilhaGrid
-            key={aba}
-            turmaId={turma.id}
-            turmaNome={turma.nome}
-            turmaBimestre={turma.bimestre}
-            tipoColuna={aba}
-            colunas={colunasAba}
-            alunos={alunos}
-            celulas={celulas}
-            todasTurmas={todasTurmas}
-            onColunasChange={handleColunasAbaChange}
-            onAlunosChange={setAlunos}
-            onCelulasChange={setCelulas}
-            onPendentesChange={handlePendentesChange}
-            maximizado={maximizado}
-            onToggleMaximizar={() => setMaximizado((m) => !m)}
-          />
-        </div>
+      <div className="inline-flex w-fit items-center gap-1 rounded-control border border-line bg-surface-sunken p-1">
+        <button type="button" aria-pressed={aba === "nota"} disabled={salvamentosPendentes > 0} onClick={() => setAba("nota")} className={abaClasse(aba === "nota")}>
+          <ClipboardList size={15} />
+          Notas
+        </button>
+        <button type="button" aria-pressed={aba === "presenca"} disabled={salvamentosPendentes > 0} onClick={() => setAba("presenca")} className={abaClasse(aba === "presenca")}>
+          <CalendarCheck2 size={15} />
+          Frequência
+        </button>
       </div>
-    </div>
+
+      <PlanilhaGrid
+        key={aba}
+        turmaId={turma.id}
+        turmaNome={turma.nome}
+        turmaBimestre={turma.bimestre}
+        tipoColuna={aba}
+        colunas={colunasAba}
+        alunos={alunos}
+        celulas={celulas}
+        todasTurmas={todasTurmas}
+        onColunasChange={handleColunasAbaChange}
+        onAlunosChange={setAlunos}
+        onCelulasChange={setCelulas}
+        onPendentesChange={handlePendentesChange}
+        maximizado={maximizado}
+        onToggleMaximizar={() => setMaximizado((m) => !m)}
+        alunoFocoId={alunoFocoId}
+        onAlunoFocoConsumido={() => setAlunoFocoId(null)}
+      />
+    </PageLayout>
   );
 }

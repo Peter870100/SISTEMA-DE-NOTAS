@@ -56,6 +56,8 @@ type PlanilhaGridProps = {
   onPendentesChange: (delta: number) => void;
   maximizado: boolean;
   onToggleMaximizar: () => void;
+  alunoFocoId: string | null;
+  onAlunoFocoConsumido: () => void;
 };
 
 export function PlanilhaGrid({
@@ -73,6 +75,8 @@ export function PlanilhaGrid({
   onPendentesChange,
   maximizado,
   onToggleMaximizar,
+  alunoFocoId,
+  onAlunoFocoConsumido,
 }: PlanilhaGridProps) {
   const [active, setActive] = useState<{ row: number; col: number } | null>(null);
   const [editing, setEditing] = useState(false);

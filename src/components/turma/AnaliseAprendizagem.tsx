@@ -78,12 +78,12 @@ export function AnaliseAprendizagem({ colunas, alunos, celulas }: AnaliseAprendi
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3">
-      <h2 className="lg:col-span-3 text-base font-semibold text-neutral-800 dark:text-neutral-200">
+      <h2 className="lg:col-span-3 font-display text-base font-semibold text-ink">
         Análise de Aprendizagem
       </h2>
 
-      <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+      <div className="rounded-card border border-line bg-surface p-4">
+        <p className="text-sm font-medium text-muted">
           Evolução da Média da Turma
         </p>
         <div className="mt-2 h-40 w-full">
@@ -91,37 +91,37 @@ export function AnaliseAprendizagem({ colunas, alunos, celulas }: AnaliseAprendi
             <AreaChart data={evolucaoTurma} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="evolucaoTurmaGradiente" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#0444A0" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#0444A0" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
                 stroke="currentColor"
-                className="text-neutral-200 dark:text-neutral-800"
+                className="text-line-soft"
               />
               <XAxis
                 dataKey="nome"
                 tick={false}
                 stroke="currentColor"
-                className="text-neutral-400"
+                className="text-faint"
               />
               <YAxis
                 domain={[0, 10]}
                 tick={{ fontSize: 12 }}
                 width={32}
                 stroke="currentColor"
-                className="text-neutral-400"
+                className="text-faint"
               />
-              <Tooltip contentStyle={{ fontSize: 13, borderRadius: 6 }} />
+              <Tooltip contentStyle={{ fontSize: 13, borderRadius: 10, border: "1px solid #DCE3F0", boxShadow: "0 8px 28px rgb(10 42 110 / 0.12)" }} />
               <Area
                 type="monotone"
                 dataKey="media"
-                stroke="#2563eb"
+                stroke="#0444A0"
                 strokeWidth={2}
                 fill="url(#evolucaoTurmaGradiente)"
-                dot={{ r: 3, fill: "#2563eb" }}
+                dot={{ r: 3, fill: "#0444A0" }}
                 connectNulls
                 isAnimationActive={false}
               />
@@ -130,8 +130,8 @@ export function AnaliseAprendizagem({ colunas, alunos, celulas }: AnaliseAprendi
         </div>
       </div>
 
-      <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+      <div className="rounded-card border border-line bg-surface p-4">
+        <p className="text-sm font-medium text-muted">
           Top 10 Melhores Alunos (Média Geral)
         </p>
         <div className="mt-2 h-56 w-full">
@@ -142,7 +142,7 @@ export function AnaliseAprendizagem({ colunas, alunos, celulas }: AnaliseAprendi
                 domain={[0, 10]}
                 tick={{ fontSize: 12 }}
                 stroke="currentColor"
-                className="text-neutral-400"
+                className="text-faint"
               />
               <YAxis
                 type="category"
@@ -150,12 +150,12 @@ export function AnaliseAprendizagem({ colunas, alunos, celulas }: AnaliseAprendi
                 width={110}
                 tick={{ fontSize: 12 }}
                 stroke="currentColor"
-                className="text-neutral-400"
+                className="text-faint"
               />
-              <Tooltip contentStyle={{ fontSize: 13, borderRadius: 6 }} />
+              <Tooltip contentStyle={{ fontSize: 13, borderRadius: 10, border: "1px solid #DCE3F0", boxShadow: "0 8px 28px rgb(10 42 110 / 0.12)" }} />
               <Bar
                 dataKey="media"
-                fill="#2563eb"
+                fill="#0444A0"
                 radius={[0, 4, 4, 0]}
                 barSize={13}
                 isAnimationActive={false}
@@ -165,37 +165,37 @@ export function AnaliseAprendizagem({ colunas, alunos, celulas }: AnaliseAprendi
         </div>
       </div>
 
-      <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        <p className="mb-2 text-sm font-medium text-neutral-500 dark:text-neutral-400">
+      <div className="rounded-card border border-line bg-surface p-4">
+        <p className="mb-2 text-sm font-medium text-muted">
           Alunos em Risco
         </p>
         {alunosEmRisco.length === 0 ? (
-          <p className="text-sm text-neutral-400">Nenhum aluno em risco no momento.</p>
+          <p className="text-sm text-faint">Nenhum aluno em risco no momento.</p>
         ) : (
           <ul className="flex flex-col gap-1.5">
             {alunosEmRisco.map((r) => (
               <li key={r.id} className="flex items-center justify-between gap-2 text-sm">
                 <span className="flex min-w-0 items-center gap-1.5">
                   <Avatar nome={r.nome} />
-                  <span className="truncate text-neutral-700 dark:text-neutral-300" title={r.nome}>
+                  <span className="truncate text-ink" title={r.nome}>
                     {r.nome}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1.5">
                   <span
-                    className={`rounded px-1.5 py-0.5 font-medium tabular-nums ${
+                    className={`rounded-[6px] px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums ${
                       r.score !== null && r.score < 6
-                        ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
-                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                        ? "bg-danger/10 text-danger"
+                        : "bg-ok/10 text-ok"
                     }`}
                   >
                     {r.score !== null ? r.score.toFixed(2) : "—"}
                   </span>
                   <span
-                    className={`rounded px-1.5 py-0.5 font-medium tabular-nums ${
+                    className={`rounded-[6px] px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums ${
                       r.indicador !== null && r.indicador < 0
-                        ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
-                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                        ? "bg-danger/10 text-danger"
+                        : "bg-ok/10 text-ok"
                     }`}
                   >
                     {r.indicador !== null
