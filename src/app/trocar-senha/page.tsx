@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
 import { trocarSenha } from "@/actions/auth";
+import { AuthAviso, AuthShell, authBotao, authInput } from "@/components/layout/AuthShell";
 
 type TrocarSenhaPageProps = {
   searchParams: Promise<{ erro?: string }>;
@@ -19,52 +20,34 @@ export default async function TrocarSenhaPage({ searchParams }: TrocarSenhaPageP
 
   const { erro } = await searchParams;
 
+  const rotulo = "flex flex-col gap-1.5 text-xs text-frame-muted";
+
   return (
-    <main className="flex flex-1 items-center justify-center bg-neutral-100 px-4">
-      <form
-        action={trocarSenha}
-        className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-6 shadow-sm"
-      >
-        <h1 className="text-lg font-semibold text-neutral-900">Trocar senha</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          {professor.senha_provisoria
-            ? "Sua senha foi definida por um administrador. Escolha uma nova senha pra continuar."
-            : "Escolha uma nova senha pra sua conta."}
-        </p>
-
-        {erro && (
-          <p className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {MENSAGENS_ERRO[erro] ?? "Não foi possível trocar a senha."}
-          </p>
-        )}
-
-        <input
-          type="password"
-          name="senhaAtual"
-          autoFocus
-          placeholder="Senha atual"
-          className="mt-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-        />
-        <input
-          type="password"
-          name="novaSenha"
-          placeholder="Nova senha"
-          className="mt-3 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-        />
-        <input
-          type="password"
-          name="confirmarSenha"
-          placeholder="Confirmar nova senha"
-          className="mt-3 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-        />
-
-        <button
-          type="submit"
-          className="mt-3 w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm shadow-blue-600/30 hover:bg-blue-700"
-        >
-          Trocar senha
-        </button>
-      </form>
-    </main>
+    <AuthShell
+      titulo="Trocar senha"
+      subtitulo={
+        professor.senha_provisoria
+          ? "Sua senha foi definida por um administrador. Escolha uma nova senha pra continuar."
+          : "Escolha uma nova senha pra sua conta."
+      }
+      comoForm={trocarSenha}
+    >
+      {erro && <AuthAviso tipo="erro">{MENSAGENS_ERRO[erro] ?? "Não foi possível trocar a senha."}</AuthAviso>}
+      <label className={rotulo}>
+        Senha atual
+        <input type="password" name="senhaAtual" autoFocus autoComplete="current-password" className={authInput} />
+      </label>
+      <label className={rotulo}>
+        Nova senha
+        <input type="password" name="novaSenha" autoComplete="new-password" className={authInput} />
+      </label>
+      <label className={rotulo}>
+        Confirmar nova senha
+        <input type="password" name="confirmarSenha" autoComplete="new-password" className={authInput} />
+      </label>
+      <button type="submit" className={`${authBotao} mt-1`}>
+        Trocar senha
+      </button>
+    </AuthShell>
   );
 }
