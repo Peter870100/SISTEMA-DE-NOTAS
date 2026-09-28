@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { Pencil } from "lucide-react";
 import { STATUS_SUGESTOES, STATUS_PRESENCA, corStatus, corPresenca, type ValorCelula } from "@/lib/status";
 import type { TipoColuna } from "@/lib/types";
+import { NOTA_ABAIXO_DA_MEDIA } from "@/lib/analytics";
 
 type CelulaNotaProps = {
   value: ValorCelula;
@@ -132,7 +133,13 @@ export function CelulaNota({
             {value.status_texto}
           </span>
         ) : value.valor !== null ? (
-          <span className="font-mono tabular-nums text-ink">{value.valor}</span>
+          <span
+            className={`font-mono tabular-nums ${
+              value.valor < NOTA_ABAIXO_DA_MEDIA ? "font-semibold text-danger" : "text-ink"
+            }`}
+          >
+            {value.valor}
+          </span>
         ) : null}
       </span>
       <button

@@ -4,6 +4,8 @@ import type { ValorCelula } from "./status";
 export const NOTA_MAXIMA = 1000;
 export const ESCALA_EXIBICAO = 10;
 export const LIMIAR_CRITICO = 6;
+/** Nota de atividade (escala 0-1000) abaixo disso aparece em vermelho na planilha. */
+export const NOTA_ABAIXO_DA_MEDIA = 700;
 
 /** Converte uma nota/média da escala 0-1000 (planilha original) para 0-10. */
 export function paraEscala10(valor: number): number {
