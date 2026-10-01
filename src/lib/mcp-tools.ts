@@ -141,20 +141,69 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     return candidatos[0];
   }
 
-  async function resolverAtividade(turmaId: string, tituloQuery: string): Promise<Coluna> {
-    const { data, error } = await supabase.from("atividades_colunas").select("*").eq("turma_id", turmaId);
+  /** Quantas células com nota/status cada coluna tem. */
+  async function contarNotasPorColuna(colunaIds: string[]): Promise<Map<string, number>> {
+    const contagem = new Map<string, number>();
+    if (colunaIds.length === 0) return contagem;
+    const { data } = await supabase
+      .from("notas_celulas")
+      .select("coluna_id, valor, status_texto")
+      .in("coluna_id", colunaIds);
+    for (const n of data ?? []) {
+      if (n.valor === null && !n.status_texto) continue;
+      contagem.set(n.coluna_id, (contagem.get(n.coluna_id) ?? 0) + 1);
+    }
+    return contagem;
+  }
+
+  /**
+   * Acha a coluna pelo título. Quando há colunas com o mesmo título, `posicao` (1 = primeira coluna da
+   * planilha, na ordem do ver_planilha) escolhe qual.
+   */
+  async function resolverAtividade(turmaId: string, tituloQuery: string, posicao?: number): Promise<Coluna> {
+    const { data, error } = await supabase
+      .from("atividades_colunas")
+      .select("*")
+      .eq("turma_id", turmaId)
+      .order("ordem")
+      .order("id");
     if (error) throw new Error(error.message);
     const alvo = normalizar(tituloQuery);
-    const candidatos = (data ?? []).filter((c) => normalizar(c.titulo).includes(alvo));
+    const comPosicao = (data ?? []).map((c, i) => ({ coluna: c as Coluna, posicao: i + 1 }));
+    let candidatos = comPosicao.filter(({ coluna }) => normalizar(coluna.titulo).includes(alvo));
     if (candidatos.length === 0) {
-      throw new Error(`Nenhuma atividade encontrada com título parecido com "${tituloQuery}" nessa turma.`);
+      throw new Error(`Nenhuma coluna encontrada com título parecido com "${tituloQuery}" nessa turma.`);
+    }
+    if (posicao !== undefined) {
+      candidatos = candidatos.filter((c) => c.posicao === posicao);
+      if (candidatos.length === 0) {
+        throw new Error(
+          `A coluna na posição ${posicao} não tem título parecido com "${tituloQuery}". Confira as posições com ver_planilha.`
+        );
+      }
     }
     if (candidatos.length > 1) {
-      const opcoes = candidatos.map((c) => `"${c.titulo}"`).join(", ");
-      throw new Error(`Mais de uma atividade encontrada para "${tituloQuery}": ${opcoes}. Seja mais específico.`);
+      const notas = await contarNotasPorColuna(candidatos.map(({ coluna }) => coluna.id));
+      const opcoes = candidatos
+        .map(({ coluna, posicao: p }) => `posição ${p}: "${coluna.titulo}" (${notas.get(coluna.id) ?? 0} notas)`)
+        .join("; ");
+      throw new Error(
+        `Mais de uma coluna encontrada para "${tituloQuery}": ${opcoes}. Seja mais específico no título, ou, pra excluir/renomear, informe coluna_posicao com o número da posição.`
+      );
     }
-    return candidatos[0];
+    return candidatos[0].coluna;
   }
+
+  const colunaPosicaoField = {
+    coluna_posicao: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe(
+        "Posição da coluna na planilha (1 = primeira), como mostrada no ver_planilha. Use só quando houver colunas com o mesmo título."
+      ),
+  };
   /** Manda pra lixeira (restaurável por admin). Devolve o resumo gravado, pra resposta ao agente. */
   async function excluirParaLixeira(
     tipo: "turma" | "aluno" | "atividade",
@@ -263,7 +312,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       const liberadas = await turmasLiberadas(professor);
       const turma = await resolverTurma(turma_nome, bimestre, liberadas);
       const [{ data: colunas }, { data: alunos }] = await Promise.all([
-        supabase.from("atividades_colunas").select("*").eq("turma_id", turma.id).order("ordem"),
+        supabase.from("atividades_colunas").select("*").eq("turma_id", turma.id).order("ordem").order("id"),
         supabase.from("alunos").select("*").eq("turma_id", turma.id).order("ordem"),
       ]);
       const alunoIds = (alunos ?? []).map((a) => a.id);
@@ -272,14 +321,20 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         : { data: [] };
 
       const notaPorAlunoColuna = new Map<string, string>();
+      const notasPorColuna = new Map<string, number>();
       for (const n of notas ?? []) {
         const valorTexto = n.valor !== null ? String(n.valor) : n.status_texto ?? "";
         notaPorAlunoColuna.set(`${n.aluno_id}:${n.coluna_id}`, valorTexto);
+        if (valorTexto) notasPorColuna.set(n.coluna_id, (notasPorColuna.get(n.coluna_id) ?? 0) + 1);
       }
 
       const cabecalho = `Turma: ${turma.nome} — ${turma.bimestre} (${turma.ano_letivo})${turma.criado_via === "hermes" ? " (criada pelo Hermes)" : ""}`;
       const marca = (via?: string) => (via === "hermes" ? "*" : "");
-      const listaColunas = `Atividades: ${(colunas ?? []).map((c) => c.titulo + marca(c.criado_via)).join(", ") || "(nenhuma)"}`;
+      const listaColunas = `Colunas (posição. título — notas lançadas): ${
+        (colunas ?? [])
+          .map((c, i) => `${i + 1}. ${c.titulo}${marca(c.criado_via)} — ${notasPorColuna.get(c.id) ?? 0}`)
+          .join(" | ") || "(nenhuma)"
+      }`;
       const temMarca = [...(colunas ?? []), ...(alunos ?? [])].some((x) => x.criado_via === "hermes");
       const linhasAlunos = (alunos ?? []).map((a) => {
         const partes = (colunas ?? []).map((c) => {
@@ -626,14 +681,15 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     titulo: string,
     novo_titulo: string,
     bimestre: string | undefined,
-    professor_telefone: string | undefined
+    professor_telefone: string | undefined,
+    posicao?: number
   ) {
     const novoTituloLimpo = novo_titulo.trim();
     if (!novoTituloLimpo) throw new Error("Informe o novo título da coluna.");
     const professor = await resolverProfessorInfo(professor_telefone);
     const liberadas = await turmasLiberadas(professor);
     const turma = await resolverTurma(turma_nome, bimestre, liberadas);
-    const atividade = await resolverAtividade(turma.id, titulo);
+    const atividade = await resolverAtividade(turma.id, titulo, posicao);
     const { error } = await supabase
       .from("atividades_colunas")
       .update({ titulo: novoTituloLimpo })
@@ -647,17 +703,18 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     {
       title: "Renomear/mudar nome de coluna da planilha",
       description:
-        "Renomeia (muda o nome, troca o título, corrige o cabeçalho) de uma coluna da planilha de uma turma — coluna de nota/atividade/prova/trabalho ou de chamada/presença. As notas lançadas nela continuam. Você TEM permissão pra usar esta ferramenta quando o professor pedir. Use ver_planilha antes se não souber o título atual exato.",
+        "Renomeia (muda o nome, troca o título, corrige o cabeçalho) de uma coluna da planilha de uma turma — coluna de nota/atividade/prova/trabalho ou de chamada/presença. As notas lançadas nela continuam. Você TEM permissão pra usar esta ferramenta quando o professor pedir. Use ver_planilha antes se não souber o título atual exato. Se houver colunas com o mesmo título, informe coluna_posicao.",
       inputSchema: {
         turma_nome: z.string().describe('Nome da turma, ex: "1ª série C"'),
         coluna_titulo: z.string().describe("Título atual da coluna (ou parte dele), como aparece no cabeçalho"),
         novo_titulo: z.string().describe("Nome novo da coluna"),
         bimestre: z.string().optional().describe('Ex: "2º Bimestre" — necessário se a turma tiver mais de um bimestre'),
+        ...colunaPosicaoField,
         ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, coluna_titulo, novo_titulo, bimestre, professor_telefone }) =>
-      renomearColuna(turma_nome, coluna_titulo, novo_titulo, bimestre, professor_telefone)
+    async ({ turma_nome, coluna_titulo, novo_titulo, bimestre, coluna_posicao, professor_telefone }) =>
+      renomearColuna(turma_nome, coluna_titulo, novo_titulo, bimestre, professor_telefone, coluna_posicao)
   );
 
   server.registerTool(
@@ -671,18 +728,25 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         atividade_titulo: z.string().describe("Título atual (ou parte dele) da atividade a renomear"),
         novo_titulo: z.string(),
         bimestre: z.string().optional(),
+        ...colunaPosicaoField,
         ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, atividade_titulo, novo_titulo, bimestre, professor_telefone }) =>
-      renomearColuna(turma_nome, atividade_titulo, novo_titulo, bimestre, professor_telefone)
+    async ({ turma_nome, atividade_titulo, novo_titulo, bimestre, coluna_posicao, professor_telefone }) =>
+      renomearColuna(turma_nome, atividade_titulo, novo_titulo, bimestre, professor_telefone, coluna_posicao)
   );
 
-  async function excluirColuna(turma_nome: string, titulo: string, bimestre: string | undefined, professor_telefone: string | undefined) {
+  async function excluirColuna(
+    turma_nome: string,
+    titulo: string,
+    bimestre: string | undefined,
+    professor_telefone: string | undefined,
+    posicao?: number
+  ) {
     const professor = await resolverProfessorInfo(professor_telefone);
     const liberadas = await turmasLiberadas(professor);
     const turma = await resolverTurma(turma_nome, bimestre, liberadas);
-    const atividade = await resolverAtividade(turma.id, titulo);
+    const atividade = await resolverAtividade(turma.id, titulo, posicao);
     const resumo = await excluirParaLixeira("atividade", atividade.id, professor);
     return texto(
       `OK: coluna "${atividade.titulo}" movida para a lixeira (${resumo.notas ?? 0} notas), da turma ${turma.nome}. Um administrador pode restaurá-la em /admin/lixeira.`
@@ -694,16 +758,17 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     {
       title: "Excluir/deletar/apagar coluna da planilha",
       description:
-        'Deleta (exclui, apaga, remove) uma coluna da planilha de uma turma — seja coluna de nota/atividade/prova/trabalho ou coluna de chamada/presença — junto com as notas lançadas nela. A coluna vai para a lixeira e um administrador pode restaurar. Você TEM permissão pra usar esta ferramenta quando o professor pedir pra tirar uma coluna. Use ver_planilha antes se não souber o título exato da coluna. Para apagar a planilha/turma inteira, use excluir_turma.',
+        'Deleta (exclui, apaga, remove) uma coluna da planilha de uma turma — seja coluna de nota/atividade/prova/trabalho ou coluna de chamada/presença — junto com as notas lançadas nela. A coluna vai para a lixeira e um administrador pode restaurar. Você TEM permissão pra usar esta ferramenta quando o professor pedir pra tirar uma coluna. Use ver_planilha antes se não souber o título exato da coluna. Se houver colunas com o mesmo título, informe coluna_posicao (veja no ver_planilha qual tem notas); ao excluir várias, rode ver_planilha de novo entre uma e outra, porque as posições das colunas seguintes diminuem. Para apagar a planilha/turma inteira, use excluir_turma.',
       inputSchema: {
         turma_nome: z.string().describe('Nome da turma, ex: "1ª série C"'),
         coluna_titulo: z.string().describe("Título da coluna (ou parte dele), como aparece no cabeçalho da planilha"),
         bimestre: z.string().optional().describe('Ex: "2º Bimestre" — necessário se a turma tiver mais de um bimestre'),
+        ...colunaPosicaoField,
         ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, coluna_titulo, bimestre, professor_telefone }) =>
-      excluirColuna(turma_nome, coluna_titulo, bimestre, professor_telefone)
+    async ({ turma_nome, coluna_titulo, bimestre, coluna_posicao, professor_telefone }) =>
+      excluirColuna(turma_nome, coluna_titulo, bimestre, professor_telefone, coluna_posicao)
   );
 
   server.registerTool(
@@ -716,11 +781,12 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         turma_nome: z.string(),
         atividade_titulo: z.string(),
         bimestre: z.string().optional(),
+        ...colunaPosicaoField,
         ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, atividade_titulo, bimestre, professor_telefone }) =>
-      excluirColuna(turma_nome, atividade_titulo, bimestre, professor_telefone)
+    async ({ turma_nome, atividade_titulo, bimestre, coluna_posicao, professor_telefone }) =>
+      excluirColuna(turma_nome, atividade_titulo, bimestre, professor_telefone, coluna_posicao)
   );
 
   server.registerTool(
