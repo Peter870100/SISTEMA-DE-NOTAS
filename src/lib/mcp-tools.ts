@@ -621,11 +621,51 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     }
   );
 
+  async function renomearColuna(
+    turma_nome: string,
+    titulo: string,
+    novo_titulo: string,
+    bimestre: string | undefined,
+    professor_telefone: string | undefined
+  ) {
+    const novoTituloLimpo = novo_titulo.trim();
+    if (!novoTituloLimpo) throw new Error("Informe o novo título da coluna.");
+    const professor = await resolverProfessorInfo(professor_telefone);
+    const liberadas = await turmasLiberadas(professor);
+    const turma = await resolverTurma(turma_nome, bimestre, liberadas);
+    const atividade = await resolverAtividade(turma.id, titulo);
+    const { error } = await supabase
+      .from("atividades_colunas")
+      .update({ titulo: novoTituloLimpo })
+      .eq("id", atividade.id);
+    if (error) throw new Error(error.message);
+    return texto(`OK: coluna "${atividade.titulo}" agora é "${novoTituloLimpo}" (turma ${turma.nome}).`);
+  }
+
+  server.registerTool(
+    "renomear_coluna",
+    {
+      title: "Renomear/mudar nome de coluna da planilha",
+      description:
+        "Renomeia (muda o nome, troca o título, corrige o cabeçalho) de uma coluna da planilha de uma turma — coluna de nota/atividade/prova/trabalho ou de chamada/presença. As notas lançadas nela continuam. Você TEM permissão pra usar esta ferramenta quando o professor pedir. Use ver_planilha antes se não souber o título atual exato.",
+      inputSchema: {
+        turma_nome: z.string().describe('Nome da turma, ex: "1ª série C"'),
+        coluna_titulo: z.string().describe("Título atual da coluna (ou parte dele), como aparece no cabeçalho"),
+        novo_titulo: z.string().describe("Nome novo da coluna"),
+        bimestre: z.string().optional().describe('Ex: "2º Bimestre" — necessário se a turma tiver mais de um bimestre'),
+        ...professorTelefoneField,
+      },
+    },
+    async ({ turma_nome, coluna_titulo, novo_titulo, bimestre, professor_telefone }) =>
+      renomearColuna(turma_nome, coluna_titulo, novo_titulo, bimestre, professor_telefone)
+  );
+
   server.registerTool(
     "renomear_atividade",
     {
-      title: "Renomear atividade/chamada",
-      description: "Corrige o título de uma atividade ou data de chamada já criada — mantém as notas já lançadas nela.",
+      title: "Renomear atividade/chamada (coluna)",
+      description:
+        "Mesmo que renomear_coluna: corrige o título de uma atividade ou data de chamada já criada — mantém as notas já lançadas nela.",
       inputSchema: {
         turma_nome: z.string(),
         atividade_titulo: z.string().describe("Título atual (ou parte dele) da atividade a renomear"),
@@ -634,20 +674,8 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, atividade_titulo, novo_titulo, bimestre, professor_telefone }) => {
-      const novoTituloLimpo = novo_titulo.trim();
-      if (!novoTituloLimpo) throw new Error("Informe o novo título da atividade.");
-      const professor = await resolverProfessorInfo(professor_telefone);
-      const liberadas = await turmasLiberadas(professor);
-      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
-      const atividade = await resolverAtividade(turma.id, atividade_titulo);
-      const { error } = await supabase
-        .from("atividades_colunas")
-        .update({ titulo: novoTituloLimpo })
-        .eq("id", atividade.id);
-      if (error) throw new Error(error.message);
-      return texto(`OK: "${atividade.titulo}" agora é "${novoTituloLimpo}" (turma ${turma.nome}).`);
-    }
+    async ({ turma_nome, atividade_titulo, novo_titulo, bimestre, professor_telefone }) =>
+      renomearColuna(turma_nome, atividade_titulo, novo_titulo, bimestre, professor_telefone)
   );
 
   async function excluirColuna(turma_nome: string, titulo: string, bimestre: string | undefined, professor_telefone: string | undefined) {
