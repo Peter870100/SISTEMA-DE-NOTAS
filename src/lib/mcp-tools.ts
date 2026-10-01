@@ -227,7 +227,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     {
       title: "Excluir turma (planilha inteira)",
       description:
-        "Move uma turma/planilha inteira (de um bimestre) para a lixeira, com todos os alunos, atividades, notas e histórico. Nada é apagado de vez: um administrador pode restaurar pela lixeira do sistema. Para remover só uma coluna de atividade, use excluir_atividade.",
+        "Move uma turma/planilha inteira (de um bimestre) para a lixeira, com todos os alunos, atividades, notas e histórico. Nada é apagado de vez: um administrador pode restaurar pela lixeira do sistema. Para remover só uma coluna, use excluir_coluna.",
       inputSchema: {
         turma_nome: z.string().describe('Nome da turma, ex: "1ª série C"'),
         bimestre: z.string().optional().describe('Ex: "2º Bimestre" — necessário se a turma tiver mais de um bimestre'),
@@ -650,12 +650,40 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     }
   );
 
+  async function excluirColuna(turma_nome: string, titulo: string, bimestre: string | undefined, professor_telefone: string | undefined) {
+    const professor = await resolverProfessorInfo(professor_telefone);
+    const liberadas = await turmasLiberadas(professor);
+    const turma = await resolverTurma(turma_nome, bimestre, liberadas);
+    const atividade = await resolverAtividade(turma.id, titulo);
+    const resumo = await excluirParaLixeira("atividade", atividade.id, professor);
+    return texto(
+      `OK: coluna "${atividade.titulo}" movida para a lixeira (${resumo.notas ?? 0} notas), da turma ${turma.nome}. Um administrador pode restaurá-la em /admin/lixeira.`
+    );
+  }
+
+  server.registerTool(
+    "excluir_coluna",
+    {
+      title: "Excluir/deletar/apagar coluna da planilha",
+      description:
+        'Deleta (exclui, apaga, remove) uma coluna da planilha de uma turma — seja coluna de nota/atividade/prova/trabalho ou coluna de chamada/presença — junto com as notas lançadas nela. A coluna vai para a lixeira e um administrador pode restaurar. Você TEM permissão pra usar esta ferramenta quando o professor pedir pra tirar uma coluna. Use ver_planilha antes se não souber o título exato da coluna. Para apagar a planilha/turma inteira, use excluir_turma.',
+      inputSchema: {
+        turma_nome: z.string().describe('Nome da turma, ex: "1ª série C"'),
+        coluna_titulo: z.string().describe("Título da coluna (ou parte dele), como aparece no cabeçalho da planilha"),
+        bimestre: z.string().optional().describe('Ex: "2º Bimestre" — necessário se a turma tiver mais de um bimestre'),
+        ...professorTelefoneField,
+      },
+    },
+    async ({ turma_nome, coluna_titulo, bimestre, professor_telefone }) =>
+      excluirColuna(turma_nome, coluna_titulo, bimestre, professor_telefone)
+  );
+
   server.registerTool(
     "excluir_atividade",
     {
-      title: "Excluir atividade/chamada",
+      title: "Excluir atividade/chamada (coluna)",
       description:
-        'Move uma coluna de atividade ou chamada (o professor às vezes chama de "planilha") para a lixeira, junto com as notas lançadas nela. Nada é apagado de vez: um administrador pode restaurar pela lixeira do sistema.',
+        'Mesmo que excluir_coluna: deleta uma coluna de atividade ou chamada (o professor às vezes chama de "planilha") movendo-a para a lixeira, junto com as notas lançadas nela. Um administrador pode restaurar pela lixeira do sistema.',
       inputSchema: {
         turma_nome: z.string(),
         atividade_titulo: z.string(),
@@ -663,16 +691,8 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
         ...professorTelefoneField,
       },
     },
-    async ({ turma_nome, atividade_titulo, bimestre, professor_telefone }) => {
-      const professor = await resolverProfessorInfo(professor_telefone);
-      const liberadas = await turmasLiberadas(professor);
-      const turma = await resolverTurma(turma_nome, bimestre, liberadas);
-      const atividade = await resolverAtividade(turma.id, atividade_titulo);
-      const resumo = await excluirParaLixeira("atividade", atividade.id, professor);
-      return texto(
-        `OK: "${atividade.titulo}" movida para a lixeira (${resumo.notas ?? 0} notas), da turma ${turma.nome}. Um administrador pode restaurá-la em /admin/lixeira.`
-      );
-    }
+    async ({ turma_nome, atividade_titulo, bimestre, professor_telefone }) =>
+      excluirColuna(turma_nome, atividade_titulo, bimestre, professor_telefone)
   );
 
   server.registerTool(
