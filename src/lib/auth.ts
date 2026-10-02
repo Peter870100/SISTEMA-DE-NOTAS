@@ -5,7 +5,7 @@ import type { Professor } from "@/lib/types";
 
 export const COOKIE_NOME = "app_auth";
 
-function segredo(): string {
+export function segredo(): string {
   const s = process.env.AUTH_SECRET;
   if (!s) throw new Error("Defina AUTH_SECRET.");
   return s;

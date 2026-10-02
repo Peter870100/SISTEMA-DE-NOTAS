@@ -24,3 +24,22 @@ export async function enviarEmailVerificacao(
   });
   if (error) throw new Error(error.message);
 }
+
+export async function enviarEmailRedefinicaoSenha(
+  destinatario: string,
+  nome: string,
+  link: string
+): Promise<void> {
+  const { error } = await client().emails.send({
+    from: "Avalia <onboarding@resend.dev>",
+    to: destinatario,
+    subject: "Redefinir sua senha — Avalia",
+    html: `
+      <p>Olá, ${nome}!</p>
+      <p>Recebemos um pedido pra redefinir a senha da sua conta no Avalia. Clique no link pra escolher uma nova:</p>
+      <p><a href="${link}">${link}</a></p>
+      <p>Esse link expira em 1 hora e só pode ser usado uma vez. Se você não pediu isso, pode ignorar este email — sua senha continua a mesma.</p>
+    `,
+  });
+  if (error) throw new Error(error.message);
+}
