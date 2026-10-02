@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase/client";
 import type { Professor } from "@/lib/types";
+import { idDoTokenRedefinicao, validarTokenRedefinicao } from "@/lib/token-senha";
 
 export const COOKIE_NOME = "app_auth";
 
@@ -30,6 +31,14 @@ export function verificarSessao(cookieValue: string | undefined): string | null 
     return null;
   }
   return professorId;
+}
+
+/** Id do professor dono de um link de "esqueci minha senha" ainda válido, ou null. */
+export async function professorDoTokenRedefinicao(token: string | undefined): Promise<string | null> {
+  const professorId = idDoTokenRedefinicao(token);
+  if (!token || !professorId) return null;
+  const { data } = await supabase.from("professores").select("senha_hash").eq("id", professorId).maybeSingle();
+  return validarTokenRedefinicao(token, data?.senha_hash ?? null, segredo());
 }
 
 const THROTTLE_ULTIMO_ACESSO_MS = 60_000;

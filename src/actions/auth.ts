@@ -4,9 +4,9 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
-import { COOKIE_NOME, assinarSessao, getProfessorAtual, segredo } from "@/lib/auth";
+import { COOKIE_NOME, assinarSessao, getProfessorAtual, professorDoTokenRedefinicao, segredo } from "@/lib/auth";
 import { enviarEmailRedefinicaoSenha } from "@/lib/email";
-import { gerarTokenRedefinicao, idDoTokenRedefinicao, validarTokenRedefinicao } from "@/lib/token-senha";
+import { gerarTokenRedefinicao } from "@/lib/token-senha";
 
 export async function login(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -105,13 +105,8 @@ export async function redefinirSenha(formData: FormData) {
   const confirmarSenha = String(formData.get("confirmarSenha") ?? "");
   const voltar = (erro: string) => redirect(`/redefinir-senha?token=${encodeURIComponent(token)}&erro=${erro}`);
 
-  const professorId = idDoTokenRedefinicao(token);
-  const { data: registro } = professorId
-    ? await supabase.from("professores").select("senha_hash").eq("id", professorId).maybeSingle()
-    : { data: null };
-  if (!validarTokenRedefinicao(token, registro?.senha_hash ?? null, segredo())) {
-    redirect("/redefinir-senha?erro=link");
-  }
+  const professorId = await professorDoTokenRedefinicao(token);
+  if (!professorId) redirect("/redefinir-senha?erro=link");
   if (novaSenha.length < 6) voltar("curta");
   if (novaSenha !== confirmarSenha) voltar("confirmacao");
 
@@ -120,7 +115,7 @@ export async function redefinirSenha(formData: FormData) {
   const { error } = await supabase
     .from("professores")
     .update({ senha_hash: senhaHash, senha_provisoria: false, email_verificado: true })
-    .eq("id", professorId!);
+    .eq("id", professorId);
   if (error) voltar("falha");
 
   redirect("/login?senha-redefinida=1");
