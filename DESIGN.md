@@ -51,4 +51,4 @@ flutuantes. Sem tema escuro.
 - `components/ui/estilos.ts`: classes de botão, input e card.
 
 ## Login institucional
-LoginShell.tsx: fundo azul institucional, logo oficial e acesso amarelo. Apresentação e fotos de Fundamental II e Ensino Médio à esquerda; formulário à direita no desktop. No celular, apresentação, formulário e fotos nessa ordem para facilitar o acesso. Fotos fornecidas em public/segmento-fund2.jpg e public/segmento-medio.jpg, com otimização e placeholder de desfoque do Next.js. A imagem pequena images (1).jpg não deve ser ampliada. Os outros fluxos preservam AuthShell.
+LoginShell.tsx: layout institucional azul original, com apresentação à esquerda e formulário azul à direita; empilhados no celular. Cabeçalho, textos, campos, botão amarelo e rodapé preservados. Apenas a apresentação das fotos mudou: public/segmento-medio.jpg como fundo com camada azul para legibilidade, sem cards de segmentos.

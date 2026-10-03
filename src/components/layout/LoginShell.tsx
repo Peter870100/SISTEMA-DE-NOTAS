@@ -1,12 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import fundamental from "../../../public/segmento-fund2.jpg";
 import medio from "../../../public/segmento-medio.jpg";
-
-const segmentos = [
-  { nome: "Fundamental II", foto: fundamental, alt: "Estudante do Colégio Status segurando uma lupa" },
-  { nome: "Ensino Médio", foto: medio, alt: "Estudante do Colégio Status com material didático" },
-];
 
 type LoginShellProps = {
   children: React.ReactNode;
@@ -15,7 +9,11 @@ type LoginShellProps = {
 
 export function LoginShell({ children, action }: LoginShellProps) {
   return (
-    <main className="flex min-h-dvh flex-1 flex-col bg-frame-deep text-white">
+    <main className="relative isolate flex min-h-dvh flex-1 flex-col bg-frame-deep text-white">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <Image src={medio} alt="" fill preload placeholder="blur" sizes="(min-width: 1024px) 65vw, 100vw" className="object-cover object-[center_15%] lg:w-[65%] lg:object-[center_22%]" />
+        <div className="absolute inset-0 bg-frame-deep/80 lg:bg-[linear-gradient(90deg,rgba(6,32,86,0.72)_0%,rgba(6,32,86,0.65)_40%,rgba(6,32,86,0.94)_65%,#062056_85%)]" />
+      </div>
       <header className="border-b border-white/15">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-6 py-5 sm:px-10">
           <Image src="/logo-status-branca.png" alt="Colégio Status" width={1580} height={513} preload className="h-auto w-40 sm:w-56" />
@@ -26,21 +24,11 @@ export function LoginShell({ children, action }: LoginShellProps) {
         </div>
       </header>
       <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-10 px-6 py-8 sm:px-10 sm:py-12 lg:grid-cols-[1.2fr_1fr] lg:gap-20">
-        <section aria-labelledby="apresentacao-login" className="contents lg:block lg:max-w-xl">
+        <section aria-labelledby="apresentacao-login" className="max-w-xl">
           <div>
             <p className="mb-6 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.18em] text-white/85"><span aria-hidden="true" className="h-0.5 w-10 shrink-0 bg-gold" />Status Avalia · Portal do professor</p>
             <h1 id="apresentacao-login" className="text-balance font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl xl:text-6xl">Cada aprendizado<br />merece <span className="text-gold">atenção.</span></h1>
             <p className="mt-6 max-w-md text-base leading-relaxed text-white/85 sm:text-lg">Mais tempo para ensinar. Suas turmas, notas e o acompanhamento de cada aluno em um só lugar.</p>
-          </div>
-          <div className="order-last grid grid-cols-2 gap-4 lg:mt-8">
-            {segmentos.map(({ nome, foto, alt }) => (
-              <figure key={nome} className="overflow-hidden rounded-card bg-surface shadow-card">
-                <div className="relative aspect-[4/3] overflow-hidden">
-                  <Image src={foto} alt={alt} fill placeholder="blur" sizes="(min-width: 1280px) 264px, (min-width: 1024px) 24vw, (min-width: 640px) 42vw, 44vw" className="object-cover object-[center_28%]" />
-                </div>
-                <figcaption className="border-t border-line px-3 py-3 text-xs font-semibold text-ink sm:px-4 sm:text-sm">{nome}</figcaption>
-              </figure>
-            ))}
           </div>
         </section>
         <section id="acesso" aria-labelledby="titulo-acesso" className="w-full max-w-md scroll-mt-6 justify-self-center rounded-float border border-white/25 bg-frame p-6 shadow-float sm:p-9 lg:justify-self-end">
