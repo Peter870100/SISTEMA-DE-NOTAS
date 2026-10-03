@@ -84,11 +84,11 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <span
-                        className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${corBimestre(turma.bimestre)}`}
+                        className={`rounded px-1.5 py-0.5 text-xs font-medium ${corBimestre(turma.bimestre)}`}
                       >
                         {turma.bimestre}
                       </span>
-                      <span className="flex items-center gap-1 font-mono text-[11px] tabular-nums text-muted">
+                      <span className="flex items-center gap-1 font-mono text-xs tabular-nums text-muted">
                         <Users size={11} />
                         {alunos}
                       </span>

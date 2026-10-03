@@ -65,7 +65,7 @@ export function ExportarBimestre({ turmas }: { turmas: Turma[] }) {
         {exportando ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
         {exportando ? "Exportando…" : "Exportar tudo"}
       </button>
-      {erro && <span className="text-sm text-danger">{erro}</span>}
+      <span role="status" aria-live="polite" aria-atomic="true" className="text-sm text-danger">{erro}</span>
     </div>
   );
 }

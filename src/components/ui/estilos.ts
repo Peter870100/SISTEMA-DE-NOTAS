@@ -10,5 +10,5 @@ export const estilos = {
   input:
     "w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-brand-bright focus:ring-2 focus:ring-brand-bright/15",
   card: "rounded-card border border-line bg-surface shadow-card",
-  rotulo: "text-[11px] font-semibold uppercase tracking-[0.1em] text-muted",
+  rotulo: "text-xs font-semibold uppercase tracking-[0.1em] text-muted",
 } as const;

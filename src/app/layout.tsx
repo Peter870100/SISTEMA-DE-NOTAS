@@ -53,9 +53,12 @@ export default async function RootLayout({
       className={`${manrope.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-canvas md:flex-row">
+        <a href="#conteudo-principal" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold focus:text-brand focus:shadow-float">
+          Pular para o conteúdo principal
+        </a>
         <CommandProvider>
           <Sidebar professor={professor} />
-          <div className="flex min-h-full min-w-0 flex-1 flex-col">{children}</div>
+          <div id="conteudo-principal" tabIndex={-1} className="flex min-h-full min-w-0 flex-1 flex-col">{children}</div>
           {professor && !professor.senha_provisoria && (
             <CommandPalette turmas={turmasPaleta} ehAdmin={professor.role === "admin"} />
           )}

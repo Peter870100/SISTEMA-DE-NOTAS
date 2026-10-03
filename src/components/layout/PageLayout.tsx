@@ -19,13 +19,13 @@ export function PageLayout({ crumb, titulo, subtitulo, acoes, largura = "max-w-7
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               {crumb && (
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-frame-muted">{crumb}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-frame-muted">{crumb}</p>
               )}
               <h1 className="mt-1 break-words font-display text-2xl font-semibold tracking-tight sm:text-3xl">{titulo}</h1>
               {subtitulo && <p className="mt-1 text-sm text-frame-muted">{subtitulo}</p>}
             </div>
             <Link href="/" aria-label="Colégio Status — início" className="hidden shrink-0 rounded sm:block">
-              <Image src="/logo-status-branca.png" alt="Colégio Status" width={1580} height={513} className="h-11 w-auto" priority />
+              <Image src="/logo-status-branca.png" alt="Colégio Status" width={1580} height={513} className="h-auto w-40 lg:w-52" preload />
             </Link>
           </div>
           {acoes && <div className="mt-4 flex flex-wrap items-center gap-2">{acoes}</div>}

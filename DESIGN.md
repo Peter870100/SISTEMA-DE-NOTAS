@@ -33,7 +33,7 @@ flutuantes. Sem tema escuro.
 - `font-display` Space Grotesk 500–700: títulos de página e modal.
 - `font-sans` Manrope: corpo.
 - `font-mono` JetBrains Mono + `tabular-nums`: notas, médias, KPIs, atalhos.
-- Rótulos: 10–11px, caixa alta, `tracking-[0.1em]`, `text-muted`.
+- Rótulos: 12px, caixa alta, `tracking-[0.1em]`, `text-muted`.
 
 ## Forma
 - `rounded-control` 10px (botões, inputs) · `rounded-card` 14px (cards, tabela) · `rounded-float` 18px (modais, Ctrl+K).
@@ -49,3 +49,6 @@ flutuantes. Sem tema escuro.
 - `components/layout/AuthShell.tsx`: fundo `bg-aurora` + card de vidro.
 - `components/ui/Modal.tsx`: `<dialog>` com overlay `frame-deep/40` + blur.
 - `components/ui/estilos.ts`: classes de botão, input e card.
+
+## Login institucional
+LoginShell.tsx: fundo azul institucional, logo oficial e acesso amarelo. Apresentação e fotos de Fundamental II e Ensino Médio à esquerda; formulário à direita no desktop. No celular, apresentação, formulário e fotos nessa ordem para facilitar o acesso. Fotos fornecidas em public/segmento-fund2.jpg e public/segmento-medio.jpg, com otimização e placeholder de desfoque do Next.js. A imagem pequena images (1).jpg não deve ser ampliada. Os outros fluxos preservam AuthShell.
