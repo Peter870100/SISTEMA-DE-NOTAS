@@ -12,7 +12,8 @@ export type QuestaoAluno = { id: string; enunciado: string; comando: string; alt
 /** Questões para mostrar ao aluno — a coluna `resposta` nunca é lida aqui. */
 export async function questoesParaAluno(ids: string[], validadeSeg: number): Promise<QuestaoAluno[]> {
   if (ids.length === 0) return [];
-  const { data } = await supabase.from("questoes").select("id, enunciado, comando, alternativas").in("id", ids);
+  const { data, error } = await supabase.from("questoes").select("id, enunciado, comando, alternativas").in("id", ids);
+  if (error) throw new Error(error.message);
   const imagens = await imagensParaTela(ids, validadeSeg);
   const porId = new Map((data ?? []).map((q) => [q.id, q]));
   return ids.flatMap((id) => {
@@ -65,16 +66,17 @@ export async function candidatosSorteio(escolaId: string, f: FiltrosSorteio, exc
   return (data ?? []).map((q) => q.id).filter((id) => !fora.has(id));
 }
 
-/** Entrega e corrige. O update condicional garante uma única correção, mesmo com dois chamadores. */
-export async function entregarTentativa(tentativaId: string): Promise<void> {
-  const agora = new Date().toISOString();
-  const { data: tomou } = await supabase.from("tentativas").update({ status: "entregue", entregue_em: agora }).eq("id", tentativaId).eq("status", "em_andamento").select("*");
-  const t = tomou?.[0];
+/** Corrige e grava o resultado. Idempotente: pode rodar mais de uma vez para a mesma tentativa. */
+export async function corrigirTentativa(tentativaId: string): Promise<void> {
+  const { data: t, error: eT } = await supabase.from("tentativas").select("id, ordem").eq("id", tentativaId).maybeSingle();
+  if (eT) throw new Error(eT.message);
   if (!t) return;
-  const [{ data: questoes }, { data: respostas }] = await Promise.all([
+  const [{ data: questoes, error: eQ }, { data: respostas, error: eR }] = await Promise.all([
     supabase.from("questoes").select("id, resposta, anulada, area").in("id", t.ordem),
     supabase.from("tentativa_respostas").select("questao_id, alternativa").eq("tentativa_id", t.id),
   ]);
+  if (eQ) throw new Error(eQ.message);
+  if (eR) throw new Error(eR.message);
   const gabarito: Gabarito = new Map((questoes ?? []).map((q) => [q.id, { resposta: q.resposta as Letra | null, anulada: q.anulada, area: q.area as Area }]));
   const marcadas = new Map((respostas ?? []).map((r) => [r.questao_id, r.alternativa as Letra | null]));
   const r = corrigir(marcadas, gabarito);
@@ -87,6 +89,15 @@ export async function entregarTentativa(tentativaId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/** Entrega e corrige. O update condicional garante uma única entrega, mesmo com dois chamadores. */
+export async function entregarTentativa(tentativaId: string): Promise<void> {
+  const agora = new Date().toISOString();
+  const { data: tomou, error } = await supabase.from("tentativas").update({ status: "entregue", entregue_em: agora }).eq("id", tentativaId).eq("status", "em_andamento").select("id");
+  if (error) throw new Error(error.message);
+  if (!tomou?.[0]) return;
+  await corrigirTentativa(tentativaId);
+}
+
 /** Entrega preguiçosa: tentativas cujo tempo acabou e o aluno não entregou. */
 export async function fecharVencidas(simuladoId: string): Promise<void> {
   const { data: s } = await supabase.from("simulados").select("tipo, duracao_min").eq("id", simuladoId).maybeSingle();
@@ -97,6 +108,11 @@ export async function fecharVencidas(simuladoId: string): Promise<void> {
     const vencida = s.tipo === "professor"
       ? !!t.prazo_em && agora.getTime() > Date.parse(t.prazo_em) + TOLERANCIA_SEG * 1000
       : tempoEsgotado(acumularTempo(t.tempo_usado_seg, t.ultimo_pulso_em ? new Date(t.ultimo_pulso_em) : null, agora), s.duracao_min);
-    if (vencida) await entregarTentativa(t.id);
+    if (!vencida) continue;
+    try { await entregarTentativa(t.id); } catch (e) { console.error("fecharVencidas: falha ao entregar", t.id, e); }
+  }
+  const { data: semNota } = await supabase.from("tentativas").select("id").eq("simulado_id", simuladoId).eq("status", "entregue").is("total", null);
+  for (const t of semNota ?? []) {
+    try { await corrigirTentativa(t.id); } catch (e) { console.error("fecharVencidas: falha ao corrigir", t.id, e); }
   }
 }
