@@ -58,11 +58,11 @@ async function assuntosAprovados() {
 }
 
 /** Cria o lote com um pedido por página da prova (todas ou só as indicadas). */
-async function enviarLote(importacaoId: string, somentePaginas: number[] | null, voltarPara: StatusImportacao) {
+async function enviarLote(importacaoId: string, somentePaginas: number[] | null, voltarPara: StatusImportacao, batchAnterior: string | null) {
   try {
     await criarLote(importacaoId, somentePaginas);
   } catch (e) {
-    await supabase.from("importacoes").update({ status: voltarPara, updated_at: new Date().toISOString() }).eq("id", importacaoId);
+    await supabase.from("importacoes").update({ status: voltarPara, batch_id: batchAnterior, updated_at: new Date().toISOString() }).eq("id", importacaoId);
     throw e;
   }
 }
@@ -99,7 +99,7 @@ async function criarLote(importacaoId: string, somentePaginas: number[] | null) 
 async function reservar(importacaoId: string, de: StatusImportacao[]): Promise<boolean> {
   const { data } = await supabase
     .from("importacoes")
-    .update({ status: "lendo", updated_at: new Date().toISOString() })
+    .update({ status: "lendo", batch_id: null, updated_at: new Date().toISOString() })
     .eq("id", importacaoId)
     .in("status", de)
     .select("id");
@@ -115,7 +115,7 @@ export async function iniciarLeitura(importacaoId: string): Promise<void> {
   const { importacao } = await exigirImportacao(importacaoId);
   if (importacao.status !== "enviando") throw new Error("Essa importação já está sendo lida.");
   if (!(await reservar(importacaoId, ["enviando"]))) throw new Error("Essa importação já está sendo lida.");
-  await enviarLote(importacaoId, null, "enviando");
+  await enviarLote(importacaoId, null, "enviando", importacao.batch_id ?? null);
 }
 
 export type SituacaoImportacao = {
@@ -248,7 +248,7 @@ export async function lerDeNovo(importacaoId: string): Promise<void> {
   const numeros = (comErro ?? []).map((p) => p.numero);
   if (numeros.length === 0) throw new Error("Nenhuma página com erro.");
   if (!(await reservar(importacaoId, ["revisao", "concluida", "erro"]))) throw new Error("A leitura ainda está em andamento.");
-  await enviarLote(importacaoId, numeros, importacao.status);
+  await enviarLote(importacaoId, numeros, importacao.status, importacao.batch_id ?? null);
 }
 
 export async function aprovarTodasSemAviso(importacaoId: string): Promise<number> {
