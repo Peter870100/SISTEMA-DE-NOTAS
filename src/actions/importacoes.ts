@@ -122,7 +122,7 @@ export async function atualizarImportacao(importacaoId: string): Promise<Situaca
 
 /** Reaproveita o assunto (mesma matéria, nome sem diferenciar maiúsculas) ou cria um proposto. */
 async function assuntoProposto(materia: string, nome: string): Promise<string | null> {
-  const padrao = nome.replace(/[\%_]/g, (c) => "\\" + c);
+  const padrao = nome.replace(/[%_\\]/g, (c) => "\\" + c);
   const { data: achado } = await supabase.from("assuntos").select("id").eq("materia", materia).ilike("nome", padrao).limit(1).maybeSingle();
   if (achado) return achado.id;
   const { data: novo } = await supabase.from("assuntos").insert({ materia, nome, situacao: "proposto" }).select("id").maybeSingle();
