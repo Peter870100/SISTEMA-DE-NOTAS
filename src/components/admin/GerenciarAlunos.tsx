@@ -34,6 +34,7 @@ export function GerenciarAlunos({ contasIniciais, turmas }: Props) {
   const [loteAberto, setLoteAberto] = useState(false);
   const [turmaId, setTurmaId] = useState(turmas[0]?.id ?? "");
   const [textoNomes, setTextoNomes] = useState("");
+  const [pendentes, setPendentes] = useState<CredencialGerada[] | null>(null);
   const [previa, setPrevia] = useState<{ nome: string; usuario: string }[] | null>(null);
 
   const filtradas = useMemo(() => {
@@ -103,7 +104,35 @@ export function GerenciarAlunos({ contasIniciais, turmas }: Props) {
         </div>
       )}
 
-      <Modal open={loteAberto} onClose={() => setLoteAberto(false)} titulo="Criar contas de aluno" descricao="Um nome por linha. Para criar uma conta só, cole um nome." largura="lg">
+      <Modal open={loteAberto} onClose={() => { setLoteAberto(false); setPendentes(null); }} titulo="Criar contas de aluno" descricao="Um nome por linha. Para criar uma conta só, cole um nome." largura="lg">
+        {pendentes ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-danger" role="alert">
+              Contas criadas, mas a planilha não baixou. Anote agora: as senhas não serão mostradas de novo.
+            </p>
+            <ul className="max-h-80 divide-y divide-line overflow-y-auto">
+              {pendentes.map((c, i) => (
+                <li key={i} className="grid grid-cols-4 gap-2 py-1.5 text-sm">
+                  <span className="truncate text-ink">{c.nome}</span>
+                  <span className="truncate text-muted">{c.turma}</span>
+                  <span className="truncate font-mono text-xs">{c.usuario}</span>
+                  <span className="font-mono text-xs">{c.senha}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() => executar(async () => { await baixarPlanilha(pendentes); setPendentes(null); setLoteAberto(false); })}
+                className={estilos.botaoPrimario}
+              >
+                Tentar baixar de novo
+              </button>
+              <button type="button" onClick={() => { setPendentes(null); setLoteAberto(false); }} className={estilos.botaoFantasma}>Fechar</button>
+            </div>
+          </div>
+        ) : (
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-xs text-muted">
             Turma
@@ -139,7 +168,15 @@ export function GerenciarAlunos({ contasIniciais, turmas }: Props) {
                   disabled={ocupado}
                   onClick={() => executar(async () => {
                     const credenciais = await criarContasAluno(turmaId, previa);
-                    await baixarPlanilha(credenciais);
+                    try {
+                      await baixarPlanilha(credenciais);
+                    } catch {
+                      setPendentes(credenciais);
+                      setPrevia(null);
+                      setTextoNomes("");
+                      setContas(await listarContasAluno());
+                      throw new Error("As contas foram criadas, mas a planilha não baixou. Anote as senhas abaixo ou tente baixar de novo.");
+                    }
                     setContas(await listarContasAluno());
                     setLoteAberto(false);
                     setAviso(`${credenciais.length} conta(s) criada(s). A planilha com os usuários e senhas foi baixada — guarde-a, as senhas não aparecem de novo.`);
@@ -152,6 +189,7 @@ export function GerenciarAlunos({ contasIniciais, turmas }: Props) {
             </>
           )}
         </div>
+        )}
       </Modal>
     </div>
   );
