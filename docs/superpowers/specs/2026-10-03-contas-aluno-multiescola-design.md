@@ -21,7 +21,7 @@ Ao fim desta parte:
 | Parte | Entrega | Depende de |
 |---|---|---|
 | **1. Contas de aluno + base multi-escola** (esta spec) | Login de aluno, convites, área do aluno vazia | — |
-| 2. Plataforma de estudos | Áreas do conhecimento, aulas com vídeo (YouTube não listado) e PDF | 1 |
+| 2. Plataforma de estudos | Disciplina → módulo → aula, cada aula com vídeo de qualquer duração (YouTube não listado ou Bunny Stream), material e gabarito em PDF (gabarito liberado junto, após concluir ou numa data). Progresso em % por curso (disciplina do professor) e por módulo, visto pelo aluno e pelo professor; aula concluída ao assistir ~90% do vídeo, com retomada de onde parou | 1 |
 | 3. Banco de questões | Importação de PDF por IA (Claude), revisão humana, banco geral (só o dono publica) + questões da escola, embeddings (Voyage AI + pgvector), carga do ENEM via enem.dev se a licença permitir | 1 |
 | 4. Simulados e atividades | Simulado do professor e treino do aluno, cronômetro, filtro por área/banca/ano, correção automática | 2, 3 |
 | 5. Gerador de questões (RAG) | Questões novas no estilo da banca a partir do material da turma, marcadas "gerada por IA", com aprovação do professor | 3 |
