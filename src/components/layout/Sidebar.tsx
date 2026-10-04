@@ -1,20 +1,24 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KeyRound, LogOut, Users, History, GraduationCap, Search, Trash2 } from "lucide-react";
+import { KeyRound, LogOut, Users, History, GraduationCap, Search, Trash2, FileSpreadsheet } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Avatar } from "@/components/ui/Avatar";
 import { useComandosOpcional } from "@/components/command/CommandProvider";
-import type { Professor } from "@/lib/types";
+import { Modal } from "@/components/ui/Modal";
+import { ExportarBimestre } from "@/components/home/ExportarBimestre";
+import type { Professor, Turma } from "@/lib/types";
 
 
 const itemBase =
   "group relative flex h-11 w-11 items-center justify-center rounded-[11px] transition md:h-10 md:w-10";
 
-export function Sidebar({ professor }: { professor: Professor | null }) {
+export function Sidebar({ professor, turmas }: { professor: Professor | null; turmas: Turma[] }) {
   const pathname = usePathname();
+  const [exportacaoAberta, setExportacaoAberta] = useState(false);
   const comandos = useComandosOpcional();
   const onAbrirBusca = professor && !professor.senha_provisoria ? comandos?.abrir : undefined;
   if (!professor) return null;
@@ -52,6 +56,11 @@ export function Sidebar({ professor }: { professor: Professor | null }) {
             <Icon size={18} aria-hidden="true" />
           </Link>
         ))}
+        {!professor.senha_provisoria && turmas.length > 0 && (
+          <button type="button" onClick={() => setExportacaoAberta(true)} aria-label="Exportar turmas" title="Exportar turmas" aria-haspopup="dialog" className={`${itemBase} text-frame-muted hover:bg-white/10 hover:text-white`}>
+            <FileSpreadsheet size={18} aria-hidden="true" />
+          </button>
+        )}
       </nav>
       <div className="flex items-center gap-1 md:mt-auto md:flex-col md:gap-3">
         <span title={professor.nome} className="hidden md:block">
@@ -63,6 +72,9 @@ export function Sidebar({ professor }: { professor: Professor | null }) {
           </button>
         </form>
       </div>
+      <Modal open={exportacaoAberta} onClose={() => setExportacaoAberta(false)} titulo="Exportar turmas" descricao="Escolha um bimestre ou exporte todos em um arquivo Excel.">
+        <ExportarBimestre turmas={turmas} />
+      </Modal>
     </aside>
   );
 }

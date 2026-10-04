@@ -57,7 +57,7 @@ export default async function RootLayout({
           Pular para o conteúdo principal
         </a>
         <CommandProvider>
-          <Sidebar professor={professor} />
+          <Sidebar professor={professor} turmas={turmasPaleta} />
           <div id="conteudo-principal" tabIndex={-1} className="flex min-h-full min-w-0 flex-1 flex-col">{children}</div>
           {professor && !professor.senha_provisoria && (
             <CommandPalette turmas={turmasPaleta} ehAdmin={professor.role === "admin"} />

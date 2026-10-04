@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
 import { TurmasLista } from "@/components/home/TurmasLista";
-import { ExportarBimestre } from "@/components/home/ExportarBimestre";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { listarTurmasAcessiveis } from "@/actions/turmas";
 import { getProfessorAtual } from "@/lib/auth";
@@ -26,7 +25,6 @@ export default async function HomePage() {
       crumb="Redação · Colégio Status"
       titulo="Suas turmas"
       subtitulo={primeiroNome ? `Olá, Prof. ${primeiroNome}. Escolha uma turma para lançar e acompanhar as notas.` : undefined}
-      acoes={<ExportarBimestre turmas={turmas} />}
       largura="max-w-6xl"
     >
       <TurmasLista turmas={turmas} contagemPorTurma={contagemPorTurma} />

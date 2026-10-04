@@ -60,3 +60,5 @@ Botões: hover com elevação de 3px, escala de 1,03, sombra, halo azul (dourado
 Cadastro: outra cena do vídeo (00:36–00:54), em `public/cadastro-status-loop.mp4`, com imagem alternativa `public/cadastro-status-poster.jpg`. Fundo em tela inteira com camada azul e card mais opaco para manter os campos legíveis, incluindo a confirmação de cadastro.
 
 Fera: mascote transparente no canto inferior esquerdo do login e cadastro, flutuando suavemente. Largura de 112–128px no desktop, fixo no canto; no celular, 64–80px em espaço reservado no fim da página para não cobrir campos. Sem textos adicionais junto ao mascote. Redução de movimento respeitada.
+
+Exportação: ícone de planilha na Sidebar abre o modal de exportar turmas com seleção de bimestre ou todos os bimestres. A ação saiu do cabeçalho de Suas turmas e está disponível nas telas autenticadas para quem possui turmas e já alterou a senha provisória.
