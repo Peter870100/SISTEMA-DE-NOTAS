@@ -166,3 +166,13 @@ body {
     transform: none;
   }
 }
+
+/* Camada de 95% da cor do canvas: o desenho fica visível em apenas 5%. */
+.fundo-escolar {
+  background-color: var(--color-canvas);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-canvas) 95%, transparent), color-mix(in srgb, var(--color-canvas) 95%, transparent)),
+    url("/fundo-escolar.png");
+  background-size: auto, 1100px auto;
+  background-repeat: repeat;
+}

@@ -13,7 +13,7 @@ type PageLayoutProps = {
 /** Faixa azul da moldura com título + logo; o conteúdo sobe e flutua sobre a borda dela. */
 export function PageLayout({ crumb, titulo, subtitulo, acoes, largura = "max-w-7xl", children }: PageLayoutProps) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="fundo-escolar flex min-w-0 flex-1 flex-col">
       <header className="bg-frame pb-20 text-white">
         <div className={`mx-auto w-full ${largura} px-4 pt-6 sm:px-6`}>
           <div className="flex items-start justify-between gap-4">

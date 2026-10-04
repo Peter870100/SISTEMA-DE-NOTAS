@@ -68,3 +68,5 @@ Exportação: ícone de planilha na Sidebar abre o modal de exportar turmas com 
 
 ## Marca da escola
 Logo e nome vêm de `escolas` via `EscolaProvider`/`LogoEscola` (`components/layout/EscolaContexto.tsx`). Telas antes do login usam a escola padrão (Status).
+
+Área de trabalho: padrão escolar `public/fundo-escolar.png` no fundo de PageLayout, com camada de 95% da cor canvas para deixar o desenho com 5% de visibilidade. Cabeçalho azul, cartões, tabelas e formulários mantêm superfícies opacas, preservando a leitura.
