@@ -24,7 +24,8 @@ export type PassoEnem = { importacaoId: string; feitas: number; total: number; t
 export async function criarImportacaoEnem(ano: number): Promise<string> {
   const dono = await exigirDono();
   if (!Number.isInteger(ano) || ano < 2009 || ano > 2023) throw new Error("Ano fora de 2009–2023.");
-  const { data: existente } = await supabase.from("importacoes").select("id, status").eq("origem", "enemdev").eq("ano", ano).neq("status", "concluida").maybeSingle();
+  const { data: existentes } = await supabase.from("importacoes").select("id, status").eq("origem", "enemdev").eq("ano", ano).neq("status", "concluida").order("created_at", { ascending: false }).limit(1);
+  const existente = existentes?.[0];
   if (existente) return existente.id;
   const { data, error } = await supabase.from("importacoes")
     .insert({ escopo: "geral", escola_id: null, origem: "enemdev", banca: "ENEM", ano, caderno: "", status: "enviando", criado_por: dono.id })
