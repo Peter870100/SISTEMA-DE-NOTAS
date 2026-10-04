@@ -59,9 +59,11 @@ export async function cadastrarAlunoComCodigo(formData: FormData): Promise<void>
 
   const [{ data: professor }, { data: existente }] = await Promise.all([
     supabase.from("professores").select("id").eq("email", email).maybeSingle(),
-    supabase.from("alunos_contas").select("id, email_verificado").eq("email", email).maybeSingle(),
+    supabase.from("alunos_contas").select("id, email_verificado, criado_via, escola_id").eq("email", email).maybeSingle(),
   ]);
-  if (professor || existente?.email_verificado) voltar("duplicado");
+  // So reaproveita conta de convite ainda nao confirmada, da mesma escola; qualquer outra e duplicada.
+  const reaproveitavel = existente?.criado_via === "convite" && !existente.email_verificado && existente.escola_id === convite.escola_id;
+  if (professor || (existente && !reaproveitavel)) voltar("duplicado");
 
   const token = randomBytes(32).toString("hex");
   const dados = {
