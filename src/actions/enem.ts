@@ -141,7 +141,13 @@ export async function atualizarClassificacaoEnem(importacaoId: string): Promise<
   const { data: imp } = await supabase.from("importacoes").select("*").eq("id", importacaoId).single();
   if (!imp) throw new Error("Importação não encontrada.");
   const passo = (status: StatusImportacao, terminou: boolean): PassoEnem => ({ importacaoId, feitas: imp.paginas_lidas, total: imp.total_paginas, terminou, status });
-  if (imp.status === "lendo" && !imp.batch_id) return passo("lendo", false); // lote ainda sendo criado
+  if (imp.status === "lendo" && !imp.batch_id) {
+    // Lote ainda sendo criado; se passou de 10 minutos, a criação travou: volta para 'enviando' para o próximo passo reservar de novo.
+    const parada = Date.now() - new Date(imp.updated_at).getTime() > 10 * 60_000;
+    if (!parada) return passo("lendo", false);
+    const { data: resetou } = await supabase.from("importacoes").update({ status: "enviando", updated_at: new Date().toISOString() }).eq("id", importacaoId).eq("status", "lendo").is("batch_id", null).select("id");
+    return passo(resetou && resetou.length > 0 ? "enviando" : "lendo", false);
+  }
   if (imp.status !== "lendo" || !imp.batch_id) return passo(imp.status, imp.status !== "enviando");
   const lote = await clienteIA().messages.batches.retrieve(imp.batch_id);
   if (lote.processing_status !== "ended") return passo("lendo", false);
