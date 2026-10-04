@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redefinirSenha } from "@/actions/auth";
-import { professorDoTokenRedefinicao } from "@/lib/auth";
+import { contaDoTokenRedefinicao } from "@/lib/auth";
 import { AuthAviso, AuthShell, authBotao, authInput } from "@/components/layout/AuthShell";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ const rotulo = "flex flex-col gap-1.5 text-xs text-frame-muted";
 export default async function RedefinirSenhaPage({ searchParams }: RedefinirSenhaPageProps) {
   const { token, erro } = await searchParams;
 
-  if (erro === "link" || !(await professorDoTokenRedefinicao(token))) {
+  if (erro === "link" || !(await contaDoTokenRedefinicao(token))) {
     return (
       <AuthShell titulo="Link inválido">
         <AuthAviso tipo="erro">

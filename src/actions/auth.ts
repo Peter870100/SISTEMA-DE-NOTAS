@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
-import { COOKIE_NOME, assinarSessao, getProfessorAtual, professorDoTokenRedefinicao, segredo } from "@/lib/auth";
+import { COOKIE_NOME, contaDoTokenRedefinicao, getProfessorAtual, segredo } from "@/lib/auth";
+import { assinarSessao } from "@/lib/sessao";
 import { enviarEmailRedefinicaoSenha } from "@/lib/email";
 import { gerarTokenRedefinicao } from "@/lib/token-senha";
 
@@ -27,7 +28,7 @@ export async function login(formData: FormData) {
   }
 
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NOME, assinarSessao(professor.id), {
+  cookieStore.set(COOKIE_NOME, assinarSessao("p", professor.id, segredo()), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -105,8 +106,9 @@ export async function redefinirSenha(formData: FormData) {
   const confirmarSenha = String(formData.get("confirmarSenha") ?? "");
   const voltar = (erro: string) => redirect(`/redefinir-senha?token=${encodeURIComponent(token)}&erro=${erro}`);
 
-  const professorId = await professorDoTokenRedefinicao(token);
-  if (!professorId) redirect("/redefinir-senha?erro=link");
+  const conta = await contaDoTokenRedefinicao(token);
+  if (!conta || conta.tipo !== "p") redirect("/redefinir-senha?erro=link");
+  const professorId = conta.id;
   if (novaSenha.length < 6) voltar("curta");
   if (novaSenha !== confirmarSenha) voltar("confirmacao");
 

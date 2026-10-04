@@ -1,43 +1,19 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase/client";
 import type { Professor } from "@/lib/types";
-import { idDoTokenRedefinicao, validarTokenRedefinicao } from "@/lib/token-senha";
+import { segredo, verificarSessao, type Sessao } from "@/lib/sessao";
+import { contaDoToken, validarTokenRedefinicao } from "@/lib/token-senha";
+
+export { segredo } from "@/lib/sessao";
 
 export const COOKIE_NOME = "app_auth";
 
-export function segredo(): string {
-  const s = process.env.AUTH_SECRET;
-  if (!s) throw new Error("Defina AUTH_SECRET.");
-  return s;
-}
-
-/** Assina o id do professor com AUTH_SECRET — o valor guardado no cookie de sessão. */
-export function assinarSessao(professorId: string): string {
-  const assinatura = createHmac("sha256", segredo()).update(professorId).digest("hex");
-  return `${professorId}.${assinatura}`;
-}
-
-/** Valida o cookie de sessão e retorna o id do professor, ou null se inválido/adulterado. */
-export function verificarSessao(cookieValue: string | undefined): string | null {
-  if (!cookieValue) return null;
-  const [professorId, assinatura] = cookieValue.split(".");
-  if (!professorId || !assinatura) return null;
-
-  const esperada = createHmac("sha256", segredo()).update(professorId).digest("hex");
-  const bufAssinatura = Buffer.from(assinatura);
-  const bufEsperada = Buffer.from(esperada);
-  if (bufAssinatura.length !== bufEsperada.length || !timingSafeEqual(bufAssinatura, bufEsperada)) {
-    return null;
-  }
-  return professorId;
-}
-
-/** Id do professor dono de um link de "esqueci minha senha" ainda válido, ou null. */
-export async function professorDoTokenRedefinicao(token: string | undefined): Promise<string | null> {
-  const professorId = idDoTokenRedefinicao(token);
-  if (!token || !professorId) return null;
-  const { data } = await supabase.from("professores").select("senha_hash").eq("id", professorId).maybeSingle();
+/** Conta (professor ou aluno) dona de um link de "esqueci minha senha" ainda válido, ou null. */
+export async function contaDoTokenRedefinicao(token: string | undefined): Promise<Sessao | null> {
+  const conta = contaDoToken(token);
+  if (!token || !conta) return null;
+  const tabela = conta.tipo === "a" ? "alunos_contas" : "professores";
+  const { data } = await supabase.from(tabela).select("senha_hash").eq("id", conta.id).maybeSingle();
   return validarTokenRedefinicao(token, data?.senha_hash ?? null, segredo());
 }
 
@@ -46,8 +22,9 @@ const THROTTLE_ULTIMO_ACESSO_MS = 60_000;
 /** Professor logado na requisição atual (via cookie), ou null se não autenticado. */
 export async function getProfessorAtual(): Promise<Professor | null> {
   const cookieStore = await cookies();
-  const professorId = verificarSessao(cookieStore.get(COOKIE_NOME)?.value);
-  if (!professorId) return null;
+  const sessao = verificarSessao(cookieStore.get(COOKIE_NOME)?.value, segredo());
+  if (!sessao || sessao.tipo !== "p") return null;
+  const professorId = sessao.id;
 
   const { data } = await supabase
     .from("professores")
