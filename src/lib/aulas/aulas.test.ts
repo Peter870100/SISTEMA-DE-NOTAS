@@ -53,6 +53,13 @@ test("progresso: salto até o fim não conclui", () => {
   assert.equal(r.concluir, false);
 });
 
+test("progresso: tempo longe da página não gera crédito além do máximo", () => {
+  const ant = { maior_posicao_seg: 10, atualizado_em: segAtras(86400), concluida_em: null };
+  const r = calcularProgresso(ant, 599, 600, AGORA)!;
+  assert.equal(r.maior_posicao_seg, 10 + 120 + 20);
+  assert.equal(r.concluir, false);
+});
+
 test("progresso: voltar no vídeo não reduz o maior ponto", () => {
   const ant = { maior_posicao_seg: 300, atualizado_em: segAtras(15), concluida_em: null };
   const r = calcularProgresso(ant, 100, 600, AGORA)!;

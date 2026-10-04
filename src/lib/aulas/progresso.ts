@@ -3,6 +3,7 @@ import type { RegraGabarito } from "@/lib/types";
 export const LIMIAR_CONCLUSAO = 0.9;
 export const DURACAO_MAXIMA_SEG = 21600;
 const FOLGA_SEG = 20;
+const CREDITO_MAXIMO_SEG = 60;
 
 export type ProgressoAnterior = { maior_posicao_seg: number; atualizado_em: string; concluida_em: string | null } | null;
 
@@ -26,7 +27,8 @@ export function calcularProgresso(anterior: ProgressoAnterior, posicao: number, 
   const maiorAnterior = anterior?.maior_posicao_seg ?? 0;
   const t = anterior ? Date.parse(anterior.atualizado_em) : NaN;
   const segundosPassados = Number.isFinite(t) ? Math.max(0, (agora - t) / 1000) : 0;
-  const limite = Math.floor(anterior ? maiorAnterior + segundosPassados * 2 + Math.min(FOLGA_SEG, segundosPassados) : FOLGA_SEG);
+  const creditado = Math.min(segundosPassados, CREDITO_MAXIMO_SEG);
+  const limite = Math.floor(anterior ? maiorAnterior + creditado * 2 + Math.min(FOLGA_SEG, creditado) : FOLGA_SEG);
   const maior = Math.max(maiorAnterior, Math.min(duracaoSeg, Math.min(posicaoSeg, limite)));
 
   return {
