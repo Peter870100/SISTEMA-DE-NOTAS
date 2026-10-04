@@ -13,7 +13,7 @@ type YTNamespace = {
     videoId: string;
     host?: string;
     playerVars?: Record<string, number | string>;
-    events?: { onStateChange?: (e: { data: number }) => void };
+    events?: { onReady?: () => void; onStateChange?: (e: { data: number }) => void };
   }) => YTPlayer;
   PlayerState: { PLAYING: number; PAUSED: number; ENDED: number };
 };
@@ -48,15 +48,18 @@ export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo }: Props) {
   const alvo = useRef<HTMLDivElement>(null);
   const aoTempo = useRef(onTempo);
   useEffect(() => { aoTempo.current = onTempo; }, [onTempo]);
+  // Posição inicial só vale na montagem: mudar depois não deve recriar o player.
+  const inicio = useRef(iniciarEm);
 
   useEffect(() => {
     if (provedor !== "youtube" || !alvo.current) return;
     let player: YTPlayer | null = null;
     let timer: ReturnType<typeof setInterval> | null = null;
     let cancelado = false;
+    let pronto = false;
 
     const informar = () => {
-      if (!player) return;
+      if (!player || !pronto) return;
       const duracao = player.getDuration();
       if (duracao > 0) aoTempo.current(player.getCurrentTime(), duracao);
     };
@@ -68,8 +71,9 @@ export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo }: Props) {
       player = new YT.Player(alvo.current, {
         videoId,
         host: "https://www.youtube-nocookie.com",
-        playerVars: { start: Math.max(0, Math.floor(iniciarEm)), rel: 0, modestbranding: 1, playsinline: 1 },
+        playerVars: { start: Math.max(0, Math.floor(inicio.current)), rel: 0, modestbranding: 1, playsinline: 1 },
         events: {
+          onReady: () => { pronto = true; },
           onStateChange: (e) => {
             if (e.data === YT.PlayerState.PLAYING) {
               pararTimer();
@@ -86,12 +90,15 @@ export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo }: Props) {
 
     return () => {
       cancelado = true;
-      pararTimer();
-      informar();
-      document.removeEventListener("visibilitychange", aoEsconder);
-      player?.destroy();
+      try {
+        pararTimer();
+        informar();
+      } finally {
+        document.removeEventListener("visibilitychange", aoEsconder);
+        player?.destroy();
+      }
     };
-  }, [provedor, videoId, iniciarEm]);
+  }, [provedor, videoId]);
 
   return (
     <div className="aspect-video w-full overflow-hidden rounded-card bg-black">
