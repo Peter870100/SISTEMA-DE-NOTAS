@@ -27,10 +27,14 @@ function caminhoPagina(importacaoId: string, tipo: "prova" | "gabarito", numero:
   return `${importacaoId}/${tipo}-${numero}.jpg`;
 }
 
+function validarPagina(tipo: string, numero: number) {
+  if (!["prova", "gabarito"].includes(tipo) || !Number.isInteger(numero) || numero < 1 || numero > MAX_PAGINAS) throw new Error("Página inválida.");
+}
+
 export async function prepararEnvioPagina(importacaoId: string, tipo: "prova" | "gabarito", numero: number) {
   const { importacao } = await exigirImportacao(importacaoId);
   if (importacao.status !== "enviando") throw new Error("Essa importação já foi enviada.");
-  if (!["prova", "gabarito"].includes(tipo) || !Number.isInteger(numero) || numero < 1 || numero > MAX_PAGINAS) throw new Error("Página inválida.");
+  validarPagina(tipo, numero);
   const storagePath = caminhoPagina(importacaoId, tipo, numero);
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(storagePath, { upsert: true });
   if (error || !data) throw new Error(error?.message ?? "Falha ao preparar envio.");
@@ -40,6 +44,7 @@ export async function prepararEnvioPagina(importacaoId: string, tipo: "prova" | 
 export async function registrarPagina(importacaoId: string, tipo: "prova" | "gabarito", numero: number, largura: number, altura: number) {
   const { importacao } = await exigirImportacao(importacaoId);
   if (importacao.status !== "enviando") throw new Error("Essa importação já foi enviada.");
+  validarPagina(tipo, numero);
   if (!Number.isInteger(largura) || !Number.isInteger(altura) || largura < 100 || altura < 100) throw new Error("Página inválida.");
   const { error } = await supabase
     .from("importacao_paginas")
@@ -53,7 +58,16 @@ async function assuntosAprovados() {
 }
 
 /** Cria o lote com um pedido por página da prova (todas ou só as indicadas). */
-async function enviarLote(importacaoId: string, somentePaginas: number[] | null) {
+async function enviarLote(importacaoId: string, somentePaginas: number[] | null, voltarPara: StatusImportacao) {
+  try {
+    await criarLote(importacaoId, somentePaginas);
+  } catch (e) {
+    await supabase.from("importacoes").update({ status: voltarPara, updated_at: new Date().toISOString() }).eq("id", importacaoId);
+    throw e;
+  }
+}
+
+async function criarLote(importacaoId: string, somentePaginas: number[] | null) {
   const { data: importacao } = await supabase.from("importacoes").select("*").eq("id", importacaoId).single();
   const { data: paginas } = await supabase.from("importacao_paginas").select("*").eq("importacao_id", importacaoId).order("numero");
   const provas = (paginas ?? []).filter((p) => p.tipo === "prova");
@@ -75,16 +89,33 @@ async function enviarLote(importacaoId: string, somentePaginas: number[] | null)
   }));
   const lote = await clienteIA().messages.batches.create({ requests: pedidos });
   await supabase.from("importacao_paginas").update({ status: "pendente", erro: null }).in("id", alvo.map((p) => p.id));
-  await supabase
+  const { error: erroFinal } = await supabase
     .from("importacoes")
     .update({ batch_id: lote.id, status: "lendo", total_paginas: provas.length, erro: null, custo_estimado_usd: estimarCustoPaginas(provas.length), updated_at: new Date().toISOString() })
     .eq("id", importacaoId);
+  if (erroFinal) throw new Error(erroFinal.message);
+}
+
+async function reservar(importacaoId: string, de: StatusImportacao[]): Promise<boolean> {
+  const { data } = await supabase
+    .from("importacoes")
+    .update({ status: "lendo", updated_at: new Date().toISOString() })
+    .eq("id", importacaoId)
+    .in("status", de)
+    .select("id");
+  return !!data && data.length > 0;
+}
+
+async function contarLidas(importacaoId: string): Promise<number> {
+  const { count } = await supabase.from("importacao_paginas").select("id", { count: "exact", head: true }).eq("importacao_id", importacaoId).eq("tipo", "prova").eq("status", "lida");
+  return count ?? 0;
 }
 
 export async function iniciarLeitura(importacaoId: string): Promise<void> {
   const { importacao } = await exigirImportacao(importacaoId);
   if (importacao.status !== "enviando") throw new Error("Essa importação já está sendo lida.");
-  await enviarLote(importacaoId, null);
+  if (!(await reservar(importacaoId, ["enviando"]))) throw new Error("Essa importação já está sendo lida.");
+  await enviarLote(importacaoId, null, "enviando");
 }
 
 export type SituacaoImportacao = {
@@ -113,8 +144,7 @@ export async function atualizarImportacao(importacaoId: string): Promise<Situaca
         .select("id");
       if (tomou && tomou.length > 0) avisos = await gravarResultados(importacaoId, importacao.batch_id);
     } else {
-      const feitas = lote.request_counts.succeeded + lote.request_counts.errored + lote.request_counts.canceled + lote.request_counts.expired;
-      await supabase.from("importacoes").update({ paginas_lidas: feitas }).eq("id", importacaoId);
+      await supabase.from("importacoes").update({ paginas_lidas: await contarLidas(importacaoId) }).eq("id", importacaoId);
     }
   }
   return situacao(importacaoId, avisos);
@@ -138,8 +168,8 @@ async function gravarResultados(importacaoId: string, batchId: string): Promise<
   const numerosExistentes = new Set((existentes ?? []).map((e) => e.numero).filter((n): n is number => n !== null));
   const avisos: string[] = [];
   let custo = Number(importacao!.custo_real_usd ?? 0);
-  let lidas = 0;
 
+  try {
   for await (const r of await clienteIA().messages.batches.results(batchId)) {
     const pagina = (paginas ?? []).find((p) => p.id === r.custom_id);
     if (!pagina) continue;
@@ -181,11 +211,13 @@ async function gravarResultados(importacaoId: string, batchId: string): Promise<
       }
     }
     await supabase.from("importacao_paginas").update({ status: "lida", erro: null }).eq("id", pagina.id);
-    lidas++;
+  }
+  } finally {
+    await supabase.from("importacao_paginas").update({ status: "erro", erro: "Sem resultado da IA." }).eq("importacao_id", importacaoId).eq("tipo", "prova").eq("status", "pendente");
   }
   await supabase
     .from("importacoes")
-    .update({ custo_real_usd: Math.round(custo * 100) / 100, paginas_lidas: lidas, erro: avisos.length ? avisos.join("\n").slice(0, 4000) : null, updated_at: new Date().toISOString() })
+    .update({ custo_real_usd: Math.round(custo * 100) / 100, paginas_lidas: await contarLidas(importacaoId), erro: avisos.length ? avisos.join("\n").slice(0, 4000) : null, updated_at: new Date().toISOString() })
     .eq("id", importacaoId);
   return avisos;
 }
@@ -215,11 +247,13 @@ export async function lerDeNovo(importacaoId: string): Promise<void> {
   const { data: comErro } = await supabase.from("importacao_paginas").select("numero").eq("importacao_id", importacaoId).eq("tipo", "prova").eq("status", "erro");
   const numeros = (comErro ?? []).map((p) => p.numero);
   if (numeros.length === 0) throw new Error("Nenhuma página com erro.");
-  await enviarLote(importacaoId, numeros);
+  if (!(await reservar(importacaoId, ["revisao", "concluida", "erro"]))) throw new Error("A leitura ainda está em andamento.");
+  await enviarLote(importacaoId, numeros, importacao.status);
 }
 
 export async function aprovarTodasSemAviso(importacaoId: string): Promise<number> {
-  await exigirImportacao(importacaoId);
+  const { importacao } = await exigirImportacao(importacaoId);
+  if (importacao.status !== "revisao") throw new Error("A leitura ainda não terminou.");
   const { data, error } = await supabase
     .from("questoes")
     .update({ status: "publicada", updated_at: new Date().toISOString() })
@@ -230,6 +264,6 @@ export async function aprovarTodasSemAviso(importacaoId: string): Promise<number
     .select("id");
   if (error) throw new Error(error.message);
   const { count } = await supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", importacaoId).eq("status", "revisao");
-  if ((count ?? 0) === 0) await supabase.from("importacoes").update({ status: "concluida" }).eq("id", importacaoId);
+  if ((count ?? 0) === 0) await supabase.from("importacoes").update({ status: "concluida" }).eq("id", importacaoId).eq("status", "revisao");
   return data?.length ?? 0;
 }
