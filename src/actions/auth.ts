@@ -4,39 +4,43 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
-import { COOKIE_NOME, contaDoTokenRedefinicao, getProfessorAtual, segredo } from "@/lib/auth";
-import { assinarSessao } from "@/lib/sessao";
+import { COOKIE_NOME, contaDoTokenRedefinicao, getProfessorAtual, iniciarSessao, segredo } from "@/lib/auth";
+import { normalizarIdentificador, ehEmail } from "@/lib/contas-aluno";
 import { enviarEmailRedefinicaoSenha } from "@/lib/email";
 import { gerarTokenRedefinicao } from "@/lib/token-senha";
 
 export async function login(formData: FormData) {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const identificador = normalizarIdentificador(String(formData.get("identificador") ?? ""));
   const senha = String(formData.get("senha") ?? "");
+  if (!identificador || !senha) redirect("/login?erro=1");
 
-  const { data: professor } = await supabase
-    .from("professores")
-    .select("id, senha_hash, email_verificado, senha_provisoria")
-    .eq("email", email)
+  if (ehEmail(identificador)) {
+    const { data: professor } = await supabase
+      .from("professores")
+      .select("id, senha_hash, email_verificado, senha_provisoria")
+      .eq("email", identificador)
+      .maybeSingle();
+    if (professor) {
+      if (!(await bcrypt.compare(senha, professor.senha_hash))) redirect("/login?erro=1");
+      if (!professor.email_verificado) redirect("/login?erro=nao-verificado");
+      await iniciarSessao("p", professor.id);
+      redirect(professor.senha_provisoria ? "/trocar-senha" : "/");
+    }
+  }
+
+  const { data: aluno } = await supabase
+    .from("alunos_contas")
+    .select("id, senha_hash, email_verificado, senha_provisoria, ativo, criado_via")
+    .eq(ehEmail(identificador) ? "email" : "usuario", identificador)
     .maybeSingle();
 
-  const senhaConfere = professor ? await bcrypt.compare(senha, professor.senha_hash) : false;
-  if (!professor || !senhaConfere) {
-    redirect("/login?erro=1");
-  }
-  if (!professor.email_verificado) {
-    redirect("/login?erro=nao-verificado");
-  }
+  if (!aluno || !(await bcrypt.compare(senha, aluno.senha_hash))) redirect("/login?erro=1");
+  if (!aluno.ativo) redirect("/login?erro=bloqueado");
+  // Conta por código entra com email: precisa confirmar antes. Conta criada pela escola entra com usuário.
+  if (aluno.criado_via === "convite" && !aluno.email_verificado) redirect("/login?erro=nao-verificado");
 
-  const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NOME, assinarSessao("p", professor.id, segredo()), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
-    path: "/",
-  });
-
-  redirect(professor.senha_provisoria ? "/trocar-senha" : "/");
+  await iniciarSessao("a", aluno.id);
+  redirect(aluno.senha_provisoria ? "/aluno/trocar-senha" : "/aluno");
 }
 
 export async function trocarSenha(formData: FormData) {

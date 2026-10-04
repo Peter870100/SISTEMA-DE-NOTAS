@@ -21,6 +21,9 @@ export async function cadastrar(formData: FormData) {
     redirect("/cadastro?erro=campos");
   }
 
+  const { data: contaAluno } = await supabase.from("alunos_contas").select("id").eq("email", email).maybeSingle();
+  if (contaAluno) redirect("/cadastro?erro=duplicado");
+
   const { data: existente } = await supabase
     .from("professores")
     .select("id, email_verificado")
