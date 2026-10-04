@@ -4,12 +4,13 @@ import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
-import { getAlunoAtual } from "@/lib/auth";
+import { exigirAdmin, getAlunoAtual, getProfessorAtual } from "@/lib/auth";
 import { normalizarCodigo } from "@/lib/codigo-convite";
-import { normalizarIdentificador } from "@/lib/contas-aluno";
+import { gerarSenhaProvisoria, normalizarIdentificador, sugerirUsuario } from "@/lib/contas-aluno";
 import { enviarEmailVerificacao } from "@/lib/email";
 import { obterEscola } from "@/lib/escolas";
 import { vincularContaAoConvite, type ConviteValido } from "@/lib/convites";
+import type { Professor } from "@/lib/types";
 
 /** Convite ativo e dentro da validade para o código digitado (em qualquer formato), ou null. */
 export async function buscarConviteValido(codigoDigitado: string): Promise<ConviteValido | null> {
@@ -91,4 +92,87 @@ export async function cadastrarAlunoComCodigo(formData: FormData): Promise<void>
     voltar("email");
   }
   redirect("/aluno/entrar-com-codigo?enviado=1");
+}
+
+export type ContaAlunoAdmin = { id: string; nome: string; usuario: string | null; email: string | null; ativo: boolean; ultimo_acesso: string | null; turmas: string[] };
+export type CredencialGerada = { nome: string; usuario: string; senha: string; turma: string };
+
+async function adminAtual(): Promise<Professor> {
+  await exigirAdmin();
+  return (await getProfessorAtual())!;
+}
+
+async function contaDaMinhaEscola(contaId: string, escolaId: string): Promise<void> {
+  const { data } = await supabase.from("alunos_contas").select("escola_id").eq("id", contaId).maybeSingle();
+  if (!data || data.escola_id !== escolaId) throw new Error("Conta não encontrada.");
+}
+
+export async function listarContasAluno(): Promise<ContaAlunoAdmin[]> {
+  const admin = await adminAtual();
+  const [{ data: contas }, { data: vinculos }] = await Promise.all([
+    supabase.from("alunos_contas").select("id, nome, usuario, email, ativo, ultimo_acesso").eq("escola_id", admin.escola_id).order("nome"),
+    supabase.from("aluno_turmas").select("conta_id, turma_nome, ano_letivo").eq("escola_id", admin.escola_id),
+  ]);
+  const turmasPorConta = new Map<string, string[]>();
+  for (const v of vinculos ?? []) {
+    turmasPorConta.set(v.conta_id, [...(turmasPorConta.get(v.conta_id) ?? []), `${v.turma_nome} · ${v.ano_letivo}`]);
+  }
+  return (contas ?? []).map((c) => ({ ...c, turmas: turmasPorConta.get(c.id) ?? [] }));
+}
+
+/** Usuários já tomados que começam igual aos sugeridos — para o sufixo numérico não colidir. */
+async function usuariosExistentes(bases: string[]): Promise<Set<string>> {
+  const prefixos = [...new Set(bases.map((b) => b.replace(/\d+$/, "")))];
+  const existentes = new Set<string>();
+  for (const prefixo of prefixos) {
+    const { data } = await supabase.from("alunos_contas").select("usuario").ilike("usuario", `${prefixo}%`);
+    for (const linha of data ?? []) if (linha.usuario) existentes.add(linha.usuario);
+  }
+  return existentes;
+}
+
+export async function prepararLote(nomes: string[]): Promise<{ nome: string; usuario: string }[]> {
+  await adminAtual();
+  const limpos = nomes.map((n) => n.trim().replace(/\s+/g, " ")).filter(Boolean);
+  const existentes = await usuariosExistentes(limpos.map((n) => sugerirUsuario(n, new Set())));
+  return limpos.map((nome) => ({ nome, usuario: sugerirUsuario(nome, existentes) }));
+}
+
+export async function criarContasAluno(turmaId: string, alunos: { nome: string; usuario: string }[]): Promise<CredencialGerada[]> {
+  const admin = await adminAtual();
+  const { data: turma } = await supabase.from("turmas").select("nome, ano_letivo, escola_id").eq("id", turmaId).single();
+  if (!turma || turma.escola_id !== admin.escola_id) throw new Error("Turma não encontrada.");
+
+  const credenciais: CredencialGerada[] = [];
+  for (const { nome, usuario } of alunos) {
+    const usuarioLimpo = usuario.trim().toLowerCase();
+    if (!nome.trim() || !/^[a-z0-9.]+$/.test(usuarioLimpo)) throw new Error(`Usuário inválido para ${nome}.`);
+    const senha = gerarSenhaProvisoria();
+    const { data: conta, error } = await supabase
+      .from("alunos_contas")
+      .insert({ escola_id: admin.escola_id, nome: nome.trim(), usuario: usuarioLimpo, senha_hash: await bcrypt.hash(senha, 10), senha_provisoria: true, criado_via: "escola" })
+      .select("id")
+      .single();
+    if (error?.code === "23505") throw new Error(`O usuário ${usuarioLimpo} já existe. Gere a prévia de novo. ${credenciais.length} conta(s) já foram criadas antes deste.`);
+    if (error || !conta) throw new Error(error?.message ?? "Falha ao criar conta.");
+    await supabase.from("aluno_turmas").insert({ conta_id: conta.id, escola_id: admin.escola_id, turma_nome: turma.nome, ano_letivo: turma.ano_letivo });
+    credenciais.push({ nome: nome.trim(), usuario: usuarioLimpo, senha, turma: `${turma.nome} · ${turma.ano_letivo}` });
+  }
+  return credenciais;
+}
+
+export async function definirContaAtiva(contaId: string, ativo: boolean): Promise<void> {
+  const admin = await adminAtual();
+  await contaDaMinhaEscola(contaId, admin.escola_id);
+  const { error } = await supabase.from("alunos_contas").update({ ativo }).eq("id", contaId);
+  if (error) throw new Error(error.message);
+}
+
+export async function novaSenhaAlunoPeloAdmin(contaId: string): Promise<string> {
+  const admin = await adminAtual();
+  await contaDaMinhaEscola(contaId, admin.escola_id);
+  const senha = gerarSenhaProvisoria();
+  const { error } = await supabase.from("alunos_contas").update({ senha_hash: await bcrypt.hash(senha, 10), senha_provisoria: true }).eq("id", contaId);
+  if (error) throw new Error(error.message);
+  return senha;
 }
