@@ -80,6 +80,10 @@ export async function publicarQuestao(id: string, publicar: boolean): Promise<vo
     .update({ status: publicar ? "publicada" : "revisao", precisa_revisao: publicar ? false : questao.precisa_revisao, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
+  if (publicar && questao.importacao_id) {
+    const { count } = await supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", questao.importacao_id).eq("status", "revisao");
+    if (count === 0) await supabase.from("importacoes").update({ status: "concluida" }).eq("id", questao.importacao_id).eq("status", "revisao");
+  }
 }
 
 export async function excluirQuestao(id: string): Promise<void> {
