@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BookOpen, ClipboardCheck } from "lucide-react";
 import { getAlunoAtual } from "@/lib/auth";
@@ -45,21 +46,23 @@ export default async function AlunoInicioPage({ searchParams }: Props) {
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {[
-          { titulo: "Aulas", texto: "Videoaulas e materiais dos seus professores.", Icone: BookOpen },
-          { titulo: "Simulados", texto: "Simulados das bancas com correção na hora.", Icone: ClipboardCheck },
-        ].map(({ titulo, texto, Icone }) => (
-          <div key={titulo} className={`${estilos.card} flex items-start gap-3 p-5 opacity-80`}>
-            <Icone size={22} className="mt-0.5 text-brand" aria-hidden="true" />
-            <div>
-              <h2 className="flex items-center gap-2 font-semibold text-ink">
-                {titulo}
-                <span className="rounded bg-gold/40 px-1.5 py-0.5 text-xs font-medium text-gold-ink">Em breve</span>
-              </h2>
-              <p className="mt-1 text-sm text-muted">{texto}</p>
-            </div>
+        <Link href="/aluno/cursos" className={`${estilos.card} flex items-start gap-3 p-5 transition hover:border-brand-bright/40`}>
+          <BookOpen size={22} className="mt-0.5 text-brand" aria-hidden="true" />
+          <div>
+            <h2 className="font-semibold text-ink">Aulas</h2>
+            <p className="mt-1 text-sm text-muted">Videoaulas e materiais dos seus professores.</p>
           </div>
-        ))}
+        </Link>
+        <div className={`${estilos.card} flex items-start gap-3 p-5 opacity-80`}>
+          <ClipboardCheck size={22} className="mt-0.5 text-brand" aria-hidden="true" />
+          <div>
+            <h2 className="flex items-center gap-2 font-semibold text-ink">
+              Simulados
+              <span className="rounded bg-gold/40 px-1.5 py-0.5 text-xs font-medium text-gold-ink">Em breve</span>
+            </h2>
+            <p className="mt-1 text-sm text-muted">Simulados das bancas com correção na hora.</p>
+          </div>
+        </div>
       </div>
 
       <section aria-labelledby="titulo-outra-turma" className={`${estilos.card} p-5`}>
