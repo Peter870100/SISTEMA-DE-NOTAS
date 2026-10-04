@@ -22,8 +22,8 @@ export function AulaAluno({ aulaId, video, iniciarEm, porcentagemInicial, conclu
   const [concluida, setConcluida] = useState(concluidaInicial);
   const [erro, setErro] = useState<string | null>(null);
 
-  const aoTempo = useCallback((posicao: number, duracao: number) => {
-    registrarProgresso(aulaId, posicao, duracao)
+  const aoTempo = useCallback((posicao: number) => {
+    registrarProgresso(aulaId, posicao)
       .then((r) => {
         setPorcentagem(r.porcentagem);
         if (r.concluida && !concluida) { setConcluida(true); router.refresh(); }

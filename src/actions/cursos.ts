@@ -172,6 +172,9 @@ export async function salvarAula(aulaId: string, dados: DadosAula): Promise<void
     if (typeof d === "number" && Number.isInteger(d) && d >= 1 && d <= 21600) duracao_seg = d;
     else if (existente.video_id === video_id) duracao_seg = existente.duracao_seg;
   }
+  if (existente.publicada && video_id && duracao_seg == null) {
+    throw new Error("Espere a prévia do vídeo carregar para registrar a duração.");
+  }
   if (!["junto", "apos_concluir", "data"].includes(dados.gabarito_liberacao)) throw new Error("Regra do gabarito inválida.");
   if (dados.gabarito_liberacao === "data" && (!dados.gabarito_libera_em || Number.isNaN(Date.parse(dados.gabarito_libera_em)))) {
     throw new Error("Informe a data de liberação do gabarito.");

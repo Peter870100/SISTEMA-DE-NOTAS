@@ -32,6 +32,11 @@ export function EditorAula({ aula, temArquivos }: Props) {
   const idPrevia = link.trim() ? extrairIdYoutube(link) : null;
   const dados = (): DadosAula => ({ titulo, texto, linkVideo: link, duracaoSeg: idPrevia ? duracao : null, gabarito_liberacao: regra, gabarito_libera_em: regra === "data" && liberaEm ? new Date(liberaEm).toISOString() : null });
 
+  function salvar() {
+    if (aula.publicada && idPrevia && duracao == null) { setErro("Espere a prévia do vídeo carregar para registrar a duração."); return; }
+    void executar(() => salvarAula(aula.id, dados()), aula.publicada ? "Alterações salvas." : "Rascunho salvo.");
+  }
+
   async function executar(acao: () => Promise<void>, mensagem: string) {
     setOcupado(true); setErro(null); setAviso(null);
     try { await acao(); setAviso(mensagem); router.refresh(); }
@@ -60,7 +65,7 @@ export function EditorAula({ aula, temArquivos }: Props) {
             <PlayerVideo key={idPrevia} provedor="youtube" videoId={idPrevia} iniciarEm={0} onTempo={() => {}} onDuracao={setDuracao} />
           </div>
           <p className="text-xs text-muted">
-            {duracao != null ? `Duração: ${Math.floor(duracao / 60)}:${String(duracao % 60).padStart(2, "0")}` : "Carregando duração do vídeo…"}
+            {duracao != null ? `Duração: ${Math.floor(duracao / 60)}:${String(duracao % 60).padStart(2, "0")}` : "Carregando duração do vídeo… (se demorar, dê play na prévia)"}
           </p>
         </div>
       )}
@@ -73,7 +78,7 @@ export function EditorAula({ aula, temArquivos }: Props) {
         {regra === "data" && <input type="datetime-local" value={liberaEm} onChange={(e) => setLiberaEm(e.target.value)} aria-label="Data de liberação do gabarito" className={`${estilos.input} max-w-xs`} />}
       </fieldset>
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={ocupado} onClick={() => executar(() => salvarAula(aula.id, dados()), aula.publicada ? "Alterações salvas." : "Rascunho salvo.")} className={estilos.botaoSecundario}>{aula.publicada ? "Salvar alterações" : "Salvar rascunho"}</button>
+        <button type="button" disabled={ocupado} onClick={salvar} className={estilos.botaoSecundario}>{aula.publicada ? "Salvar alterações" : "Salvar rascunho"}</button>
         {aula.publicada ? (
           <button type="button" disabled={ocupado} onClick={() => executar(() => definirPublicacao(aula.id, false), "A aula voltou para rascunho e saiu da área dos alunos.")} className={estilos.botaoFantasma}>Voltar para rascunho</button>
         ) : (
