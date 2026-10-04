@@ -32,11 +32,17 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
   const nomes = new Map((contas ?? []).map((c) => [c.id, c.nome]));
 
   const entregueIds = entregues.map((t) => t.id);
-  const { data: respostas } = entregueIds.length
-    ? await supabase.from("tentativa_respostas").select("questao_id, alternativa, correta").in("tentativa_id", entregueIds)
-    : { data: [] };
+  const respostas: { questao_id: string; alternativa: string | null; correta: boolean | null }[] = [];
+  for (let de = 0; entregueIds.length; de += 1000) {
+    const { data, error: erroResp } = await supabase
+      .from("tentativa_respostas").select("tentativa_id, questao_id, alternativa, correta").in("tentativa_id", entregueIds)
+      .order("tentativa_id").order("questao_id").range(de, de + 999);
+    if (erroResp) throw new Error(erroResp.message);
+    respostas.push(...(data ?? []));
+    if ((data ?? []).length < 1000) break;
+  }
   const agg = new Map<string, { total: number; certas: number; marcadas: Map<string, number> }>();
-  for (const r of respostas ?? []) {
+  for (const r of respostas) {
     const a = agg.get(r.questao_id) ?? { total: 0, certas: 0, marcadas: new Map() };
     a.total++;
     if (r.correta) a.certas++;
@@ -57,7 +63,7 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
   const agora = new Date();
   const situacao = situacaoSimulado(simulado, agora);
   const prazoPassou = simulado.fecha_em ? new Date(simulado.fecha_em) <= agora : false;
-  const podeLiberar = simulado.correcao === "apos_prazo" && !prazoPassou;
+  const podeLiberar = simulado.status === "publicado" && simulado.correcao === "apos_prazo" && !prazoPassou;
   const rascunhoOuSemTentativas = simulado.status === "rascunho" || todas.length === 0;
   const linhas = [...todas].sort((a, b) => (nomes.get(a.conta_id) ?? "").localeCompare(nomes.get(b.conta_id) ?? "", "pt-BR"));
   const areas = Object.keys(AREAS) as Area[];
