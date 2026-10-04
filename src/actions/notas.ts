@@ -1,7 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
+import { exigirNaoAluno, getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
 import type { ValorCelula } from "@/lib/status";
 
 export async function upsertCelula(
@@ -9,6 +9,7 @@ export async function upsertCelula(
   colunaId: string,
   patch: ValorCelula
 ): Promise<{ atualizadoPorNome: string | null; atualizadoEm: string }> {
+  await exigirNaoAluno();
   const professor = await getProfessorAtual();
 
   if (professor) {

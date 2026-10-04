@@ -6,12 +6,13 @@ import { listarHistorico } from "@/actions/historico";
 import { supabase } from "@/lib/supabase/client";
 import { HistoricoTable } from "@/components/admin/HistoricoTable";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { ehAdmin } from "@/lib/papeis";
 
 export const dynamic = "force-dynamic";
 
 export default async function HistoricoPage() {
   const atual = await getProfessorAtual();
-  if (!atual || atual.role !== "admin") {
+  if (!atual || !ehAdmin(atual.role)) {
     redirect("/");
   }
 

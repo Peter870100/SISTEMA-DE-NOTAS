@@ -11,6 +11,7 @@ import { useComandosOpcional } from "@/components/command/CommandProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ExportarBimestre } from "@/components/home/ExportarBimestre";
 import type { Professor, Turma } from "@/lib/types";
+import { ehAdmin } from "@/lib/papeis";
 
 
 const itemBase =
@@ -25,7 +26,7 @@ export function Sidebar({ professor, turmas }: { professor: Professor | null; tu
 
   const itens = [
     { href: "/", icon: GraduationCap, label: "Turmas", ativo: pathname === "/" || pathname.startsWith("/turma/") },
-    ...(professor.role === "admin" ? [
+    ...(ehAdmin(professor.role) ? [
       { href: "/admin/professores", icon: Users, label: "Professores", ativo: pathname === "/admin/professores" },
       { href: "/admin/historico", icon: History, label: "Histórico", ativo: pathname === "/admin/historico" },
       { href: "/admin/lixeira", icon: Trash2, label: "Lixeira", ativo: pathname === "/admin/lixeira" },

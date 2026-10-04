@@ -1,7 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { exigirAcessoATurmaId, getProfessorAtual } from "@/lib/auth";
+import { exigirNaoAluno, exigirAcessoATurmaId, getProfessorAtual } from "@/lib/auth";
 import type { AtividadeColuna, TipoColuna } from "@/lib/types";
 
 export async function addColuna(
@@ -10,6 +10,7 @@ export async function addColuna(
   ordem: number,
   tipo: TipoColuna = "nota"
 ): Promise<AtividadeColuna> {
+  await exigirNaoAluno();
   const tituloLimpo = titulo.trim();
   if (!tituloLimpo) throw new Error("Título da coluna não pode ser vazio");
 
@@ -26,6 +27,7 @@ export async function renameColuna(
   colunaId: string,
   titulo: string
 ): Promise<void> {
+  await exigirNaoAluno();
   const tituloLimpo = titulo.trim();
   if (!tituloLimpo) throw new Error("Título da coluna não pode ser vazio");
 
@@ -38,6 +40,7 @@ export async function renameColuna(
 
 /** Manda a coluna (com notas e histórico) pra lixeira. Devolve o id do item na lixeira. */
 export async function deleteColuna(colunaId: string): Promise<string> {
+  await exigirNaoAluno();
   const professor = await getProfessorAtual();
   if (professor) {
     const { data: coluna } = await supabase
@@ -62,6 +65,7 @@ export async function deleteColuna(colunaId: string): Promise<string> {
 export async function reordenarColunas(
   ordens: { id: string; ordem: number }[]
 ): Promise<void> {
+  await exigirNaoAluno();
   for (const { id, ordem } of ordens) {
     const { error } = await supabase
       .from("atividades_colunas")

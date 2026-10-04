@@ -1,6 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { ehAdmin } from "@/lib/papeis";
+import type { ProfessorRole } from "@/lib/types";
 
 export function criarSupabaseClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -14,7 +16,7 @@ export function criarSupabaseClient(): SupabaseClient {
 type Turma = { id: string; nome: string; bimestre: string; ano_letivo: string; criado_via?: string };
 type Aluno = { id: string; turma_id: string; nome: string; numero: number | null; ordem: number; criado_via?: string };
 type Coluna = { id: string; turma_id: string; titulo: string; ordem: number; tipo?: string; criado_via?: string };
-type ProfessorInfo = { id: string; role: string; acesso_restrito: boolean } | null;
+type ProfessorInfo = { id: string; role: ProfessorRole; acesso_restrito: boolean } | null;
 
 const professorTelefoneField = {
   professor_telefone: z
@@ -53,7 +55,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
 
   /** Nomes de turma liberados pro professor, ou null se ele pode ver todas (admin, sem restrição, ou telefone não identificado). */
   async function turmasLiberadas(professor: ProfessorInfo): Promise<Set<string> | null> {
-    if (!professor || professor.role === "admin" || !professor.acesso_restrito) return null;
+    if (!professor || ehAdmin(professor.role) || !professor.acesso_restrito) return null;
     const { data } = await supabase
       .from("professor_turma_acesso")
       .select("turma_nome")

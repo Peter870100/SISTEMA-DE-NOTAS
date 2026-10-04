@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase/client";
-import type { Professor } from "@/lib/types";
-import { segredo, verificarSessao, type Sessao } from "@/lib/sessao";
+import type { AlunoConta, Professor } from "@/lib/types";
+import { assinarSessao, segredo, verificarSessao, type Sessao, type TipoConta } from "@/lib/sessao";
+import { ehAdmin } from "@/lib/papeis";
 import { contaDoToken, validarTokenRedefinicao } from "@/lib/token-senha";
 
 export { segredo } from "@/lib/sessao";
@@ -19,10 +20,59 @@ export async function contaDoTokenRedefinicao(token: string | undefined): Promis
 
 const THROTTLE_ULTIMO_ACESSO_MS = 60_000;
 
+/** Sessão do cookie da requisição atual (professor ou aluno), ou null. */
+export async function getSessaoAtual(): Promise<Sessao | null> {
+  const cookieStore = await cookies();
+  return verificarSessao(cookieStore.get(COOKIE_NOME)?.value, segredo());
+}
+
+/** Grava o cookie de sessão (30 dias), igual ao login de professor. */
+export async function iniciarSessao(tipo: TipoConta, id: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NOME, assinarSessao(tipo, id, segredo()), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
+    path: "/",
+  });
+}
+
+/** Aluno logado e ativo, ou null. Conta bloqueada pela escola some na próxima página. */
+export async function getAlunoAtual(): Promise<AlunoConta | null> {
+  const sessao = await getSessaoAtual();
+  if (!sessao || sessao.tipo !== "a") return null;
+
+  const { data } = await supabase
+    .from("alunos_contas")
+    .select("id, escola_id, nome, email, usuario, senha_provisoria, email_verificado, ativo, criado_via, ultimo_acesso, created_at")
+    .eq("id", sessao.id)
+    .maybeSingle();
+  if (!data || !data.ativo) return null;
+
+  const desatualizado =
+    !data.ultimo_acesso || Date.now() - new Date(data.ultimo_acesso).getTime() > THROTTLE_ULTIMO_ACESSO_MS;
+  if (desatualizado) {
+    const agora = new Date().toISOString();
+    await supabase.from("alunos_contas").update({ ultimo_acesso: agora }).eq("id", sessao.id);
+    data.ultimo_acesso = agora;
+  }
+  return data;
+}
+
+/**
+ * Lança erro se quem chama é aluno. Use no topo de toda Server Action de professor que
+ * aceita requisição sem professor logado (modelo permissivo), porque para um aluno
+ * `getProfessorAtual()` devolve null e ele passaria como anônimo.
+ */
+export async function exigirNaoAluno(): Promise<void> {
+  const sessao = await getSessaoAtual();
+  if (sessao?.tipo === "a") throw new Error("Essa ação é só para professores.");
+}
+
 /** Professor logado na requisição atual (via cookie), ou null se não autenticado. */
 export async function getProfessorAtual(): Promise<Professor | null> {
-  const cookieStore = await cookies();
-  const sessao = verificarSessao(cookieStore.get(COOKIE_NOME)?.value, segredo());
+  const sessao = await getSessaoAtual();
   if (!sessao || sessao.tipo !== "p") return null;
   const professorId = sessao.id;
 
@@ -49,7 +99,7 @@ export async function getProfessorAtual(): Promise<Professor | null> {
 /** Lança erro se o professor logado não existir ou não for admin. */
 export async function exigirAdmin(): Promise<void> {
   const atual = await getProfessorAtual();
-  if (!atual || atual.role !== "admin") {
+  if (!atual || !ehAdmin(atual.role)) {
     throw new Error("Apenas administradores podem fazer isso.");
   }
 }
@@ -59,7 +109,7 @@ export async function exigirAdmin(): Promise<void> {
  * `acesso_restrito` desligado — o padrão pra quem já existia antes dessa trava existir).
  */
 export async function turmasLiberadasPara(professor: Professor): Promise<Set<string> | null> {
-  if (professor.role === "admin" || !professor.acesso_restrito) return null;
+  if (ehAdmin(professor.role) || !professor.acesso_restrito) return null;
   const { data } = await supabase
     .from("professor_turma_acesso")
     .select("turma_nome")

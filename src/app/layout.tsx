@@ -8,6 +8,7 @@ import { CommandProvider } from "@/components/command/CommandProvider";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { listarTurmasAcessiveis } from "@/actions/turmas";
 import "./globals.css";
+import { ehAdmin } from "@/lib/papeis";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -60,7 +61,7 @@ export default async function RootLayout({
           <Sidebar professor={professor} turmas={turmasPaleta} />
           <div id="conteudo-principal" tabIndex={-1} className="flex min-h-full min-w-0 flex-1 flex-col">{children}</div>
           {professor && !professor.senha_provisoria && (
-            <CommandPalette turmas={turmasPaleta} ehAdmin={professor.role === "admin"} />
+            <CommandPalette turmas={turmasPaleta} ehAdmin={ehAdmin(professor.role)} />
           )}
         </CommandProvider>
       </body>

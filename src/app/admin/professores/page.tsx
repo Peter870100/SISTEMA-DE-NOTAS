@@ -8,12 +8,13 @@ import { obterCodigoConvite } from "@/lib/configuracoes";
 import { GerenciarProfessores } from "@/components/admin/GerenciarProfessores";
 import { CodigoConvite } from "@/components/admin/CodigoConvite";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { ehAdmin } from "@/lib/papeis";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfessoresPage() {
   const atual = await getProfessorAtual();
-  if (!atual || atual.role !== "admin") {
+  if (!atual || !ehAdmin(atual.role)) {
     redirect("/");
   }
 

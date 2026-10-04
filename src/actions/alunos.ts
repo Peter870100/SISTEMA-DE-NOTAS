@@ -1,8 +1,9 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { exigirAcessoATurmaId, getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
+import { exigirNaoAluno, exigirAcessoATurmaId, getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
 import type { Aluno } from "@/lib/types";
+import { ehAdmin } from "@/lib/papeis";
 
 /** Remove acentos e caixa pra comparar títulos de atividade entre turmas diferentes. */
 function normalizar(s: string): string {
@@ -20,6 +21,7 @@ function normalizar(s: string): string {
  * já com o que tinha lançado.
  */
 export async function transferirAluno(alunoId: string, turmaDestinoId: string): Promise<void> {
+  await exigirNaoAluno();
   const [{ data: aluno }, { data: turmaDestino }] = await Promise.all([
     supabase.from("alunos").select("*").eq("id", alunoId).single(),
     supabase.from("turmas").select("*").eq("id", turmaDestinoId).single(),
@@ -29,7 +31,7 @@ export async function transferirAluno(alunoId: string, turmaDestinoId: string): 
   if (aluno.turma_id === turmaDestinoId) throw new Error("O aluno já está nessa turma.");
 
   const professor = await getProfessorAtual();
-  if (professor && professor.role !== "admin") {
+  if (professor && !ehAdmin(professor.role)) {
     const { data: turmaOrigem } = await supabase
       .from("turmas")
       .select("nome")
@@ -117,6 +119,7 @@ export async function addAluno(
   nome: string,
   ordem: number
 ): Promise<Aluno> {
+  await exigirNaoAluno();
   const nomeLimpo = nome.trim();
   if (!nomeLimpo) throw new Error("Nome do aluno não pode ser vazio");
 
@@ -138,6 +141,7 @@ export async function adicionarAlunos(
   nomes: string[],
   ordemInicial: number
 ): Promise<Aluno[]> {
+  await exigirNaoAluno();
   const limpos = nomes.map((n) => n.trim()).filter(Boolean);
   if (limpos.length === 0) throw new Error("Nenhum nome informado.");
 
@@ -154,6 +158,7 @@ export async function adicionarAlunos(
 
 /** Manda o aluno (com notas e histórico) pra lixeira. Devolve o id do item na lixeira, pro Ctrl+Z. */
 export async function deleteAluno(alunoId: string): Promise<string> {
+  await exigirNaoAluno();
   const professor = await getProfessorAtual();
   if (professor) {
     const { data: aluno } = await supabase
@@ -184,6 +189,7 @@ export async function reordenarAlunos(
   turmaId: string,
   ordens: { id: string; ordem: number; numero: number | null }[]
 ): Promise<void> {
+  await exigirNaoAluno();
   const professor = await getProfessorAtual();
   await exigirAcessoATurmaId(professor, turmaId);
 
@@ -206,6 +212,7 @@ export async function renomearAluno(
   nome: string,
   opts?: { nomeEditadoEm?: string | null }
 ): Promise<Aluno> {
+  await exigirNaoAluno();
   const nomeLimpo = nome.trim();
   if (!nomeLimpo) throw new Error("Nome do aluno não pode ser vazio");
 

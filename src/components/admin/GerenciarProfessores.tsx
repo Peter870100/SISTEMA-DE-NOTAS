@@ -12,6 +12,7 @@ import {
 } from "@/actions/professores";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { estilos } from "@/components/ui/estilos";
+import { ehAdmin } from "@/lib/papeis";
 
 const ONLINE_LIMITE_MS = 3 * 60 * 1000;
 
@@ -328,7 +329,7 @@ export function GerenciarProfessores({
                 <td className="px-3 py-2">
                   <span
                     className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                      p.role === "admin"
+                      ehAdmin(p.role)
                         ? "bg-gold/40 text-gold-ink"
                         : "bg-surface-sunken text-muted"
                     }`}
@@ -354,7 +355,7 @@ export function GerenciarProfessores({
                     )}
                   </div>
                   <p className="mt-1 text-xs text-muted">
-                    {p.role === "admin"
+                    {ehAdmin(p.role)
                       ? "todas as turmas"
                       : p.acesso_restrito
                         ? (acessoPorProfessor[p.id]?.length ?? 0) > 0
@@ -442,7 +443,7 @@ export function GerenciarProfessores({
                         <KeyRound size={12} />
                         Senha provisória
                       </button>
-                      {p.role !== "admin" && (
+                      {!ehAdmin(p.role) && (
                         <button
                           type="button"
                           onClick={() => handleAbrirTurmas(p)}

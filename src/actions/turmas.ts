@@ -1,11 +1,12 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { exigirAdmin, getProfessorAtual, professorTemAcessoATurma, turmasLiberadasPara } from "@/lib/auth";
+import { exigirNaoAluno, exigirAdmin, getProfessorAtual, professorTemAcessoATurma, turmasLiberadasPara } from "@/lib/auth";
 import type { Turma } from "@/lib/types";
 
 /** Turmas visíveis pro professor logado — todas, ou só as liberadas se ele tiver acesso restrito. */
 export async function listarTurmasAcessiveis(): Promise<Turma[]> {
+  await exigirNaoAluno();
   const professor = await getProfessorAtual();
   const { data, error } = await supabase.from("turmas").select("*").order("nome").order("bimestre");
   if (error) throw new Error(error.message);
