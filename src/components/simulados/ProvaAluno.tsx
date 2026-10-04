@@ -31,10 +31,33 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
   // Diferença entre o relógio do servidor e o do aparelho, para o cronômetro do professor.
   const [desvio] = useState(() => Date.parse(prova.agoraServidor) - Date.now());
 
-  const terminar = useCallback(async () => {
+  const [erroEntrega, setErroEntrega] = useState<string | null>(null);
+
+  // Backup local = só o que ainda não foi confirmado pelo servidor.
+  const backup = useCallback((alterar: (b: Record<string, Letra | null>) => void) => {
+    try {
+      const b: Record<string, Letra | null> = JSON.parse(localStorage.getItem(chaveLocal(prova.tentativaId)) ?? "{}");
+      alterar(b);
+      if (Object.keys(b).length) localStorage.setItem(chaveLocal(prova.tentativaId), JSON.stringify(b));
+      else localStorage.removeItem(chaveLocal(prova.tentativaId));
+    } catch { /* sem armazenamento local */ }
+  }, [prova.tentativaId]);
+
+  const terminar = useCallback(async (esperarFila = true) => {
     if (encerrando.current) return;
     encerrando.current = true;
-    try { await entregar(prova.tentativaId); } catch { /* a entrega automática no servidor cobre */ }
+    setErroEntrega(null);
+    if (esperarFila) {
+      // Espera as respostas pendentes chegarem ao servidor antes de entregar (no máx. ~10 s).
+      for (let i = 0; i < 50 && (enviando.current || fila.current.length); i++) await new Promise((ok) => setTimeout(ok, 200));
+    }
+    try {
+      await entregar(prova.tentativaId);
+    } catch {
+      encerrando.current = false;
+      setErroEntrega("Não foi possível entregar — verifique a conexão e tente de novo.");
+      return;
+    }
     try { localStorage.removeItem(chaveLocal(prova.tentativaId)); } catch { /* sem armazenamento local */ }
     router.refresh();
   }, [prova.tentativaId, router]);
@@ -46,24 +69,37 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
     setSalvando(true);
     while (fila.current.length) {
       const p = fila.current[0];
+      const esperar = async (msg: string) => { setAviso(msg); await new Promise((ok) => setTimeout(ok, 3000)); };
       try {
         const r = await responder(prova.tentativaId, p.questaoId, p.alternativa);
-        if (!r.ok && r.encerrada) { setAviso(r.erro); fila.current = []; await terminar(); break; }
-        fila.current.shift();
+        if (r.ok) {
+          backup((b) => { if (b[p.questaoId] === p.alternativa) delete b[p.questaoId]; });
+          if (fila.current[0] === p) fila.current.shift();
+        } else if ("tentarDeNovo" in r && r.tentarDeNovo) {
+          await esperar("Sem conexão — suas respostas estão guardadas e serão enviadas assim que voltar.");
+        } else if (r.encerrada) {
+          setAviso(r.erro); fila.current = [];
+          enviando.current = false;
+          await terminar(false);
+          break;
+        } else {
+          setAviso(r.erro); // item inválido de vez: descarta
+          backup((b) => { delete b[p.questaoId]; });
+          if (fila.current[0] === p) fila.current.shift();
+        }
       } catch {
-        setAviso("Sem conexão — suas respostas estão guardadas e serão enviadas assim que voltar.");
-        await new Promise((ok) => setTimeout(ok, 3000));
+        await esperar("Sem conexão — suas respostas estão guardadas e serão enviadas assim que voltar.");
       }
     }
     enviando.current = false;
     setSalvando(false);
     if (!fila.current.length) setAviso((a) => (a?.startsWith("Sem conexão") ? null : a));
-  }, [prova.tentativaId, terminar]);
+  }, [prova.tentativaId, terminar, backup]);
 
   function marcar(questaoId: string, alternativa: Letra | null) {
     const novo = { ...respostas, [questaoId]: alternativa };
     setRespostas(novo);
-    try { localStorage.setItem(chaveLocal(prova.tentativaId), JSON.stringify(novo)); } catch { /* sem armazenamento local */ }
+    backup((b) => { b[questaoId] = alternativa; });
     fila.current = [...fila.current.filter((p) => p.questaoId !== questaoId), { questaoId, alternativa }];
     void processar();
   }
@@ -119,11 +155,12 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
         <h1 className="font-display text-xl font-semibold text-ink">{prova.simulado.titulo}</h1>
         <div className="flex items-center gap-2">
           {restante !== null && <span role="timer" aria-live="off" className={`rounded-control px-3 py-1 font-mono text-lg tabular-nums ${alerta ? "bg-gold/40 text-gold-ink" : "bg-surface-sunken text-ink"}`}>⏱ {formatar(restante)}</span>}
-          {prova.simulado.tipo === "treino" && <button type="button" onClick={async () => { await pausarTreino(prova.tentativaId); router.push("/aluno/simulados"); }} className={estilos.botaoFantasma}>Pausar</button>}
+          {prova.simulado.tipo === "treino" && <button type="button" onClick={async () => { try { await pausarTreino(prova.tentativaId); } catch { /* sai mesmo assim */ } router.push("/aluno/simulados"); }} className={estilos.botaoFantasma}>Pausar</button>}
           <button type="button" onClick={() => { if (window.confirm(emBranco ? `Você deixou ${emBranco} questão(ões) em branco. Entregar mesmo assim?` : "Entregar o simulado?")) void terminar(); }} className={estilos.botaoPrimario}>Entregar</button>
         </div>
       </div>
       {alerta && restante! > 0 && <p role="status" className="rounded-control bg-gold/25 px-3 py-2 text-sm text-ink">Faltam menos de 5 minutos. Ao zerar, a prova é entregue automaticamente.</p>}
+      {erroEntrega && <p role="alert" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{erroEntrega}</p>}
       {aviso && <p role="status" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{aviso}</p>}
       <section className={`${estilos.card} flex flex-col gap-3 p-4`} aria-label={`Questão ${atual + 1}`}>
         <p className="text-xs text-muted">Questão {atual + 1} de {prova.questoes.length} · <span aria-live="polite">{salvando ? "salvando…" : "salvo ✓"}</span></p>

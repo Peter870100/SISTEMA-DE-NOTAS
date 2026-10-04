@@ -126,7 +126,7 @@ export async function responder(tentativaId: string, questaoId: string, alternat
     return { ok: false as const, erro: "O tempo acabou.", encerrada: true };
   }
   const { error } = await supabase.from("tentativa_respostas").upsert({ tentativa_id: t.id, questao_id: questaoId, alternativa, respondida_em: agora.toISOString() }, { onConflict: "tentativa_id,questao_id" });
-  if (error) return { ok: false as const, erro: "Não foi possível salvar. Tentando de novo…" };
+  if (error) return { ok: false as const, erro: "Não foi possível salvar. Tentando de novo…", tentarDeNovo: true as const };
   return { ok: true as const };
 }
 

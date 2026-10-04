@@ -20,7 +20,7 @@ function Situacao({ s, t, agora }: { s: Simulado; t: Tent | undefined; agora: Da
     const liberada = correcaoLiberada(s, agora);
     return (
       <div className="flex flex-wrap items-center gap-3 text-sm text-ink">
-        <span>{liberada ? `Entregue · ${Number(t.porcentagem ?? 0).toLocaleString("pt-BR")}%` : `Entregue · correção em ${s.fecha_em ? fmt(s.fecha_em) : "breve"}`}</span>
+        <span>{liberada ? `Entregue · ${t.porcentagem == null ? "—" : `${Number(t.porcentagem).toLocaleString("pt-BR")}%`}` : `Entregue · correção em ${s.fecha_em ? fmt(s.fecha_em) : "breve"}`}</span>
         <Link href={`/aluno/simulados/${s.id}`} className="font-semibold text-brand hover:underline">Ver resultado</Link>
       </div>
     );
