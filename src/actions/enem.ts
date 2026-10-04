@@ -97,11 +97,15 @@ export async function avancarImportacaoEnem(importacaoId: string): Promise<Passo
   try {
     await iniciarClassificacao(importacaoId);
   } catch (e) {
-    await supabase.from("importacoes").update({ status: "enviando", batch_id: null }).eq("id", importacaoId);
+    // Depois que o lote (pago) existe, não volta o status: o batch_id não pode se perder.
+    if (e instanceof LoteCriadoError) throw e;
+    await supabase.from("importacoes").update({ status: "enviando", batch_id: null, updated_at: new Date().toISOString() }).eq("id", importacaoId);
     throw e;
   }
   return { importacaoId, feitas, total: corpo.metadata.total, terminou: false, status: "lendo" };
 }
+
+class LoteCriadoError extends Error {}
 
 async function iniciarClassificacao(importacaoId: string) {
   const [{ data: questoes }, { data: assuntos }] = await Promise.all([
@@ -116,7 +120,9 @@ async function iniciarClassificacao(importacaoId: string) {
   const pedidos = [];
   for (let i = 0; i < lista.length; i += POR_PEDIDO) pedidos.push(pedidoClassificacao(`c${i}`, lista.slice(i, i + POR_PEDIDO), assuntos ?? []));
   const lote = await clienteIA().messages.batches.create({ requests: pedidos });
-  await supabase.from("importacoes").update({ batch_id: lote.id, status: "lendo", custo_estimado_usd: Math.round(pedidos.length * 0.05 * 100) / 100 }).eq("id", importacaoId);
+  const { error: erroBatch } = await supabase.from("importacoes").update({ batch_id: lote.id, status: "lendo", updated_at: new Date().toISOString() }).eq("id", importacaoId);
+  if (erroBatch) throw new LoteCriadoError(`O lote ${lote.id} foi criado na Anthropic, mas não foi possível gravá-lo: ${erroBatch.message}`);
+  await supabase.from("importacoes").update({ custo_estimado_usd: Math.round(pedidos.length * 0.05 * 100) / 100 }).eq("id", importacaoId);
 }
 
 /** Reaproveita o assunto (mesma matéria, nome sem diferenciar maiúsculas) ou cria um proposto. */

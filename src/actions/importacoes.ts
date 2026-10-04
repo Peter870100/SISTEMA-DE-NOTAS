@@ -57,11 +57,15 @@ async function assuntosAprovados() {
   return data ?? [];
 }
 
+class LoteCriadoError extends Error {}
+
 /** Cria o lote com um pedido por página da prova (todas ou só as indicadas). */
 async function enviarLote(importacaoId: string, somentePaginas: number[] | null, voltarPara: StatusImportacao, batchAnterior: string | null) {
   try {
     await criarLote(importacaoId, somentePaginas);
   } catch (e) {
+    // Depois que o lote (pago) existe, não volta o status: o batch_id não pode se perder.
+    if (e instanceof LoteCriadoError) throw e;
     await supabase.from("importacoes").update({ status: voltarPara, batch_id: batchAnterior, updated_at: new Date().toISOString() }).eq("id", importacaoId);
     throw e;
   }
@@ -88,12 +92,14 @@ async function criarLote(importacaoId: string, somentePaginas: number[] | null) 
     });
   }));
   const lote = await clienteIA().messages.batches.create({ requests: pedidos });
+  const { error: erroBatch } = await supabase.from("importacoes").update({ batch_id: lote.id, status: "lendo", updated_at: new Date().toISOString() }).eq("id", importacaoId);
+  if (erroBatch) throw new LoteCriadoError(`O lote ${lote.id} foi criado na Anthropic, mas não foi possível gravá-lo: ${erroBatch.message}`);
   await supabase.from("importacao_paginas").update({ status: "pendente", erro: null }).in("id", alvo.map((p) => p.id));
   const { error: erroFinal } = await supabase
     .from("importacoes")
-    .update({ batch_id: lote.id, status: "lendo", total_paginas: provas.length, erro: null, custo_estimado_usd: estimarCustoPaginas(provas.length), updated_at: new Date().toISOString() })
+    .update({ total_paginas: provas.length, erro: null, custo_estimado_usd: estimarCustoPaginas(provas.length), updated_at: new Date().toISOString() })
     .eq("id", importacaoId);
-  if (erroFinal) throw new Error(erroFinal.message);
+  if (erroFinal) throw new LoteCriadoError(`O lote ${lote.id} foi criado, mas os dados da importação não foram atualizados: ${erroFinal.message}`);
 }
 
 async function reservar(importacaoId: string, de: StatusImportacao[]): Promise<boolean> {
