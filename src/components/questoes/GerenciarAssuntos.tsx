@@ -16,9 +16,9 @@ export function GerenciarAssuntos({ assuntos }: { assuntos: Assunto[] }) {
   const aprovados = assuntos.filter((a) => a.situacao === "aprovado");
   const rotulo = (m: string) => MATERIAS[m as keyof typeof MATERIAS]?.rotulo ?? m;
 
-  async function executar(acao: () => Promise<unknown>, msg: string) {
+  async function executar<T>(acao: () => Promise<T>, msg: string | ((resultado: T) => string)) {
     setErro(null); setAviso(null);
-    try { await acao(); setAviso(msg); router.refresh(); } catch (e) { setErro(e instanceof Error ? e.message : "Falha."); }
+    try { const r = await acao(); setAviso(typeof msg === "function" ? msg(r) : msg); router.refresh(); } catch (e) { setErro(e instanceof Error ? e.message : "Falha."); }
   }
 
   return (
@@ -44,7 +44,7 @@ export function GerenciarAssuntos({ assuntos }: { assuntos: Assunto[] }) {
       </section>
       <section className={`${estilos.card} p-4`}>
         <div className="mb-2 flex items-center justify-between"><h2 className="font-semibold text-ink">Aprovados ({aprovados.length})</h2>
-          <button type="button" onClick={() => void executar(async () => setAviso(`${await carregarAssuntosIniciais()} assunto(s) carregado(s).`), "Lista inicial carregada.")} className={estilos.botaoSecundario}>Carregar lista inicial</button></div>
+          <button type="button" onClick={() => void executar(() => carregarAssuntosIniciais(), (n) => `${n} assunto(s) carregado(s).`)} className={estilos.botaoSecundario}>Carregar lista inicial</button></div>
         {Object.keys(MATERIAS).map((m) => {
           const daMateria = aprovados.filter((a) => a.materia === m);
           return daMateria.length ? <p key={m} className="py-1 text-sm"><strong>{rotulo(m)}:</strong> <span className="text-muted">{daMateria.map((a) => a.nome).join(", ")}</span></p> : null;
