@@ -190,3 +190,49 @@ test("acesso: importar", () => {
   assert.equal(podeImportar(ADMIN, "escola"), true);
   assert.equal(podeImportar(PROF, "escola"), false);
 });
+
+import { enemDevParaQuestao, type EnemDevQuestao } from "./enemdev";
+
+function enem(extra: Partial<EnemDevQuestao> = {}): EnemDevQuestao {
+  return {
+    title: "Questão 10 - ENEM 2023", index: 10, discipline: "linguagens", language: null, year: 2023,
+    context: "Texto **base**\n\n![](https://enem.dev/2023/img1.png)\n\nFonte", files: [],
+    correctAlternative: "E", alternativesIntroduction: "Conclui-se que",
+    alternatives: ["A", "B", "C", "D", "E"].map((letter) => ({ letter, text: `alt ${letter}`, file: null, isCorrect: letter === "E" })),
+    ...extra,
+  };
+}
+
+test("enem.dev: conversão básica, imagem do markdown extraída", () => {
+  const { linha, imagens } = enemDevParaQuestao(enem());
+  assert.equal(linha.banca, "ENEM");
+  assert.equal(linha.ano, 2023);
+  assert.equal(linha.numero, 10);
+  assert.equal(linha.caderno, "");
+  assert.equal(linha.area, "linguagens");
+  assert.equal(linha.resposta, "E");
+  assert.equal(linha.comando, "Conclui-se que");
+  assert.ok(!linha.enunciado!.includes("!["));
+  assert.deepEqual(imagens, [{ alvo: "enunciado", url: "https://enem.dev/2023/img1.png" }]);
+  assert.equal(linha.precisa_revisao, false);
+  assert.equal(linha.status, "revisao");
+});
+
+test("enem.dev: idioma vira caderno; disciplina vira área", () => {
+  assert.equal(enemDevParaQuestao(enem({ language: "ingles" })).linha.caderno, "ingles");
+  assert.equal(enemDevParaQuestao(enem({ discipline: "ciencias-humanas" })).linha.area, "humanas");
+  assert.equal(enemDevParaQuestao(enem({ discipline: "ciencias-natureza" })).linha.area, "natureza");
+  assert.equal(enemDevParaQuestao(enem({ discipline: "matematica" })).linha.area, "matematica");
+});
+
+test("enem.dev: imagem quebrada e alternativa-imagem", () => {
+  const quebrada = enemDevParaQuestao(enem({ context: "x ![](https://enem.dev/broken-image.svg)" }));
+  assert.equal(quebrada.linha.precisa_revisao, true);
+  assert.match(quebrada.linha.motivo_revisao!, /imagem/i);
+  assert.equal(quebrada.imagens.length, 0);
+  const alts = ["A", "B", "C", "D", "E"].map((letter) => ({ letter, text: null, file: `https://enem.dev/2023/alt-${letter}.png`, isCorrect: letter === "A" }));
+  const r = enemDevParaQuestao(enem({ alternatives: alts, correctAlternative: "A", files: ["https://enem.dev/2023/f.png"] }));
+  assert.equal(r.imagens.filter((i) => i.alvo !== "enunciado").length, 5);
+  assert.ok(r.imagens.some((i) => i.alvo === "enunciado" && i.url.endsWith("/f.png")));
+  assert.equal(r.linha.precisa_revisao, false);
+});
