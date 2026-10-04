@@ -32,7 +32,7 @@ export function PaginaComQuadros({ url, largura, altura, quadros }: { url: strin
     if (!a) return;
     const p = fracao(e);
     const dx = p.x - a.x0, dy = p.y - a.y0;
-    const q = a.modo === "mover" ? { ...a.q0, x: a.q0.x + dx, y: a.q0.y + dy } : { ...a.q0, w: a.q0.w + dx, h: a.q0.h + dy };
+    const q = a.modo === "mover" ? { ...a.q0, x: Math.min(Math.max(a.q0.x + dx, 0), 1 - a.q0.w), y: Math.min(Math.max(a.q0.y + dy, 0), 1 - a.q0.h) } : { ...a.q0, w: a.q0.w + dx, h: a.q0.h + dy };
     setItens((lista) => lista.map((i) => (i.id === a.id ? { ...i, quadro: limitarQuadro(q) } : i)));
   }
 
@@ -42,14 +42,16 @@ export function PaginaComQuadros({ url, largura, altura, quadros }: { url: strin
     if (!a) return;
     const item = itens.find((i) => i.id === a.id);
     if (!item) return;
-    try { await atualizarRecorte(item.id, item.quadro); router.refresh(); }
+    const q0 = a.q0, q = item.quadro;
+    if (q.x === q0.x && q.y === q0.y && q.w === q0.w && q.h === q0.h) return;
+    try { await atualizarRecorte(item.id, item.quadro); setErro(null); router.refresh(); }
     catch (e) { setErro(e instanceof Error ? e.message : "Falha ao salvar o recorte."); }
   }
 
   return (
     <div className="flex flex-col gap-2">
       {erro && <p role="alert" className="text-sm text-danger">{erro}</p>}
-      <div ref={area} onPointerMove={mover} onPointerUp={() => void soltar()} className="relative w-full select-none overflow-hidden rounded border border-line" style={{ aspectRatio: `${largura} / ${altura}` }}>
+      <div ref={area} onPointerMove={mover} onPointerUp={() => void soltar()} onPointerCancel={() => { arraste.current = null; }} className="relative touch-none w-full select-none overflow-hidden rounded border border-line" style={{ aspectRatio: `${largura} / ${altura}` }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={url} alt="Página original da prova" className="absolute inset-0 h-full w-full" draggable={false} />
         {itens.map((i) => (
