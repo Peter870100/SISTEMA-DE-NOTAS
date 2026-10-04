@@ -62,3 +62,9 @@ Cadastro: outra cena do vídeo (00:36–00:54), em `public/cadastro-status-loop.
 Fera: mascote transparente no canto inferior esquerdo do login e cadastro, flutuando suavemente. Largura de 112–128px no desktop, fixo no canto; no celular, 64–80px em espaço reservado no fim da página para não cobrir campos. Sem textos adicionais junto ao mascote. Redução de movimento respeitada.
 
 Exportação: ícone de planilha na Sidebar abre o modal de exportar turmas com seleção de bimestre ou todos os bimestres. A ação saiu do cabeçalho de Suas turmas e está disponível nas telas autenticadas para quem possui turmas e já alterou a senha provisória.
+
+## Área do aluno
+`app/aluno/layout.tsx`: faixa azul (`bg-frame-deep`) com a logo da escola, nome do aluno, Senha e Sair; conteúdo em `max-w-5xl`, cartões `estilos.card`. Sem a barra lateral de professor. Cartões de módulos futuros usam o selo amarelo "Em breve". Cadastro por código usa `AuthShell`.
+
+## Marca da escola
+Logo e nome vêm de `escolas` via `EscolaProvider`/`LogoEscola` (`components/layout/EscolaContexto.tsx`). Telas antes do login usam a escola padrão (Status).
