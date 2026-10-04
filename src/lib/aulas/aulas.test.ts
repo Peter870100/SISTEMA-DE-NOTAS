@@ -49,7 +49,7 @@ test("progresso: avanço normal é aceito e conclui aos 90%", () => {
 test("progresso: salto até o fim não conclui", () => {
   const ant = { maior_posicao_seg: 60, atualizado_em: segAtras(15), concluida_em: null };
   const r = calcularProgresso(ant, 599, 600, AGORA)!;
-  assert.equal(r.maior_posicao_seg, 60 + 15 * 2 + 20);
+  assert.equal(r.maior_posicao_seg, 60 + 15 * 2 + 15);
   assert.equal(r.concluir, false);
 });
 
@@ -71,6 +71,38 @@ test("progresso: duração inválida é recusada; posição fora da faixa é lim
 test("progresso: aula já concluída não conclui de novo", () => {
   const ant = { maior_posicao_seg: 590, atualizado_em: segAtras(15), concluida_em: segAtras(100) };
   assert.equal(calcularProgresso(ant, 595, 600, AGORA)!.concluir, false);
+});
+
+test("progresso: chamadas rápidas não avançam maior", () => {
+  let anterior = { maior_posicao_seg: 100, atualizado_em: new Date(AGORA).toISOString(), concluida_em: null };
+  for (let i = 0; i < 10; i++) {
+    const r = calcularProgresso(anterior, 599, 600, AGORA)!;
+    assert.equal(r.maior_posicao_seg, 100, `iteration ${i}`);
+    assert.equal(r.concluir, false, `iteration ${i}`);
+    anterior = { maior_posicao_seg: r.maior_posicao_seg, atualizado_em: anterior.atualizado_em, concluida_em: null };
+  }
+});
+
+test("progresso: atualizado_em no futuro não dá crédito extra", () => {
+  const ant = { maior_posicao_seg: 100, atualizado_em: new Date(AGORA + 60000).toISOString(), concluida_em: null };
+  const r = calcularProgresso(ant, 599, 600, AGORA)!;
+  assert.equal(r.maior_posicao_seg, 100);
+});
+
+test("progresso: posicao NaN ou Infinity é tratada", () => {
+  const ant = { maior_posicao_seg: 100, atualizado_em: segAtras(15), concluida_em: null };
+  const rNaN = calcularProgresso(ant, Number.NaN, 600, AGORA)!;
+  assert.equal(rNaN.posicao_seg, 0);
+  assert(!Number.isNaN(rNaN.posicao_seg));
+  const rInf = calcularProgresso(ant, Number.POSITIVE_INFINITY, 600, AGORA)!;
+  assert.equal(rInf.posicao_seg, 600);
+  assert(Number.isFinite(rInf.posicao_seg));
+});
+
+test("youtube: hosts parecidos retornam null", () => {
+  const ID = "dQw4w9WgXcQ";
+  assert.equal(extrairIdYoutube(`https://youtube.com.evil.com/watch?v=${ID}`), null);
+  assert.equal(extrairIdYoutube(`https://youtube.com@evil.com/watch?v=${ID}`), null);
 });
 
 test("porcentagens", () => {

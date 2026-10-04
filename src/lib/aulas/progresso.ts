@@ -14,12 +14,20 @@ export type ProgressoAnterior = { maior_posicao_seg: number; atualizado_em: stri
 export function calcularProgresso(anterior: ProgressoAnterior, posicao: number, duracao: number, agora = Date.now()) {
   const duracaoSeg = Math.round(duracao);
   if (!Number.isFinite(duracaoSeg) || duracaoSeg < 1 || duracaoSeg > DURACAO_MAXIMA_SEG) return null;
-  const posicaoSeg = Number.isFinite(posicao) ? Math.min(duracaoSeg, Math.max(0, Math.round(posicao))) : 0;
+  let posicaoSeg: number;
+  if (Number.isFinite(posicao)) {
+    posicaoSeg = Math.min(duracaoSeg, Math.max(0, Math.round(posicao)));
+  } else if (posicao === Number.POSITIVE_INFINITY) {
+    posicaoSeg = duracaoSeg;
+  } else {
+    posicaoSeg = 0;
+  }
 
   const maiorAnterior = anterior?.maior_posicao_seg ?? 0;
-  const segundosPassados = anterior ? Math.max(0, (agora - Date.parse(anterior.atualizado_em)) / 1000) : 0;
-  const limite = Math.floor(anterior ? maiorAnterior + segundosPassados * 2 + FOLGA_SEG : FOLGA_SEG);
-  const maior = Math.min(duracaoSeg, Math.max(maiorAnterior, Math.min(posicaoSeg, limite)));
+  const t = anterior ? Date.parse(anterior.atualizado_em) : NaN;
+  const segundosPassados = Number.isFinite(t) ? Math.max(0, (agora - t) / 1000) : 0;
+  const limite = Math.floor(anterior ? maiorAnterior + segundosPassados * 2 + Math.min(FOLGA_SEG, segundosPassados) : FOLGA_SEG);
+  const maior = Math.max(maiorAnterior, Math.min(duracaoSeg, Math.min(posicaoSeg, limite)));
 
   return {
     posicao_seg: posicaoSeg,
