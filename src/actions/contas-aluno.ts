@@ -185,7 +185,7 @@ export async function novaSenhaAlunoPeloAdmin(contaId: string): Promise<string> 
   const admin = await adminAtual();
   await contaDaMinhaEscola(contaId, admin.escola_id);
   const senha = gerarSenhaProvisoria();
-  const { error } = await supabase.from("alunos_contas").update({ senha_hash: await bcrypt.hash(senha, 10), senha_provisoria: true }).eq("id", contaId);
+  const { error } = await supabase.from("alunos_contas").update({ senha_hash: await bcrypt.hash(senha, 10), senha_provisoria: true, email_verificado: true }).eq("id", contaId);
   if (error) throw new Error(error.message);
   return senha;
 }

@@ -104,7 +104,7 @@ export async function novaSenhaAlunoPeloProfessor(turmaId: string, contaId: stri
   const senha = gerarSenhaProvisoria();
   const { error } = await supabase
     .from("alunos_contas")
-    .update({ senha_hash: await bcrypt.hash(senha, 10), senha_provisoria: true })
+    .update({ senha_hash: await bcrypt.hash(senha, 10), senha_provisoria: true, email_verificado: true })
     .eq("id", contaId);
   if (error) throw new Error(error.message);
   return senha;
