@@ -53,16 +53,13 @@ export default async function AlunoInicioPage({ searchParams }: Props) {
             <p className="mt-1 text-sm text-muted">Videoaulas e materiais dos seus professores.</p>
           </div>
         </Link>
-        <div className={`${estilos.card} flex items-start gap-3 p-5 opacity-80`}>
+        <Link href="/aluno/simulados" className={`${estilos.card} flex items-start gap-3 p-5 transition hover:border-brand-bright/40`}>
           <ClipboardCheck size={22} className="mt-0.5 text-brand" aria-hidden="true" />
           <div>
-            <h2 className="flex items-center gap-2 font-semibold text-ink">
-              Simulados
-              <span className="rounded bg-gold/40 px-1.5 py-0.5 text-xs font-medium text-gold-ink">Em breve</span>
-            </h2>
-            <p className="mt-1 text-sm text-muted">Simulados das bancas com correção na hora.</p>
+            <h2 className="font-semibold text-ink">Simulados</h2>
+            <p className="mt-1 text-sm text-muted">Simulados da turma e treinos com correção na hora.</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       <section aria-labelledby="titulo-outra-turma" className={`${estilos.card} p-5`}>
