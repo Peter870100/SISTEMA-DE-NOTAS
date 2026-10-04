@@ -7,6 +7,11 @@ export const MODELO = "claude-opus-5-5";
 export const PRECO_ENTRADA_LOTE = 2 / 1_000_000;
 export const PRECO_SAIDA_LOTE = 10 / 1_000_000;
 
+/** Há chave da Anthropic configurada? Sem ela, o ENEM é importado sem classificação. */
+export function iaDisponivel(): boolean {
+  return !!process.env.ANTHROPIC_API_KEY;
+}
+
 let cliente: Anthropic | null = null;
 export function clienteIA(): Anthropic {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error("Configure ANTHROPIC_API_KEY na Vercel para usar a importação com IA.");

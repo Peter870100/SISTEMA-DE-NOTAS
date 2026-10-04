@@ -43,7 +43,7 @@ export function ImportarEnem() {
         ))}
       </div>
       <button type="button" disabled={rodando || marcados.size === 0} onClick={() => void importar()} className={`${estilos.botaoPrimario} w-fit`}>{rodando ? "Importando…" : "Importar anos marcados"}</button>
-      <p className="text-xs text-muted">Mantenha esta página aberta durante a importação. Cada ano leva alguns minutos (download + classificação pela IA).</p>
+      <p className="text-xs text-muted">Mantenha esta página aberta durante a importação. Cada ano leva alguns minutos (download + classificação pela IA). Sem a chave da IA, o ano é baixado e matéria e assunto ficam para depois: quando a chave estiver configurada, importe o mesmo ano de novo para classificar.</p>
       <ul className="flex flex-col gap-1 text-sm">
         {Object.entries(passos).map(([ano, p]) => (
           <li key={ano}>
@@ -51,6 +51,7 @@ export function ImportarEnem() {
             {typeof p === "string" ? <span className="text-danger">{p}</span>
               : p.status === "enviando" ? `baixando ${p.feitas} de ${p.total}`
               : p.status === "lendo" ? "classificando matérias e assuntos…"
+              : p.semIA ? <>baixado, em revisão · matéria e assunto ficam para quando houver chave da IA · <Link href={`/banco/importacoes/${p.importacaoId}`} className="text-brand hover:underline">ver</Link></>
               : <>concluído · <Link href={`/banco/importacoes/${p.importacaoId}`} className="text-brand hover:underline">ver</Link></>}
           </li>
         ))}

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { supabase } from "@/lib/supabase/client";
 import { exigirProfessor } from "@/lib/questoes/acesso";
 import { enemDevParaQuestao, urlImagemPermitida, type EnemDevQuestao } from "@/lib/questoes/enemdev";
-import { clienteIA, custoDoUso, pedidoClassificacao } from "@/lib/questoes/ia";
+import { clienteIA, custoDoUso, iaDisponivel, pedidoClassificacao } from "@/lib/questoes/ia";
 import { ClassificacaoSchema, classificacaoParaAtualizacoes } from "@/lib/questoes/formato-ia";
 import { BUCKET } from "@/lib/questoes/storage";
 import type { StatusImportacao } from "@/lib/types";
@@ -19,7 +19,42 @@ async function exigirDono() {
   return p;
 }
 
-export type PassoEnem = { importacaoId: string; feitas: number; total: number; terminou: boolean; status: StatusImportacao };
+export type PassoEnem = { importacaoId: string; feitas: number; total: number; terminou: boolean; status: StatusImportacao; semIA?: boolean };
+
+const MARCA_SEM_CLASSIFICACAO = "Matéria e assunto a classificar.";
+
+/** Sem chave da IA: as questões sem assunto ficam em revisão com o aviso, para classificar depois. */
+async function marcarSemClassificacao(importacaoId: string) {
+  const { data } = await supabase.from("questoes").select("id, motivo_revisao").eq("importacao_id", importacaoId).is("assunto_id", null);
+  for (const q of data ?? []) {
+    if (q.motivo_revisao?.includes(MARCA_SEM_CLASSIFICACAO)) continue;
+    const { error } = await supabase.from("questoes")
+      .update({ precisa_revisao: true, motivo_revisao: [q.motivo_revisao, MARCA_SEM_CLASSIFICACAO].filter(Boolean).join(" ") })
+      .eq("id", q.id);
+    if (error) throw new Error(error.message);
+  }
+}
+
+/** Tira o aviso de "a classificar" do motivo; null se não sobrar nada. */
+function semMarca(motivo: string | null): string | null {
+  const resto = (motivo ?? "").replace(MARCA_SEM_CLASSIFICACAO, "").replace(/\s{2,}/g, " ").trim();
+  return resto || null;
+}
+
+/** Reserva a importação (a partir do status `de`) e cria o lote de classificação; volta para `de` se falhar antes do lote existir. */
+async function classificarAgora(importacaoId: string, de: StatusImportacao): Promise<boolean> {
+  const { data: reservou } = await supabase.from("importacoes").update({ status: "lendo", batch_id: null, updated_at: new Date().toISOString() }).eq("id", importacaoId).eq("status", de).select("id");
+  if (!reservou || reservou.length === 0) return false;
+  try {
+    await iniciarClassificacao(importacaoId);
+  } catch (e) {
+    // Depois que o lote (pago) existe, não volta o status: o batch_id não pode se perder.
+    if (e instanceof LoteCriadoError) throw e;
+    await supabase.from("importacoes").update({ status: de, batch_id: null, updated_at: new Date().toISOString() }).eq("id", importacaoId);
+    throw e;
+  }
+  return true;
+}
 
 export async function criarImportacaoEnem(ano: number): Promise<string> {
   const dono = await exigirDono();
@@ -58,7 +93,15 @@ export async function avancarImportacaoEnem(importacaoId: string): Promise<Passo
   const { data: imp } = await supabase.from("importacoes").select("*").eq("id", importacaoId).single();
   if (!imp || imp.origem !== "enemdev") throw new Error("Importação não encontrada.");
   if (imp.status === "lendo") return atualizarClassificacaoEnem(importacaoId);
-  if (imp.status !== "enviando") return { importacaoId, feitas: imp.paginas_lidas, total: imp.total_paginas, terminou: true, status: imp.status };
+  if (imp.status === "revisao" && iaDisponivel()) {
+    // Ano já baixado sem IA: agora que há chave, classifica o que ficou sem assunto.
+    const { count } = await supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", importacaoId).is("assunto_id", null).eq("status", "revisao");
+    if ((count ?? 0) > 0) {
+      await classificarAgora(importacaoId, "revisao");
+      return { importacaoId, feitas: imp.paginas_lidas, total: imp.total_paginas, terminou: false, status: "lendo" };
+    }
+  }
+  if (imp.status !== "enviando") return { importacaoId, feitas: imp.paginas_lidas, total: imp.total_paginas, terminou: true, status: imp.status, semIA: imp.status === "revisao" && !iaDisponivel() };
 
   const offset = imp.paginas_lidas;
   const r = await fetch(`${API}/exams/${imp.ano}/questions?limit=${LOTE_DOWNLOAD}&offset=${offset}`, { signal: AbortSignal.timeout(30_000) });
@@ -93,16 +136,13 @@ export async function avancarImportacaoEnem(importacaoId: string): Promise<Passo
   if (corpo.metadata.hasMore && corpo.questions.length > 0) {
     return { importacaoId, feitas, total: corpo.metadata.total, terminou: false, status: "enviando" };
   }
-  const { data: reservou } = await supabase.from("importacoes").update({ status: "lendo", batch_id: null, updated_at: new Date().toISOString() }).eq("id", importacaoId).eq("status", "enviando").select("id");
-  if (!reservou || reservou.length === 0) return { importacaoId, feitas, total: corpo.metadata.total, terminou: false, status: "lendo" };
-  try {
-    await iniciarClassificacao(importacaoId);
-  } catch (e) {
-    // Depois que o lote (pago) existe, não volta o status: o batch_id não pode se perder.
-    if (e instanceof LoteCriadoError) throw e;
-    await supabase.from("importacoes").update({ status: "enviando", batch_id: null, updated_at: new Date().toISOString() }).eq("id", importacaoId);
-    throw e;
+  if (!iaDisponivel()) {
+    // Sem chave: o ano fica baixado e em revisão; rodar de novo com a chave configurada classifica.
+    await marcarSemClassificacao(importacaoId);
+    await supabase.from("importacoes").update({ status: "revisao", updated_at: new Date().toISOString() }).eq("id", importacaoId).eq("status", "enviando");
+    return { importacaoId, feitas, total: corpo.metadata.total, terminou: true, status: "revisao", semIA: true };
   }
+  await classificarAgora(importacaoId, "enviando");
   return { importacaoId, feitas, total: corpo.metadata.total, terminou: false, status: "lendo" };
 }
 
@@ -174,10 +214,12 @@ export async function atualizarClassificacaoEnem(importacaoId: string): Promise<
       const { data: q } = await supabase.from("questoes").select("precisa_revisao, motivo_revisao, importacao_id").eq("id", u.id).maybeSingle();
       if (!q || q.importacao_id !== importacaoId) continue;
       atualizadas.add(u.id);
+      // O aviso de "a classificar" (importação sem IA) sai; os outros motivos continuam.
+      const motivoBase = semMarca(q.motivo_revisao);
       await supabase.from("questoes").update({
         materia: u.materia, area: u.area, assunto_id,
-        precisa_revisao: q.precisa_revisao || u.precisa,
-        motivo_revisao: u.precisa ? [q.motivo_revisao, u.assuntoNovo ? `Assunto novo proposto: ${u.assuntoNovo}.` : "Sem assunto."].filter(Boolean).join(" ") : q.motivo_revisao,
+        precisa_revisao: !!motivoBase || u.precisa,
+        motivo_revisao: u.precisa ? [motivoBase, u.assuntoNovo ? `Assunto novo proposto: ${u.assuntoNovo}.` : "Sem assunto."].filter(Boolean).join(" ") : motivoBase,
       }).eq("id", u.id);
     }
   }
