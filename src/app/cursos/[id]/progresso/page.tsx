@@ -63,7 +63,7 @@ export default async function ProgressoTurmaPage({ params, searchParams }: Props
                       <td className="px-2 py-2 font-medium text-ink">{c.nome}</td>
                       <td className="px-2 py-2 font-mono tabular-nums">{porcentagemConjunto(fez(c.id, aulas), aulas.length)}%</td>
                       {modulos.filter((m) => m.aulas.length).map((m) => <td key={m.id} className="px-2 py-2 font-mono tabular-nums text-muted">{porcentagemConjunto(fez(c.id, m.aulas), m.aulas.length)}%</td>)}
-                      <td className="px-2 py-2 text-muted">{c.ultimo_acesso ? new Date(c.ultimo_acesso).toLocaleDateString("pt-BR") : "nunca"}</td>
+                      <td className="px-2 py-2 text-muted">{c.ultimo_acesso ? new Date(c.ultimo_acesso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "nunca"}</td>
                     </tr>
                   ))}
                 </tbody>

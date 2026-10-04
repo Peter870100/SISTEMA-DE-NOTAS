@@ -33,7 +33,7 @@ export default async function AlunoAulaPage({ params }: { params: Promise<{ id: 
   const materiais = (arquivos ?? []).filter((a) => a.tipo === "material");
   const gabaritos = (arquivos ?? []).filter((a) => a.tipo === "gabarito");
   const avisoGabarito = aula.gabarito_liberacao === "data" && aula.gabarito_libera_em
-    ? `Disponível em ${new Date(aula.gabarito_libera_em).toLocaleDateString("pt-BR")}`
+    ? `Disponível em ${new Date(aula.gabarito_libera_em).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
     : "Disponível depois que você concluir a aula";
 
   return (
