@@ -177,6 +177,63 @@ export type ConviteTurma = {
   created_at: string;
 };
 
+export type ProvedorVideo = "youtube" | "bunny";
+export type RegraGabarito = "junto" | "apos_concluir" | "data";
+export type TipoArquivoAula = "material" | "gabarito";
+
+export type Curso = {
+  id: string;
+  escola_id: string;
+  professor_id: string | null;
+  titulo: string;
+  disciplina: string;
+  descricao: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CursoTurma = { curso_id: string; escola_id: string; turma_nome: string; ano_letivo: string };
+
+export type Modulo = { id: string; curso_id: string; titulo: string; ordem: number; created_at: string };
+
+export type Aula = {
+  id: string;
+  modulo_id: string;
+  curso_id: string;
+  titulo: string;
+  texto: string | null;
+  video_provedor: ProvedorVideo | null;
+  video_id: string | null;
+  publicada: boolean;
+  publicada_em: string | null;
+  gabarito_liberacao: RegraGabarito;
+  gabarito_libera_em: string | null;
+  ordem: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AulaArquivo = {
+  id: string;
+  aula_id: string;
+  tipo: TipoArquivoAula;
+  nome_arquivo: string;
+  storage_path: string;
+  tamanho_bytes: number;
+  created_at: string;
+};
+
+export type AulaProgresso = {
+  conta_id: string;
+  aula_id: string;
+  curso_id: string;
+  posicao_seg: number;
+  maior_posicao_seg: number;
+  duracao_seg: number | null;
+  concluida_em: string | null;
+  atualizado_em: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -288,6 +345,42 @@ export type Database = {
           ano_letivo: string;
         };
         Update: Partial<Omit<ConviteTurma, "id" | "created_at">>;
+        Relationships: [];
+      };
+      cursos: {
+        Row: Curso;
+        Insert: Partial<Omit<Curso, "id" | "created_at" | "updated_at">> & { escola_id: string; titulo: string; disciplina: string };
+        Update: Partial<Omit<Curso, "id" | "created_at">>;
+        Relationships: [];
+      };
+      curso_turmas: {
+        Row: CursoTurma;
+        Insert: CursoTurma;
+        Update: Partial<CursoTurma>;
+        Relationships: [];
+      };
+      modulos: {
+        Row: Modulo;
+        Insert: Partial<Omit<Modulo, "id" | "created_at">> & { curso_id: string; titulo: string };
+        Update: Partial<Omit<Modulo, "id" | "created_at">>;
+        Relationships: [];
+      };
+      aulas: {
+        Row: Aula;
+        Insert: Partial<Omit<Aula, "id" | "created_at" | "updated_at">> & { modulo_id: string; curso_id: string; titulo: string };
+        Update: Partial<Omit<Aula, "id" | "created_at">>;
+        Relationships: [];
+      };
+      aula_arquivos: {
+        Row: AulaArquivo;
+        Insert: Omit<AulaArquivo, "id" | "created_at">;
+        Update: Partial<Omit<AulaArquivo, "id" | "created_at">>;
+        Relationships: [];
+      };
+      aula_progresso: {
+        Row: AulaProgresso;
+        Insert: Partial<AulaProgresso> & { conta_id: string; aula_id: string; curso_id: string };
+        Update: Partial<AulaProgresso>;
         Relationships: [];
       };
     };

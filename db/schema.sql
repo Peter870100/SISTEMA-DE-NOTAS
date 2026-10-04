@@ -410,3 +410,111 @@ drop policy if exists "acesso_total_aluno_turmas" on aluno_turmas;
 create policy "acesso_total_aluno_turmas" on aluno_turmas for all using (true) with check (true);
 drop policy if exists "acesso_total_convites_turma" on convites_turma;
 create policy "acesso_total_convites_turma" on convites_turma for all using (true) with check (true);
+
+-- ===== Plataforma de estudos: cursos, módulos e aulas (2026-10-04) =====
+
+create table if not exists cursos (
+    id uuid primary key default gen_random_uuid(),
+    escola_id uuid not null references escolas(id),
+    professor_id uuid references professores(id) on delete set null,   -- dono
+    titulo text not null,
+    disciplina text not null,
+    descricao text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+create index if not exists idx_cursos_escola on cursos (escola_id);
+
+create table if not exists curso_turmas (
+    curso_id uuid not null references cursos(id) on delete cascade,
+    escola_id uuid not null references escolas(id),
+    turma_nome text not null,
+    ano_letivo varchar(10) not null,
+    primary key (curso_id, turma_nome, ano_letivo)
+);
+create index if not exists idx_curso_turmas_turma on curso_turmas (escola_id, turma_nome, ano_letivo);
+
+create table if not exists modulos (
+    id uuid primary key default gen_random_uuid(),
+    curso_id uuid not null references cursos(id) on delete cascade,
+    titulo text not null,
+    ordem integer not null default 0,
+    created_at timestamptz not null default now()
+);
+create index if not exists idx_modulos_curso on modulos (curso_id, ordem);
+
+create table if not exists aulas (
+    id uuid primary key default gen_random_uuid(),
+    modulo_id uuid not null references modulos(id) on delete cascade,
+    curso_id uuid not null references cursos(id) on delete cascade,
+    titulo text not null,
+    texto text,
+    video_provedor varchar(10) check (video_provedor in ('youtube', 'bunny')),
+    video_id varchar(64),
+    publicada boolean not null default false,
+    publicada_em timestamptz,
+    gabarito_liberacao varchar(15) not null default 'apos_concluir'
+        check (gabarito_liberacao in ('junto', 'apos_concluir', 'data')),
+    gabarito_libera_em timestamptz,
+    ordem integer not null default 0,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    check ((video_provedor is null) = (video_id is null))
+);
+create index if not exists idx_aulas_modulo on aulas (modulo_id, ordem);
+create index if not exists idx_aulas_curso on aulas (curso_id);
+
+create table if not exists aula_arquivos (
+    id uuid primary key default gen_random_uuid(),
+    aula_id uuid not null references aulas(id) on delete cascade,
+    tipo varchar(10) not null check (tipo in ('material', 'gabarito')),
+    nome_arquivo text not null,
+    storage_path text not null unique,          -- "<escola_id>/<curso_id>/<aula_id>/<uuid>.pdf"
+    tamanho_bytes integer not null,
+    created_at timestamptz not null default now()
+);
+create index if not exists idx_aula_arquivos_aula on aula_arquivos (aula_id);
+
+create table if not exists aula_progresso (
+    conta_id uuid not null references alunos_contas(id) on delete cascade,
+    aula_id uuid not null references aulas(id) on delete cascade,
+    curso_id uuid not null references cursos(id) on delete cascade,
+    posicao_seg integer not null default 0,       -- onde parou (retomar)
+    maior_posicao_seg integer not null default 0, -- maior ponto assistido (para a %)
+    duracao_seg integer,                           -- duração informada pelo player
+    concluida_em timestamptz,
+    atualizado_em timestamptz not null default now(),
+    primary key (conta_id, aula_id)
+);
+create index if not exists idx_aula_progresso_curso on aula_progresso (curso_id, conta_id);
+
+alter table cursos enable row level security;
+alter table curso_turmas enable row level security;
+alter table modulos enable row level security;
+alter table aulas enable row level security;
+alter table aula_arquivos enable row level security;
+alter table aula_progresso enable row level security;
+drop policy if exists "acesso_total_cursos" on cursos;
+create policy "acesso_total_cursos" on cursos for all using (true) with check (true);
+drop policy if exists "acesso_total_curso_turmas" on curso_turmas;
+create policy "acesso_total_curso_turmas" on curso_turmas for all using (true) with check (true);
+drop policy if exists "acesso_total_modulos" on modulos;
+create policy "acesso_total_modulos" on modulos for all using (true) with check (true);
+drop policy if exists "acesso_total_aulas" on aulas;
+create policy "acesso_total_aulas" on aulas for all using (true) with check (true);
+drop policy if exists "acesso_total_aula_arquivos" on aula_arquivos;
+create policy "acesso_total_aula_arquivos" on aula_arquivos for all using (true) with check (true);
+drop policy if exists "acesso_total_aula_progresso" on aula_progresso;
+create policy "acesso_total_aula_progresso" on aula_progresso for all using (true) with check (true);
+
+-- Bucket privado dos PDFs. O servidor (chave anon, só no servidor) gera links assinados
+-- de envio e de download; o navegador nunca recebe a chave.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('materiais', 'materiais', false, 26214400, array['application/pdf'])
+on conflict (id) do nothing;
+drop policy if exists "materiais_servidor_ler" on storage.objects;
+create policy "materiais_servidor_ler" on storage.objects for select using (bucket_id = 'materiais');
+drop policy if exists "materiais_servidor_enviar" on storage.objects;
+create policy "materiais_servidor_enviar" on storage.objects for insert with check (bucket_id = 'materiais');
+drop policy if exists "materiais_servidor_apagar" on storage.objects;
+create policy "materiais_servidor_apagar" on storage.objects for delete using (bucket_id = 'materiais');
