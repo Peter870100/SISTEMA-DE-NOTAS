@@ -13,9 +13,9 @@ async function assinar(path: string, segundos: number): Promise<string> {
 export const linkExibicao = (path: string) => assinar(path, EXIBICAO_SEG);
 export const linkParaIA = (path: string) => assinar(path, IA_SEG);
 
-export async function linksExibicao(paths: string[]): Promise<Map<string, string>> {
+export async function linksExibicao(paths: string[], segundos = EXIBICAO_SEG): Promise<Map<string, string>> {
   const unicos = [...new Set(paths)];
   if (unicos.length === 0) return new Map();
-  const { data } = await supabase.storage.from(BUCKET).createSignedUrls(unicos, EXIBICAO_SEG);
+  const { data } = await supabase.storage.from(BUCKET).createSignedUrls(unicos, segundos);
   return new Map((data ?? []).filter((d) => d.signedUrl && d.path).map((d) => [d.path as string, d.signedUrl as string]));
 }

@@ -2,7 +2,7 @@ import { supabase } from "@/lib/supabase/client";
 import { linksExibicao } from "@/lib/questoes/storage";
 import type { ImagemTela } from "@/components/questoes/ImagemQuestao";
 
-export async function imagensParaTela(questaoIds: string[]): Promise<Map<string, ImagemTela[]>> {
+export async function imagensParaTela(questaoIds: string[], validadeSeg = 300): Promise<Map<string, ImagemTela[]>> {
   const mapa = new Map<string, ImagemTela[]>();
   if (questaoIds.length === 0) return mapa;
   const { data: imagens } = await supabase.from("questao_imagens").select("*").in("questao_id", questaoIds).order("ordem");
@@ -13,7 +13,7 @@ export async function imagensParaTela(questaoIds: string[]): Promise<Map<string,
     ...(imagens ?? []).filter((i) => i.tipo === "arquivo" && i.storage_path).map((i) => i.storage_path as string),
     ...(paginas ?? []).map((p) => p.storage_path),
   ];
-  const links = await linksExibicao(caminhos);
+  const links = await linksExibicao(caminhos, validadeSeg);
   for (const i of imagens ?? []) {
     const pagina = i.pagina_id ? paginaPorId.get(i.pagina_id) : undefined;
     const url = i.tipo === "arquivo" ? links.get(i.storage_path ?? "") : pagina ? links.get(pagina.storage_path) : undefined;
