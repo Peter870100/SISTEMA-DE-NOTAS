@@ -72,3 +72,6 @@ Logo e nome vêm de `escolas` via `EscolaProvider`/`LogoEscola` (`components/lay
 Área de trabalho: padrão escolar `public/fundo-escolar.png` no fundo de PageLayout, com camada de 95% da cor canvas para deixar o desenho com 5% de visibilidade. Cabeçalho azul, cartões, tabelas e formulários mantêm superfícies opacas, preservando a leitura.
 
 Rolagem no desktop: a moldura ocupa 100dvh; o conteúdo principal rola dentro dela e para no fim do conteúdo, com overscroll desativado. PageLayout preenche a altura disponível e mantém o fundo até a borda inferior. No celular, a rolagem natural da página é preservada.
+
+## Aulas
+Professor: `/cursos` (lista + novo curso), `/cursos/[id]` (módulos e aulas em cartões, ↑/↓ para ordenar, selo Publicada/Rascunho), editor da aula com prévia do vídeo e PDFs, `/cursos/[id]/progresso` (tabela aluno × % por módulo). Aluno: `/aluno/cursos` com barras de progresso e "Continuar", estados "Concluída" ✓ / "Não concluída · X% assistido" ◐ / "Não iniciada" ○, aula com player do YouTube (youtube-nocookie) e barra "X% assistido".
