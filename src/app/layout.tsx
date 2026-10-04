@@ -11,6 +11,7 @@ import { EscolaProvider } from "@/components/layout/EscolaContexto";
 import { MARCA_PADRAO, type MarcaEscola } from "@/lib/marca";
 import { ESCOLA_PADRAO_ID, obterEscola } from "@/lib/escolas";
 import "./globals.css";
+import { ehRotaPublica } from "@/lib/rotas";
 import { ehAdmin } from "@/lib/papeis";
 
 const manrope = Manrope({
@@ -44,7 +45,7 @@ export default async function RootLayout({
 
   if (professor?.senha_provisoria) {
     const pathname = (await headers()).get("x-pathname");
-    if (pathname && pathname !== "/trocar-senha") {
+    if (pathname && pathname !== "/trocar-senha" && !ehRotaPublica(pathname)) {
       redirect("/trocar-senha");
     }
   }
