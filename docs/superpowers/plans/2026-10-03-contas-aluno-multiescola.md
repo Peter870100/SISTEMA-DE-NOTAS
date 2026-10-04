@@ -1160,7 +1160,7 @@ git push origin master
 - Produces:
   - `buscarConviteValido(codigo: string): Promise<ConviteValido | null>` com `type ConviteValido = { id: string; codigo: string; escola_id: string; escola_nome: string; turma_nome: string; ano_letivo: string }`
   - `entrarEmTurmaComCodigo(formData: FormData): Promise<void>` (action de formulário; redireciona para `/aluno?turma=ok` ou `/aluno?erro=codigo`)
-  - `listarMinhasTurmas(contaId: string): Promise<AlunoTurma[]>`
+  - em `src/lib/convites.ts` (não é action): `type ConviteValido`, `vincularContaAoConvite(contaId: string, convite: ConviteValido): Promise<void>`, `listarMinhasTurmas(contaId: string): Promise<AlunoTurma[]>`
   - `trocarSenhaAluno(formData: FormData): Promise<void>`
 
 - [ ] **Step 1: Vínculo conta↔turma em `src/lib/convites.ts`**
