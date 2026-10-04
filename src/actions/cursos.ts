@@ -3,6 +3,7 @@
 import { supabase } from "@/lib/supabase/client";
 import { exigirNaoAluno, getProfessorAtual } from "@/lib/auth";
 import { exigirCursoEditavel } from "@/lib/aulas/acesso";
+import { listarTurmasAcessiveis } from "@/actions/turmas";
 import { extrairIdYoutube } from "@/lib/aulas/youtube";
 import type { RegraGabarito } from "@/lib/types";
 
@@ -21,8 +22,19 @@ function limparCurso(dados: DadosCurso) {
 }
 
 async function gravarTurmas(cursoId: string, escolaId: string, turmas: DadosCurso["turmas"]) {
+  // Só aceita turmas que quem salva pode acessar, mais as que o curso já tem (ex.: vinculadas pelo admin).
+  const [acessiveis, { data: atuais, error: erroAtuais }] = await Promise.all([
+    listarTurmasAcessiveis(),
+    supabase.from("curso_turmas").select("turma_nome, ano_letivo").eq("curso_id", cursoId),
+  ]);
+  if (erroAtuais) throw new Error(erroAtuais.message);
+  const permitidas = new Set([
+    ...acessiveis.map((t) => `${t.nome}|${t.ano_letivo}`),
+    ...(atuais ?? []).map((t) => `${t.turma_nome}|${t.ano_letivo}`),
+  ]);
+  const aceitas = turmas.filter((t) => permitidas.has(`${t.turma_nome}|${t.ano_letivo}`));
   await supabase.from("curso_turmas").delete().eq("curso_id", cursoId);
-  const unicas = [...new Map(turmas.map((t) => [`${t.turma_nome}|${t.ano_letivo}`, t])).values()];
+  const unicas = [...new Map(aceitas.map((t) => [`${t.turma_nome}|${t.ano_letivo}`, t])).values()];
   if (unicas.length === 0) return;
   const { error } = await supabase
     .from("curso_turmas")
