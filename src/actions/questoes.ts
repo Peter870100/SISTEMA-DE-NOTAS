@@ -103,18 +103,41 @@ export async function promoverQuestao(id: string): Promise<string> {
     .select("id")
     .single();
   if (error || !nova) throw new Error(error?.message ?? "Falha ao promover.");
-  const { data: imagens } = await supabase.from("questao_imagens").select("*").eq("questao_id", id);
+  const MSG = "Não foi possível promover a questão (imagens). Nada foi alterado.";
+  const copiados: string[] = [];
+  const desfazer = async () => {
+    try {
+      if (copiados.length) await supabase.storage.from(BUCKET).remove(copiados);
+      await supabase.from("questao_imagens").delete().eq("questao_id", nova.id);
+      await supabase.from("questoes").delete().eq("id", nova.id);
+    } catch {
+      // limpeza best-effort
+    }
+  };
+  const { data: imagens, error: erroImagens } = await supabase.from("questao_imagens").select("*").eq("questao_id", id);
+  if (erroImagens) {
+    await desfazer();
+    throw new Error(MSG);
+  }
   for (const img of imagens ?? []) {
     let storage_path = img.storage_path;
     if (img.tipo === "arquivo" && img.storage_path) {
       const ext = img.storage_path.split(".").pop();
       storage_path = `imagens/${nova.id}/${randomUUID()}.${ext}`;
       const { error: erroCopia } = await supabase.storage.from(BUCKET).copy(img.storage_path, storage_path);
-      if (erroCopia) throw new Error(erroCopia.message);
+      if (erroCopia) {
+        await desfazer();
+        throw new Error(MSG);
+      }
+      copiados.push(storage_path);
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _i, created_at: _ci, questao_id: _q, ...dadosImg } = img;
-    await supabase.from("questao_imagens").insert({ ...dadosImg, questao_id: nova.id, storage_path });
+    const { error: erroInsert } = await supabase.from("questao_imagens").insert({ ...dadosImg, questao_id: nova.id, storage_path });
+    if (erroInsert) {
+      await desfazer();
+      throw new Error(MSG);
+    }
   }
   return nova.id;
 }
@@ -137,10 +160,12 @@ export async function registrarImagem(questaoId: string, alvo: AlvoImagem, stora
   if (!storagePath.startsWith(prefixo) || !/^[0-9a-f-]{36}\.(png|jpg|webp)$/.test(storagePath.slice(prefixo.length))) {
     throw new Error("Caminho de imagem inválido.");
   }
-  if (substituirId) await removerImagemInterna(questaoId, substituirId);
+  const { data: existente } = await supabase.from("questao_imagens").select("id").eq("storage_path", storagePath).maybeSingle();
+  if (existente) throw new Error("Imagem já registrada.");
   const { count } = await supabase.from("questao_imagens").select("id", { count: "exact", head: true }).eq("questao_id", questaoId).eq("alvo", alvo);
   const { error } = await supabase.from("questao_imagens").insert({ questao_id: questaoId, alvo, tipo: "arquivo", storage_path: storagePath, ordem: count ?? 0 });
   if (error) throw new Error(error.message);
+  if (substituirId) await removerImagemInterna(questaoId, substituirId);
 }
 
 async function removerImagemInterna(questaoId: string, imagemId: string) {
