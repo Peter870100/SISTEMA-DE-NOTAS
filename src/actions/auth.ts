@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
-import { COOKIE_NOME, contaDoTokenRedefinicao, getProfessorAtual, iniciarSessao, segredo } from "@/lib/auth";
+import { COOKIE_NOME, contaDoTokenRedefinicao, getAlunoAtual, getProfessorAtual, iniciarSessao, segredo } from "@/lib/auth";
 import { normalizarIdentificador, ehEmail } from "@/lib/contas-aluno";
 import { enviarEmailRedefinicaoSenha } from "@/lib/email";
 import { obterEscolaPadrao } from "@/lib/escolas";
@@ -132,4 +132,23 @@ export async function logout() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NOME);
   redirect("/login");
+}
+
+export async function trocarSenhaAluno(formData: FormData) {
+  const aluno = await getAlunoAtual();
+  if (!aluno) redirect("/login");
+
+  const senhaAtual = String(formData.get("senhaAtual") ?? "");
+  const novaSenha = String(formData.get("novaSenha") ?? "");
+  const confirmarSenha = String(formData.get("confirmarSenha") ?? "");
+
+  const { data: registro } = await supabase.from("alunos_contas").select("senha_hash").eq("id", aluno.id).single();
+  if (!registro || !(await bcrypt.compare(senhaAtual, registro.senha_hash))) redirect("/aluno/trocar-senha?erro=senha-atual");
+  if (novaSenha.length < 6) redirect("/aluno/trocar-senha?erro=curta");
+  if (novaSenha !== confirmarSenha) redirect("/aluno/trocar-senha?erro=confirmacao");
+
+  const senhaHash = await bcrypt.hash(novaSenha, 10);
+  const { error } = await supabase.from("alunos_contas").update({ senha_hash: senhaHash, senha_provisoria: false }).eq("id", aluno.id);
+  if (error) redirect("/aluno/trocar-senha?erro=falha");
+  redirect("/aluno?senha=ok");
 }

@@ -3,12 +3,12 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { JetBrains_Mono, Manrope, Space_Grotesk } from "next/font/google";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { getProfessorAtual } from "@/lib/auth";
+import { getAlunoAtual, getProfessorAtual } from "@/lib/auth";
 import { CommandProvider } from "@/components/command/CommandProvider";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { listarTurmasAcessiveis } from "@/actions/turmas";
 import { EscolaProvider } from "@/components/layout/EscolaContexto";
-import { obterEscola, obterEscolaPadrao } from "@/lib/escolas";
+import { ESCOLA_PADRAO_ID, obterEscola } from "@/lib/escolas";
 import "./globals.css";
 import { ehAdmin } from "@/lib/papeis";
 
@@ -48,7 +48,8 @@ export default async function RootLayout({
     }
   }
 
-  const escola = professor ? await obterEscola(professor.escola_id) : await obterEscolaPadrao();
+  const aluno = professor ? null : await getAlunoAtual();
+  const escola = await obterEscola(professor?.escola_id ?? aluno?.escola_id ?? ESCOLA_PADRAO_ID);
 
   const turmasPaleta = professor && !professor.senha_provisoria ? await listarTurmasAcessiveis() : [];
 
