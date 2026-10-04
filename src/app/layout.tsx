@@ -66,14 +66,14 @@ export default async function RootLayout({
       lang="pt-BR"
       className={`${manrope.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-canvas md:flex-row">
+      <body className="flex min-h-dvh flex-col bg-canvas md:h-dvh md:flex-row md:overflow-hidden">
         <a href="#conteudo-principal" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold focus:text-brand focus:shadow-float">
           Pular para o conteúdo principal
         </a>
         <EscolaProvider marca={marca}>
         <CommandProvider>
           <Sidebar professor={professor} turmas={turmasPaleta} />
-          <div id="conteudo-principal" tabIndex={-1} className="flex min-h-full min-w-0 flex-1 flex-col">{children}</div>
+          <div id="conteudo-principal" tabIndex={-1} className="flex min-h-0 min-w-0 flex-1 flex-col md:h-full md:overflow-y-auto md:overscroll-y-none">{children}</div>
           {professor && !professor.senha_provisoria && (
             <CommandPalette turmas={turmasPaleta} ehAdmin={ehAdmin(professor.role)} />
           )}

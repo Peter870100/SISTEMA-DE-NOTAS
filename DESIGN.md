@@ -70,3 +70,5 @@ Exportação: ícone de planilha na Sidebar abre o modal de exportar turmas com 
 Logo e nome vêm de `escolas` via `EscolaProvider`/`LogoEscola` (`components/layout/EscolaContexto.tsx`). Telas antes do login usam a escola padrão (Status).
 
 Área de trabalho: padrão escolar `public/fundo-escolar.png` no fundo de PageLayout, com camada de 95% da cor canvas para deixar o desenho com 5% de visibilidade. Cabeçalho azul, cartões, tabelas e formulários mantêm superfícies opacas, preservando a leitura.
+
+Rolagem no desktop: a moldura ocupa 100dvh; o conteúdo principal rola dentro dela e para no fim do conteúdo, com overscroll desativado. PageLayout preenche a altura disponível e mantém o fundo até a borda inferior. No celular, a rolagem natural da página é preservada.
