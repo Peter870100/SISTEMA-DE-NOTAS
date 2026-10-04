@@ -650,3 +650,88 @@ drop policy if exists "questoes_servidor_enviar" on storage.objects;
 create policy "questoes_servidor_enviar" on storage.objects for insert with check (bucket_id = 'questoes');
 drop policy if exists "questoes_servidor_apagar" on storage.objects;
 create policy "questoes_servidor_apagar" on storage.objects for delete using (bucket_id = 'questoes');
+
+-- ===== Simulados (2026-10-04) =====
+
+create table if not exists simulados (
+    id uuid primary key default gen_random_uuid(),
+    escola_id uuid not null references escolas(id),
+    tipo varchar(9) not null check (tipo in ('professor', 'treino')),
+    professor_id uuid references professores(id) on delete set null,
+    conta_id uuid references alunos_contas(id) on delete cascade,
+    titulo text not null,
+    duracao_min integer check (duracao_min is null or (duracao_min between 1 and 600)),
+    abre_em timestamptz,
+    fecha_em timestamptz,
+    correcao varchar(10) not null default 'apos_prazo' check (correcao in ('na_hora', 'apos_prazo')),
+    embaralhar boolean not null default true,
+    status varchar(10) not null default 'rascunho' check (status in ('rascunho', 'publicado')),
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    check ((tipo = 'treino') = (conta_id is not null)),
+    check (tipo = 'treino' or duracao_min is not null),
+    check (abre_em is null or fecha_em is null or fecha_em > abre_em)
+);
+create index if not exists idx_simulados_escola on simulados (escola_id, tipo, status);
+create index if not exists idx_simulados_conta on simulados (conta_id);
+
+create table if not exists simulado_turmas (
+    simulado_id uuid not null references simulados(id) on delete cascade,
+    escola_id uuid not null references escolas(id),
+    turma_nome text not null,
+    ano_letivo varchar(10) not null,
+    primary key (simulado_id, turma_nome, ano_letivo)
+);
+create index if not exists idx_simulado_turmas_turma on simulado_turmas (escola_id, turma_nome, ano_letivo);
+
+create table if not exists simulado_questoes (
+    simulado_id uuid not null references simulados(id) on delete cascade,
+    questao_id uuid not null references questoes(id) on delete cascade,
+    ordem integer not null default 0,
+    primary key (simulado_id, questao_id)
+);
+
+create table if not exists tentativas (
+    id uuid primary key default gen_random_uuid(),
+    simulado_id uuid not null references simulados(id) on delete cascade,
+    conta_id uuid not null references alunos_contas(id) on delete cascade,
+    ordem uuid[] not null,
+    iniciada_em timestamptz not null default now(),
+    prazo_em timestamptz,
+    tempo_usado_seg integer not null default 0,
+    ultimo_pulso_em timestamptz,
+    entregue_em timestamptz,
+    status varchar(12) not null default 'em_andamento' check (status in ('em_andamento', 'entregue')),
+    acertos integer,
+    total integer,
+    porcentagem numeric(5,2),
+    por_area jsonb,
+    created_at timestamptz not null default now(),
+    unique (simulado_id, conta_id)
+);
+create index if not exists idx_tentativas_conta on tentativas (conta_id, status);
+
+create table if not exists tentativa_respostas (
+    tentativa_id uuid not null references tentativas(id) on delete cascade,
+    questao_id uuid not null references questoes(id) on delete cascade,
+    alternativa char(1) check (alternativa in ('A', 'B', 'C', 'D', 'E')),
+    respondida_em timestamptz not null default now(),
+    correta boolean,
+    primary key (tentativa_id, questao_id)
+);
+
+alter table simulados enable row level security;
+alter table simulado_turmas enable row level security;
+alter table simulado_questoes enable row level security;
+alter table tentativas enable row level security;
+alter table tentativa_respostas enable row level security;
+drop policy if exists "acesso_total_simulados" on simulados;
+create policy "acesso_total_simulados" on simulados for all using (true) with check (true);
+drop policy if exists "acesso_total_simulado_turmas" on simulado_turmas;
+create policy "acesso_total_simulado_turmas" on simulado_turmas for all using (true) with check (true);
+drop policy if exists "acesso_total_simulado_questoes" on simulado_questoes;
+create policy "acesso_total_simulado_questoes" on simulado_questoes for all using (true) with check (true);
+drop policy if exists "acesso_total_tentativas" on tentativas;
+create policy "acesso_total_tentativas" on tentativas for all using (true) with check (true);
+drop policy if exists "acesso_total_tentativa_respostas" on tentativa_respostas;
+create policy "acesso_total_tentativa_respostas" on tentativa_respostas for all using (true) with check (true);

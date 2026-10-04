@@ -319,6 +319,45 @@ export type QuestaoImagem = {
   created_at: string;
 };
 
+export type TipoSimulado = "professor" | "treino";
+export type Simulado = {
+  id: string;
+  escola_id: string;
+  tipo: TipoSimulado;
+  professor_id: string | null;
+  conta_id: string | null;
+  titulo: string;
+  duracao_min: number | null;
+  abre_em: string | null;
+  fecha_em: string | null;
+  correcao: "na_hora" | "apos_prazo";
+  embaralhar: boolean;
+  status: "rascunho" | "publicado";
+  created_at: string;
+  updated_at: string;
+};
+export type SimuladoTurma = { simulado_id: string; escola_id: string; turma_nome: string; ano_letivo: string };
+export type SimuladoQuestao = { simulado_id: string; questao_id: string; ordem: number };
+export type PorArea = Partial<Record<Area, { acertos: number; total: number }>>;
+export type Tentativa = {
+  id: string;
+  simulado_id: string;
+  conta_id: string;
+  ordem: string[];
+  iniciada_em: string;
+  prazo_em: string | null;
+  tempo_usado_seg: number;
+  ultimo_pulso_em: string | null;
+  entregue_em: string | null;
+  status: "em_andamento" | "entregue";
+  acertos: number | null;
+  total: number | null;
+  porcentagem: number | null;
+  por_area: PorArea | null;
+  created_at: string;
+};
+export type TentativaResposta = { tentativa_id: string; questao_id: string; alternativa: Letra | null; respondida_em: string; correta: boolean | null };
+
 export type Database = {
   public: {
     Tables: {
@@ -496,6 +535,26 @@ export type Database = {
         Row: QuestaoImagem;
         Insert: Partial<Omit<QuestaoImagem, "id" | "created_at">> & { questao_id: string; alvo: AlvoImagem; tipo: "recorte" | "arquivo" };
         Update: Partial<Omit<QuestaoImagem, "id" | "created_at">>;
+        Relationships: [];
+      };
+      simulados: {
+        Row: Simulado;
+        Insert: Partial<Omit<Simulado, "id" | "created_at" | "updated_at">> & { escola_id: string; tipo: TipoSimulado; titulo: string };
+        Update: Partial<Omit<Simulado, "id" | "created_at">>;
+        Relationships: [];
+      };
+      simulado_turmas: { Row: SimuladoTurma; Insert: SimuladoTurma; Update: Partial<SimuladoTurma>; Relationships: [] };
+      simulado_questoes: { Row: SimuladoQuestao; Insert: SimuladoQuestao; Update: Partial<SimuladoQuestao>; Relationships: [] };
+      tentativas: {
+        Row: Tentativa;
+        Insert: Partial<Omit<Tentativa, "created_at">> & { simulado_id: string; conta_id: string; ordem: string[] };
+        Update: Partial<Omit<Tentativa, "id" | "created_at">>;
+        Relationships: [];
+      };
+      tentativa_respostas: {
+        Row: TentativaResposta;
+        Insert: Partial<TentativaResposta> & { tentativa_id: string; questao_id: string };
+        Update: Partial<TentativaResposta>;
         Relationships: [];
       };
     };
