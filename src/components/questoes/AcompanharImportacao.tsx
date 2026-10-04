@@ -11,7 +11,7 @@ export function AcompanharImportacao({ importacaoId, inicial }: { importacaoId: 
   const [aviso, setAviso] = useState<string | null>(null);
 
   const atualizar = useCallback(async () => {
-    try { setS(await atualizarImportacao(importacaoId)); } catch (e) { setErro(e instanceof Error ? e.message : "Falha ao atualizar."); }
+    try { setS(await atualizarImportacao(importacaoId)); setErro(null); } catch (e) { setErro(e instanceof Error ? e.message : "Falha ao atualizar."); }
   }, [importacaoId]);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export function AcompanharImportacao({ importacaoId, inicial }: { importacaoId: 
       {(s.status === "revisao" || s.status === "concluida") && (
         <div className="flex flex-wrap gap-2">
           <Link href={`/banco/importacoes/${importacaoId}/revisar`} className={estilos.botaoPrimario}>Revisar</Link>
-          <button type="button" onClick={async () => { try { const n = await aprovarTodasSemAviso(importacaoId); setAviso(`${n} questão(ões) publicada(s).`); await atualizar(); } catch (e) { setErro(e instanceof Error ? e.message : "Falha."); } }} className={estilos.botaoSecundario}>Aprovar todas sem aviso</button>
+          {s.status === "revisao" && <button type="button" onClick={async () => { try { const n = await aprovarTodasSemAviso(importacaoId); setAviso(`${n} questão(ões) publicada(s).`); await atualizar(); } catch (e) { setErro(e instanceof Error ? e.message : "Falha."); } }} className={estilos.botaoSecundario}>Aprovar todas sem aviso</button>}
         </div>
       )}
     </div>
