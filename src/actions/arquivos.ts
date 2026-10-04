@@ -37,7 +37,9 @@ export async function registrarArquivo(aulaId: string, tipo: TipoArquivoAula, no
   if (!tipoValido(tipo)) throw new Error("Tipo de arquivo inválido.");
   const erro = validarArquivo(nome, tamanho);
   if (erro) throw new Error(erro);
-  if (!storagePath.startsWith(`${curso.escola_id}/${curso.id}/${aula.id}/`)) throw new Error("Caminho de arquivo inválido.");
+  const prefixo = `${curso.escola_id}/${curso.id}/${aula.id}/`;
+  const nomeObjeto = storagePath.slice(prefixo.length);
+  if (!storagePath.startsWith(prefixo) || !/^[0-9a-f-]{36}\.pdf$/.test(nomeObjeto)) throw new Error("Caminho de arquivo inválido.");
   const { error } = await supabase
     .from("aula_arquivos")
     .insert({ aula_id: aula.id, tipo, nome_arquivo: nome.trim(), storage_path: storagePath, tamanho_bytes: Math.round(tamanho) });
