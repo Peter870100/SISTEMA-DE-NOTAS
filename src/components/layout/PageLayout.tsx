@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import { LogoEscola } from "@/components/layout/EscolaContexto";
 
 type PageLayoutProps = {
   crumb?: string;
@@ -24,8 +24,8 @@ export function PageLayout({ crumb, titulo, subtitulo, acoes, largura = "max-w-7
               <h1 className="mt-1 break-words font-display text-2xl font-semibold tracking-tight sm:text-3xl">{titulo}</h1>
               {subtitulo && <p className="mt-1 text-sm text-frame-muted">{subtitulo}</p>}
             </div>
-            <Link href="/" aria-label="Colégio Status — início" className="hidden shrink-0 rounded sm:block">
-              <Image src="/logo-status-branca.png" alt="Colégio Status" width={1580} height={513} className="h-auto w-40 lg:w-52" preload />
+            <Link href="/" aria-label="Início" className="hidden shrink-0 rounded sm:block">
+              <LogoEscola className="h-auto w-40 lg:w-52" />
             </Link>
           </div>
           {acoes && <div className="mt-4 flex flex-wrap items-center gap-2">{acoes}</div>}

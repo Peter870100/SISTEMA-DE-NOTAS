@@ -7,6 +7,8 @@ import { getProfessorAtual } from "@/lib/auth";
 import { CommandProvider } from "@/components/command/CommandProvider";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { listarTurmasAcessiveis } from "@/actions/turmas";
+import { EscolaProvider } from "@/components/layout/EscolaContexto";
+import { obterEscola, obterEscolaPadrao } from "@/lib/escolas";
 import "./globals.css";
 import { ehAdmin } from "@/lib/papeis";
 
@@ -46,6 +48,8 @@ export default async function RootLayout({
     }
   }
 
+  const escola = professor ? await obterEscola(professor.escola_id) : await obterEscolaPadrao();
+
   const turmasPaleta = professor && !professor.senha_provisoria ? await listarTurmasAcessiveis() : [];
 
   return (
@@ -57,6 +61,7 @@ export default async function RootLayout({
         <a href="#conteudo-principal" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold focus:text-brand focus:shadow-float">
           Pular para o conteúdo principal
         </a>
+        <EscolaProvider marca={{ nome: escola.nome, logo_url: escola.logo_url }}>
         <CommandProvider>
           <Sidebar professor={professor} turmas={turmasPaleta} />
           <div id="conteudo-principal" tabIndex={-1} className="flex min-h-full min-w-0 flex-1 flex-col">{children}</div>
@@ -64,6 +69,7 @@ export default async function RootLayout({
             <CommandPalette turmas={turmasPaleta} ehAdmin={ehAdmin(professor.role)} />
           )}
         </CommandProvider>
+        </EscolaProvider>
       </body>
     </html>
   );

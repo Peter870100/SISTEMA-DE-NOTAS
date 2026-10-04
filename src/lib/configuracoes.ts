@@ -1,11 +1,7 @@
-import { supabase } from "@/lib/supabase/client";
+import { obterEscolaPadrao } from "@/lib/escolas";
 
-/** Código de convite atual exigido no cadastro público (linha única em `configuracoes`). */
+/** Código de convite exigido no cadastro público de professor (por escola). */
 export async function obterCodigoConvite(): Promise<string | null> {
-  const { data } = await supabase
-    .from("configuracoes")
-    .select("codigo_convite")
-    .eq("id", true)
-    .maybeSingle();
-  return data?.codigo_convite ?? null;
+  const escola = await obterEscolaPadrao();
+  return escola.codigo_convite_professor;
 }

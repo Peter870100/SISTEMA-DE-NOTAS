@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
 import { enviarEmailVerificacao } from "@/lib/email";
+import { obterEscolaPadrao } from "@/lib/escolas";
 import { obterCodigoConvite } from "@/lib/configuracoes";
 
 export async function cadastrar(formData: FormData) {
@@ -58,7 +59,7 @@ export async function cadastrar(formData: FormData) {
 
   const link = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/verificar-email?token=${token}`;
   try {
-    await enviarEmailVerificacao(email, nome, link);
+    await enviarEmailVerificacao(email, nome, link, await obterEscolaPadrao());
   } catch {
     redirect("/cadastro?erro=email");
   }

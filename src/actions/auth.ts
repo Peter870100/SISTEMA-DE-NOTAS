@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { COOKIE_NOME, contaDoTokenRedefinicao, getProfessorAtual, iniciarSessao, segredo } from "@/lib/auth";
 import { normalizarIdentificador, ehEmail } from "@/lib/contas-aluno";
 import { enviarEmailRedefinicaoSenha } from "@/lib/email";
+import { obterEscolaPadrao } from "@/lib/escolas";
 import { gerarTokenRedefinicao } from "@/lib/token-senha";
 
 export async function login(formData: FormData) {
@@ -95,7 +96,7 @@ export async function pedirRedefinicaoSenha(formData: FormData) {
     const token = gerarTokenRedefinicao(professor.id, professor.senha_hash, segredo());
     const link = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/redefinir-senha?token=${token}`;
     try {
-      await enviarEmailRedefinicaoSenha(email, professor.nome, link);
+      await enviarEmailRedefinicaoSenha(email, professor.nome, link, await obterEscolaPadrao());
     } catch {
       redirect("/esqueci-senha?erro=email");
     }
