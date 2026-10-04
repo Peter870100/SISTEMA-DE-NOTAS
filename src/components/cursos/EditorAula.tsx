@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { definirPublicacao, salvarAula, type DadosAula } from "@/actions/cursos";
 import { extrairIdYoutube } from "@/lib/aulas/youtube";
+import { PlayerVideo } from "@/components/aulas/PlayerVideo";
 import type { Aula, RegraGabarito } from "@/lib/types";
 import { estilos } from "@/components/ui/estilos";
 
@@ -23,12 +24,13 @@ export function EditorAula({ aula, temArquivos }: Props) {
   const [link, setLink] = useState(aula.video_id ? `https://www.youtube.com/watch?v=${aula.video_id}` : "");
   const [regra, setRegra] = useState<RegraGabarito>(aula.gabarito_liberacao);
   const [liberaEm, setLiberaEm] = useState(paraInputData(aula.gabarito_libera_em));
+  const [duracao, setDuracao] = useState<number | null>(aula.duracao_seg);
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
   const idPrevia = link.trim() ? extrairIdYoutube(link) : null;
-  const dados = (): DadosAula => ({ titulo, texto, linkVideo: link, gabarito_liberacao: regra, gabarito_libera_em: regra === "data" && liberaEm ? new Date(liberaEm).toISOString() : null });
+  const dados = (): DadosAula => ({ titulo, texto, linkVideo: link, duracaoSeg: idPrevia ? duracao : null, gabarito_liberacao: regra, gabarito_libera_em: regra === "data" && liberaEm ? new Date(liberaEm).toISOString() : null });
 
   async function executar(acao: () => Promise<void>, mensagem: string) {
     setOcupado(true); setErro(null); setAviso(null);
@@ -38,6 +40,7 @@ export function EditorAula({ aula, temArquivos }: Props) {
   }
 
   function publicar() {
+    if (idPrevia && duracao == null) { setErro("Espere a prévia do vídeo carregar para registrar a duração."); return; }
     if (!idPrevia && !temArquivos && !window.confirm("Esta aula está vazia. Publicar mesmo assim?")) return;
     void executar(async () => { await salvarAula(aula.id, dados()); await definirPublicacao(aula.id, true); }, "Aula publicada. Os alunos já podem ver.");
   }
@@ -48,12 +51,17 @@ export function EditorAula({ aula, temArquivos }: Props) {
       {aviso && <p role="status" className="rounded-control bg-ok/15 px-3 py-2 text-sm text-ink">{aviso}</p>}
       <label className="flex flex-col gap-1 text-xs text-muted">Título<input value={titulo} onChange={(e) => setTitulo(e.target.value)} className={estilos.input} /></label>
       <label className="flex flex-col gap-1 text-xs text-muted">Link do vídeo do YouTube (opcional)
-        <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://youtu.be/…" className={estilos.input} />
+        <input value={link} onChange={(e) => { const v = e.target.value; if ((v.trim() ? extrairIdYoutube(v) : null) !== idPrevia) setDuracao(null); setLink(v); }} placeholder="https://youtu.be/…" className={estilos.input} />
       </label>
       {link.trim() && !idPrevia && <p className="text-sm text-danger">Link do YouTube não reconhecido.</p>}
       {idPrevia && (
-        <div className="aspect-video w-full max-w-xl overflow-hidden rounded-card bg-black">
-          <iframe src={`https://www.youtube-nocookie.com/embed/${idPrevia}`} title="Prévia do vídeo" className="h-full w-full" allow="encrypted-media; picture-in-picture" allowFullScreen />
+        <div className="flex flex-col gap-1">
+          <div className="w-full max-w-xl">
+            <PlayerVideo key={idPrevia} provedor="youtube" videoId={idPrevia} iniciarEm={0} onTempo={() => {}} onDuracao={setDuracao} />
+          </div>
+          <p className="text-xs text-muted">
+            {duracao != null ? `Duração: ${Math.floor(duracao / 60)}:${String(duracao % 60).padStart(2, "0")}` : "Carregando duração do vídeo…"}
+          </p>
         </div>
       )}
       <label className="flex flex-col gap-1 text-xs text-muted">Texto da aula (opcional)<textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={4} className={estilos.input} /></label>

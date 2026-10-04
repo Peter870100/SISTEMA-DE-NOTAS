@@ -518,3 +518,6 @@ drop policy if exists "materiais_servidor_enviar" on storage.objects;
 create policy "materiais_servidor_enviar" on storage.objects for insert with check (bucket_id = 'materiais');
 drop policy if exists "materiais_servidor_apagar" on storage.objects;
 create policy "materiais_servidor_apagar" on storage.objects for delete using (bucket_id = 'materiais');
+
+-- ===== Duração do vídeo informada pelo editor do professor (2026-10-04) =====
+alter table aulas add column if not exists duracao_seg integer check (duracao_seg is null or (duracao_seg between 1 and 21600));

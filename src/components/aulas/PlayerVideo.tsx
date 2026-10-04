@@ -39,15 +39,18 @@ type Props = {
   videoId: string;
   iniciarEm: number;
   onTempo: (posicaoSeg: number, duracaoSeg: number) => void;
+  onDuracao?: (duracaoSeg: number) => void;
 };
 
 const INTERVALO_MS = 15_000;
 
 /** Player do vídeo da aula. Hoje só YouTube; Bunny entra como outro ramo com a mesma interface. */
-export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo }: Props) {
+export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo, onDuracao }: Props) {
   const alvo = useRef<HTMLDivElement>(null);
   const aoTempo = useRef(onTempo);
   useEffect(() => { aoTempo.current = onTempo; }, [onTempo]);
+  const aoDuracao = useRef(onDuracao);
+  useEffect(() => { aoDuracao.current = onDuracao; }, [onDuracao]);
   // Posição inicial só vale na montagem: mudar depois não deve recriar o player.
   const inicio = useRef(iniciarEm);
 
@@ -57,6 +60,16 @@ export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo }: Props) {
     let timer: ReturnType<typeof setInterval> | null = null;
     let cancelado = false;
     let pronto = false;
+    let duracaoInformada = false;
+
+    const informarDuracao = () => {
+      if (duracaoInformada || !player) return;
+      const duracao = player.getDuration();
+      if (duracao > 0) {
+        duracaoInformada = true;
+        aoDuracao.current?.(Math.round(duracao));
+      }
+    };
 
     const informar = () => {
       if (!player || !pronto) return;
@@ -73,8 +86,9 @@ export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo }: Props) {
         host: "https://www.youtube-nocookie.com",
         playerVars: { start: Math.max(0, Math.floor(inicio.current)), rel: 0, modestbranding: 1, playsinline: 1 },
         events: {
-          onReady: () => { pronto = true; },
+          onReady: () => { pronto = true; informarDuracao(); },
           onStateChange: (e) => {
+            informarDuracao();
             if (e.data === YT.PlayerState.PLAYING) {
               pararTimer();
               timer = setInterval(informar, INTERVALO_MS);

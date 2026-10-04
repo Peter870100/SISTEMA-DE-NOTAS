@@ -204,6 +204,7 @@ export type Aula = {
   texto: string | null;
   video_provedor: ProvedorVideo | null;
   video_id: string | null;
+  duracao_seg: number | null;
   publicada: boolean;
   publicada_em: string | null;
   gabarito_liberacao: RegraGabarito;

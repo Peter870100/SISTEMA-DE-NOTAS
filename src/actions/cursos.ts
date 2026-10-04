@@ -140,18 +140,25 @@ export type DadosAula = {
   titulo: string;
   texto: string;
   linkVideo: string;
+  duracaoSeg: number | null;
   gabarito_liberacao: RegraGabarito;
   gabarito_libera_em: string | null;
 };
 
 export async function salvarAula(aulaId: string, dados: DadosAula): Promise<void> {
-  await aulaEditavel(aulaId);
+  const { aula: existente } = await aulaEditavel(aulaId);
   const titulo = dados.titulo.trim();
   if (!titulo) throw new Error("Informe o título da aula.");
   let video_id: string | null = null;
   if (dados.linkVideo.trim()) {
     video_id = extrairIdYoutube(dados.linkVideo);
     if (!video_id) throw new Error("Link do YouTube não reconhecido.");
+  }
+  let duracao_seg: number | null = null;
+  if (video_id) {
+    const d = dados.duracaoSeg;
+    if (typeof d === "number" && Number.isInteger(d) && d >= 1 && d <= 21600) duracao_seg = d;
+    else if (existente.video_id === video_id) duracao_seg = existente.duracao_seg;
   }
   if (!["junto", "apos_concluir", "data"].includes(dados.gabarito_liberacao)) throw new Error("Regra do gabarito inválida.");
   if (dados.gabarito_liberacao === "data" && (!dados.gabarito_libera_em || Number.isNaN(Date.parse(dados.gabarito_libera_em)))) {
@@ -164,6 +171,7 @@ export async function salvarAula(aulaId: string, dados: DadosAula): Promise<void
       texto: dados.texto.trim() || null,
       video_provedor: video_id ? "youtube" : null,
       video_id,
+      duracao_seg,
       gabarito_liberacao: dados.gabarito_liberacao,
       gabarito_libera_em: dados.gabarito_liberacao === "data" ? new Date(dados.gabarito_libera_em!).toISOString() : null,
       updated_at: new Date().toISOString(),
@@ -174,6 +182,9 @@ export async function salvarAula(aulaId: string, dados: DadosAula): Promise<void
 
 export async function definirPublicacao(aulaId: string, publicada: boolean): Promise<void> {
   const { aula } = await aulaEditavel(aulaId);
+  if (publicada && aula.video_id && aula.duracao_seg == null) {
+    throw new Error("Espere a prévia do vídeo carregar para registrar a duração.");
+  }
   const { error } = await supabase
     .from("aulas")
     .update({ publicada, publicada_em: publicada ? aula.publicada_em ?? new Date().toISOString() : aula.publicada_em })

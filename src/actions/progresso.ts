@@ -17,8 +17,12 @@ export async function registrarProgresso(aulaId: string, posicaoSeg: number, dur
     .eq("conta_id", aluno.id)
     .eq("aula_id", aulaId)
     .maybeSingle();
-  const novo = calcularProgresso(anterior ?? null, posicaoSeg, duracaoSeg);
+  // A duração é informada pelo professor; o valor do navegador só entra em aulas antigas, sem duração registrada.
+  const duracaoConhecida = acesso.aula.duracao_seg;
+  const duracao = duracaoConhecida ?? anterior?.duracao_seg ?? duracaoSeg;
+  const novo = calcularProgresso(anterior ?? null, posicaoSeg, duracao);
   if (!novo) throw new Error("Duração do vídeo inválida.");
+  if (duracaoConhecida == null && !anterior) novo.concluir = false;
 
   const agora = new Date().toISOString();
   const concluida_em = anterior?.concluida_em ?? (novo.concluir ? agora : null);
