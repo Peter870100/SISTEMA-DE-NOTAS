@@ -132,6 +132,7 @@ export type SituacaoImportacao = {
 /** Consulta o lote; quando terminou, grava as questões (só um chamador processa). */
 export async function atualizarImportacao(importacaoId: string): Promise<SituacaoImportacao> {
   const { importacao } = await exigirImportacao(importacaoId);
+  if (importacao.origem === "enemdev") return situacao(importacaoId, []);
   let avisos: string[] = [];
   if (importacao.status === "lendo" && importacao.batch_id) {
     const lote = await clienteIA().messages.batches.retrieve(importacao.batch_id);
