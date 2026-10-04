@@ -12,9 +12,11 @@ export const dynamic = "force-dynamic";
 const POR_PAGINA = 50;
 
 type Filtros = { texto?: string; banca?: string; ano?: string; area?: string; materia?: string; escopo?: string; status?: string; pagina?: string };
+const um = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-export default async function BancoPage({ searchParams }: { searchParams: Promise<Filtros> }) {
-  const f = await searchParams;
+export default async function BancoPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const bruto = await searchParams;
+  const f: Filtros = { texto: um(bruto.texto), banca: um(bruto.banca), ano: um(bruto.ano), area: um(bruto.area), materia: um(bruto.materia), escopo: um(bruto.escopo), status: um(bruto.status), pagina: um(bruto.pagina) };
   const professor = await getProfessorAtual();
   if (!professor) redirect("/login");
   const pagina = Math.max(1, Number(f.pagina) || 1);
@@ -30,7 +32,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
   if (f.texto) c = c.ilike("enunciado", `%${f.texto.replace(/[%_,()*\\]/g, " ")}%`);
   if (f.banca) c = c.eq("banca", f.banca);
   if (f.ano && Number(f.ano)) c = c.eq("ano", Number(f.ano));
-  if (f.area && f.area in AREAS) c = c.eq("area", f.area as keyof typeof AREAS);
+  if (f.area && Object.hasOwn(AREAS, f.area)) c = c.eq("area", f.area as keyof typeof AREAS);
   if (f.materia) c = c.eq("materia", f.materia);
   if (f.escopo === "geral" || f.escopo === "escola") c = c.eq("escopo", f.escopo);
   if (f.status === "publicada" || f.status === "revisao") c = c.eq("status", f.status);
