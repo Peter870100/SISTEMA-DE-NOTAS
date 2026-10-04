@@ -34,7 +34,7 @@ export async function registrarProgresso(aulaId: string, posicaoSeg: number, dur
       posicao_seg: novo.posicao_seg,
       maior_posicao_seg: novo.maior_posicao_seg,
       duracao_seg: novo.duracao_seg,
-      concluida_em,
+      ...(concluida_em ? { concluida_em } : {}),
       atualizado_em: agora,
     },
     { onConflict: "conta_id,aula_id" }
