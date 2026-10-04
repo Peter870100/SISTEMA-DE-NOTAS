@@ -3,6 +3,7 @@ export type Turma = {
   nome: string;
   bimestre: string;
   ano_letivo: string;
+  escola_id: string;
   criado_via: OrigemRegistro;
   created_at: string;
 };
@@ -46,13 +47,14 @@ export type NotaCelula = {
   updated_at: string;
 };
 
-export type ProfessorRole = "admin" | "professor";
+export type ProfessorRole = "dono" | "admin" | "professor";
 
 export type Professor = {
   id: string;
   nome: string;
   email: string;
   role: ProfessorRole;
+  escola_id: string;
   email_verificado: boolean;
   senha_provisoria: boolean;
   acesso_restrito: boolean;
@@ -114,6 +116,65 @@ export type ResultadoRestauracao = {
   turma_id: string | null;
   notas_restauradas: number;
   notas_puladas: number;
+};
+
+export type Escola = {
+  id: string;
+  nome: string;
+  slug: string;
+  logo_url: string;
+  cor_principal: string | null;
+  cor_destaque: string | null;
+  slogan: string | null;
+  foto_login_url: string | null;
+  nome_remetente_email: string;
+  codigo_convite_professor: string;
+  created_at: string;
+};
+
+export type OrigemContaAluno = "escola" | "convite";
+
+export type AlunoConta = {
+  id: string;
+  escola_id: string;
+  nome: string;
+  email: string | null;
+  usuario: string | null;
+  senha_provisoria: boolean;
+  email_verificado: boolean;
+  ativo: boolean;
+  criado_via: OrigemContaAluno;
+  ultimo_acesso: string | null;
+  created_at: string;
+};
+
+/** Linha crua de alunos_contas (com hash e token) — só em actions server-side. */
+export type AlunoContaComSenha = AlunoConta & {
+  senha_hash: string;
+  token_verificacao: string | null;
+  token_verificacao_expira: string | null;
+};
+
+export type AlunoTurma = {
+  conta_id: string;
+  escola_id: string;
+  turma_nome: string;
+  ano_letivo: string;
+  aluno_id: string | null;
+  created_at: string;
+};
+
+export type ConviteTurma = {
+  id: string;
+  codigo: string;
+  escola_id: string;
+  turma_nome: string;
+  ano_letivo: string;
+  criado_por: string | null;
+  expira_em: string | null;
+  ativo: boolean;
+  usos: number;
+  created_at: string;
 };
 
 export type Database = {
@@ -187,6 +248,46 @@ export type Database = {
         Row: ItemLixeira & { dados: unknown };
         Insert: never;
         Update: never;
+        Relationships: [];
+      };
+      escolas: {
+        Row: Escola;
+        Insert: Partial<Omit<Escola, "id" | "created_at">> & {
+          nome: string;
+          slug: string;
+          logo_url: string;
+          nome_remetente_email: string;
+          codigo_convite_professor: string;
+        };
+        Update: Partial<Omit<Escola, "id" | "created_at">>;
+        Relationships: [];
+      };
+      alunos_contas: {
+        Row: AlunoContaComSenha;
+        Insert: Partial<Omit<AlunoContaComSenha, "id" | "created_at">> & {
+          escola_id: string;
+          nome: string;
+          senha_hash: string;
+          criado_via: OrigemContaAluno;
+        };
+        Update: Partial<Omit<AlunoContaComSenha, "id" | "created_at">>;
+        Relationships: [];
+      };
+      aluno_turmas: {
+        Row: AlunoTurma;
+        Insert: Omit<AlunoTurma, "created_at" | "aluno_id"> & { aluno_id?: string | null };
+        Update: Partial<Omit<AlunoTurma, "created_at">>;
+        Relationships: [];
+      };
+      convites_turma: {
+        Row: ConviteTurma;
+        Insert: Partial<Omit<ConviteTurma, "id" | "created_at">> & {
+          codigo: string;
+          escola_id: string;
+          turma_nome: string;
+          ano_letivo: string;
+        };
+        Update: Partial<Omit<ConviteTurma, "id" | "created_at">>;
         Relationships: [];
       };
     };

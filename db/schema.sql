@@ -314,3 +314,99 @@ begin
     );
 end;
 $$;
+
+-- ===== Contas de aluno + base multi-escola (2026-10-03) =====
+
+create extension if not exists vector;  -- preparação para o RAG (partes 3 e 5)
+
+create table if not exists escolas (
+    id uuid primary key default gen_random_uuid(),
+    nome text not null,                         -- "Colégio Status"
+    slug varchar(40) not null unique,           -- "status" → futuro status.statusavalia.com.br
+    logo_url text not null,                     -- caminho em /public ou URL do Storage
+    cor_principal varchar(9),                   -- usadas só quando entrar a 2ª escola
+    cor_destaque varchar(9),
+    slogan text,
+    foto_login_url text,
+    nome_remetente_email text not null,         -- "Colégio Status"
+    codigo_convite_professor varchar(50) not null,
+    created_at timestamptz not null default now()
+);
+
+-- O Status com id fixo, para servir de default nas colunas abaixo
+insert into escolas (id, nome, slug, logo_url, slogan, nome_remetente_email, codigo_convite_professor)
+select '00000000-0000-0000-0000-000000000001', 'Colégio Status', 'status',
+       '/logo-status-branca.png', 'Cada aprendizado merece atenção.', 'Colégio Status',
+       (select codigo_convite from configuracoes where id = true)
+where not exists (select 1 from escolas where slug = 'status');
+
+-- Dados atuais passam a ser do Status. O default mantém funcionando todo insert
+-- existente (telas e Hermes) sem mudar código.
+alter table professores add column if not exists escola_id uuid not null
+    default '00000000-0000-0000-0000-000000000001' references escolas(id);
+alter table turmas add column if not exists escola_id uuid not null
+    default '00000000-0000-0000-0000-000000000001' references escolas(id);
+
+-- Papel de dono da plataforma
+alter table professores drop constraint if exists professores_role_check;
+alter table professores add constraint professores_role_check
+    check (role in ('dono', 'admin', 'professor'));
+
+create table if not exists alunos_contas (
+    id uuid primary key default gen_random_uuid(),
+    escola_id uuid not null references escolas(id),
+    nome text not null,
+    email varchar(255),
+    usuario varchar(60),
+    senha_hash text not null,
+    senha_provisoria boolean not null default false,
+    email_verificado boolean not null default false,
+    token_verificacao varchar(64),
+    token_verificacao_expira timestamptz,
+    ativo boolean not null default true,
+    criado_via varchar(10) not null check (criado_via in ('escola', 'convite')),
+    ultimo_acesso timestamptz,
+    created_at timestamptz not null default now(),
+    check (email is not null or usuario is not null)
+);
+-- Únicos no sistema inteiro (o login é único para todas as escolas)
+create unique index if not exists uq_alunos_contas_email on alunos_contas (lower(email)) where email is not null;
+create unique index if not exists uq_alunos_contas_usuario on alunos_contas (lower(usuario)) where usuario is not null;
+
+create table if not exists aluno_turmas (
+    conta_id uuid not null references alunos_contas(id) on delete cascade,
+    escola_id uuid not null references escolas(id),
+    turma_nome text not null,
+    ano_letivo varchar(10) not null,
+    aluno_id uuid references alunos(id) on delete set null,  -- reservado: ligação futura com a lista de notas
+    created_at timestamptz not null default now(),
+    primary key (conta_id, turma_nome, ano_letivo)
+);
+create index if not exists idx_aluno_turmas_turma on aluno_turmas (escola_id, turma_nome, ano_letivo);
+
+create table if not exists convites_turma (
+    id uuid primary key default gen_random_uuid(),
+    codigo varchar(6) not null unique,          -- exibido como "K7P-4QX"
+    escola_id uuid not null references escolas(id),
+    turma_nome text not null,
+    ano_letivo varchar(10) not null,
+    criado_por uuid references professores(id) on delete set null,
+    expira_em timestamptz,                      -- null = sem validade
+    ativo boolean not null default true,
+    usos integer not null default 0,
+    created_at timestamptz not null default now()
+);
+
+-- Mesmo padrão das tabelas atuais: o acesso passa pelo servidor, que aplica as regras
+alter table escolas enable row level security;
+alter table alunos_contas enable row level security;
+alter table aluno_turmas enable row level security;
+alter table convites_turma enable row level security;
+drop policy if exists "acesso_total_escolas" on escolas;
+create policy "acesso_total_escolas" on escolas for all using (true) with check (true);
+drop policy if exists "acesso_total_alunos_contas" on alunos_contas;
+create policy "acesso_total_alunos_contas" on alunos_contas for all using (true) with check (true);
+drop policy if exists "acesso_total_aluno_turmas" on aluno_turmas;
+create policy "acesso_total_aluno_turmas" on aluno_turmas for all using (true) with check (true);
+drop policy if exists "acesso_total_convites_turma" on convites_turma;
+create policy "acesso_total_convites_turma" on convites_turma for all using (true) with check (true);
