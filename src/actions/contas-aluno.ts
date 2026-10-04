@@ -143,10 +143,19 @@ export async function criarContasAluno(turmaId: string, alunos: { nome: string; 
   const { data: turma } = await supabase.from("turmas").select("nome, ano_letivo, escola_id").eq("id", turmaId).single();
   if (!turma || turma.escola_id !== admin.escola_id) throw new Error("Turma não encontrada.");
 
+  // Valida tudo antes do primeiro insert, para não perder senhas de contas já criadas.
+  const invalidos: string[] = [];
+  const vistos = new Set<string>();
+  for (const { nome, usuario } of alunos) {
+    const u = usuario.trim().toLowerCase();
+    if (!nome.trim() || !/^[a-z0-9.]+$/.test(u) || vistos.has(u)) invalidos.push(nome.trim() || "(sem nome)");
+    vistos.add(u);
+  }
+  if (invalidos.length > 0) throw new Error(`Usuário inválido ou repetido para: ${invalidos.join(", ")}. Nenhuma conta foi criada.`);
+
   const credenciais: CredencialGerada[] = [];
   for (const { nome, usuario } of alunos) {
     const usuarioLimpo = usuario.trim().toLowerCase();
-    if (!nome.trim() || !/^[a-z0-9.]+$/.test(usuarioLimpo)) throw new Error(`Usuário inválido para ${nome}.`);
     const senha = gerarSenhaProvisoria();
     const { data: conta, error } = await supabase
       .from("alunos_contas")
@@ -155,7 +164,11 @@ export async function criarContasAluno(turmaId: string, alunos: { nome: string; 
       .single();
     if (error?.code === "23505") throw new Error(`O usuário ${usuarioLimpo} já existe. Gere a prévia de novo. ${credenciais.length} conta(s) já foram criadas antes deste.`);
     if (error || !conta) throw new Error(error?.message ?? "Falha ao criar conta.");
-    await supabase.from("aluno_turmas").insert({ conta_id: conta.id, escola_id: admin.escola_id, turma_nome: turma.nome, ano_letivo: turma.ano_letivo });
+    const { error: erroVinculo } = await supabase.from("aluno_turmas").insert({ conta_id: conta.id, escola_id: admin.escola_id, turma_nome: turma.nome, ano_letivo: turma.ano_letivo });
+    if (erroVinculo) {
+      await supabase.from("alunos_contas").delete().eq("id", conta.id);
+      throw new Error(`Falha ao ligar ${nome.trim()} à turma. ${credenciais.length} conta(s) já foram criadas antes deste.`);
+    }
     credenciais.push({ nome: nome.trim(), usuario: usuarioLimpo, senha, turma: `${turma.nome} · ${turma.ano_letivo}` });
   }
   return credenciais;
