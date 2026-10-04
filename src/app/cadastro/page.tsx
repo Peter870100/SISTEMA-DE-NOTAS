@@ -22,7 +22,7 @@ export default async function CadastroPage({ searchParams }: CadastroPageProps) 
 
   if (enviado) {
     return (
-      <AuthShell
+      <AuthShell videoCadastro
         titulo="Quase lá!"
         subtitulo="Enviamos um email de confirmação. Clique no link que chegou na sua caixa de entrada pra ativar sua conta."
       >
@@ -34,7 +34,7 @@ export default async function CadastroPage({ searchParams }: CadastroPageProps) 
   }
 
   return (
-    <AuthShell
+    <AuthShell videoCadastro
       titulo="Criar conta"
       subtitulo="Peça o código de convite pra quem administra o sistema."
       comoForm={cadastrar}

@@ -52,3 +52,9 @@ flutuantes. Sem tema escuro.
 
 ## Login institucional
 LoginShell.tsx: layout institucional azul original, com apresentação à esquerda e formulário azul à direita; empilhados no celular. Cabeçalho, textos, campos, botão amarelo e rodapé preservados. Apenas a apresentação das fotos mudou: public/segmento-medio.jpg como fundo com camada azul para legibilidade, sem cards de segmentos.
+
+Vídeo de apresentação: `public/login-status-loop.mp4`, trecho de 18 segundos a partir de 00:08 do original, em 720p/H.264, sem áudio e com entrada/saída suave. LoginVideo mantém a foto como alternativa, aplica a camada azul sem controles visíveis; não carrega o vídeo com redução de movimento ou economia de dados.
+
+Botões: hover com elevação de 3px, escala de 1,03, sombra, halo azul (dourado nos botões amarelos) e reflexo de luz de 700ms. Clique com escala de 0,97. Apenas dispositivos com mouse, sem movimento para quem prefere animações reduzidas e sem efeitos em botões desabilitados.
+
+Cadastro: outra cena do vídeo (00:36–00:54), em `public/cadastro-status-loop.mp4`, com imagem alternativa `public/cadastro-status-poster.jpg`. Fundo em tela inteira com camada azul e card mais opaco para manter os campos legíveis, incluindo a confirmação de cadastro.
