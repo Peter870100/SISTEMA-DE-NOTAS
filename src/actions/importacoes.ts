@@ -255,14 +255,15 @@ export async function lerDeNovo(importacaoId: string): Promise<void> {
 export async function aprovarTodasSemAviso(importacaoId: string): Promise<number> {
   const { importacao } = await exigirImportacao(importacaoId);
   if (importacao.status !== "revisao") throw new Error("A leitura ainda não terminou.");
-  const { data, error } = await supabase
+  let consulta = supabase
     .from("questoes")
     .update({ status: "publicada", updated_at: new Date().toISOString() })
     .eq("importacao_id", importacaoId)
     .eq("status", "revisao")
     .eq("precisa_revisao", false)
-    .or("resposta.not.is.null,anulada.eq.true")
-    .select("id");
+    .or("resposta.not.is.null,anulada.eq.true");
+  if (importacao.origem === "enemdev") consulta = consulta.not("assunto_id", "is", null);
+  const { data, error } = await consulta.select("id");
   if (error) throw new Error(error.message);
   const { count } = await supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", importacaoId).eq("status", "revisao");
   if ((count ?? 0) === 0) await supabase.from("importacoes").update({ status: "concluida" }).eq("id", importacaoId).eq("status", "revisao");
