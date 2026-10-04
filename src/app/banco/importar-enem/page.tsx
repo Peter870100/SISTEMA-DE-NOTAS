@@ -4,6 +4,7 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { ImportarEnem } from "@/components/questoes/ImportarEnem";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 export default async function ImportarEnemPage() {
   const professor = await getProfessorAtual();

@@ -3,14 +3,14 @@
 import { randomUUID } from "node:crypto";
 import { supabase } from "@/lib/supabase/client";
 import { exigirProfessor } from "@/lib/questoes/acesso";
-import { enemDevParaQuestao, type EnemDevQuestao } from "@/lib/questoes/enemdev";
+import { enemDevParaQuestao, urlImagemPermitida, type EnemDevQuestao } from "@/lib/questoes/enemdev";
 import { clienteIA, custoDoUso, pedidoClassificacao } from "@/lib/questoes/ia";
 import { ClassificacaoSchema, classificacaoParaAtualizacoes } from "@/lib/questoes/formato-ia";
 import { BUCKET } from "@/lib/questoes/storage";
 import type { StatusImportacao } from "@/lib/types";
 
 const API = "https://api.enem.dev/v1";
-const LOTE_DOWNLOAD = 50;
+const LOTE_DOWNLOAD = 25;
 const POR_PEDIDO = 20;
 
 async function exigirDono() {
@@ -35,8 +35,10 @@ export async function criarImportacaoEnem(ano: number): Promise<string> {
 
 async function copiarImagem(url: string, questaoId: string): Promise<string | null> {
   try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    if (!urlImagemPermitida(url)) return null;
+    const r = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(20_000) });
     if (!r.ok) return null;
+    if (Number(r.headers.get("content-length") ?? 0) > 5242880) return null;
     const tipo = r.headers.get("content-type") ?? "";
     const ext = tipo.includes("png") ? "png" : tipo.includes("webp") ? "webp" : tipo.includes("jpeg") || tipo.includes("jpg") ? "jpg" : null;
     if (!ext) return null;
@@ -64,28 +66,40 @@ export async function avancarImportacaoEnem(importacaoId: string): Promise<Passo
 
   for (const q of corpo.questions) {
     const { linha, imagens } = enemDevParaQuestao(q);
-    const { data: criada, error } = await supabase.from("questoes").insert({ ...linha, importacao_id: importacaoId, criado_por: imp.criado_por }).select("id").single();
+    const { data: criada, error } = await supabase.from("questoes").insert({ ...linha, precisa_revisao: true, importacao_id: importacaoId, criado_por: imp.criado_por }).select("id").single();
     if (error) {
       if (error.message.includes("uq_questoes")) continue; // já existe: pula
       throw new Error(error.message);
     }
+    // A questão fica marcada para revisão enquanto as imagens são copiadas; se a função for interrompida, não sai limpa.
     let falhou = false;
     for (const [i, img] of imagens.entries()) {
       const caminho = await copiarImagem(img.url, criada.id);
       if (!caminho) { falhou = true; continue; }
-      await supabase.from("questao_imagens").insert({ questao_id: criada.id, alvo: img.alvo, ordem: i, tipo: "arquivo", storage_path: caminho });
+      const { error: erroImg } = await supabase.from("questao_imagens").insert({ questao_id: criada.id, alvo: img.alvo, ordem: i, tipo: "arquivo", storage_path: caminho });
+      if (erroImg) falhou = true;
     }
     if (falhou) {
       await supabase.from("questoes").update({ precisa_revisao: true, motivo_revisao: [linha.motivo_revisao, "Uma imagem não pôde ser copiada do enem.dev."].filter(Boolean).join(" ") }).eq("id", criada.id);
+    } else if (!linha.precisa_revisao) {
+      await supabase.from("questoes").update({ precisa_revisao: false }).eq("id", criada.id);
     }
   }
 
   const feitas = offset + corpo.questions.length;
-  await supabase.from("importacoes").update({ paginas_lidas: feitas, total_paginas: corpo.metadata.total, updated_at: new Date().toISOString() }).eq("id", importacaoId);
+  const { error: erroAvanco } = await supabase.from("importacoes").update({ paginas_lidas: feitas, total_paginas: corpo.metadata.total, updated_at: new Date().toISOString() }).eq("id", importacaoId);
+  if (erroAvanco) throw new Error(erroAvanco.message);
   if (corpo.metadata.hasMore && corpo.questions.length > 0) {
     return { importacaoId, feitas, total: corpo.metadata.total, terminou: false, status: "enviando" };
   }
-  await iniciarClassificacao(importacaoId);
+  const { data: reservou } = await supabase.from("importacoes").update({ status: "lendo", batch_id: null, updated_at: new Date().toISOString() }).eq("id", importacaoId).eq("status", "enviando").select("id");
+  if (!reservou || reservou.length === 0) return { importacaoId, feitas, total: corpo.metadata.total, terminou: false, status: "lendo" };
+  try {
+    await iniciarClassificacao(importacaoId);
+  } catch (e) {
+    await supabase.from("importacoes").update({ status: "enviando", batch_id: null }).eq("id", importacaoId);
+    throw e;
+  }
   return { importacaoId, feitas, total: corpo.metadata.total, terminou: false, status: "lendo" };
 }
 
@@ -96,7 +110,7 @@ async function iniciarClassificacao(importacaoId: string) {
   ]);
   const lista = questoes ?? [];
   if (lista.length === 0) {
-    await supabase.from("importacoes").update({ status: "revisao" }).eq("id", importacaoId);
+    await supabase.from("importacoes").update({ status: "revisao" }).eq("id", importacaoId).eq("status", "lendo");
     return;
   }
   const pedidos = [];
@@ -121,6 +135,7 @@ export async function atualizarClassificacaoEnem(importacaoId: string): Promise<
   const { data: imp } = await supabase.from("importacoes").select("*").eq("id", importacaoId).single();
   if (!imp) throw new Error("Importação não encontrada.");
   const passo = (status: StatusImportacao, terminou: boolean): PassoEnem => ({ importacaoId, feitas: imp.paginas_lidas, total: imp.total_paginas, terminou, status });
+  if (imp.status === "lendo" && !imp.batch_id) return passo("lendo", false); // lote ainda sendo criado
   if (imp.status !== "lendo" || !imp.batch_id) return passo(imp.status, imp.status !== "enviando");
   const lote = await clienteIA().messages.batches.retrieve(imp.batch_id);
   if (lote.processing_status !== "ended") return passo("lendo", false);
@@ -132,6 +147,7 @@ export async function atualizarClassificacaoEnem(importacaoId: string): Promise<
   const mapa = new Map((assuntos ?? []).map((a) => [a.id, a.materia]));
   const { data: daImportacao } = await supabase.from("questoes").select("id").eq("importacao_id", importacaoId);
   const idsEsperados = new Set((daImportacao ?? []).map((q) => q.id));
+  const atualizadas = new Set<string>();
   let custo = 0;
   for await (const r of await clienteIA().messages.batches.results(imp.batch_id)) {
     if (r.result.type !== "succeeded") continue;
@@ -144,6 +160,7 @@ export async function atualizarClassificacaoEnem(importacaoId: string): Promise<
       if (u.assuntoNovo) assunto_id = await assuntoProposto(u.materia, u.assuntoNovo);
       const { data: q } = await supabase.from("questoes").select("precisa_revisao, motivo_revisao, importacao_id").eq("id", u.id).maybeSingle();
       if (!q || q.importacao_id !== importacaoId) continue;
+      atualizadas.add(u.id);
       await supabase.from("questoes").update({
         materia: u.materia, area: u.area, assunto_id,
         precisa_revisao: q.precisa_revisao || u.precisa,
@@ -151,8 +168,14 @@ export async function atualizarClassificacaoEnem(importacaoId: string): Promise<
       }).eq("id", u.id);
     }
   }
+  // Quem a IA não classificou fica em revisão.
+  for (const id of idsEsperados) {
+    if (atualizadas.has(id)) continue;
+    const { data: q } = await supabase.from("questoes").select("motivo_revisao").eq("id", id).maybeSingle();
+    await supabase.from("questoes").update({ precisa_revisao: true, motivo_revisao: [q?.motivo_revisao, "Não classificada pela IA."].filter(Boolean).join(" ") }).eq("id", id).is("assunto_id", null);
+  }
   // Publica o que veio limpo (fonte já revisada); o resto fica em revisão.
-  await supabase.from("questoes").update({ status: "publicada" }).eq("importacao_id", importacaoId).eq("precisa_revisao", false).not("resposta", "is", null);
+  await supabase.from("questoes").update({ status: "publicada" }).eq("importacao_id", importacaoId).eq("precisa_revisao", false).not("assunto_id", "is", null).not("resposta", "is", null);
   const { count } = await supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", importacaoId).eq("status", "revisao");
   const final: StatusImportacao = (count ?? 0) === 0 ? "concluida" : "revisao";
   await supabase.from("importacoes").update({ status: final, custo_real_usd: Math.round(custo * 100) / 100, updated_at: new Date().toISOString() }).eq("id", importacaoId);

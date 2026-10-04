@@ -4,6 +4,7 @@ import { MATERIAS, areaDaMateria, ehMateria, LETRAS } from "./materias";
 import { ASSUNTOS_INICIAIS } from "./assuntos-iniciais";
 import { estiloRecorte, limitarQuadro } from "./quadro";
 import { markdownParaBlocos } from "./markdown";
+import { urlImagemPermitida } from "./enemdev";
 import { respostaParaQuestoes, RespostaPaginaSchema, classificacaoParaAtualizacoes } from "./formato-ia";
 
 test("matérias e áreas", () => {
@@ -235,4 +236,13 @@ test("enem.dev: imagem quebrada e alternativa-imagem", () => {
   assert.equal(r.imagens.filter((i) => i.alvo !== "enunciado").length, 5);
   assert.ok(r.imagens.some((i) => i.alvo === "enunciado" && i.url.endsWith("/f.png")));
   assert.equal(r.linha.precisa_revisao, false);
+});
+
+test("urlImagemPermitida só aceita https://enem.dev", () => {
+  assert.equal(urlImagemPermitida("https://enem.dev/2022/questions/1/a.png"), true);
+  assert.equal(urlImagemPermitida("http://enem.dev/a.png"), false);
+  assert.equal(urlImagemPermitida("https://evil.com/a.png"), false);
+  assert.equal(urlImagemPermitida("https://enem.dev.evil.com/a.png"), false);
+  assert.equal(urlImagemPermitida("http://169.254.169.254/latest"), false);
+  assert.equal(urlImagemPermitida("não é url"), false);
 });

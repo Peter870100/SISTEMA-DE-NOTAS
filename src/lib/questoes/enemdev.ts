@@ -74,3 +74,13 @@ export function enemDevParaQuestao(q: EnemDevQuestao) {
   };
   return { linha, imagens };
 }
+
+/** Só baixamos imagens servidas por https://enem.dev (evita SSRF). */
+export function urlImagemPermitida(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && u.hostname === "enem.dev";
+  } catch {
+    return false;
+  }
+}
