@@ -521,3 +521,132 @@ create policy "materiais_servidor_apagar" on storage.objects for delete using (b
 
 -- ===== Duração do vídeo informada pelo editor do professor (2026-10-04) =====
 alter table aulas add column if not exists duracao_seg integer check (duracao_seg is null or (duracao_seg between 1 and 21600));
+
+-- ===== Banco de questões (2026-10-04) =====
+
+create table if not exists assuntos (
+    id uuid primary key default gen_random_uuid(),
+    materia text not null check (materia in ('portugues','literatura','ingles','espanhol','artes','educacao_fisica',
+        'historia','geografia','filosofia','sociologia','fisica','quimica','biologia','matematica')),
+    nome text not null,
+    situacao varchar(10) not null default 'aprovado' check (situacao in ('aprovado', 'proposto')),
+    created_at timestamptz not null default now()
+);
+create unique index if not exists uq_assuntos_materia_nome on assuntos (materia, lower(nome));
+
+create table if not exists importacoes (
+    id uuid primary key default gen_random_uuid(),
+    escopo varchar(6) not null check (escopo in ('geral', 'escola')),
+    escola_id uuid references escolas(id),
+    origem varchar(8) not null check (origem in ('pdf', 'enemdev')),
+    banca text not null,
+    ano integer,
+    caderno text not null default '',
+    status varchar(10) not null default 'enviando'
+        check (status in ('enviando', 'lendo', 'revisao', 'concluida', 'erro')),
+    total_paginas integer not null default 0,
+    paginas_lidas integer not null default 0,
+    batch_id text,
+    custo_estimado_usd numeric(8,2),
+    custo_real_usd numeric(8,2),
+    erro text,
+    criado_por uuid references professores(id) on delete set null,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    check ((escopo = 'geral') = (escola_id is null))
+);
+
+create table if not exists importacao_paginas (
+    id uuid primary key default gen_random_uuid(),
+    importacao_id uuid not null references importacoes(id) on delete cascade,
+    tipo varchar(9) not null check (tipo in ('prova', 'gabarito')),
+    numero integer not null,
+    storage_path text not null unique,       -- <importacao_id>/<tipo>-<numero>.jpg (dentro do bucket questoes)
+    largura integer not null,
+    altura integer not null,
+    status varchar(8) not null default 'pendente' check (status in ('pendente', 'lida', 'erro')),
+    erro text,
+    unique (importacao_id, tipo, numero)
+);
+
+create table if not exists questoes (
+    id uuid primary key default gen_random_uuid(),
+    escopo varchar(6) not null check (escopo in ('geral', 'escola')),
+    escola_id uuid references escolas(id),
+    banca text not null,
+    ano integer,
+    caderno text not null default '',
+    numero integer,
+    area varchar(10) not null check (area in ('linguagens', 'humanas', 'natureza', 'matematica')),
+    materia text not null,
+    assunto_id uuid references assuntos(id) on delete set null,
+    enunciado text not null default '',
+    comando text not null default '',
+    alternativas jsonb not null default '[]',  -- [{ "letra": "A", "texto": "..." }, ... até "E"]
+    resposta char(1) check (resposta in ('A', 'B', 'C', 'D', 'E')),
+    anulada boolean not null default false,
+    status varchar(9) not null default 'revisao' check (status in ('revisao', 'publicada')),
+    precisa_revisao boolean not null default false,
+    motivo_revisao text,
+    origem varchar(8) not null check (origem in ('pdf', 'enemdev', 'manual')),
+    importacao_id uuid references importacoes(id) on delete set null,
+    pagina_id uuid references importacao_paginas(id) on delete set null,
+    fonte_id text,                              -- id da questão no enem.dev
+    criado_por uuid references professores(id) on delete set null,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    check ((escopo = 'geral') = (escola_id is null)),
+    check (status <> 'publicada' or anulada or resposta is not null)
+);
+create index if not exists idx_questoes_filtros on questoes (status, area, materia, banca, ano);
+create index if not exists idx_questoes_escola on questoes (escola_id);
+create index if not exists idx_questoes_importacao on questoes (importacao_id);
+create unique index if not exists uq_questoes_geral on questoes (banca, ano, caderno, numero)
+    where escopo = 'geral' and numero is not null;
+create unique index if not exists uq_questoes_escola on questoes (escola_id, banca, ano, caderno, numero)
+    where escopo = 'escola' and numero is not null;
+
+create table if not exists questao_imagens (
+    id uuid primary key default gen_random_uuid(),
+    questao_id uuid not null references questoes(id) on delete cascade,
+    alvo varchar(9) not null check (alvo in ('enunciado', 'A', 'B', 'C', 'D', 'E')),
+    ordem integer not null default 0,
+    tipo varchar(7) not null check (tipo in ('recorte', 'arquivo')),
+    pagina_id uuid references importacao_paginas(id) on delete cascade,
+    x numeric(6,5), y numeric(6,5), w numeric(6,5), h numeric(6,5),   -- frações 0..1 da página
+    storage_path text,                                                  -- quando tipo = 'arquivo'
+    created_at timestamptz not null default now(),
+    check (
+      (tipo = 'recorte' and pagina_id is not null and x is not null and y is not null and w > 0 and h > 0
+        and x >= 0 and y >= 0 and x + w <= 1.00001 and y + h <= 1.00001)
+      or (tipo = 'arquivo' and storage_path is not null)
+    )
+);
+create index if not exists idx_questao_imagens_questao on questao_imagens (questao_id);
+
+alter table assuntos enable row level security;
+alter table importacoes enable row level security;
+alter table importacao_paginas enable row level security;
+alter table questoes enable row level security;
+alter table questao_imagens enable row level security;
+drop policy if exists "acesso_total_assuntos" on assuntos;
+create policy "acesso_total_assuntos" on assuntos for all using (true) with check (true);
+drop policy if exists "acesso_total_importacoes" on importacoes;
+create policy "acesso_total_importacoes" on importacoes for all using (true) with check (true);
+drop policy if exists "acesso_total_importacao_paginas" on importacao_paginas;
+create policy "acesso_total_importacao_paginas" on importacao_paginas for all using (true) with check (true);
+drop policy if exists "acesso_total_questoes" on questoes;
+create policy "acesso_total_questoes" on questoes for all using (true) with check (true);
+drop policy if exists "acesso_total_questao_imagens" on questao_imagens;
+create policy "acesso_total_questao_imagens" on questao_imagens for all using (true) with check (true);
+
+-- Bucket privado das páginas e imagens das questões (mesmo modelo do bucket `materiais`)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('questoes', 'questoes', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do nothing;
+drop policy if exists "questoes_servidor_ler" on storage.objects;
+create policy "questoes_servidor_ler" on storage.objects for select using (bucket_id = 'questoes');
+drop policy if exists "questoes_servidor_enviar" on storage.objects;
+create policy "questoes_servidor_enviar" on storage.objects for insert with check (bucket_id = 'questoes');
+drop policy if exists "questoes_servidor_apagar" on storage.objects;
+create policy "questoes_servidor_apagar" on storage.objects for delete using (bucket_id = 'questoes');

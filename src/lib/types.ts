@@ -235,6 +235,90 @@ export type AulaProgresso = {
   atualizado_em: string;
 };
 
+export type Escopo = "geral" | "escola";
+export type Area = "linguagens" | "humanas" | "natureza" | "matematica";
+export type Letra = "A" | "B" | "C" | "D" | "E";
+export type AlvoImagem = "enunciado" | Letra;
+export type Alternativa = { letra: Letra; texto: string };
+
+export type Assunto = { id: string; materia: string; nome: string; situacao: "aprovado" | "proposto"; created_at: string };
+
+export type StatusImportacao = "enviando" | "lendo" | "revisao" | "concluida" | "erro";
+export type Importacao = {
+  id: string;
+  escopo: Escopo;
+  escola_id: string | null;
+  origem: "pdf" | "enemdev";
+  banca: string;
+  ano: number | null;
+  caderno: string;
+  status: StatusImportacao;
+  total_paginas: number;
+  paginas_lidas: number;
+  batch_id: string | null;
+  custo_estimado_usd: number | null;
+  custo_real_usd: number | null;
+  erro: string | null;
+  criado_por: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ImportacaoPagina = {
+  id: string;
+  importacao_id: string;
+  tipo: "prova" | "gabarito";
+  numero: number;
+  storage_path: string;
+  largura: number;
+  altura: number;
+  status: "pendente" | "lida" | "erro";
+  erro: string | null;
+};
+
+export type Questao = {
+  id: string;
+  escopo: Escopo;
+  escola_id: string | null;
+  banca: string;
+  ano: number | null;
+  caderno: string;
+  numero: number | null;
+  area: Area;
+  materia: string;
+  assunto_id: string | null;
+  enunciado: string;
+  comando: string;
+  alternativas: Alternativa[];
+  resposta: Letra | null;
+  anulada: boolean;
+  status: "revisao" | "publicada";
+  precisa_revisao: boolean;
+  motivo_revisao: string | null;
+  origem: "pdf" | "enemdev" | "manual";
+  importacao_id: string | null;
+  pagina_id: string | null;
+  fonte_id: string | null;
+  criado_por: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuestaoImagem = {
+  id: string;
+  questao_id: string;
+  alvo: AlvoImagem;
+  ordem: number;
+  tipo: "recorte" | "arquivo";
+  pagina_id: string | null;
+  x: number | null;
+  y: number | null;
+  w: number | null;
+  h: number | null;
+  storage_path: string | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -382,6 +466,36 @@ export type Database = {
         Row: AulaProgresso;
         Insert: Partial<AulaProgresso> & { conta_id: string; aula_id: string; curso_id: string };
         Update: Partial<AulaProgresso>;
+        Relationships: [];
+      };
+      assuntos: {
+        Row: Assunto;
+        Insert: Partial<Omit<Assunto, "id" | "created_at">> & { materia: string; nome: string };
+        Update: Partial<Omit<Assunto, "id" | "created_at">>;
+        Relationships: [];
+      };
+      importacoes: {
+        Row: Importacao;
+        Insert: Partial<Omit<Importacao, "id" | "created_at" | "updated_at">> & { escopo: Escopo; origem: "pdf" | "enemdev"; banca: string };
+        Update: Partial<Omit<Importacao, "id" | "created_at">>;
+        Relationships: [];
+      };
+      importacao_paginas: {
+        Row: ImportacaoPagina;
+        Insert: Partial<Omit<ImportacaoPagina, "id">> & { importacao_id: string; tipo: "prova" | "gabarito"; numero: number; storage_path: string; largura: number; altura: number };
+        Update: Partial<Omit<ImportacaoPagina, "id">>;
+        Relationships: [];
+      };
+      questoes: {
+        Row: Questao;
+        Insert: Partial<Omit<Questao, "id" | "created_at" | "updated_at">> & { escopo: Escopo; banca: string; area: Area; materia: string; origem: "pdf" | "enemdev" | "manual" };
+        Update: Partial<Omit<Questao, "id" | "created_at">>;
+        Relationships: [];
+      };
+      questao_imagens: {
+        Row: QuestaoImagem;
+        Insert: Partial<Omit<QuestaoImagem, "id" | "created_at">> & { questao_id: string; alvo: AlvoImagem; tipo: "recorte" | "arquivo" };
+        Update: Partial<Omit<QuestaoImagem, "id" | "created_at">>;
         Relationships: [];
       };
     };
