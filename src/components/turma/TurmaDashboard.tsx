@@ -9,6 +9,7 @@ import { PlanilhaGrid } from "@/components/grid/PlanilhaGrid";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos } from "@/components/ui/estilos";
 import { BimestreAbas } from "./BimestreAbas";
+import { CodigoAlunos } from "./CodigoAlunos";
 import { KpiCards } from "./KpiCards";
 import { SeloHermes } from "@/components/ui/SeloHermes";
 import { AnaliseAprendizagem } from "./AnaliseAprendizagem";
@@ -88,7 +89,12 @@ export function TurmaDashboard({
       crumb={`Turmas / Redação · ${turma.ano_letivo}`}
       titulo={turma.nome}
       subtitulo={turma.criado_via === "hermes" ? <SeloHermes sobreMoldura /> : undefined}
-      acoes={<BimestreAbas turma={turma} todasTurmas={todasTurmas} />}
+      acoes={
+        <>
+          <BimestreAbas turma={turma} todasTurmas={todasTurmas} />
+          <CodigoAlunos turmaId={turma.id} />
+        </>
+      }
     >
       {!maximizado && (
         <KpiCards totalAlunos={alunos.length} taxaCritico={taxaCritico} mediaTurma={mediaTurma10} />
