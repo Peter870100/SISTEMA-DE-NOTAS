@@ -154,3 +154,39 @@ test("classificação ignora ids desconhecidos e repetidos", () => {
   ] }, new Map([["as-1", "fisica"]]), new Set(["q1"]));
   assert.deepEqual(ups.map((u) => [u.id, u.materia]), [["q1", "fisica"]]);
 });
+
+import { podeEditarQuestao, podeImportar, podeVerQuestao } from "./regras";
+
+const DONO = { id: "d", role: "dono" as const, escola_id: "e1" };
+const ADMIN = { id: "a", role: "admin" as const, escola_id: "e1" };
+const PROF = { id: "p", role: "professor" as const, escola_id: "e1" };
+const OUTRO = { id: "o", role: "professor" as const, escola_id: "e2" };
+
+test("acesso: banco geral só o dono edita; todos veem publicadas", () => {
+  const geral = { escopo: "geral" as const, escola_id: null, criado_por: "d", status: "publicada" as const };
+  assert.equal(podeEditarQuestao(DONO, geral), true);
+  assert.equal(podeEditarQuestao(ADMIN, geral), false);
+  assert.equal(podeEditarQuestao(PROF, geral), false);
+  assert.equal(podeVerQuestao(PROF, geral), true);
+  assert.equal(podeVerQuestao(PROF, { ...geral, status: "revisao" }), false);
+  assert.equal(podeVerQuestao(DONO, { ...geral, status: "revisao" }), true);
+});
+
+test("acesso: questão da escola", () => {
+  const doProf = { escopo: "escola" as const, escola_id: "e1", criado_por: "p", status: "revisao" as const };
+  assert.equal(podeEditarQuestao(PROF, doProf), true);
+  assert.equal(podeEditarQuestao({ ...PROF, id: "p2" }, doProf), false);
+  assert.equal(podeEditarQuestao(ADMIN, doProf), true);
+  assert.equal(podeEditarQuestao(DONO, doProf), true);
+  assert.equal(podeEditarQuestao(OUTRO, doProf), false);
+  assert.equal(podeVerQuestao(OUTRO, { ...doProf, status: "publicada" }), false);
+  assert.equal(podeVerQuestao({ ...PROF, id: "p2" }, { ...doProf, status: "publicada" }), true);
+  assert.equal(podeVerQuestao({ ...PROF, id: "p2" }, doProf), false);
+});
+
+test("acesso: importar", () => {
+  assert.equal(podeImportar(DONO, "geral"), true);
+  assert.equal(podeImportar(ADMIN, "geral"), false);
+  assert.equal(podeImportar(ADMIN, "escola"), true);
+  assert.equal(podeImportar(PROF, "escola"), false);
+});
