@@ -20,11 +20,12 @@ export default async function CursoPage({ params }: { params: Promise<{ id: stri
   const { data: curso } = await supabase.from("cursos").select("*").eq("id", id).maybeSingle();
   if (!curso || !podeEditarCurso(professor, curso)) notFound();
 
-  const [modulos, { data: vinculos }, turmas] = await Promise.all([
+  const [modulos, { data: vinculos, error: erroVinculos }, turmas] = await Promise.all([
     arvoreDoCurso(id, false),
     supabase.from("curso_turmas").select("turma_nome, ano_letivo").eq("curso_id", id),
     listarTurmasAcessiveis(),
   ]);
+  if (erroVinculos) throw new Error(erroVinculos.message);
   const turmasCurso = vinculos ?? [];
   const opcoes = [...new Map([
     ...turmas.map((t) => [`${t.nome}|${t.ano_letivo}`, { turma_nome: t.nome, ano_letivo: t.ano_letivo }] as const),
