@@ -141,3 +141,28 @@ body {
     background-image: none;
   }
 }
+.fera-mascote-corpo {
+  animation: fera-flutuar 4.6s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.fera-mascote-sombra {
+  animation: fera-sombra 4.6s ease-in-out infinite;
+}
+
+@keyframes fera-flutuar {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-14px) rotate(1deg); }
+}
+
+@keyframes fera-sombra {
+  0%, 100% { transform: scaleX(1); opacity: 0.7; }
+  50% { transform: scaleX(0.75); opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fera-mascote-corpo, .fera-mascote-sombra {
+    animation: none;
+    transform: none;
+  }
+}

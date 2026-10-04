@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { LoginVideo } from "./LoginVideo";
+import { FeraMascote } from "./FeraMascote";
 
 type LoginShellProps = {
   children: React.ReactNode;
@@ -9,7 +10,8 @@ type LoginShellProps = {
 
 export function LoginShell({ children, action }: LoginShellProps) {
   return (
-    <main className="relative isolate flex min-h-dvh flex-1 flex-col bg-frame-deep text-white">
+    <main className="relative isolate flex min-h-dvh flex-1 flex-col bg-frame-deep pb-32 text-white lg:pb-0">
+      <FeraMascote />
       <header className="border-b border-white/15">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-6 py-5 sm:px-10">
           <Image src="/logo-status-branca.png" alt="Colégio Status" width={1580} height={513} preload className="h-auto w-40 sm:w-56" />
@@ -36,7 +38,7 @@ export function LoginShell({ children, action }: LoginShellProps) {
         </section>
       </div>
       <footer className="border-t-4 border-gold">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-5 text-xs text-white/75 sm:flex-row sm:items-center sm:justify-between sm:px-10">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-5 text-xs text-white/75 sm:flex-row sm:items-center sm:justify-between sm:px-10 lg:pl-44">
           <span className="font-semibold text-white">Colégio Status · Status Avalia</span>
           <span>Portal de acompanhamento da aprendizagem</span>
         </div>

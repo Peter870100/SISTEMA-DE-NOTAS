@@ -58,3 +58,5 @@ Vídeo de apresentação: `public/login-status-loop.mp4`, trecho de 18 segundos 
 Botões: hover com elevação de 3px, escala de 1,03, sombra, halo azul (dourado nos botões amarelos) e reflexo de luz de 700ms. Clique com escala de 0,97. Apenas dispositivos com mouse, sem movimento para quem prefere animações reduzidas e sem efeitos em botões desabilitados.
 
 Cadastro: outra cena do vídeo (00:36–00:54), em `public/cadastro-status-loop.mp4`, com imagem alternativa `public/cadastro-status-poster.jpg`. Fundo em tela inteira com camada azul e card mais opaco para manter os campos legíveis, incluindo a confirmação de cadastro.
+
+Fera: mascote transparente no canto inferior esquerdo do login e cadastro, flutuando suavemente. Largura de 112–128px no desktop, fixo no canto; no celular, 64–80px em espaço reservado no fim da página para não cobrir campos. Sem textos adicionais junto ao mascote. Redução de movimento respeitada.
