@@ -127,7 +127,30 @@ test("classificação do enem.dev", () => {
     { id: "q1", materia: "fisica", assunto_id: "as-1", assunto_novo: null },
     { id: "q2", materia: "quimica", assunto_id: "as-1", assunto_novo: null },
     { id: "q3", materia: "biologia", assunto_id: null, assunto_novo: "Genética de populações" },
-  ] }, new Map([["as-1", "fisica"]]));
+  ] }, new Map([["as-1", "fisica"]]), new Set(["q1", "q2", "q3"]));
   assert.deepEqual(ups.map((u) => [u.id, u.area, u.assunto_id, u.precisa]), [["q1", "natureza", "as-1", false], ["q2", "natureza", null, true], ["q3", "natureza", null, true]]);
   assert.equal(ups[2].assuntoNovo, "Genética de populações");
+});
+
+test("IA: enunciado vazio, número inválido, alternativa vazia e falta de assunto pedem revisão", () => {
+  const rev = (extra: Record<string, unknown>) => {
+    const q = respostaParaQuestoes(RespostaPaginaSchema.parse({ questoes: [questaoIA(extra)] }), ctx()).questoes[0].linha;
+    return [q.precisa_revisao, q.motivo_revisao] as const;
+  };
+  assert.match(rev({ enunciado: "  " })[1]!, /Enunciado vazio/);
+  assert.match(rev({ numero: 0 })[1]!, /Número da questão inválido/);
+  const altB = ALT.map((a) => (a.letra === "B" ? { ...a, texto: " " } : a));
+  assert.match(rev({ alternativas: altB })[1]!, /Alternativa B sem conteúdo/);
+  assert.deepEqual(rev({ alternativas: altB, figuras: [{ alvo: "B", x: 0, y: 0, w: 0.5, h: 0.5 }] }), [false, null]);
+  assert.match(rev({ assunto_id: null })[1]!, /Sem assunto/);
+  assert.deepEqual(rev({ comando: "" }), [false, null]);
+});
+
+test("classificação ignora ids desconhecidos e repetidos", () => {
+  const ups = classificacaoParaAtualizacoes({ itens: [
+    { id: "q1", materia: "fisica", assunto_id: "as-1", assunto_novo: null },
+    { id: "zz", materia: "fisica", assunto_id: "as-1", assunto_novo: null },
+    { id: "q1", materia: "quimica", assunto_id: null, assunto_novo: null },
+  ] }, new Map([["as-1", "fisica"]]), new Set(["q1"]));
+  assert.deepEqual(ups.map((u) => [u.id, u.materia]), [["q1", "fisica"]]);
 });

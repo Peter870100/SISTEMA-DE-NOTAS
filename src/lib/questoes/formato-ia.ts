@@ -59,6 +59,11 @@ export function respostaParaQuestoes(resposta: RespostaPagina, ctx: ContextoPagi
     ctx.numerosExistentes.add(q.numero);
 
     const motivos: string[] = [...q.duvidas];
+    if (!q.enunciado.trim()) motivos.push("Enunciado vazio.");
+    if (q.numero < 1) motivos.push("Número da questão inválido.");
+    for (const a of q.alternativas) {
+      if (!a.texto.trim() && !q.figuras.some((f) => f.alvo === a.letra)) motivos.push(`Alternativa ${a.letra} sem conteúdo.`);
+    }
     const letras = q.alternativas.map((a) => a.letra).join("");
     if (q.alternativas.length !== 5 || letras !== "ABCDE") motivos.push("A questão precisa ter 5 alternativas (A a E).");
     if (!q.resposta && !q.anulada) motivos.push("Resposta não encontrada no gabarito.");
@@ -70,6 +75,7 @@ export function respostaParaQuestoes(resposta: RespostaPagina, ctx: ContextoPagi
     }
     const novo = !assunto_id && q.assunto_novo?.trim() ? { materia: q.materia, nome: q.assunto_novo.trim() } : null;
     if (novo) motivos.push(`Assunto novo proposto: ${novo.nome}.`);
+    else if (!assunto_id) motivos.push("Sem assunto.");
 
     const materia = q.materia;
     const area: Area = ehMateria(materia) ? areaDaMateria(materia) : q.area;
@@ -103,8 +109,13 @@ export function respostaParaQuestoes(resposta: RespostaPagina, ctx: ContextoPagi
   return { questoes, avisos };
 }
 
-export function classificacaoParaAtualizacoes(c: Classificacao, assuntos: Map<string, string>) {
-  return c.itens.map((i) => {
+export function classificacaoParaAtualizacoes(c: Classificacao, assuntos: Map<string, string>, idsEsperados: Set<string>) {
+  const vistos = new Set<string>();
+  return c.itens.filter((i) => {
+    if (!idsEsperados.has(i.id) || vistos.has(i.id)) return false;
+    vistos.add(i.id);
+    return true;
+  }).map((i) => {
     const assunto_id = i.assunto_id && assuntos.get(i.assunto_id) === i.materia ? i.assunto_id : null;
     const assuntoNovo = !assunto_id && i.assunto_novo?.trim() ? i.assunto_novo.trim() : null;
     return {
