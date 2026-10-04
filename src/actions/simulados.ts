@@ -42,7 +42,7 @@ function limpar(d: DadosSimulado) {
   const abre = Date.parse(d.abreEm), fecha = Date.parse(d.fechaEm);
   if (!Number.isFinite(abre) || !Number.isFinite(fecha) || fecha <= abre) throw new Error("A data de fechamento precisa ser depois da abertura.");
   if (d.correcao !== "na_hora" && d.correcao !== "apos_prazo") throw new Error("Escolha quando sai a correção.");
-  return { titulo: titulo.slice(0, 160), duracao_min: duracao, abre_em: new Date(abre).toISOString(), fecha_em: new Date(fecha).toISOString(), correcao: d.correcao, embaralhar: d.embaralhar };
+  return { titulo: titulo.slice(0, 160), duracao_min: duracao, abre_em: new Date(abre).toISOString(), fecha_em: new Date(fecha).toISOString(), correcao: d.correcao, embaralhar: Boolean(d.embaralhar) };
 }
 
 /** Só turmas (nome+ano) que o professor pode acessar; mantém as já ligadas. */
@@ -52,16 +52,22 @@ async function gravarTurmas(simuladoId: string, escolaId: string, turmas: DadosS
   if (e0) throw new Error(e0.message);
   const ja = new Set((atuais ?? []).map((t) => `${t.turma_nome}|${t.ano_letivo}`));
   const validas = [...new Map(turmas.filter((t) => acessiveis.has(`${t.turma_nome}|${t.ano_letivo}`) || ja.has(`${t.turma_nome}|${t.ano_letivo}`)).map((t) => [`${t.turma_nome}|${t.ano_letivo}`, t])).values()];
-  const { error: e1 } = await supabase.from("simulado_turmas").delete().eq("simulado_id", simuladoId);
-  if (e1) throw new Error(e1.message);
-  if (validas.length) {
-    const { error } = await supabase.from("simulado_turmas").insert(validas.map((t) => ({ simulado_id: simuladoId, escola_id: escolaId, turma_nome: t.turma_nome, ano_letivo: t.ano_letivo })));
+  const novas = validas.filter((t) => !ja.has(`${t.turma_nome}|${t.ano_letivo}`));
+  const chaves = new Set(validas.map((t) => `${t.turma_nome}|${t.ano_letivo}`));
+  const removidas = (atuais ?? []).filter((t) => !chaves.has(`${t.turma_nome}|${t.ano_letivo}`));
+  if (novas.length) {
+    const { error } = await supabase.from("simulado_turmas").insert(novas.map((t) => ({ simulado_id: simuladoId, escola_id: escolaId, turma_nome: t.turma_nome, ano_letivo: t.ano_letivo })));
+    if (error) throw new Error(error.message);
+  }
+  for (const t of removidas) {
+    const { error } = await supabase.from("simulado_turmas").delete().eq("simulado_id", simuladoId).eq("turma_nome", t.turma_nome).eq("ano_letivo", t.ano_letivo);
     if (error) throw new Error(error.message);
   }
 }
 
 async function temTentativas(simuladoId: string): Promise<boolean> {
-  const { count } = await supabase.from("tentativas").select("id", { count: "exact", head: true }).eq("simulado_id", simuladoId);
+  const { count, error } = await supabase.from("tentativas").select("id", { count: "exact", head: true }).eq("simulado_id", simuladoId);
+  if (error) throw new Error(error.message);
   return (count ?? 0) > 0;
 }
 
@@ -71,9 +77,11 @@ async function exigirQuestoesEditaveis(id: string) {
   return r;
 }
 
-async function idsDoSimulado(id: string): Promise<string[]> {
-  const { data } = await supabase.from("simulado_questoes").select("questao_id, ordem").eq("simulado_id", id).order("ordem");
-  return (data ?? []).map((q) => q.questao_id);
+async function idsDoSimulado(id: string): Promise<{ ids: string[]; proxima: number }> {
+  const { data, error } = await supabase.from("simulado_questoes").select("questao_id, ordem").eq("simulado_id", id).order("ordem");
+  if (error) throw new Error(error.message);
+  const linhas = data ?? [];
+  return { ids: linhas.map((q) => q.questao_id), proxima: linhas.reduce((m, q) => Math.max(m, q.ordem + 1), 0) };
 }
 
 export async function criarSimulado(d: DadosSimulado): Promise<string> {
@@ -88,7 +96,18 @@ export async function criarSimulado(d: DadosSimulado): Promise<string> {
 
 export async function salvarSimulado(id: string, d: DadosSimulado): Promise<void> {
   const { simulado } = await exigirSimuladoEditavel(id);
-  const { error } = await supabase.from("simulados").update({ ...limpar(d), updated_at: new Date().toISOString() }).eq("id", id);
+  const campos = limpar(d);
+  if (await temTentativas(id)) {
+    const { data: ligadas, error: eL } = await supabase.from("simulado_turmas").select("turma_nome, ano_letivo").eq("simulado_id", id);
+    if (eL) throw new Error(eL.message);
+    const novas = new Set(d.turmas.map((t) => `${t.turma_nome}|${t.ano_letivo}`));
+    const mudou = campos.duracao_min !== simulado.duracao_min
+      || campos.embaralhar !== Boolean(simulado.embaralhar)
+      || Date.parse(campos.abre_em) !== Date.parse(simulado.abre_em ?? "")
+      || (ligadas ?? []).some((t) => !novas.has(`${t.turma_nome}|${t.ano_letivo}`));
+    if (mudou) throw new Error("Alunos já começaram: só é possível mudar título, correção, fechamento e acrescentar turmas.");
+  }
+  const { error } = await supabase.from("simulados").update({ ...campos, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw new Error(error.message);
   await gravarTurmas(id, simulado.escola_id, d.turmas);
 }
@@ -98,10 +117,10 @@ export async function sortearQuestoes(id: string, f: FiltrosSorteio & { quantida
   const pedidas = Math.round(f.quantidade);
   if (!Number.isFinite(pedidas) || pedidas < 1 || pedidas > 200) throw new Error("Quantidade de 1 a 200.");
   const filtros = limparFiltros(f);
-  const atuais = await idsDoSimulado(id);
+  const { ids: atuais, proxima } = await idsDoSimulado(id);
   const novas = sortear(await candidatosSorteio(simulado.escola_id, filtros, atuais), pedidas);
   if (novas.length) {
-    const { error } = await supabase.from("simulado_questoes").insert(novas.map((questao_id, i) => ({ simulado_id: id, questao_id, ordem: atuais.length + i })));
+    const { error } = await supabase.from("simulado_questoes").insert(novas.map((questao_id, i) => ({ simulado_id: id, questao_id, ordem: proxima + i })));
     if (error) throw new Error(error.message);
   }
   return { adicionadas: novas.length, pedidas };
@@ -110,15 +129,12 @@ export async function sortearQuestoes(id: string, f: FiltrosSorteio & { quantida
 export async function trocarQuestao(id: string, questaoId: string, f: FiltrosSorteio): Promise<boolean> {
   const { simulado } = await exigirQuestoesEditaveis(id);
   const filtros = limparFiltros(f);
-  const atuais = await idsDoSimulado(id);
-  const pos = atuais.indexOf(questaoId);
-  if (pos < 0) throw new Error("Questão não está no simulado.");
+  const { ids: atuais } = await idsDoSimulado(id);
+  if (!atuais.includes(questaoId)) throw new Error("Questão não está no simulado.");
   const [nova] = sortear(await candidatosSorteio(simulado.escola_id, filtros, atuais), 1);
   if (!nova) return false;
-  const { error } = await supabase.from("simulado_questoes").delete().eq("simulado_id", id).eq("questao_id", questaoId);
+  const { error } = await supabase.from("simulado_questoes").update({ questao_id: nova }).eq("simulado_id", id).eq("questao_id", questaoId);
   if (error) throw new Error(error.message);
-  const { error: e2 } = await supabase.from("simulado_questoes").insert({ simulado_id: id, questao_id: nova, ordem: pos });
-  if (e2) throw new Error(e2.message);
   return true;
 }
 
@@ -132,9 +148,9 @@ export async function adicionarQuestao(id: string, questaoId: string): Promise<v
   const { simulado } = await exigirQuestoesEditaveis(id);
   const { data: q } = await supabase.from("questoes").select("id").eq("id", questaoId).eq("status", "publicada").or(filtroVisivel(simulado.escola_id)).maybeSingle();
   if (!q) throw new Error("Questão não disponível.");
-  const atuais = await idsDoSimulado(id);
+  const { ids: atuais, proxima } = await idsDoSimulado(id);
   if (atuais.includes(questaoId)) return;
-  const { error } = await supabase.from("simulado_questoes").insert({ simulado_id: id, questao_id: questaoId, ordem: atuais.length });
+  const { error } = await supabase.from("simulado_questoes").insert({ simulado_id: id, questao_id: questaoId, ordem: proxima });
   if (error) throw new Error(error.message);
 }
 
@@ -155,7 +171,7 @@ export async function buscarQuestoesBanco(id: string, texto: string, f: FiltrosS
 
 export async function publicarSimulado(id: string): Promise<void> {
   const { simulado } = await exigirSimuladoEditavel(id);
-  const [ids, { count }] = await Promise.all([idsDoSimulado(id), supabase.from("simulado_turmas").select("simulado_id", { count: "exact", head: true }).eq("simulado_id", id)]);
+  const [{ ids }, { count }] = await Promise.all([idsDoSimulado(id), supabase.from("simulado_turmas").select("simulado_id", { count: "exact", head: true }).eq("simulado_id", id)]);
   if (ids.length === 0) throw new Error("Adicione questões antes de publicar.");
   if ((count ?? 0) === 0) throw new Error("Escolha ao menos uma turma.");
   if (!simulado.abre_em || !simulado.fecha_em) throw new Error("Defina abertura e fechamento.");
