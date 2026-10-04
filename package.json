@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/comandos.test.ts src/lib/lixeira.test.ts src/lib/token-senha.test.ts src/lib/contas-aluno.test.ts src/lib/sessao.test.ts src/lib/papeis.test.ts src/lib/rotas.test.ts",
+    "test": "tsx --test src/lib/comandos.test.ts src/lib/lixeira.test.ts src/lib/token-senha.test.ts src/lib/contas-aluno.test.ts src/lib/sessao.test.ts src/lib/papeis.test.ts src/lib/rotas.test.ts src/lib/aulas/aulas.test.ts",
     "seed": "tsx --env-file=.env.local scripts/seed-from-xlsx.ts",
     "mcp": "tsx --env-file=.env.local mcp/server.ts",
     "criar-professor": "tsx --env-file=.env.local scripts/criar-professor.ts"
