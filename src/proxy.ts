@@ -1,27 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { COOKIE_NOME } from "@/lib/auth";
-import { segredo, verificarSessao } from "@/lib/sessao";
+import { COOKIE_NOME, segredo, verificarSessao } from "@/lib/sessao";
+import { destinoDaRota } from "@/lib/rotas";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const sessao = verificarSessao(request.cookies.get(COOKIE_NOME)?.value, segredo());
+  const destino = destinoDaRota(pathname, sessao);
 
-  if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/cadastro") ||
-    pathname.startsWith("/verificar-email") ||
-    pathname.startsWith("/esqueci-senha") ||
-    pathname.startsWith("/redefinir-senha") ||
-    pathname.startsWith("/api/mcp") ||
-    /\.(?:png|jpe?g|webp|svg|ico|gif)$/i.test(pathname)
-  ) {
-    return NextResponse.next();
-  }
-
-  const cookie = request.cookies.get(COOKIE_NOME)?.value;
-  if (!verificarSessao(cookie, segredo())) {
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+  if (destino !== "seguir") {
+    return NextResponse.redirect(new URL(destino, request.url));
   }
 
   const headers = new Headers(request.headers);

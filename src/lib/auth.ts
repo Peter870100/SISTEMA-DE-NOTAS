@@ -1,13 +1,11 @@
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase/client";
 import type { AlunoConta, Professor } from "@/lib/types";
-import { assinarSessao, segredo, verificarSessao, type Sessao, type TipoConta } from "@/lib/sessao";
+import { COOKIE_NOME, assinarSessao, segredo, verificarSessao, type Sessao, type TipoConta } from "@/lib/sessao";
 import { ehAdmin } from "@/lib/papeis";
 import { contaDoToken, validarTokenRedefinicao } from "@/lib/token-senha";
 
-export { segredo } from "@/lib/sessao";
-
-export const COOKIE_NOME = "app_auth";
+export { COOKIE_NOME, segredo } from "@/lib/sessao";
 
 /** Conta (professor ou aluno) dona de um link de "esqueci minha senha" ainda válido, ou null. */
 export async function contaDoTokenRedefinicao(token: string | undefined): Promise<Sessao | null> {

@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+export const COOKIE_NOME = "app_auth";
+
 export type TipoConta = "p" | "a";
 export type Sessao = { tipo: TipoConta; id: string };
 
