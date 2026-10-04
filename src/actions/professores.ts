@@ -5,6 +5,14 @@ import { supabase } from "@/lib/supabase/client";
 import { exigirAdmin, getProfessorAtual } from "@/lib/auth";
 import type { Professor, ProfessorRole } from "@/lib/types";
 
+/** Só o dono pode mexer em outro dono. */
+async function exigirPoderSobreAlvo(id: string): Promise<void> {
+  const atual = await getProfessorAtual();
+  if (atual?.role === "dono") return;
+  const { data: alvo } = await supabase.from("professores").select("role").eq("id", id).maybeSingle();
+  if (alvo?.role === "dono") throw new Error("Apenas o dono pode alterar a conta do dono.");
+}
+
 export async function listarProfessores(): Promise<Professor[]> {
   await exigirAdmin();
   const { data, error } = await supabase
@@ -74,6 +82,7 @@ export async function atualizarTelefoneProfessor(id: string, telefone: string): 
  */
 export async function definirSenhaProvisoria(id: string, senha: string): Promise<void> {
   await exigirAdmin();
+  await exigirPoderSobreAlvo(id);
   if (senha.length < 6) {
     throw new Error("A senha provisória precisa ter pelo menos 6 caracteres.");
   }
@@ -93,6 +102,7 @@ export async function definirSenhaProvisoria(id: string, senha: string): Promise
 
 export async function excluirProfessor(id: string): Promise<void> {
   const atual = await exigirAdmin().then(() => getProfessorAtual());
+  await exigirPoderSobreAlvo(id);
   if (atual?.id === id) {
     throw new Error("Você não pode excluir sua própria conta.");
   }
@@ -107,12 +117,22 @@ export async function criarProfessor(
   role: ProfessorRole
 ): Promise<Professor> {
   await exigirAdmin();
+  const atual = await getProfessorAtual();
+  if (role !== "admin" && role !== "professor" && role !== "dono") {
+    throw new Error("Papel inválido.");
+  }
+  if (role === "dono" && atual?.role !== "dono") {
+    throw new Error("Apenas o dono pode criar outro dono.");
+  }
 
   const nomeLimpo = nome.trim();
   const emailLimpo = email.trim().toLowerCase();
   if (!nomeLimpo || !emailLimpo || !senha) {
     throw new Error("Preencha nome, email e senha.");
   }
+
+  const { data: contaAluno } = await supabase.from("alunos_contas").select("id").eq("email", emailLimpo).maybeSingle();
+  if (contaAluno) throw new Error("Esse email já está em uso por uma conta de aluno.");
 
   const senhaHash = await bcrypt.hash(senha, 10);
   const { data, error } = await supabase
