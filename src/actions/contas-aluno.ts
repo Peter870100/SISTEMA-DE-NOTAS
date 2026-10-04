@@ -1,9 +1,14 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
+import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual } from "@/lib/auth";
 import { normalizarCodigo } from "@/lib/codigo-convite";
+import { normalizarIdentificador } from "@/lib/contas-aluno";
+import { enviarEmailVerificacao } from "@/lib/email";
+import { obterEscola } from "@/lib/escolas";
 import { vincularContaAoConvite, type ConviteValido } from "@/lib/convites";
 
 /** Convite ativo e dentro da validade para o código digitado (em qualquer formato), ou null. */
@@ -36,4 +41,52 @@ export async function entrarEmTurmaComCodigo(formData: FormData): Promise<void> 
   if (!convite || convite.escola_id !== aluno.escola_id) redirect("/aluno?erro=codigo");
   await vincularContaAoConvite(aluno.id, convite);
   redirect("/aluno?turma=ok");
+}
+
+export async function cadastrarAlunoComCodigo(formData: FormData): Promise<void> {
+  const codigo = String(formData.get("codigo") ?? "");
+  const nome = String(formData.get("nome") ?? "").trim();
+  const email = normalizarIdentificador(String(formData.get("email") ?? ""));
+  const senha = String(formData.get("senha") ?? "");
+  const confirmar = String(formData.get("confirmarSenha") ?? "");
+  const voltar = (erro: string) => redirect(`/aluno/entrar-com-codigo?codigo=${encodeURIComponent(codigo)}&erro=${erro}`);
+
+  const convite = await buscarConviteValido(codigo);
+  if (!convite) redirect("/aluno/entrar-com-codigo?erro=codigo");
+  if (!nome || !email.includes("@")) voltar("campos");
+  if (senha.length < 6) voltar("curta");
+  if (senha !== confirmar) voltar("confirmacao");
+
+  const [{ data: professor }, { data: existente }] = await Promise.all([
+    supabase.from("professores").select("id").eq("email", email).maybeSingle(),
+    supabase.from("alunos_contas").select("id, email_verificado").eq("email", email).maybeSingle(),
+  ]);
+  if (professor || existente?.email_verificado) voltar("duplicado");
+
+  const token = randomBytes(32).toString("hex");
+  const dados = {
+    escola_id: convite.escola_id,
+    nome,
+    email,
+    senha_hash: await bcrypt.hash(senha, 10),
+    email_verificado: false,
+    token_verificacao: token,
+    token_verificacao_expira: new Date(Date.now() + 86_400_000).toISOString(),
+    criado_via: "convite" as const,
+  };
+  // Cadastro repetido sem confirmar o email: reaproveita a conta e manda novo link.
+  const { data: conta, error } = existente
+    ? await supabase.from("alunos_contas").update(dados).eq("id", existente.id).select("id").single()
+    : await supabase.from("alunos_contas").insert(dados).select("id").single();
+  if (error || !conta) voltar("falha");
+
+  await vincularContaAoConvite(conta!.id, convite);
+
+  const link = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/verificar-email?token=${token}`;
+  try {
+    await enviarEmailVerificacao(email, nome, link, await obterEscola(convite.escola_id));
+  } catch {
+    voltar("email");
+  }
+  redirect("/aluno/entrar-com-codigo?enviado=1");
 }

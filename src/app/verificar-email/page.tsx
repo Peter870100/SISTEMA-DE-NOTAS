@@ -26,6 +26,21 @@ export default async function VerificarEmailPage({ searchParams }: VerificarEmai
         .eq("id", professor.id);
       sucesso = !error;
     }
+    if (!sucesso) {
+      const { data: aluno } = await supabase
+        .from("alunos_contas")
+        .select("id, token_verificacao_expira")
+        .eq("token_verificacao", token)
+        .maybeSingle();
+
+      if (aluno && new Date(aluno.token_verificacao_expira ?? 0) > new Date()) {
+        const { error } = await supabase
+          .from("alunos_contas")
+          .update({ email_verificado: true, token_verificacao: null, token_verificacao_expira: null })
+          .eq("id", aluno.id);
+        sucesso = !error;
+      }
+    }
   }
 
   return (
@@ -33,10 +48,10 @@ export default async function VerificarEmailPage({ searchParams }: VerificarEmai
       {sucesso ? (
         <AuthAviso tipo="ok">Email confirmado! Sua conta já está liberada.</AuthAviso>
       ) : (
-        <AuthAviso tipo="erro">Link inválido ou expirado. Cadastre-se novamente pra receber um novo email.</AuthAviso>
+        <AuthAviso tipo="erro">Link inválido ou expirado. Faça o cadastro de novo pra receber um novo email.</AuthAviso>
       )}
-      <Link href={sucesso ? "/login" : "/cadastro"} className={`${authBotao} text-center`}>
-        {sucesso ? "Ir para o login" : "Cadastrar novamente"}
+      <Link href="/login" className={`${authBotao} text-center`}>
+        {sucesso ? "Ir para o login" : "Voltar para o login"}
       </Link>
     </AuthShell>
   );

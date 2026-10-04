@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { COOKIE_NOME, contaDoTokenRedefinicao, getAlunoAtual, getProfessorAtual, iniciarSessao, segredo } from "@/lib/auth";
 import { normalizarIdentificador, ehEmail } from "@/lib/contas-aluno";
 import { enviarEmailRedefinicaoSenha } from "@/lib/email";
-import { obterEscolaPadrao } from "@/lib/escolas";
+import { obterEscola, obterEscolaPadrao } from "@/lib/escolas";
 import { gerarTokenRedefinicao } from "@/lib/token-senha";
 
 export async function login(formData: FormData) {
@@ -82,7 +82,7 @@ export async function trocarSenha(formData: FormData) {
 }
 
 export async function pedirRedefinicaoSenha(formData: FormData) {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = normalizarIdentificador(String(formData.get("email") ?? ""));
   if (!email) redirect("/esqueci-senha?erro=campos");
 
   const { data: professor } = await supabase
@@ -100,6 +100,21 @@ export async function pedirRedefinicaoSenha(formData: FormData) {
     } catch {
       redirect("/esqueci-senha?erro=email");
     }
+  } else {
+    const { data: aluno } = await supabase
+      .from("alunos_contas")
+      .select("id, nome, senha_hash, escola_id")
+      .eq("email", email)
+      .maybeSingle();
+    if (aluno) {
+      const token = gerarTokenRedefinicao(aluno.id, aluno.senha_hash, segredo(), Date.now(), "a");
+      const link = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/redefinir-senha?token=${token}`;
+      try {
+        await enviarEmailRedefinicaoSenha(email, aluno.nome, link, await obterEscola(aluno.escola_id));
+      } catch {
+        redirect("/esqueci-senha?erro=email");
+      }
+    }
   }
 
   redirect("/esqueci-senha?enviado=1");
@@ -112,17 +127,16 @@ export async function redefinirSenha(formData: FormData) {
   const voltar = (erro: string) => redirect(`/redefinir-senha?token=${encodeURIComponent(token)}&erro=${erro}`);
 
   const conta = await contaDoTokenRedefinicao(token);
-  if (!conta || conta.tipo !== "p") redirect("/redefinir-senha?erro=link");
-  const professorId = conta.id;
+  if (!conta) redirect("/redefinir-senha?erro=link");
   if (novaSenha.length < 6) voltar("curta");
   if (novaSenha !== confirmarSenha) voltar("confirmacao");
 
   // Quem abriu o link do email provou que é dono dele, então a conta fica verificada também.
   const senhaHash = await bcrypt.hash(novaSenha, 10);
   const { error } = await supabase
-    .from("professores")
+    .from(conta.tipo === "a" ? "alunos_contas" : "professores")
     .update({ senha_hash: senhaHash, senha_provisoria: false, email_verificado: true })
-    .eq("id", professorId);
+    .eq("id", conta.id);
   if (error) voltar("falha");
 
   redirect("/login?senha-redefinida=1");

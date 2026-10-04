@@ -43,6 +43,7 @@ export default async function EsqueciSenhaPage({ searchParams }: EsqueciSenhaPag
       <button type="submit" className={`${authBotao} mt-1`}>
         Enviar link
       </button>
+      <p className="text-center text-xs text-frame-muted">Aluno que entra com usuário? Peça uma nova senha à sua escola.</p>
       <Link href="/login" className={linkSecundario}>
         Lembrei a senha
       </Link>
