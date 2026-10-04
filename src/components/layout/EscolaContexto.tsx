@@ -3,9 +3,10 @@
 import Image from "next/image";
 import { createContext, useContext } from "react";
 
-export type MarcaEscola = { nome: string; logo_url: string };
+import { MARCA_PADRAO, type MarcaEscola } from "@/lib/marca";
 
-const MARCA_PADRAO: MarcaEscola = { nome: "Colégio Status", logo_url: "/logo-status-branca.png" };
+export type { MarcaEscola };
+
 const Contexto = createContext<MarcaEscola>(MARCA_PADRAO);
 
 export function EscolaProvider({ marca, children }: { marca: MarcaEscola; children: React.ReactNode }) {
