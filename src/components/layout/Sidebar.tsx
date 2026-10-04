@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Contact, KeyRound, LogOut, Users, History, GraduationCap, Search, Trash2, FileSpreadsheet } from "lucide-react";
+import { BookOpen, Contact, KeyRound, LogOut, Users, History, GraduationCap, Search, Trash2, FileSpreadsheet, ClipboardList } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Avatar } from "@/components/ui/Avatar";
 import { useComandosOpcional } from "@/components/command/CommandProvider";
@@ -28,6 +28,7 @@ export function Sidebar({ professor, turmas }: { professor: Professor | null; tu
   const itens = [
     { href: "/", icon: GraduationCap, label: "Turmas", ativo: pathname === "/" || pathname.startsWith("/turma/") },
     { href: "/cursos", icon: BookOpen, label: "Aulas", ativo: pathname.startsWith("/cursos") },
+    { href: "/banco", icon: ClipboardList, label: "Questões", ativo: pathname.startsWith("/banco") },
     ...(ehAdmin(professor.role) ? [
       { href: "/admin/professores", icon: Users, label: "Professores", ativo: pathname === "/admin/professores" },
       { href: "/admin/alunos", icon: Contact, label: "Alunos", ativo: pathname === "/admin/alunos" },

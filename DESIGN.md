@@ -75,3 +75,6 @@ Rolagem no desktop: a moldura ocupa 100dvh; o conteúdo principal rola dentro de
 
 ## Aulas
 Professor: `/cursos` (lista + novo curso), `/cursos/[id]` (módulos e aulas em cartões, ↑/↓ para ordenar, selo Publicada/Rascunho), editor da aula com prévia do vídeo e PDFs, `/cursos/[id]/progresso` (tabela aluno × % por módulo). Aluno: `/aluno/cursos` com barras de progresso e "Continuar", estados "Concluída" ✓ / "Não concluída · X% assistido" ◐ / "Não iniciada" ○, aula com player do YouTube (youtube-nocookie) e barra "X% assistido".
+
+## Banco de questões
+`/banco` (lista com filtros), `/banco/nova` e `/banco/questoes/[id]` (EditorQuestao), `/banco/importar` (PDF renderizado no navegador com pdf.js e enviado ao bucket `questoes`), `/banco/importacoes/[id]` (progresso da leitura pela IA, a cada 20 s), `/banco/importacoes/[id]/revisar` (lista · página original com quadros arrastáveis · editor), `/banco/assuntos` e `/banco/importar-enem` (só dono). Texto das questões em markdown mínimo renderizado sem HTML; figuras por recorte (CSS sobre a imagem da página) ou arquivo.
