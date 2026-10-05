@@ -1,26 +1,40 @@
 import Link from "next/link";
 import { login } from "@/actions/auth";
+import { obterEscolaPorSlug } from "@/lib/escolas";
+import { urlDaEscola } from "@/lib/dominio";
 import { AuthAviso, authBotao, authInput } from "@/components/layout/AuthShell";
 
 import { LoginShell } from "@/components/layout/LoginShell";
 
 type LoginPageProps = {
-  searchParams: Promise<{ erro?: string; "senha-redefinida"?: string }>;
+  searchParams: Promise<{ erro?: string; escola?: string; "senha-redefinida"?: string }>;
 };
 
 const MENSAGENS_ERRO: Record<string, string> = {
   "1": "Email, usuário ou senha incorretos. Tente novamente.",
   "nao-verificado": "Confirme seu email antes de entrar — veja sua caixa de entrada.",
   bloqueado: "Sua conta está bloqueada. Fale com a sua escola.",
+  suspenso: "Acesso suspenso. Fale com a plataforma.",
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { erro, "senha-redefinida": senhaRedefinida } = await searchParams;
+  const { erro, escola: escolaParam, "senha-redefinida": senhaRedefinida } = await searchParams;
+  // O parâmetro é só um slug a validar; o link sai da escola encontrada.
+  const outraEscola = erro === "outra-escola" && escolaParam ? await obterEscolaPorSlug(escolaParam) : null;
 
   return (
     <LoginShell action={login}>
       {senhaRedefinida && !erro && <AuthAviso tipo="ok">Senha alterada! Entre com a nova senha.</AuthAviso>}
-      {erro && <AuthAviso tipo="erro">{MENSAGENS_ERRO[erro] ?? "Não foi possível entrar. Tente novamente."}</AuthAviso>}
+      {erro && erro !== "outra-escola" && <AuthAviso tipo="erro">{MENSAGENS_ERRO[erro] ?? "Não foi possível entrar. Tente novamente."}</AuthAviso>}
+      {erro === "outra-escola" && !outraEscola && <AuthAviso tipo="erro">Não foi possível entrar. Tente novamente.</AuthAviso>}
+      {outraEscola && (
+        <AuthAviso tipo="erro">
+          Sua conta é da {outraEscola.nome}.{" "}
+          <a href={urlDaEscola(outraEscola.slug, "/login")} className="font-semibold underline">
+            Entrar no endereço da {outraEscola.nome}
+          </a>
+        </AuthAviso>
+      )}
       <label className="flex flex-col gap-2 text-sm text-frame-muted">
         Email ou usuário
         <input type="text" name="identificador" required autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="seu.email@exemplo.com ou joao.silva" className={`${authInput} min-h-12`} />

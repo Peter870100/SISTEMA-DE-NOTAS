@@ -7,7 +7,7 @@ type CadastroPageProps = {
 };
 
 const MENSAGENS_ERRO: Record<string, string> = {
-  codigo: "Código de convite inválido.",
+  codigo: "Código de convite inválido, ou este endereço não aceita cadastros.",
   campos: "Preencha nome, email e senha.",
   duplicado: "Esse email já tem uma conta confirmada. Tente entrar em vez de se cadastrar.",
   falha: "Não foi possível criar a conta. Tente novamente.",

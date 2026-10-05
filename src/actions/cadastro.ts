@@ -5,8 +5,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
 import { enviarEmailVerificacao } from "@/lib/email";
-import { ESCOLA_PADRAO_ID, obterEscolaPadrao } from "@/lib/escolas";
-import { obterCodigoConvite } from "@/lib/configuracoes";
+import { escolaDoEndereco, linkDaEscola } from "@/lib/escolas";
 
 export async function cadastrar(formData: FormData) {
   const nome = String(formData.get("nome") ?? "").trim();
@@ -14,7 +13,9 @@ export async function cadastrar(formData: FormData) {
   const senha = String(formData.get("senha") ?? "");
   const codigo = String(formData.get("codigo") ?? "").trim();
 
-  const codigoEsperado = await obterCodigoConvite(ESCOLA_PADRAO_ID);
+  const escola = await escolaDoEndereco();
+  if (!escola || !escola.ativa) redirect("/cadastro?erro=codigo");
+  const codigoEsperado = escola.codigo_convite_professor;
   if (!codigoEsperado || codigo !== codigoEsperado) {
     redirect("/cadastro?erro=codigo");
   }
@@ -43,6 +44,7 @@ export async function cadastrar(formData: FormData) {
     nome,
     email,
     senha_hash: senhaHash,
+    escola_id: escola.id,
     role: "professor" as const,
     email_verificado: false,
     token_verificacao: token,
@@ -57,9 +59,9 @@ export async function cadastrar(formData: FormData) {
     redirect("/cadastro?erro=falha");
   }
 
-  const link = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/verificar-email?token=${token}`;
+  const link = linkDaEscola(escola, `/verificar-email?token=${token}`);
   try {
-    await enviarEmailVerificacao(email, nome, link, await obterEscolaPadrao());
+    await enviarEmailVerificacao(email, nome, link, escola);
   } catch {
     redirect("/cadastro?erro=email");
   }

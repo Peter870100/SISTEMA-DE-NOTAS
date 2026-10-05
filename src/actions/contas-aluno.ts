@@ -10,7 +10,7 @@ import { mesmaEscola } from "@/lib/escola-regras";
 import { normalizarCodigo } from "@/lib/codigo-convite";
 import { gerarSenhaProvisoria, normalizarIdentificador, sugerirUsuario } from "@/lib/contas-aluno";
 import { enviarEmailVerificacao } from "@/lib/email";
-import { obterEscola } from "@/lib/escolas";
+import { linkDaEscola, obterEscola } from "@/lib/escolas";
 import { vincularContaAoConvite, type ConviteValido } from "@/lib/convites";
 
 /** Convite ativo e dentro da validade para o código digitado (em qualquer formato), ou null. */
@@ -86,9 +86,10 @@ export async function cadastrarAlunoComCodigo(formData: FormData): Promise<void>
 
   await vincularContaAoConvite(conta!.id, convite);
 
-  const link = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/verificar-email?token=${token}`;
+  const escolaDoConvite = await obterEscola(convite.escola_id);
+  const link = linkDaEscola(escolaDoConvite, `/verificar-email?token=${token}`);
   try {
-    await enviarEmailVerificacao(email, nome, link, await obterEscola(convite.escola_id));
+    await enviarEmailVerificacao(email, nome, link, escolaDoConvite);
   } catch {
     voltar("email");
   }

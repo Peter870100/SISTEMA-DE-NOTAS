@@ -7,8 +7,18 @@ import { supabase } from "@/lib/supabase/client";
 import { COOKIE_NOME, contaDoTokenRedefinicao, getAlunoAtual, getProfessorAtual, iniciarSessao, segredo } from "@/lib/auth";
 import { normalizarIdentificador, ehEmail } from "@/lib/contas-aluno";
 import { enviarEmailRedefinicaoSenha } from "@/lib/email";
-import { obterEscola, obterEscolaPadrao } from "@/lib/escolas";
+import { escolaDoEndereco, linkDaEscola, obterEscola } from "@/lib/escolas";
+import { destinoDoLogin } from "@/lib/dominio";
 import { gerarTokenRedefinicao } from "@/lib/token-senha";
+
+/** A conta só entra no endereço da própria escola, e só se a escola estiver ativa. */
+async function validarEscolaDoLogin(escolaId: string): Promise<void> {
+  const escolaConta = await obterEscola(escolaId);
+  if (!escolaConta.ativa) redirect("/login?erro=suspenso");
+  const endereco = await escolaDoEndereco();
+  const destino = destinoDoLogin(escolaConta.slug, endereco?.slug ?? null);
+  if (!destino.ok) redirect(`/login?erro=outra-escola&escola=${encodeURIComponent(destino.slug)}`);
+}
 
 export async function login(formData: FormData) {
   const identificador = normalizarIdentificador(String(formData.get("identificador") ?? ""));
@@ -18,12 +28,13 @@ export async function login(formData: FormData) {
   if (ehEmail(identificador)) {
     const { data: professor } = await supabase
       .from("professores")
-      .select("id, senha_hash, email_verificado, senha_provisoria")
+      .select("id, senha_hash, email_verificado, senha_provisoria, escola_id")
       .eq("email", identificador)
       .maybeSingle();
     if (professor) {
       if (!(await bcrypt.compare(senha, professor.senha_hash))) redirect("/login?erro=1");
       if (!professor.email_verificado) redirect("/login?erro=nao-verificado");
+      await validarEscolaDoLogin(professor.escola_id);
       await iniciarSessao("p", professor.id);
       redirect(professor.senha_provisoria ? "/trocar-senha" : "/");
     }
@@ -31,7 +42,7 @@ export async function login(formData: FormData) {
 
   const { data: aluno } = await supabase
     .from("alunos_contas")
-    .select("id, senha_hash, email_verificado, senha_provisoria, ativo, criado_via")
+    .select("id, senha_hash, email_verificado, senha_provisoria, ativo, criado_via, escola_id")
     .eq(ehEmail(identificador) ? "email" : "usuario", identificador)
     .maybeSingle();
 
@@ -40,6 +51,7 @@ export async function login(formData: FormData) {
   // Conta por código entra com email: precisa confirmar antes. Conta criada pela escola entra com usuário.
   if (aluno.criado_via === "convite" && !aluno.email_verificado) redirect("/login?erro=nao-verificado");
 
+  await validarEscolaDoLogin(aluno.escola_id);
   await iniciarSessao("a", aluno.id);
   redirect(aluno.senha_provisoria ? "/aluno/trocar-senha" : "/aluno");
 }
@@ -87,16 +99,17 @@ export async function pedirRedefinicaoSenha(formData: FormData) {
 
   const { data: professor } = await supabase
     .from("professores")
-    .select("id, nome, senha_hash")
+    .select("id, nome, senha_hash, escola_id")
     .eq("email", email)
     .maybeSingle();
 
   // Mesma resposta exista ou não a conta, pra não revelar quais emails estão cadastrados.
   if (professor) {
     const token = gerarTokenRedefinicao(professor.id, professor.senha_hash, segredo());
-    const link = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/redefinir-senha?token=${token}`;
+    const escola = await obterEscola(professor.escola_id);
+    const link = linkDaEscola(escola, `/redefinir-senha?token=${token}`);
     try {
-      await enviarEmailRedefinicaoSenha(email, professor.nome, link, await obterEscolaPadrao());
+      await enviarEmailRedefinicaoSenha(email, professor.nome, link, escola);
     } catch {
       redirect("/esqueci-senha?erro=email");
     }
@@ -108,9 +121,10 @@ export async function pedirRedefinicaoSenha(formData: FormData) {
       .maybeSingle();
     if (aluno) {
       const token = gerarTokenRedefinicao(aluno.id, aluno.senha_hash, segredo(), Date.now(), "a");
-      const link = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/redefinir-senha?token=${token}`;
+      const escola = await obterEscola(aluno.escola_id);
+      const link = linkDaEscola(escola, `/redefinir-senha?token=${token}`);
       try {
-        await enviarEmailRedefinicaoSenha(email, aluno.nome, link, await obterEscola(aluno.escola_id));
+        await enviarEmailRedefinicaoSenha(email, aluno.nome, link, escola);
       } catch {
         redirect("/esqueci-senha?erro=email");
       }
