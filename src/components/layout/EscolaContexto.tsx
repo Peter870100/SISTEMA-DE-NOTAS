@@ -17,8 +17,16 @@ export function useMarcaEscola(): MarcaEscola {
   return useContext(Contexto);
 }
 
+/** Logo branca de uma marca; sem imagem, o nome da escola em texto. */
+export function LogoDaMarca({ marca, className }: { marca: Pick<MarcaEscola, "nome" | "logo_url">; className?: string }) {
+  const { nome, logo_url } = marca;
+  if (!logo_url) {
+    return <span className={`font-display font-bold text-white ${className ?? ""}`}>{nome}</span>;
+  }
+  return <Image src={logo_url} alt={nome} width={1580} height={513} className={className} preload />;
+}
+
 /** Logo branca da escola de quem está logado. */
 export function LogoEscola({ className }: { className?: string }) {
-  const { nome, logo_url } = useMarcaEscola();
-  return <Image src={logo_url} alt={nome} width={1580} height={513} className={className} preload />;
+  return <LogoDaMarca marca={useMarcaEscola()} className={className} />;
 }

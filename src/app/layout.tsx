@@ -8,8 +8,8 @@ import { CommandProvider } from "@/components/command/CommandProvider";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { listarTurmasAcessiveis } from "@/actions/turmas";
 import { EscolaProvider } from "@/components/layout/EscolaContexto";
-import { MARCA_PADRAO, marcaDaEscola } from "@/lib/marca";
-import { ESCOLA_PADRAO_ID, escolaDoEndereco, obterEscola } from "@/lib/escolas";
+import { MARCA_PADRAO, marcaDaEscola, variaveisDaMarca } from "@/lib/marca";
+import { escolaDoEndereco, obterEscola } from "@/lib/escolas";
 import "./globals.css";
 import { ehRotaPublica } from "@/lib/rotas";
 import { ehAdmin } from "@/lib/papeis";
@@ -33,10 +33,21 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["500", "600"],
 });
 
-export const metadata: Metadata = {
-  title: "Avalia — Notas de Redação",
-  description: "Gestão de notas de redação por turma",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const description = "Gestão de notas de redação por turma";
+  try {
+    const escolaEndereco = await escolaDoEndereco();
+    if (escolaEndereco && escolaEndereco.ativa !== false) {
+      const professor = await getProfessorAtual();
+      const aluno = professor ? null : await getAlunoAtual();
+      const escola = await obterEscola(professor?.escola_id ?? aluno?.escola_id ?? escolaEndereco.id);
+      return { title: `${escola.nome} · Status Avalia`, description };
+    }
+  } catch {
+    // Falha ao ler a escola: mantém o título atual.
+  }
+  return { title: "Avalia — Notas de Redação", description };
+}
 
 export default async function RootLayout({
   children,
@@ -76,9 +87,11 @@ export default async function RootLayout({
 
   const aluno = professor ? null : await getAlunoAtual();
   let marca = MARCA_PADRAO;
+  let variaveis: Record<string, string> = {};
   try {
-    const escola = await obterEscola(professor?.escola_id ?? aluno?.escola_id ?? ESCOLA_PADRAO_ID);
+    const escola = await obterEscola(professor?.escola_id ?? aluno?.escola_id ?? escolaEndereco.id);
     marca = marcaDaEscola(escola);
+    variaveis = variaveisDaMarca(escola.cor_principal, escola.cor_destaque);
   } catch {
     // Se a leitura de escolas falhar, o site continua com a marca padrão.
   }
@@ -89,6 +102,7 @@ export default async function RootLayout({
     <html
       lang="pt-BR"
       className={`${manrope.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${rajdhani.variable} h-full antialiased`}
+      style={variaveis}
     >
       <body className="flex h-dvh min-h-dvh flex-row overflow-hidden bg-canvas">
         <a href="#conteudo-principal" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold focus:text-brand focus:shadow-float">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cadastrar } from "@/actions/cadastro";
 import { AuthAviso, AuthShell, authBotao, authInput } from "@/components/layout/AuthShell";
+import { marcaDoEndereco } from "@/lib/marca-servidor";
 
 type CadastroPageProps = {
   searchParams: Promise<{ erro?: string; enviado?: string }>;
@@ -18,11 +19,12 @@ const rotulo = "flex flex-col gap-1.5 text-xs text-frame-muted";
 const linkSecundario = "text-center text-sm text-frame-muted hover:text-white hover:underline";
 
 export default async function CadastroPage({ searchParams }: CadastroPageProps) {
+  const marca = await marcaDoEndereco();
   const { erro, enviado } = await searchParams;
 
   if (enviado) {
     return (
-      <AuthShell videoCadastro
+      <AuthShell marca={marca} videoCadastro
         titulo="Quase lá!"
         subtitulo="Enviamos um email de confirmação. Clique no link que chegou na sua caixa de entrada pra ativar sua conta."
       >
@@ -34,7 +36,7 @@ export default async function CadastroPage({ searchParams }: CadastroPageProps) 
   }
 
   return (
-    <AuthShell videoCadastro
+    <AuthShell marca={marca} videoCadastro
       titulo="Criar conta"
       subtitulo="Peça o código de convite pra quem administra o sistema."
       comoForm={cadastrar}

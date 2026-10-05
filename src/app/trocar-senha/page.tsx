@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
 import { trocarSenha } from "@/actions/auth";
+import { marcaDaConta } from "@/lib/marca-servidor";
 import { AuthAviso, AuthShell, authBotao, authInput } from "@/components/layout/AuthShell";
 
 type TrocarSenhaPageProps = {
@@ -17,13 +18,14 @@ const MENSAGENS_ERRO: Record<string, string> = {
 export default async function TrocarSenhaPage({ searchParams }: TrocarSenhaPageProps) {
   const professor = await getProfessorAtual();
   if (!professor) redirect("/login");
+  const marca = await marcaDaConta(professor.escola_id);
 
   const { erro } = await searchParams;
 
   const rotulo = "flex flex-col gap-1.5 text-xs text-frame-muted";
 
   return (
-    <AuthShell
+    <AuthShell marca={marca}
       titulo="Trocar senha"
       subtitulo={
         professor.senha_provisoria

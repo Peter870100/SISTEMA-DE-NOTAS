@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redefinirSenha } from "@/actions/auth";
 import { contaDoTokenRedefinicao } from "@/lib/auth";
 import { AuthAviso, AuthShell, authBotao, authInput } from "@/components/layout/AuthShell";
+import { marcaDoEndereco } from "@/lib/marca-servidor";
 
 export const dynamic = "force-dynamic";
 
@@ -18,11 +19,12 @@ const MENSAGENS_ERRO: Record<string, string> = {
 const rotulo = "flex flex-col gap-1.5 text-xs text-frame-muted";
 
 export default async function RedefinirSenhaPage({ searchParams }: RedefinirSenhaPageProps) {
+  const marca = await marcaDoEndereco();
   const { token, erro } = await searchParams;
 
   if (erro === "link" || !(await contaDoTokenRedefinicao(token))) {
     return (
-      <AuthShell titulo="Link inválido">
+      <AuthShell marca={marca} titulo="Link inválido">
         <AuthAviso tipo="erro">
           Esse link expirou ou já foi usado. Peça um novo pra redefinir sua senha.
         </AuthAviso>
@@ -34,7 +36,7 @@ export default async function RedefinirSenhaPage({ searchParams }: RedefinirSenh
   }
 
   return (
-    <AuthShell titulo="Criar nova senha" subtitulo="Escolha a nova senha da sua conta." comoForm={redefinirSenha}>
+    <AuthShell marca={marca} titulo="Criar nova senha" subtitulo="Escolha a nova senha da sua conta." comoForm={redefinirSenha}>
       {erro && <AuthAviso tipo="erro">{MENSAGENS_ERRO[erro] ?? "Não foi possível salvar a senha."}</AuthAviso>}
       <input type="hidden" name="token" value={token} />
       <label className={rotulo}>

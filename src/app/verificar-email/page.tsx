@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { AuthAviso, AuthShell, authBotao } from "@/components/layout/AuthShell";
+import { marcaDoEndereco } from "@/lib/marca-servidor";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ type VerificarEmailPageProps = {
 };
 
 export default async function VerificarEmailPage({ searchParams }: VerificarEmailPageProps) {
+  const marca = await marcaDoEndereco();
   const { token } = await searchParams;
 
   let sucesso = false;
@@ -44,7 +46,7 @@ export default async function VerificarEmailPage({ searchParams }: VerificarEmai
   }
 
   return (
-    <AuthShell titulo={sucesso ? "Email confirmado" : "Link inválido"}>
+    <AuthShell marca={marca} titulo={sucesso ? "Email confirmado" : "Link inválido"}>
       {sucesso ? (
         <AuthAviso tipo="ok">Email confirmado! Sua conta já está liberada.</AuthAviso>
       ) : (

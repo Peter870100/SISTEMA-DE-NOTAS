@@ -5,6 +5,7 @@ import { urlDaEscola } from "@/lib/dominio";
 import { AuthAviso, authBotao, authInput } from "@/components/layout/AuthShell";
 
 import { LoginShell } from "@/components/layout/LoginShell";
+import { marcaDoEndereco } from "@/lib/marca-servidor";
 
 type LoginPageProps = {
   searchParams: Promise<{ erro?: string; escola?: string; "senha-redefinida"?: string }>;
@@ -18,12 +19,13 @@ const MENSAGENS_ERRO: Record<string, string> = {
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const marca = await marcaDoEndereco();
   const { erro, escola: escolaParam, "senha-redefinida": senhaRedefinida } = await searchParams;
   // O parâmetro é só um slug a validar; o link sai da escola encontrada.
   const outraEscola = erro === "outra-escola" && escolaParam ? await obterEscolaPorSlug(escolaParam) : null;
 
   return (
-    <LoginShell action={login}>
+    <LoginShell marca={marca} action={login}>
       {senhaRedefinida && !erro && <AuthAviso tipo="ok">Senha alterada! Entre com a nova senha.</AuthAviso>}
       {erro && erro !== "outra-escola" && <AuthAviso tipo="erro">{MENSAGENS_ERRO[erro] ?? "Não foi possível entrar. Tente novamente."}</AuthAviso>}
       {erro === "outra-escola" && !outraEscola && <AuthAviso tipo="erro">Não foi possível entrar. Tente novamente.</AuthAviso>}

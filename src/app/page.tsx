@@ -4,13 +4,14 @@ import { TurmasLista } from "@/components/home/TurmasLista";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { turmasDaEscola } from "@/lib/escola-acesso";
 import { getProfessorAtual } from "@/lib/auth";
+import { obterEscola } from "@/lib/escolas";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const professor = await getProfessorAtual();
   if (!professor) redirect("/login");
-  const turmas = await turmasDaEscola(professor);
+  const [turmas, escola] = await Promise.all([turmasDaEscola(professor), obterEscola(professor.escola_id)]);
 
   const contagemPorTurma: Record<string, number> = {};
   const ids = turmas.map((t) => t.id);
@@ -25,7 +26,7 @@ export default async function HomePage() {
 
   return (
     <PageLayout
-      crumb="Redação · Colégio Status"
+      crumb={`Redação · ${escola.nome}`}
       titulo="Suas turmas"
       subtitulo={primeiroNome ? <><span className="mr-2">Olá, Prof. <strong className="font-heading text-xl font-bold uppercase tracking-[0.025em] text-gold">{primeiroNome}</strong>.</span><span>Escolha uma turma para lançar e acompanhar as notas.</span></> : undefined}
       largura="max-w-6xl"
