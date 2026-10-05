@@ -1,7 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { exigirNaoAluno, getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
+import { exigirProfessorLogado, exigirColunaDaEscola, exigirAlunoDaEscola } from "@/lib/escola-acesso";
 import type { ValorCelula } from "@/lib/status";
 
 export async function upsertCelula(
@@ -9,22 +9,12 @@ export async function upsertCelula(
   colunaId: string,
   patch: ValorCelula
 ): Promise<{ atualizadoPorNome: string | null; atualizadoEm: string }> {
-  await exigirNaoAluno();
-  const professor = await getProfessorAtual();
-
-  if (professor) {
-    const { data: coluna } = await supabase
-      .from("atividades_colunas")
-      .select("turma_id")
-      .eq("id", colunaId)
-      .single();
-    const { data: turma } = coluna
-      ? await supabase.from("turmas").select("nome").eq("id", coluna.turma_id).single()
-      : { data: null };
-    if (!turma || !(await professorTemAcessoATurma(professor, turma.nome))) {
-      throw new Error("Você não tem acesso a essa turma.");
-    }
-  }
+  const professor = await exigirProfessorLogado();
+  const [{ coluna }, { aluno }] = await Promise.all([
+    exigirColunaDaEscola(professor, colunaId),
+    exigirAlunoDaEscola(professor, alunoId),
+  ]);
+  if (aluno.turma_id !== coluna.turma_id) throw new Error("Aluno e atividade de turmas diferentes.");
 
   const { data: atual } = await supabase
     .from("notas_celulas")
@@ -39,14 +29,14 @@ export async function upsertCelula(
       coluna_id: colunaId,
       valor: patch.valor,
       status_texto: patch.status_texto,
-      atualizado_por: professor?.id ?? null,
+      atualizado_por: professor.id,
     },
     { onConflict: "aluno_id,coluna_id" }
   );
   if (error) throw new Error(error.message);
 
   const mudou = (atual?.valor ?? null) !== (patch.valor ?? null) || (atual?.status_texto ?? null) !== (patch.status_texto ?? null);
-  if (professor?.role === "professor" && mudou) {
+  if (professor.role === "professor" && mudou) {
     await supabase.from("notas_historico").insert({
       aluno_id: alunoId,
       coluna_id: colunaId,
@@ -58,5 +48,5 @@ export async function upsertCelula(
     });
   }
 
-  return { atualizadoPorNome: professor?.nome ?? null, atualizadoEm: new Date().toISOString() };
+  return { atualizadoPorNome: professor.nome, atualizadoEm: new Date().toISOString() };
 }

@@ -1,7 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { getProfessorAtual, turmasLiberadasPara } from "@/lib/auth";
+import { exigirProfessorLogado, turmasDaEscola } from "@/lib/escola-acesso";
 
 export type AlunoBusca = {
   id: string;
@@ -13,42 +13,36 @@ export type AlunoBusca = {
 
 /**
  * Busca de alunos pelo nome pro Ctrl+K. Só devolve alunos de turmas que o
- * professor logado pode acessar; sem login, não devolve nada.
+ * professor logado pode acessar (da escola dele); sem login, falha.
  */
 export async function buscarAlunos(termo: string): Promise<AlunoBusca[]> {
-  const professor = await getProfessorAtual();
-  if (!professor) return [];
+  const professor = await exigirProfessorLogado();
 
   const limpo = termo.trim();
   if (limpo.length < 2) return [];
   const padrao = `%${limpo.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
-  const { data: alunos, error } = await supabase
-    .from("alunos")
-    .select("id, nome, turma_id")
-    .ilike("nome", padrao)
-    .order("nome")
-    .limit(40);
-  if (error) throw new Error(error.message);
-  if (!alunos || alunos.length === 0) return [];
-
-  const turmaIds = [...new Set(alunos.map((a) => a.turma_id))];
-  const { data: turmas, error: erroTurmas } = await supabase
-    .from("turmas")
-    .select("id, nome, bimestre")
-    .in("id", turmaIds);
-  if (erroTurmas) throw new Error(erroTurmas.message);
-
-  const liberadas = await turmasLiberadasPara(professor);
-  const turmaPorId = new Map((turmas ?? []).map((t) => [t.id, t]));
+  const turmas = await turmasDaEscola(professor);
+  if (turmas.length === 0) return [];
+  const turmaPorId = new Map(turmas.map((t) => [t.id, t]));
 
   const resultado: AlunoBusca[] = [];
-  for (const a of alunos) {
-    const turma = turmaPorId.get(a.turma_id);
-    if (!turma) continue;
-    if (liberadas !== null && !liberadas.has(turma.nome)) continue;
-    resultado.push({ id: a.id, nome: a.nome, turmaId: turma.id, turmaNome: turma.nome, turmaBimestre: turma.bimestre });
-    if (resultado.length === 8) break;
+  const ids = turmas.map((t) => t.id);
+  for (let i = 0; i < ids.length && resultado.length < 8; i += 150) {
+    const { data: alunos, error } = await supabase
+      .from("alunos")
+      .select("id, nome, turma_id")
+      .in("turma_id", ids.slice(i, i + 150))
+      .ilike("nome", padrao)
+      .order("nome")
+      .limit(40);
+    if (error) throw new Error(error.message);
+    for (const a of alunos ?? []) {
+      const turma = turmaPorId.get(a.turma_id);
+      if (!turma) continue;
+      resultado.push({ id: a.id, nome: a.nome, turmaId: turma.id, turmaNome: turma.nome, turmaBimestre: turma.bimestre });
+      if (resultado.length === 8) break;
+    }
   }
   return resultado;
 }

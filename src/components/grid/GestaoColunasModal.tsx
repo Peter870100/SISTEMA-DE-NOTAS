@@ -92,7 +92,7 @@ export function GestaoColunasModal({
     const comOrdem = reordenadas.map((c, i) => ({ ...c, ordem: i }));
     onColunasChange(comOrdem);
     try {
-      await reordenarColunas(comOrdem.map((c) => ({ id: c.id, ordem: c.ordem })));
+      await reordenarColunas(turmaId, comOrdem.map((c) => ({ id: c.id, ordem: c.ordem })));
     } catch {
       onColunasChange(anterior);
       setErro("Não foi possível reordenar as colunas. Tente novamente.");

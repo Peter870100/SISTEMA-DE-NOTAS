@@ -1,7 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { exigirNaoAluno, exigirAcessoATurmaId, getProfessorAtual } from "@/lib/auth";
+import { exigirProfessorLogado, exigirTurmaDaEscola, exigirColunaDaEscola } from "@/lib/escola-acesso";
 import type { AtividadeColuna, TipoColuna } from "@/lib/types";
 
 export async function addColuna(
@@ -10,7 +10,8 @@ export async function addColuna(
   ordem: number,
   tipo: TipoColuna = "nota"
 ): Promise<AtividadeColuna> {
-  await exigirNaoAluno();
+  const professor = await exigirProfessorLogado();
+  await exigirTurmaDaEscola(professor, turmaId);
   const tituloLimpo = titulo.trim();
   if (!tituloLimpo) throw new Error("Título da coluna não pode ser vazio");
 
@@ -27,7 +28,8 @@ export async function renameColuna(
   colunaId: string,
   titulo: string
 ): Promise<void> {
-  await exigirNaoAluno();
+  const professor = await exigirProfessorLogado();
+  await exigirColunaDaEscola(professor, colunaId);
   const tituloLimpo = titulo.trim();
   if (!tituloLimpo) throw new Error("Título da coluna não pode ser vazio");
 
@@ -40,22 +42,13 @@ export async function renameColuna(
 
 /** Manda a coluna (com notas e histórico) pra lixeira. Devolve o id do item na lixeira. */
 export async function deleteColuna(colunaId: string): Promise<string> {
-  await exigirNaoAluno();
-  const professor = await getProfessorAtual();
-  if (professor) {
-    const { data: coluna } = await supabase
-      .from("atividades_colunas")
-      .select("turma_id")
-      .eq("id", colunaId)
-      .single();
-    if (!coluna) throw new Error("Atividade não encontrada.");
-    await exigirAcessoATurmaId(professor, coluna.turma_id);
-  }
+  const professor = await exigirProfessorLogado();
+  await exigirColunaDaEscola(professor, colunaId);
 
   const { data, error } = await supabase.rpc("lixeira_excluir", {
     p_tipo: "atividade",
     p_id: colunaId,
-    p_ator: professor?.id ?? null,
+    p_ator: professor.id,
     p_via: "app",
   });
   if (error) throw new Error(error.message);
@@ -63,14 +56,17 @@ export async function deleteColuna(colunaId: string): Promise<string> {
 }
 
 export async function reordenarColunas(
+  turmaId: string,
   ordens: { id: string; ordem: number }[]
 ): Promise<void> {
-  await exigirNaoAluno();
+  const professor = await exigirProfessorLogado();
+  await exigirTurmaDaEscola(professor, turmaId);
   for (const { id, ordem } of ordens) {
     const { error } = await supabase
       .from("atividades_colunas")
       .update({ ordem })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("turma_id", turmaId);
     if (error) throw new Error(error.message);
   }
 }
