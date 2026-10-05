@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { validarCapaEnviada, apagarCapaAnterior } from "@/lib/aulas/capas-servidor";
 import { supabase } from "@/lib/supabase/client";
 import { exigirNaoAluno, getProfessorAtual } from "@/lib/auth";
 import { exigirCursoEditavel } from "@/lib/aulas/acesso";
@@ -8,6 +10,7 @@ import { extrairIdYoutube } from "@/lib/aulas/youtube";
 import type { RegraGabarito } from "@/lib/types";
 
 export type DadosCurso = {
+  capa_caminho?: string | null;
   titulo: string;
   disciplina: string;
   descricao: string;
@@ -47,24 +50,31 @@ export async function criarCurso(dados: DadosCurso): Promise<string> {
   const professor = await getProfessorAtual();
   if (!professor) throw new Error("Faça login novamente.");
   const limpo = limparCurso(dados);
+  const capa = await validarCapaEnviada(dados.capa_caminho, null, professor, "curso");
   const { data, error } = await supabase
     .from("cursos")
-    .insert({ ...limpo, escola_id: professor.escola_id, professor_id: professor.id })
+    .insert({ ...limpo, ...(capa === undefined ? {} : { capa_caminho: capa }), escola_id: professor.escola_id, professor_id: professor.id })
     .select("id")
     .single();
   if (error || !data) throw new Error(error?.message ?? "Falha ao criar curso.");
   await gravarTurmas(data.id, professor.escola_id, dados.turmas);
+  revalidatePath("/cursos");
   return data.id;
 }
 
 export async function atualizarCurso(cursoId: string, dados: DadosCurso): Promise<void> {
-  const { curso } = await exigirCursoEditavel(cursoId);
+  const { curso, professor } = await exigirCursoEditavel(cursoId);
+  const capa = await validarCapaEnviada(dados.capa_caminho, curso.capa_caminho, professor, "curso");
   const { error } = await supabase
     .from("cursos")
-    .update({ ...limparCurso(dados), updated_at: new Date().toISOString() })
+    .update({ ...limparCurso(dados), ...(capa === undefined ? {} : { capa_caminho: capa }), updated_at: new Date().toISOString() })
     .eq("id", cursoId);
   if (error) throw new Error(error.message);
   await gravarTurmas(cursoId, curso.escola_id, dados.turmas);
+  await apagarCapaAnterior(curso.capa_caminho, capa);
+  revalidatePath("/cursos");
+  revalidatePath(`/cursos/${cursoId}`);
+  revalidatePath("/aluno/cursos", "layout");
 }
 
 async function moduloEditavel(moduloId: string) {
@@ -77,8 +87,8 @@ async function moduloEditavel(moduloId: string) {
 async function aulaEditavel(aulaId: string) {
   const { data: aula } = await supabase.from("aulas").select("*").eq("id", aulaId).maybeSingle();
   if (!aula) throw new Error("Aula não encontrada.");
-  const { curso } = await exigirCursoEditavel(aula.curso_id);
-  return { aula, curso };
+  const { curso, professor } = await exigirCursoEditavel(aula.curso_id);
+  return { aula, curso, professor };
 }
 
 export async function criarModulo(cursoId: string, titulo: string): Promise<void> {
@@ -149,6 +159,7 @@ export async function criarAula(moduloId: string, titulo: string): Promise<strin
 }
 
 export type DadosAula = {
+  capa_caminho?: string | null;
   titulo: string;
   texto: string;
   linkVideo: string;
@@ -158,13 +169,13 @@ export type DadosAula = {
 };
 
 export async function salvarAula(aulaId: string, dados: DadosAula): Promise<void> {
-  const { aula: existente } = await aulaEditavel(aulaId);
+  const { aula: existente, professor } = await aulaEditavel(aulaId);
   const titulo = dados.titulo.trim();
   if (!titulo) throw new Error("Informe o título da aula.");
   let video_id: string | null = null;
   if (dados.linkVideo.trim()) {
     video_id = extrairIdYoutube(dados.linkVideo);
-    if (!video_id) throw new Error("Link do YouTube não reconhecido.");
+    if (!video_id) throw new Error("Link de vídeo não reconhecido. Use um link compatível.");
   }
   let duracao_seg: number | null = null;
   if (video_id) {
@@ -179,9 +190,11 @@ export async function salvarAula(aulaId: string, dados: DadosAula): Promise<void
   if (dados.gabarito_liberacao === "data" && (!dados.gabarito_libera_em || Number.isNaN(Date.parse(dados.gabarito_libera_em)))) {
     throw new Error("Informe a data de liberação do gabarito.");
   }
+  const capa = await validarCapaEnviada(dados.capa_caminho, existente.capa_caminho, professor, "aula");
   const { error } = await supabase
     .from("aulas")
     .update({
+      ...(capa === undefined ? {} : { capa_caminho: capa }),
       titulo,
       texto: dados.texto.trim() || null,
       video_provedor: video_id ? "youtube" : null,
@@ -193,6 +206,9 @@ export async function salvarAula(aulaId: string, dados: DadosAula): Promise<void
     })
     .eq("id", aulaId);
   if (error) throw new Error(error.message);
+  await apagarCapaAnterior(existente.capa_caminho, capa);
+  revalidatePath(`/cursos/${existente.curso_id}`);
+  revalidatePath(`/aluno/cursos/${existente.curso_id}`);
 }
 
 export async function definirPublicacao(aulaId: string, publicada: boolean): Promise<void> {

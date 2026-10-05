@@ -42,6 +42,8 @@ export type ResumoCursoAluno = {
   curso: Curso;
   professor_nome: string | null;
   porcentagem: number;
+  qtd_modulos: number;
+  qtd_aulas: number;
   continuar: { aula_id: string; titulo: string } | null;
 };
 
@@ -67,6 +69,8 @@ export async function resumosCursosAluno(aluno: AlunoConta): Promise<ResumoCurso
         curso,
         professor_nome: curso.professor_id ? nomes.get(curso.professor_id) ?? null : null,
         porcentagem: porcentagemConjunto(concluidas, aulas.length),
+        qtd_modulos: arvore.filter((m) => m.aulas.length > 0).length,
+        qtd_aulas: aulas.length,
         continuar: proxima ? { aula_id: proxima.id, titulo: proxima.titulo } : null,
       };
     })

@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { atualizarCurso, criarCurso, type DadosCurso } from "@/actions/cursos";
+import { EscolherCapa } from "./EscolherCapa";
+import { CartaoCurso } from "./CartaoCurso";
 import { estilos } from "@/components/ui/estilos";
 
 type Props = {
@@ -19,14 +21,17 @@ export function FormCurso({ inicial, turmas, onSalvo }: Props) {
   const [disciplina, setDisciplina] = useState(inicial?.disciplina ?? "");
   const [descricao, setDescricao] = useState(inicial?.descricao ?? "");
   const [marcadas, setMarcadas] = useState(new Set((inicial?.turmas ?? []).map(chave)));
+  const [capa, setCapa] = useState(inicial?.capa_caminho ?? null);
+  const [enviandoCapa, setEnviandoCapa] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
+    if (salvando || enviandoCapa) return;
     setSalvando(true);
     setErro(null);
-    const dados: DadosCurso = { titulo, disciplina, descricao, turmas: turmas.filter((t) => marcadas.has(chave(t))) };
+    const dados: DadosCurso = { titulo, disciplina, descricao, capa_caminho: capa === (inicial?.capa_caminho ?? null) ? undefined : capa, turmas: turmas.filter((t) => marcadas.has(chave(t))) };
     try {
       if (inicial) {
         await atualizarCurso(inicial.id, dados);
@@ -49,6 +54,11 @@ export function FormCurso({ inicial, turmas, onSalvo }: Props) {
       <label className="flex flex-col gap-1 text-xs text-muted">Título<input value={titulo} onChange={(e) => setTitulo(e.target.value)} required placeholder="Física — 3º ano" className={estilos.input} /></label>
       <label className="flex flex-col gap-1 text-xs text-muted">Disciplina<input value={disciplina} onChange={(e) => setDisciplina(e.target.value)} required placeholder="Física" className={estilos.input} /></label>
       <label className="flex flex-col gap-1 text-xs text-muted">Descrição (opcional)<textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={2} className={estilos.input} /></label>
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-2 text-xs text-muted">Capa do curso (opcional)</legend>
+        <div className="mx-auto w-full max-w-[210px]"><CartaoCurso curso={{ titulo, disciplina, descricao, capa_caminho: capa }} /></div>
+        <EscolherCapa tipo="curso" caminho={capa} onChange={setCapa} onOcupado={setEnviandoCapa} disabled={salvando} />
+      </fieldset>
       <fieldset className="flex flex-col gap-1">
         <legend className="mb-1 text-xs text-muted">Turmas que veem o curso</legend>
         {turmas.length === 0 && <p className="text-sm text-muted">Nenhuma turma disponível.</p>}
@@ -68,7 +78,7 @@ export function FormCurso({ inicial, turmas, onSalvo }: Props) {
           })}
         </div>
       </fieldset>
-      <button type="submit" disabled={salvando} className={estilos.botaoPrimario}>{salvando ? "Salvando…" : inicial ? "Salvar curso" : "Criar curso"}</button>
+      <button type="submit" disabled={salvando || enviandoCapa} className={estilos.botaoPrimario}>{salvando ? "Salvando…" : inicial ? "Salvar curso" : "Criar curso"}</button>
     </form>
   );
 }

@@ -186,6 +186,7 @@ export type RegraGabarito = "junto" | "apos_concluir" | "data";
 export type TipoArquivoAula = "material" | "gabarito";
 
 export type Curso = {
+  capa_caminho?: string | null;
   id: string;
   escola_id: string;
   professor_id: string | null;
@@ -201,6 +202,7 @@ export type CursoTurma = { curso_id: string; escola_id: string; turma_nome: stri
 export type Modulo = { id: string; curso_id: string; titulo: string; ordem: number; created_at: string };
 
 export type Aula = {
+  capa_caminho?: string | null;
   id: string;
   modulo_id: string;
   curso_id: string;

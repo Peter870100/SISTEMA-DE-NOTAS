@@ -5,6 +5,7 @@ import { cursoVisivelParaAluno } from "@/lib/aulas/acesso";
 import { arvoreDoCurso, progressoDoAluno } from "@/lib/aulas/consultas";
 import { estadoAula, porcentagemAula, porcentagemConjunto } from "@/lib/aulas/progresso";
 import { BarraProgresso } from "@/components/aulas/AulaAluno";
+import { MiniaturaAula } from "@/components/cursos/MiniaturaAula";
 import { estilos } from "@/components/ui/estilos";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,7 @@ export default async function AlunoCursoPage({ params }: { params: Promise<{ id:
                 return (
                   <li key={a.id}>
                     <Link href={`/aluno/aulas/${a.id}`} className="flex items-center gap-3 rounded-control px-1 py-2 text-sm hover:bg-surface-sunken">
+                      <MiniaturaAula caminho={a.capa_caminho} videoId={a.video_id} porcentagem={porcentagemAula(p)} />
                       <span aria-hidden="true" className={estado === "concluida" ? "text-ok" : "text-muted"}>{icone}</span>
                       <span className="flex-1 text-ink">{i + 1}. {a.titulo}</span>
                       <span className={`text-xs ${estado === "concluida" ? "text-ok" : "text-muted"}`}>{texto}</span>

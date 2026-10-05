@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { contarProgressos, criarAula, criarModulo, excluirAula, excluirModulo, moverAula, moverModulo, renomearModulo } from "@/actions/cursos";
 import type { ModuloComAulas } from "@/lib/aulas/consultas";
+import { MiniaturaAula } from "./MiniaturaAula";
 import { estilos } from "@/components/ui/estilos";
 
 export function EstruturaCurso({ cursoId, modulos }: { cursoId: string; modulos: ModuloComAulas[] }) {
@@ -51,7 +52,7 @@ export function EstruturaCurso({ cursoId, modulos }: { cursoId: string; modulos:
           <ol className="mt-2 divide-y divide-line">
             {m.aulas.map((a, j) => (
               <li key={a.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
-                <Link href={`/cursos/${cursoId}/aulas/${a.id}`} className="mr-auto min-w-0 font-medium text-ink hover:text-brand hover:underline">{j + 1}. {a.titulo}</Link>
+                <Link href={`/cursos/${cursoId}/aulas/${a.id}`} className="mr-auto flex min-w-0 flex-1 items-center gap-3 font-medium text-ink hover:text-brand hover:underline"><MiniaturaAula caminho={a.capa_caminho} videoId={a.video_id} /><span>{j + 1}. {a.titulo}</span></Link>
                 <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${a.publicada ? "bg-ok/15 text-ink" : "bg-surface-sunken text-muted"}`}>{a.publicada ? "Publicada" : "Rascunho"}</span>
                 <span className="text-xs text-muted">{[a.video_id ? "vídeo" : null, a.qtd_material + a.qtd_gabarito > 0 ? `${a.qtd_material + a.qtd_gabarito} PDF(s)` : null].filter(Boolean).join(" · ") || "vazia"}</span>
                 <button type="button" aria-label="Subir aula" disabled={ocupado || j === 0} onClick={() => executar(() => moverAula(a.id, -1))} className={iconeBotao}><ArrowUp size={14} /></button>

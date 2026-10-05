@@ -39,7 +39,7 @@ export default async function CursoPage({ params }: { params: Promise<{ id: stri
       subtitulo={turmasCurso.length ? `Turmas: ${turmasCurso.map((t) => `${t.turma_nome} · ${t.ano_letivo}`).join(", ")}` : "Nenhuma turma vinculada — os alunos ainda não veem este curso."}
       acoes={
         <>
-          <EditarCursoBotao inicial={{ id: curso.id, titulo: curso.titulo, disciplina: curso.disciplina, descricao: curso.descricao ?? "", turmas: turmasCurso }} turmas={opcoes} />
+          <EditarCursoBotao inicial={{ id: curso.id, titulo: curso.titulo, disciplina: curso.disciplina, descricao: curso.descricao ?? "", capa_caminho: curso.capa_caminho ?? null, turmas: turmasCurso }} turmas={opcoes} />
           <Link href={`/cursos/${id}/progresso`} className={estilos.botaoSecundario}><BarChart3 size={16} aria-hidden="true" /> Progresso da turma</Link>
         </>
       }

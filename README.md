@@ -34,3 +34,11 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+### Capas de cursos e miniaturas de aulas
+
+Execute `db/2026-10-05-capas-cursos-aulas.sql` no SQL Editor do Supabase. A migração é repetível, mantém os cursos e aulas existentes e cria o bucket público `capas` com PNG/JPG/WebP de até 2 MB, sem liberar gravação anônima.
+
+Configure `SUPABASE_SERVICE_ROLE_KEY` somente no servidor: no `.env.local` para desenvolvimento e nas variáveis de ambiente do projeto Vercel para produção. Use a chave privada do mesmo projeto Supabase de `NEXT_PUBLIC_SUPABASE_URL`. Nunca coloque essa chave em uma variável `NEXT_PUBLIC_*`, no Git ou em mensagens. Reinicie o servidor local após configurar a variável; produção precisa de novo deploy para carregá-la.
+
+Professor: capa opcional ao criar/editar curso; miniatura personalizada no editor de cada aula, com opção de voltar à automática do vídeo. Aluno: porcentagem real e barra sobre a capa, com miniaturas por aula. URLs de envio são assinadas apenas após verificar autenticação e acesso; imagens são validadas no servidor antes de gravar o caminho.

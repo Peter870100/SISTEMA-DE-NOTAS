@@ -360,3 +360,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .turma-card:hover, .turma-card:active { translate: none; }
 }
+
+/* Capas dos cursos, com leitura preservada sobre qualquer imagem. */
+.curso-capa { position: relative; display: flex; min-width: 0; aspect-ratio: 2 / 3; overflow: hidden; isolation: isolate; border: 1px solid rgb(255 255 255 / .25); border-radius: var(--radius-card); background: var(--color-frame-deep); box-shadow: 0 8px 24px rgb(6 32 86 / .14); transition: transform 220ms ease, box-shadow 220ms ease; }
+.curso-capa-previa { pointer-events: none; }
+.curso-capa:focus-visible { outline: 3px solid var(--color-brand); outline-offset: 4px; }
+@media (hover: hover) and (pointer: fine) { a.curso-capa:hover { transform: translateY(-3px); box-shadow: 0 16px 32px rgb(6 32 86 / .24); } }
+@media (prefers-reduced-motion: reduce) { .curso-capa { transition: none; } a.curso-capa:hover { transform: none; } }
