@@ -78,3 +78,6 @@ Professor: `/cursos` (lista + novo curso), `/cursos/[id]` (módulos e aulas em c
 
 ## Banco de questões
 `/banco` (lista com filtros), `/banco/nova` e `/banco/questoes/[id]` (EditorQuestao), `/banco/importar` (PDF renderizado no navegador com pdf.js e enviado ao bucket `questoes`), `/banco/importacoes/[id]` (progresso da leitura pela IA, a cada 20 s), `/banco/importacoes/[id]/revisar` (lista · página original com quadros arrastáveis · editor), `/banco/assuntos` e `/banco/importar-enem` (só dono). Texto das questões em markdown mínimo renderizado sem HTML; figuras por recorte (CSS sobre a imagem da página) ou arquivo.
+
+## Simulados
+Professor: `/simulados` (lista com situação), `/simulados/novo` e `/simulados/[id]/editar` (dados + sorteio/troca de questões + publicar), `/simulados/[id]` (resultados, questões mais erradas, liberar correção). Aluno: `/aluno/simulados` (da turma e treinos), `/aluno/simulados/[id]` (prova com cronômetro do servidor, grade de questões, "salvo ✓", entrega automática; resultado por área). Respostas salvas a cada clique; a resposta certa só aparece no resultado liberado.
