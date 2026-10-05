@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
 import { enviarEmailVerificacao } from "@/lib/email";
-import { obterEscolaPadrao } from "@/lib/escolas";
+import { ESCOLA_PADRAO_ID, obterEscolaPadrao } from "@/lib/escolas";
 import { obterCodigoConvite } from "@/lib/configuracoes";
 
 export async function cadastrar(formData: FormData) {
@@ -14,7 +14,7 @@ export async function cadastrar(formData: FormData) {
   const senha = String(formData.get("senha") ?? "");
   const codigo = String(formData.get("codigo") ?? "").trim();
 
-  const codigoEsperado = await obterCodigoConvite();
+  const codigoEsperado = await obterCodigoConvite(ESCOLA_PADRAO_ID);
   if (!codigoEsperado || codigo !== codigoEsperado) {
     redirect("/cadastro?erro=codigo");
   }

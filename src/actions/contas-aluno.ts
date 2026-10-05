@@ -4,13 +4,14 @@ import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
-import { exigirAdmin, getAlunoAtual, getProfessorAtual } from "@/lib/auth";
+import { getAlunoAtual } from "@/lib/auth";
+import { exigirAdminDaEscola, exigirTurmaDaEscola } from "@/lib/escola-acesso";
+import { mesmaEscola } from "@/lib/escola-regras";
 import { normalizarCodigo } from "@/lib/codigo-convite";
 import { gerarSenhaProvisoria, normalizarIdentificador, sugerirUsuario } from "@/lib/contas-aluno";
 import { enviarEmailVerificacao } from "@/lib/email";
 import { obterEscola } from "@/lib/escolas";
 import { vincularContaAoConvite, type ConviteValido } from "@/lib/convites";
-import type { Professor } from "@/lib/types";
 
 /** Convite ativo e dentro da validade para o código digitado (em qualquer formato), ou null. */
 export async function buscarConviteValido(codigoDigitado: string): Promise<ConviteValido | null> {
@@ -97,18 +98,13 @@ export async function cadastrarAlunoComCodigo(formData: FormData): Promise<void>
 export type ContaAlunoAdmin = { id: string; nome: string; usuario: string | null; email: string | null; ativo: boolean; ultimo_acesso: string | null; turmas: string[] };
 export type CredencialGerada = { nome: string; usuario: string; senha: string; turma: string };
 
-async function adminAtual(): Promise<Professor> {
-  await exigirAdmin();
-  return (await getProfessorAtual())!;
-}
-
 async function contaDaMinhaEscola(contaId: string, escolaId: string): Promise<void> {
   const { data } = await supabase.from("alunos_contas").select("escola_id").eq("id", contaId).maybeSingle();
-  if (!data || data.escola_id !== escolaId) throw new Error("Conta não encontrada.");
+  if (!data || !mesmaEscola(data, escolaId)) throw new Error("Conta não encontrada.");
 }
 
 export async function listarContasAluno(): Promise<ContaAlunoAdmin[]> {
-  const admin = await adminAtual();
+  const admin = await exigirAdminDaEscola();
   const [{ data: contas }, { data: vinculos }] = await Promise.all([
     supabase.from("alunos_contas").select("id, nome, usuario, email, ativo, ultimo_acesso").eq("escola_id", admin.escola_id).order("nome"),
     supabase.from("aluno_turmas").select("conta_id, turma_nome, ano_letivo").eq("escola_id", admin.escola_id),
@@ -132,16 +128,16 @@ async function usuariosExistentes(bases: string[]): Promise<Set<string>> {
 }
 
 export async function prepararLote(nomes: string[]): Promise<{ nome: string; usuario: string }[]> {
-  await adminAtual();
+  await exigirAdminDaEscola();
   const limpos = nomes.map((n) => n.trim().replace(/\s+/g, " ")).filter(Boolean);
   const existentes = await usuariosExistentes(limpos.map((n) => sugerirUsuario(n, new Set())));
   return limpos.map((nome) => ({ nome, usuario: sugerirUsuario(nome, existentes) }));
 }
 
 export async function criarContasAluno(turmaId: string, alunos: { nome: string; usuario: string }[]): Promise<CredencialGerada[]> {
-  const admin = await adminAtual();
-  const { data: turma } = await supabase.from("turmas").select("nome, ano_letivo, escola_id").eq("id", turmaId).single();
-  if (!turma || turma.escola_id !== admin.escola_id) throw new Error("Turma não encontrada.");
+  const admin = await exigirAdminDaEscola();
+  const turma = await exigirTurmaDaEscola(admin, turmaId).catch(() => null);
+  if (!turma) throw new Error("Turma não encontrada.");
 
   // Valida tudo antes do primeiro insert, para não perder senhas de contas já criadas.
   const invalidos: string[] = [];
@@ -175,14 +171,14 @@ export async function criarContasAluno(turmaId: string, alunos: { nome: string; 
 }
 
 export async function definirContaAtiva(contaId: string, ativo: boolean): Promise<void> {
-  const admin = await adminAtual();
+  const admin = await exigirAdminDaEscola();
   await contaDaMinhaEscola(contaId, admin.escola_id);
   const { error } = await supabase.from("alunos_contas").update({ ativo }).eq("id", contaId);
   if (error) throw new Error(error.message);
 }
 
 export async function novaSenhaAlunoPeloAdmin(contaId: string): Promise<string> {
-  const admin = await adminAtual();
+  const admin = await exigirAdminDaEscola();
   await contaDaMinhaEscola(contaId, admin.escola_id);
   const senha = gerarSenhaProvisoria();
   const { error } = await supabase.from("alunos_contas").update({ senha_hash: await bcrypt.hash(senha, 10), senha_provisoria: true, email_verificado: true }).eq("id", contaId);

@@ -18,8 +18,8 @@ export default async function HistoricoPage() {
 
   const [pagina, { data: turmas }, { data: professores }] = await Promise.all([
     listarHistorico(),
-    supabase.from("turmas").select("id, nome").order("nome"),
-    supabase.from("professores").select("id, nome").eq("role", "professor").order("nome"),
+    supabase.from("turmas").select("id, nome").eq("escola_id", atual.escola_id).order("nome"),
+    supabase.from("professores").select("id, nome").eq("role", "professor").eq("escola_id", atual.escola_id).order("nome"),
   ]);
 
   return (
