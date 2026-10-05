@@ -4,7 +4,7 @@ import { useState, type FocusEvent, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Contact, KeyRound, LogOut, Users, History, GraduationCap, Search, Trash2, FileSpreadsheet, ClipboardList, Timer } from "lucide-react";
+import { BookOpen, Contact, KeyRound, LogOut, Users, History, GraduationCap, Search, Trash2, FileSpreadsheet, ClipboardList, Timer, Building2 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Avatar } from "@/components/ui/Avatar";
 import { useComandosOpcional } from "@/components/command/CommandProvider";
@@ -50,6 +50,9 @@ export function Sidebar({ professor, turmas }: { professor: Professor | null; tu
       { href: "/admin/alunos", icon: Contact, label: "Alunos", ativo: pathname === "/admin/alunos" },
       { href: "/admin/historico", icon: History, label: "Histórico", ativo: pathname === "/admin/historico" },
       { href: "/admin/lixeira", icon: Trash2, label: "Lixeira", ativo: pathname === "/admin/lixeira" },
+    ] : []),
+    ...(professor.role === "dono" ? [
+      { href: "/dono", icon: Building2, label: "Escolas", ativo: pathname.startsWith("/dono") },
     ] : []),
     { href: "/trocar-senha", icon: KeyRound, label: "Senha", ativo: pathname === "/trocar-senha" },
   ];
