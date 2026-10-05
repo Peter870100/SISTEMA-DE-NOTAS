@@ -8,7 +8,7 @@ import { CommandProvider } from "@/components/command/CommandProvider";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { listarTurmasAcessiveis } from "@/actions/turmas";
 import { EscolaProvider } from "@/components/layout/EscolaContexto";
-import { MARCA_PADRAO, type MarcaEscola } from "@/lib/marca";
+import { MARCA_PADRAO, marcaDaEscola } from "@/lib/marca";
 import { ESCOLA_PADRAO_ID, obterEscola } from "@/lib/escolas";
 import "./globals.css";
 import { ehRotaPublica } from "@/lib/rotas";
@@ -53,10 +53,10 @@ export default async function RootLayout({
   }
 
   const aluno = professor ? null : await getAlunoAtual();
-  let marca: MarcaEscola = MARCA_PADRAO;
+  let marca = MARCA_PADRAO;
   try {
     const escola = await obterEscola(professor?.escola_id ?? aluno?.escola_id ?? ESCOLA_PADRAO_ID);
-    marca = { nome: escola.nome, logo_url: escola.logo_url };
+    marca = marcaDaEscola(escola);
   } catch {
     // Se a leitura de escolas falhar, o site continua com a marca padrão.
   }
