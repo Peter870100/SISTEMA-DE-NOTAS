@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { BookOpen, GraduationCap, Search, Users } from "lucide-react";
+import { BookOpen, ChevronDown, GraduationCap, Search, Users } from "lucide-react";
 import type { Turma } from "@/lib/types";
 import { corBimestre, partesDaTurma } from "@/lib/turmas";
 import { SeloHermes } from "@/components/ui/SeloHermes";
@@ -22,11 +22,14 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
       ? turmas.filter((t) => t.nome.toLowerCase().includes(alvo))
       : turmas;
 
-    const mapa = new Map<string, Turma[]>();
+    const mapa = new Map<string, Map<string, Turma[]>>();
     for (const turma of filtradas) {
-      const { serie } = partesDaTurma(turma.nome);
-      if (!mapa.has(serie)) mapa.set(serie, []);
-      mapa.get(serie)!.push(turma);
+      const { serie, resto } = partesDaTurma(turma.nome);
+      if (!mapa.has(serie)) mapa.set(serie, new Map());
+      const turmasDaSerie = mapa.get(serie)!;
+      const chave = (resto || turma.nome).trim().toLocaleLowerCase("pt-BR");
+      if (!turmasDaSerie.has(chave)) turmasDaSerie.set(chave, []);
+      turmasDaSerie.get(chave)!.push(turma);
     }
     return Array.from(mapa.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [turmas, busca]);
@@ -61,41 +64,40 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
 
       {grupos.map(([serie, turmasDaSerie]) => (
         <div key={serie} className="flex flex-col gap-2.5">
-          <h2 className={`flex items-center gap-1.5 ${estilos.rotulo}`}>
-            <GraduationCap size={16} className="text-brand" />
+          <h2 className="flex w-fit items-center gap-2.5 rounded-r-control border-l-[3px] border-gold bg-white/85 px-3 py-2 font-heading text-xl font-bold uppercase tracking-[0.06em] text-brand shadow-sm">
+            <GraduationCap size={20} strokeWidth={2.2} aria-hidden="true" className="shrink-0 text-brand" />
             {serie}
           </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {turmasDaSerie.map((turma) => {
-              const { resto } = partesDaTurma(turma.nome);
-              const alunos = contagemPorTurma[turma.id] ?? 0;
+            {Array.from(turmasDaSerie.entries()).map(([chave, bimestres]) => {
+              const primeira = bimestres[0];
+              const { resto } = partesDaTurma(primeira.nome);
+              const nome = resto ? `Turma ${resto}` : primeira.nome;
+              const ordenados = [...bimestres].sort((a, b) => a.bimestre.localeCompare(b.bimestre, "pt-BR", { numeric: true }));
               return (
-                <Link
-                  key={turma.id}
-                  href={`/turma/${turma.id}`}
-                  className="group flex items-center gap-3 rounded-card border border-line bg-surface px-5 py-4 shadow-card transition hover:-translate-y-0.5 hover:border-brand-bright/50 hover:shadow-[0_14px_36px_rgb(10_42_110_/_0.14)]"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control bg-brand/10 text-brand transition group-hover:bg-brand group-hover:text-white">
-                    <BookOpen size={19} />
+                <details key={chave} className="turma-card group self-start rounded-card border border-line bg-surface shadow-card">
+                  <summary className="flex cursor-pointer list-none items-center gap-3 rounded-card px-5 py-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-bright [&::-webkit-details-marker]:hidden">
+                    <span className="turma-card-icone flex h-10 w-10 shrink-0 items-center justify-center rounded-control bg-brand/10 text-brand transition group-hover:bg-brand group-hover:text-white">
+                      <BookOpen size={19} aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display font-semibold text-ink">{nome}</span>
+                      <span className="mt-1 block text-xs text-muted">{bimestres.length} {bimestres.length === 1 ? "bimestre disponível" : "bimestres disponíveis"}</span>
+                    </span>
+                    <ChevronDown size={18} aria-hidden="true" className="shrink-0 text-brand transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                  </summary>
+                  <div className="flex flex-col gap-2 border-t border-line-soft px-3 py-3">
+                    {ordenados.map((turma) => (
+                      <Link key={turma.id} href={`/turma/${turma.id}`} aria-label={`Abrir ${nome}, ${serie}, ${turma.bimestre}`} className="flex min-h-11 items-center justify-between gap-2 rounded-control border border-line-soft bg-white px-3 py-2 transition hover:border-brand-bright/50 hover:bg-surface-sunken">
+                        <span className={`rounded px-2 py-1 text-xs font-semibold ${corBimestre(turma.bimestre)}`}>{turma.bimestre}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="flex items-center gap-1 font-mono text-xs tabular-nums text-muted"><Users size={12} aria-hidden="true" />{contagemPorTurma[turma.id] ?? 0}</span>
+                          {turma.criado_via === "hermes" && <SeloHermes />}
+                        </span>
+                      </Link>
+                    ))}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-display font-semibold text-ink">
-                      {resto ? `Turma ${resto}` : turma.nome}
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-xs font-medium ${corBimestre(turma.bimestre)}`}
-                      >
-                        {turma.bimestre}
-                      </span>
-                      <span className="flex items-center gap-1 font-mono text-xs tabular-nums text-muted">
-                        <Users size={11} />
-                        {alunos}
-                      </span>
-                      {turma.criado_via === "hermes" && <SeloHermes />}
-                    </div>
-                  </div>
-                </Link>
+                </details>
               );
             })}
           </div>

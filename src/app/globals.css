@@ -46,6 +46,7 @@
 @theme inline {
   --font-sans: var(--font-manrope);
   --font-display: var(--font-space-grotesk);
+  --font-heading: var(--font-rajdhani);
   --font-mono: var(--font-jetbrains-mono);
 }
 
@@ -175,4 +176,174 @@ body {
     url("/fundo-escolar.png");
   background-size: auto, 1100px auto;
   background-repeat: repeat;
+}
+
+.sidebar-botao {
+  border-color: rgb(169 188 230 / 0.16);
+  background-color: rgb(255 255 255 / 0.035);
+  color: var(--color-frame-muted);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  transition: translate 220ms ease, scale 220ms ease, filter 220ms ease, background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 220ms ease;
+}
+
+.sidebar-botao[aria-current] {
+  border-color: var(--color-gold);
+  background-color: var(--color-gold);
+  color: var(--color-gold-ink);
+  box-shadow: 0 4px 14px rgb(245 217 10 / 0.25), inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+.sidebar-botao:hover, .sidebar-botao:focus-visible {
+  border-color: var(--color-gold);
+  background-color: var(--color-frame-line);
+  color: white;
+}
+
+.sidebar-botao[aria-current]:hover, .sidebar-botao[aria-current]:focus-visible {
+  background-color: var(--color-gold);
+  color: var(--color-gold-ink);
+}
+
+@media (min-width: 768px) {
+  .sidebar-botao[aria-current]::before {
+    content: "";
+    position: absolute;
+    left: -18px;
+    width: 3px;
+    height: 22px;
+    border-radius: 0 3px 3px 0;
+    background: var(--color-gold);
+  }
+
+
+
+
+}
+
+@media (min-width: 768px) and (max-height: 740px) {
+  .sidebar-status { padding-block: 10px; }
+  .sidebar-status nav { gap: 4px; }
+  .sidebar-botao { width: 40px; height: 40px; }
+  .sidebar-botao[aria-current]::before { left: -20px; }
+}
+
+@media (max-width: 767px) {
+  .sidebar-botao[aria-current]::before {
+    content: "";
+    position: absolute;
+    left: -10px;
+    width: 3px;
+    height: 22px;
+    border-radius: 0 3px 3px 0;
+    background: var(--color-gold);
+  }
+}
+
+@media (max-height: 640px) {
+  .sidebar-status nav {
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-block: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-frame-line) transparent;
+  }
+
+}
+.sidebar-etiqueta {
+  position: fixed;
+  z-index: 100;
+  transform: translateY(-50%);
+  pointer-events: none;
+  padding: 9px 12px;
+  border: 1px solid rgb(245 217 10 / 0.35);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-frame-deep) 80%, transparent);
+  backdrop-filter: blur(4px);
+  color: white;
+  font-family: var(--font-heading), sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+  box-shadow: 0 8px 20px rgb(6 32 86 / 0.25);
+}
+@media (hover: hover) and (pointer: fine) {
+  .sidebar-botao:not(:disabled):not([aria-disabled="true"]):hover {
+    translate: 0 -2px;
+    scale: 1;
+    box-shadow: 0 8px 16px rgb(0 0 0 / 0.25), 0 0 12px rgb(30 111 217 / 0.22);
+  }
+  .sidebar-botao[aria-current]:not(:disabled):not([aria-disabled="true"]):hover {
+    box-shadow: 0 8px 18px rgb(245 217 10 / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.35);
+  }
+  .sidebar-botao:not(:disabled):not([aria-disabled="true"]):active {
+    translate: 0 0;
+    scale: 0.98;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-botao:not(:disabled):not([aria-disabled="true"]):hover,
+  .sidebar-botao:not(:disabled):not([aria-disabled="true"]):active {
+    translate: none;
+    scale: none;
+  }
+}
+/* Demonstração: profundidade suave com degradês nas cores da escola. */
+.sidebar-botao {
+  background-image: linear-gradient(145deg, #173c7c 0%, #0a285f 55%, #071b43 100%);
+}
+.sidebar-botao[aria-current] {
+  background-image: linear-gradient(145deg, #fff27a 0%, #f5d90a 55%, #dca900 100%);
+}
+@media (hover: hover) and (pointer: fine) {
+  .sidebar-botao:not(:disabled):not([aria-disabled="true"]):hover {
+    background-image: linear-gradient(145deg, #2864ae 0%, #154381 55%, #0a285f 100%);
+    animation: none;
+    filter: none;
+  }
+  .sidebar-botao[aria-current]:not(:disabled):not([aria-disabled="true"]):hover {
+    background-image: linear-gradient(145deg, #fff6a0 0%, #ffe334 55%, #e9b817 100%);
+  }
+}
+.sidebar-botao {
+  background-size: 100% 100%;
+  background-position: center;
+}
+@media (hover: hover) and (pointer: fine) {
+  .sidebar-botao:not(:disabled):not([aria-disabled="true"]):hover {
+    background-size: 100% 100%;
+    background-position: center;
+  }
+}
+
+.cabecalho-status {
+  background-image: linear-gradient(115deg, #062056 0%, #0a2a6e 45%, #154e9b 100%);
+}
+
+.turma-card {
+  background-image: linear-gradient(130deg, #ffffff 0%, #f6f9ff 55%, #e8f0ff 100%);
+  transition: translate 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+.turma-card-icone {
+  background-image: linear-gradient(145deg, #edf4ff, #d1e1fc);
+}
+.turma-card:focus-visible {
+  border-color: var(--color-brand-bright);
+}
+@media (hover: hover) and (pointer: fine) {
+  .turma-card:hover {
+    translate: 0 -3px;
+    border-color: rgb(30 111 217 / 0.45);
+    background-image: linear-gradient(130deg, #ffffff 0%, #edf4ff 55%, #dce9ff 100%);
+    box-shadow: 0 14px 28px rgb(10 42 110 / 0.15), 0 3px 8px rgb(10 42 110 / 0.06);
+  }
+  .turma-card:hover .turma-card-icone {
+    background-image: linear-gradient(145deg, #1e6fd9, #0444a0);
+  }
+  .turma-card:active { translate: 0 -1px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .turma-card:hover, .turma-card:active { translate: none; }
 }

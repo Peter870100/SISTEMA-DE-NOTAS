@@ -14,15 +14,15 @@ type PageLayoutProps = {
 export function PageLayout({ crumb, titulo, subtitulo, acoes, largura = "max-w-7xl", children }: PageLayoutProps) {
   return (
     <div className="fundo-escolar flex min-h-full min-w-0 flex-1 shrink-0 flex-col">
-      <header className="bg-frame pb-20 text-white">
+      <header className="cabecalho-status bg-frame pb-20 text-white">
         <div className={`mx-auto w-full ${largura} px-4 pt-6 sm:px-6`}>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               {crumb && (
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-frame-muted">{crumb}</p>
+                <p className="font-heading text-xs font-semibold uppercase tracking-[0.2em] text-frame-muted">{crumb}</p>
               )}
-              <h1 className="mt-1 break-words font-display text-2xl font-semibold tracking-tight sm:text-3xl">{titulo}</h1>
-              {subtitulo && <p className="mt-1 text-sm text-frame-muted">{subtitulo}</p>}
+              <h1 className="mt-2 break-words font-heading text-4xl font-bold uppercase leading-none tracking-[0.025em] sm:text-5xl">{titulo}</h1>
+              {subtitulo && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-frame-muted">{subtitulo}</p>}
             </div>
             <Link href="/" aria-label="Início" className="hidden shrink-0 rounded sm:block">
               <LogoEscola className="h-auto w-40 lg:w-52" />

@@ -81,3 +81,16 @@ Professor: `/cursos` (lista + novo curso), `/cursos/[id]` (módulos e aulas em c
 
 ## Simulados
 Professor: `/simulados` (lista com situação), `/simulados/novo` e `/simulados/[id]/editar` (dados + sorteio/troca de questões + publicar), `/simulados/[id]` (resultados, questões mais erradas, liberar correção). Aluno: `/aluno/simulados` (da turma e treinos), `/aluno/simulados/[id]` (prova com cronômetro do servidor, grade de questões, "salvo ✓", entrega automática; resultado por área). Respostas salvas a cada clique; a resposta certa só aparece no resultado liberado.
+
+Títulos da área de trabalho: Space Grotesk 700, caixa alta, 30–36px e espaçamento de 0,045em. Assinatura menor com tracking de 0,2em; subtítulos em escrita normal. Sidebar de 80px, botões de 44px com contorno, ícones de 22px/traço 2,2, seleção amarela com barra lateral e etiquetas de função no hover/foco. Em telas baixas, botões de 40px e espaçamento menor.
+Saudação em Suas turmas: primeiro nome do usuário em Space Grotesk, negrito, caixa alta e amarelo sobre o cabeçalho azul, separado do texto de orientação.
+
+Revisão da navegação: sidebar sempre vertical à esquerda, 64px em telas estreitas e 80px no desktop. Área principal com rolagem própria em todas as larguras; navegação com rolagem em telas de até 640px de altura. Rajdhani 600/700 nos títulos e nome do usuário (`font-heading`), mantendo Manrope no texto e Space Grotesk nos demais componentes.
+Etiquetas da sidebar: renderizadas via portal na página, posicionadas ao lado do botão no hover ou foco, em todas as larguras e alturas, sem recorte pela rolagem da navegação. Ocultadas ao sair do botão ou rolar a sidebar.
+Etiquetas dos botões: fundo azul com 80% de opacidade (20% transparente) e desfoque de 4px, preservando o texto branco opaco.
+Botões da sidebar: no hover com mouse, elevação de 2px com sombra suave e transição de 220ms, sem aumento de escala; retornam à posição original ao sair. Seleção mantém sombra dourada. Movimento desativado para preferência de redução de movimento.
+Demonstração de degradê na sidebar: azul-marinho para azul nos botões normais; amarelo-claro para dourado no selecionado. Hover realça as cores, mantendo flutuação e etiquetas. Reflexo animado global desativado nesses botões para preservar o degradê.
+Cabeçalho da área de trabalho: degradê azul de #062056 para #0A2A6E e #154E9B, mantendo texto e logo claros e nome do usuário em amarelo.
+Cartões das turmas: degradê branco para azul-claro, ícone com degradê azul e hover com elevação de 3px, sombra suave e borda azul. Sem movimento contínuo; redução de movimento respeitada.
+Agrupamentos de turmas: títulos das séries em Rajdhani 700, 20px, azul brand, com ícone de 20px, superfície branca suave e barra amarela à esquerda.
+Turmas agrupadas por série e nome: um cartão expansível por turma, usando details/summary nativo para abrir e recolher bimestres. Links por bimestre ordenados numericamente, com contagem de alunos e selo Hermes preservados. Busca e navegação por teclado continuam disponíveis.

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { JetBrains_Mono, Manrope, Space_Grotesk } from "next/font/google";
+import { JetBrains_Mono, Manrope, Rajdhani, Space_Grotesk } from "next/font/google";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { getAlunoAtual, getProfessorAtual } from "@/lib/auth";
 import { CommandProvider } from "@/components/command/CommandProvider";
@@ -24,6 +24,8 @@ const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
 });
+
+const rajdhani = Rajdhani({ variable: "--font-rajdhani", subsets: ["latin"], weight: ["600", "700"], display: "swap" });
 
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
@@ -64,16 +66,16 @@ export default async function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${manrope.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${manrope.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${rajdhani.variable} h-full antialiased`}
     >
-      <body className="flex min-h-dvh flex-col bg-canvas md:h-dvh md:flex-row md:overflow-hidden">
+      <body className="flex h-dvh min-h-dvh flex-row overflow-hidden bg-canvas">
         <a href="#conteudo-principal" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold focus:text-brand focus:shadow-float">
           Pular para o conteúdo principal
         </a>
         <EscolaProvider marca={marca}>
         <CommandProvider>
           <Sidebar professor={professor} turmas={turmasPaleta} />
-          <div id="conteudo-principal" tabIndex={-1} className="flex min-h-0 min-w-0 flex-1 flex-col md:h-full md:overflow-y-auto md:overscroll-y-none">{children}</div>
+          <div id="conteudo-principal" tabIndex={-1} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-none">{children}</div>
           {professor && !professor.senha_provisoria && (
             <CommandPalette turmas={turmasPaleta} ehAdmin={ehAdmin(professor.role)} />
           )}

@@ -24,7 +24,7 @@ export default async function HomePage() {
     <PageLayout
       crumb="Redação · Colégio Status"
       titulo="Suas turmas"
-      subtitulo={primeiroNome ? `Olá, Prof. ${primeiroNome}. Escolha uma turma para lançar e acompanhar as notas.` : undefined}
+      subtitulo={primeiroNome ? <><span className="mr-2">Olá, Prof. <strong className="font-heading text-xl font-bold uppercase tracking-[0.025em] text-gold">{primeiroNome}</strong>.</span><span>Escolha uma turma para lançar e acompanhar as notas.</span></> : undefined}
       largura="max-w-6xl"
     >
       <TurmasLista turmas={turmas} contagemPorTurma={contagemPorTurma} />
