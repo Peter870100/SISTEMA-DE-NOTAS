@@ -10,6 +10,8 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos } from "@/components/ui/estilos";
 import { BimestreAbas } from "./BimestreAbas";
 import { CodigoAlunos } from "./CodigoAlunos";
+import { ControleBimestre } from "./ControleBimestre";
+import { SituacaoBimestre } from "./SituacaoBimestre";
 import { KpiCards } from "./KpiCards";
 import { SeloHermes } from "@/components/ui/SeloHermes";
 import { AnaliseAprendizagem } from "./AnaliseAprendizagem";
@@ -96,6 +98,10 @@ export function TurmaDashboard({
         </>
       }
     >
+      <div className={`flex flex-wrap items-center justify-between gap-3 rounded-card border p-3 ${turma.bimestre_encerrado ? "border-red-200 bg-red-50" : "border-line bg-surface"}`}>
+        <div className="flex flex-col gap-1"><div className="flex items-center gap-2"><span className="text-sm font-semibold text-ink">{turma.bimestre}</span><SituacaoBimestre turma={turma} /></div><p className="text-xs text-muted">{turma.bimestre_encerrado ? "Lançamentos bloqueados. Reabra para alterar notas e frequência." : "Você pode encerrar este período quando terminar os lançamentos."}</p></div>
+        <ControleBimestre turma={turma} disabled={salvamentosPendentes > 0} />
+      </div>
       {!maximizado && (
         <KpiCards totalAlunos={alunos.length} taxaCritico={taxaCritico} mediaTurma={mediaTurma10} />
       )}
@@ -123,7 +129,8 @@ export function TurmaDashboard({
       </div>
 
       <PlanilhaGrid
-        key={aba}
+        key={`${aba}:${turma.id}:${Boolean(turma.bimestre_encerrado)}`}
+        somenteLeitura={Boolean(turma.bimestre_encerrado)}
         turmaId={turma.id}
         turmaNome={turma.nome}
         turmaBimestre={turma.bimestre}

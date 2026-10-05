@@ -39,7 +39,7 @@ export async function criarBimestre(
 
   const { data: turmaAtual, error: erroTurma } = await supabase
     .from("turmas")
-    .select("nome, ano_letivo")
+    .select("nome, ano_letivo, escola_id")
     .eq("id", turmaAtualId)
     .single();
   if (erroTurma || !turmaAtual) {
@@ -47,13 +47,13 @@ export async function criarBimestre(
   }
 
   const professor = await getProfessorAtual();
-  if (!professor || !(await professorTemAcessoATurma(professor, turmaAtual.nome))) {
+  if (!professor || professor.escola_id !== turmaAtual.escola_id || !(await professorTemAcessoATurma(professor, turmaAtual.nome))) {
     throw new Error("Você não tem acesso a essa turma.");
   }
 
   const { data: novaTurma, error: erroNovaTurma } = await supabase
     .from("turmas")
-    .insert({ nome: turmaAtual.nome, bimestre: label, ano_letivo: turmaAtual.ano_letivo })
+    .insert({ nome: turmaAtual.nome, bimestre: label, ano_letivo: turmaAtual.ano_letivo, escola_id: turmaAtual.escola_id })
     .select()
     .single();
   if (erroNovaTurma || !novaTurma) {

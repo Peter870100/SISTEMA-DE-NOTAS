@@ -94,3 +94,5 @@ Cabeçalho da área de trabalho: degradê azul de #062056 para #0A2A6E e #154E9B
 Cartões das turmas: degradê branco para azul-claro, ícone com degradê azul e hover com elevação de 3px, sombra suave e borda azul. Sem movimento contínuo; redução de movimento respeitada.
 Agrupamentos de turmas: títulos das séries em Rajdhani 700, 20px, azul brand, com ícone de 20px, superfície branca suave e barra amarela à esquerda.
 Turmas agrupadas por série e nome: um cartão expansível por turma, usando details/summary nativo para abrir e recolher bimestres. Links por bimestre ordenados numericamente, com contagem de alunos e selo Hermes preservados. Busca e navegação por teclado continuam disponíveis.
+
+Controle de bimestres: cada período mostra Aberto, Em vigência (bolinha verde) ou Encerrado (cadeado e vermelho). O professor define um vigente por turma/escola/ano, encerra com confirmação e reabre quando quiser. Os encerrados continuam navegáveis para consulta e exportação; notas, frequência e estrutura da planilha ficam bloqueadas. Controles separados dos links para evitar navegação acidental.

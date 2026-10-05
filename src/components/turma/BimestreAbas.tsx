@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { LockKeyhole, Plus } from "lucide-react";
 import type { Turma } from "@/lib/types";
 import { CriarBimestreModal } from "./CriarBimestreModal";
 
@@ -37,8 +37,8 @@ export function BimestreAbas({ turma, todasTurmas }: BimestreAbasProps) {
   }, [todasTurmas]);
 
   const bimestresDaTurma = useMemo(
-    () => todasTurmas.filter((t) => t.nome === turma.nome).sort((a, b) => a.bimestre.localeCompare(b.bimestre)),
-    [todasTurmas, turma.nome]
+    () => todasTurmas.filter((t) => t.nome === turma.nome && t.ano_letivo === turma.ano_letivo && t.escola_id === turma.escola_id).sort((a, b) => a.bimestre.localeCompare(b.bimestre)),
+    [todasTurmas, turma.nome, turma.ano_letivo, turma.escola_id]
   );
 
   function handleTrocarSerie(novoNome: string) {
@@ -70,10 +70,12 @@ export function BimestreAbas({ turma, todasTurmas }: BimestreAbasProps) {
               key={t.id}
               href={`/turma/${t.id}`}
               aria-current={ativo ? "page" : undefined}
-              className={`rounded-[8px] px-3 py-1.5 text-xs font-semibold transition ${
-                ativo ? "bg-surface text-brand shadow-sm" : "text-frame-muted hover:bg-white/10 hover:text-white"
+              title={t.bimestre_encerrado ? "Bimestre encerrado: somente consulta" : t.bimestre_vigente ? "Bimestre em vigência" : "Bimestre aberto"}
+              className={`inline-flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-xs font-semibold transition ${
+                t.bimestre_encerrado ? (ativo ? "bg-red-50 text-red-700 ring-2 ring-red-400" : "bg-red-50/90 text-red-700") : ativo ? "bg-surface text-brand shadow-sm" : "text-frame-muted hover:bg-white/10 hover:text-white"
               }`}
             >
+              {t.bimestre_encerrado ? <LockKeyhole size={12} aria-hidden="true" /> : t.bimestre_vigente ? <span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-500" /> : null}
               {rotuloCurto(t.bimestre)}
             </Link>
           );

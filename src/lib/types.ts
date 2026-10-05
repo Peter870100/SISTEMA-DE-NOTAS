@@ -2,6 +2,8 @@ export type Turma = {
   id: string;
   nome: string;
   bimestre: string;
+  bimestre_encerrado?: boolean;
+  bimestre_vigente?: boolean;
   ano_letivo: string;
   escola_id: string;
   criado_via: OrigemRegistro;
@@ -560,6 +562,10 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      alterar_situacao_bimestre: {
+        Args: { p_turma_id: string; p_acao: "encerrar" | "reabrir" | "ativar" };
+        Returns: Turma[];
+      };
       lixeira_excluir: {
         Args: { p_tipo: TipoLixeira; p_id: string; p_ator?: string | null; p_via?: OrigemRegistro };
         Returns: string;

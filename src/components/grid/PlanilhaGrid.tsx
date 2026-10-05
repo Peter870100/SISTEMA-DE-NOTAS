@@ -41,6 +41,7 @@ class ErroParaUsuario extends Error {}
 const RE_TITULO_DATA = /^\d{1,2}[/\-.]\d{1,2}([/\-.]\d{2,4})?$/;
 
 type PlanilhaGridProps = {
+  somenteLeitura?: boolean;
   turmaId: string;
   turmaNome: string;
   turmaBimestre: string;
@@ -60,6 +61,7 @@ type PlanilhaGridProps = {
 };
 
 export function PlanilhaGrid({
+  somenteLeitura = false,
   turmaId,
   turmaNome,
   turmaBimestre,
@@ -139,7 +141,7 @@ export function PlanilhaGrid({
   }
 
   const desfazerUltimaAcao = useCallback(async () => {
-    if (!ultimaAcao || desfazendo) return;
+    if (somenteLeitura || !ultimaAcao || desfazendo) return;
     setDesfazendo(true);
     try {
       await ultimaAcao.desfazer();
@@ -149,11 +151,11 @@ export function PlanilhaGrid({
     } finally {
       setDesfazendo(false);
     }
-  }, [ultimaAcao, desfazendo]);
+  }, [ultimaAcao, desfazendo, somenteLeitura]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (!ultimaAcao || desfazendo) return;
+      if (somenteLeitura || !ultimaAcao || desfazendo) return;
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.key.toLowerCase() !== "z") return;
       const tag = (document.activeElement?.tagName ?? "").toLowerCase();
       if (tag === "input" || tag === "textarea") return;
@@ -162,7 +164,7 @@ export function PlanilhaGrid({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [ultimaAcao, desfazendo, desfazerUltimaAcao]);
+  }, [ultimaAcao, desfazendo, desfazerUltimaAcao, somenteLeitura]);
 
   const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -183,6 +185,7 @@ export function PlanilhaGrid({
   }
 
   function commitEdit(row: number, col: number, raw: string) {
+    if (somenteLeitura) return;
     const aluno = alunos[row];
     const coluna = colunas[col];
     if (!aluno || !coluna) return;
@@ -224,7 +227,7 @@ export function PlanilhaGrid({
           });
         }, 1200);
       })
-      .catch(() => {
+      .catch((e: unknown) => {
         falhasPorCelula.current.add(chaveCelula);
         setFalhaSalvamento(true);
         onCelulasChange((prev) => ({
@@ -232,7 +235,7 @@ export function PlanilhaGrid({
           [aluno.id]: { ...prev[aluno.id], [coluna.id]: anterior },
         }));
         setErro(
-          `Não foi possível salvar a célula de "${aluno.nome}" em "${coluna.titulo}". Tente novamente.`
+          e instanceof Error && e.message.includes("Bimestre encerrado") ? e.message : `Não foi possível salvar a célula de "${aluno.nome}" em "${coluna.titulo}". Tente novamente.`
         );
       })
       .finally(() => {
@@ -243,6 +246,7 @@ export function PlanilhaGrid({
   }
 
   function iniciarEdicao(row: number, col: number, valorInicial?: string) {
+    if (somenteLeitura) return;
     const aluno = alunos[row];
     const coluna = colunas[col];
     if (!aluno || !coluna) return;
@@ -267,7 +271,7 @@ export function PlanilhaGrid({
   }
 
   function handleKeyDown(e: React.KeyboardEvent, row: number, col: number) {
-    if (!editing && colunas[col]?.tipo === "presenca" && /^[pPfF]$/.test(e.key)) {
+    if (!somenteLeitura && !editing && colunas[col]?.tipo === "presenca" && /^[pPfF]$/.test(e.key)) {
       e.preventDefault();
       handleSelectStatus(row, col, e.key.toUpperCase());
       return;
@@ -523,7 +527,7 @@ export function PlanilhaGrid({
         palavrasChave: ["coluna", "atividade", "chamada"],
         executar: () => {
           comandos.fechar();
-          setGestaoColunasAberto(true);
+          if (!somenteLeitura) setGestaoColunasAberto(true);
         },
       },
       {
@@ -539,7 +543,7 @@ export function PlanilhaGrid({
     ]);
     // registrarAcoes/fechar são estáveis; re-registra só quando o tipo de coluna muda
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipoColuna]);
+  }, [tipoColuna, somenteLeitura]);
 
   const buscaLimpa = busca.trim();
   const alunosFiltrados = buscaLimpa
@@ -630,12 +634,12 @@ export function PlanilhaGrid({
             ? `Salvando… (${pendentes} ${pendentes === 1 ? "alteração pendente" : "alterações pendentes"})`
             : falhaSalvamento
               ? "Uma alteração não foi salva. Confira a mensagem acima e tente novamente."
-              : houveEdicao ? "Tudo salvo" : "Salvamento automático"}
+              : somenteLeitura ? "Somente consulta" : houveEdicao ? "Tudo salvo" : "Salvamento automático"}
         </p>
         <div className="ml-auto flex flex-wrap items-center gap-2">
         <button
           onClick={ordenarAlfabeticamente}
-          disabled={reordenando || alunos.length < 2}
+          disabled={somenteLeitura || reordenando || alunos.length < 2}
           className={`${estilos.botaoSecundario} min-h-9 py-1.5`}
           title="Coloca a turma em ordem alfabética e renumera a chamada"
         >
@@ -658,6 +662,7 @@ export function PlanilhaGrid({
           {exportando ? "Exportando..." : "Exportar Excel"}
         </button>
         <button
+          disabled={somenteLeitura}
           onClick={() => setGestaoColunasAberto(true)}
           className={`${estilos.botaoPrimario} min-h-9 py-1.5`}
         >
@@ -738,7 +743,7 @@ export function PlanilhaGrid({
               return (
                 <tr
                   key={aluno.id}
-                  draggable={podeArrastar && !buscaLimpa}
+                  draggable={!somenteLeitura && podeArrastar && !buscaLimpa}
                   onDragStart={() => setArrastando(row)}
                   onDragOver={(e) => {
                     if (arrastando === null) return;
@@ -764,10 +769,10 @@ export function PlanilhaGrid({
                   >
                     <span className="flex items-center justify-center gap-0.5">
                       <span
-                        onMouseDown={() => !buscaLimpa && setPodeArrastar(true)}
+                        onMouseDown={() => !somenteLeitura && !buscaLimpa && setPodeArrastar(true)}
                         onMouseUp={() => setPodeArrastar(false)}
                         className={`text-faint opacity-0 transition-opacity group-hover:opacity-100 ${
-                          buscaLimpa
+                          (somenteLeitura || buscaLimpa)
                             ? "cursor-not-allowed"
                             : "cursor-grab active:cursor-grabbing"
                         }`}
@@ -851,6 +856,7 @@ export function PlanilhaGrid({
                   {colunas.map((coluna, col) => (
                     <td key={coluna.id} className="border-t border-line-soft p-0">
                       <CelulaNota
+                        somenteLeitura={somenteLeitura}
                         value={getCelula(aluno.id, coluna.id)}
                         tipo={coluna.tipo}
                         active={active?.row === row && active?.col === col}
@@ -893,6 +899,7 @@ export function PlanilhaGrid({
                   <td className="border-t border-line-soft text-center">
                     <div className="flex items-center justify-center gap-1">
                       <button
+                        disabled={somenteLeitura}
                         onClick={() =>
                           setEditandoNome({ id: aluno.id, valor: aluno.nome })
                         }
@@ -902,6 +909,7 @@ export function PlanilhaGrid({
                         <Pencil size={15} />
                       </button>
                       <button
+                        disabled={somenteLeitura}
                         onClick={() => setTransferindo({ id: aluno.id, nome: aluno.nome })}
                         className="rounded-control p-1.5 text-faint transition hover:bg-surface-sunken active:scale-90 hover:text-warn"
                         title="Transferir pra outra turma"
@@ -909,6 +917,7 @@ export function PlanilhaGrid({
                         <ArrowRightLeft size={15} />
                       </button>
                       <button
+                        disabled={somenteLeitura}
                         onClick={() =>
                           setConfirmDelete({ id: aluno.id, nome: aluno.nome })
                         }
@@ -927,7 +936,7 @@ export function PlanilhaGrid({
       </div>
       </div>
 
-      {modoVarios ? (
+      {!somenteLeitura && (modoVarios ? (
         <div className={`${estilos.card} flex flex-col gap-2 p-3`}>
           <label className={estilos.rotulo}>
             Um nome por linha — cole a lista da chamada direto aqui
@@ -987,7 +996,7 @@ export function PlanilhaGrid({
             adicionar vários de uma vez
           </button>
         </form>
-      )}
+      ))}
 
       <ConfirmDialog
         open={confirmDelete !== null}
@@ -999,7 +1008,7 @@ export function PlanilhaGrid({
       />
 
       <GestaoColunasModal
-        open={gestaoColunasAberto}
+        open={!somenteLeitura && gestaoColunasAberto}
         turmaId={turmaId}
         tipo={tipoColuna}
         colunas={colunas}

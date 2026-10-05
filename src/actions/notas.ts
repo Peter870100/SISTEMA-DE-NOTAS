@@ -12,19 +12,19 @@ export async function upsertCelula(
   await exigirNaoAluno();
   const professor = await getProfessorAtual();
 
-  if (professor) {
-    const { data: coluna } = await supabase
-      .from("atividades_colunas")
-      .select("turma_id")
-      .eq("id", colunaId)
-      .single();
-    const { data: turma } = coluna
-      ? await supabase.from("turmas").select("nome").eq("id", coluna.turma_id).single()
-      : { data: null };
-    if (!turma || !(await professorTemAcessoATurma(professor, turma.nome))) {
-      throw new Error("Você não tem acesso a essa turma.");
-    }
+  if (!professor) throw new Error("Entre como professor para lançar notas.");
+  const [{ data: coluna }, { data: aluno }] = await Promise.all([
+    supabase.from("atividades_colunas").select("turma_id").eq("id", colunaId).single(),
+    supabase.from("alunos").select("turma_id").eq("id", alunoId).single(),
+  ]);
+  if (!coluna || !aluno || coluna.turma_id !== aluno.turma_id) {
+    throw new Error("Aluno e atividade devem pertencer ao mesmo bimestre.");
   }
+  const { data: turma } = await supabase.from("turmas").select("*").eq("id", coluna.turma_id).single();
+  if (!turma || turma.escola_id !== professor.escola_id || !(await professorTemAcessoATurma(professor, turma.nome))) {
+    throw new Error("Você não tem acesso a essa turma.");
+  }
+  if (turma.bimestre_encerrado) throw new Error("Bimestre encerrado. Reabra o bimestre para fazer lançamentos.");
 
   const { data: atual } = await supabase
     .from("notas_celulas")

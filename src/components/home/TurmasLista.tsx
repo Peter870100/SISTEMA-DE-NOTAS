@@ -6,6 +6,8 @@ import { BookOpen, ChevronDown, GraduationCap, Search, Users } from "lucide-reac
 import type { Turma } from "@/lib/types";
 import { corBimestre, partesDaTurma } from "@/lib/turmas";
 import { SeloHermes } from "@/components/ui/SeloHermes";
+import { ControleBimestre } from "@/components/turma/ControleBimestre";
+import { SituacaoBimestre } from "@/components/turma/SituacaoBimestre";
 import { estilos } from "@/components/ui/estilos";
 
 type TurmasListaProps = {
@@ -27,7 +29,7 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
       const { serie, resto } = partesDaTurma(turma.nome);
       if (!mapa.has(serie)) mapa.set(serie, new Map());
       const turmasDaSerie = mapa.get(serie)!;
-      const chave = (resto || turma.nome).trim().toLocaleLowerCase("pt-BR");
+      const chave = JSON.stringify([turma.escola_id, turma.ano_letivo, (resto || turma.nome).trim().toLocaleLowerCase("pt-BR")]);
       if (!turmasDaSerie.has(chave)) turmasDaSerie.set(chave, []);
       turmasDaSerie.get(chave)!.push(turma);
     }
@@ -82,19 +84,22 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-display font-semibold text-ink">{nome}</span>
-                      <span className="mt-1 block text-xs text-muted">{bimestres.length} {bimestres.length === 1 ? "bimestre disponível" : "bimestres disponíveis"}</span>
+                      <span className="mt-1 block text-xs text-muted">{primeira.ano_letivo} · {bimestres.length} {bimestres.length === 1 ? "bimestre disponível" : "bimestres disponíveis"}</span>
                     </span>
                     <ChevronDown size={18} aria-hidden="true" className="shrink-0 text-brand transition-transform group-open:rotate-180 motion-reduce:transition-none" />
                   </summary>
                   <div className="flex flex-col gap-2 border-t border-line-soft px-3 py-3">
                     {ordenados.map((turma) => (
-                      <Link key={turma.id} href={`/turma/${turma.id}`} aria-label={`Abrir ${nome}, ${serie}, ${turma.bimestre}`} className="flex min-h-11 items-center justify-between gap-2 rounded-control border border-line-soft bg-white px-3 py-2 transition hover:border-brand-bright/50 hover:bg-surface-sunken">
-                        <span className={`rounded px-2 py-1 text-xs font-semibold ${corBimestre(turma.bimestre)}`}>{turma.bimestre}</span>
+                      <div key={turma.id} className={`flex flex-col gap-2 rounded-control border p-2 ${turma.bimestre_encerrado ? "border-red-200 bg-red-50/70" : "border-line-soft bg-white"}`}>
+                      <Link href={`/turma/${turma.id}`} aria-label={`Abrir ${nome}, ${serie}, ${turma.bimestre}`} className="flex min-h-11 items-center justify-between gap-2 rounded-control border border-line-soft bg-white px-3 py-2 transition hover:border-brand-bright/50 hover:bg-surface-sunken">
+                        <span className="flex flex-wrap items-center gap-2"><span className={`rounded px-2 py-1 text-xs font-semibold ${turma.bimestre_encerrado ? "bg-red-100 text-red-700" : corBimestre(turma.bimestre)}`}>{turma.bimestre}</span><SituacaoBimestre turma={turma} /></span>
                         <span className="flex items-center gap-2">
                           <span className="flex items-center gap-1 font-mono text-xs tabular-nums text-muted"><Users size={12} aria-hidden="true" />{contagemPorTurma[turma.id] ?? 0}</span>
                           {turma.criado_via === "hermes" && <SeloHermes />}
                         </span>
                       </Link>
+                      <ControleBimestre turma={turma} />
+                      </div>
                     ))}
                   </div>
                 </details>

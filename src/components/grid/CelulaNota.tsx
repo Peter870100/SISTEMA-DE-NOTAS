@@ -7,6 +7,7 @@ import type { TipoColuna } from "@/lib/types";
 import { NOTA_ABAIXO_DA_MEDIA } from "@/lib/analytics";
 
 type CelulaNotaProps = {
+  somenteLeitura?: boolean;
   value: ValorCelula;
   tipo: TipoColuna;
   active: boolean;
@@ -23,6 +24,7 @@ type CelulaNotaProps = {
 };
 
 export function CelulaNota({
+  somenteLeitura = false,
   value,
   tipo,
   active,
@@ -43,7 +45,7 @@ export function CelulaNota({
     if (editing) inputRef.current?.focus();
   }, [editing]);
 
-  if (editing && tipo === "presenca") {
+  if (!somenteLeitura && editing && tipo === "presenca") {
     return (
       <div
         ref={cellRef}
@@ -64,7 +66,7 @@ export function CelulaNota({
     );
   }
 
-  if (editing) {
+  if (!somenteLeitura && editing) {
     return (
       <div
         ref={cellRef}
@@ -114,7 +116,8 @@ export function CelulaNota({
       ref={cellRef}
       tabIndex={0}
       onFocus={onActivate}
-      onClick={onStartEdit}
+      aria-disabled={somenteLeitura}
+      onClick={somenteLeitura ? undefined : onStartEdit}
       onKeyDown={onKeyDown}
       title={tituloAutor}
       className={`group flex min-h-11 items-center justify-between gap-1 px-2 py-1.5 text-sm outline-none transition-colors ${
@@ -142,7 +145,7 @@ export function CelulaNota({
           </span>
         ) : null}
       </span>
-      <button
+      {!somenteLeitura && <button
         type="button"
         tabIndex={-1}
         onClick={(e) => {
@@ -154,7 +157,7 @@ export function CelulaNota({
         aria-label="Editar célula"
       >
         <Pencil size={12} />
-      </button>
+      </button>}
     </div>
   );
 }
