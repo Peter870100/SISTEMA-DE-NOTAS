@@ -41,36 +41,37 @@ export function Sidebar({ professor, turmas }: { professor: Professor | null; tu
   if (!professor) return null;
 
   const itens = [
-    { href: "/", icon: GraduationCap, label: "Turmas", ativo: pathname === "/" || pathname.startsWith("/turma/") },
-    { href: "/cursos", icon: BookOpen, label: "Aulas", ativo: pathname.startsWith("/cursos") },
-    { href: "/banco", icon: ClipboardList, label: "Questões", ativo: pathname.startsWith("/banco") },
-    { href: "/simulados", icon: Timer, label: "Simulados", ativo: pathname.startsWith("/simulados") },
+    { href: "/", icon: GraduationCap, cor: "azul", label: "Turmas", ativo: pathname === "/" || pathname.startsWith("/turma/") },
+    { href: "/cursos", icon: BookOpen, cor: "ciano", label: "Aulas", ativo: pathname.startsWith("/cursos") },
+    { href: "/banco", icon: ClipboardList, cor: "laranja", label: "Questões", ativo: pathname.startsWith("/banco") },
+    { href: "/simulados", icon: Timer, cor: "lilas", label: "Simulados", ativo: pathname.startsWith("/simulados") },
     ...(ehAdmin(professor.role) ? [
-      { href: "/admin/professores", icon: Users, label: "Professores", ativo: pathname === "/admin/professores" },
-      { href: "/admin/alunos", icon: Contact, label: "Alunos", ativo: pathname === "/admin/alunos" },
-      { href: "/admin/historico", icon: History, label: "Histórico", ativo: pathname === "/admin/historico" },
-      { href: "/admin/lixeira", icon: Trash2, label: "Lixeira", ativo: pathname === "/admin/lixeira" },
+      { href: "/admin/professores", icon: Users, cor: "verde", label: "Professores", ativo: pathname === "/admin/professores" },
+      { href: "/admin/alunos", icon: Contact, cor: "turquesa", label: "Alunos", ativo: pathname === "/admin/alunos" },
+      { href: "/admin/historico", icon: History, cor: "lilas", label: "Histórico", ativo: pathname === "/admin/historico" },
+      { href: "/admin/lixeira", icon: Trash2, cor: "coral", label: "Lixeira", ativo: pathname === "/admin/lixeira" },
     ] : []),
     ...(professor.role === "dono" ? [
-      { href: "/dono", icon: Building2, label: "Escolas", ativo: pathname.startsWith("/dono") },
+      { href: "/dono", icon: Building2, cor: "dourado", label: "Escolas", ativo: pathname.startsWith("/dono") },
     ] : []),
-    { href: "/trocar-senha", icon: KeyRound, label: "Senha", ativo: pathname === "/trocar-senha" },
+    { href: "/trocar-senha", icon: KeyRound, cor: "dourado", label: "Senha", ativo: pathname === "/trocar-senha" },
   ];
 
   return (
     <aside onMouseOver={mostrarEtiqueta} onMouseOut={ocultarEtiqueta} onFocus={mostrarEtiqueta} onBlur={ocultarEtiqueta} onScrollCapture={() => setEtiqueta(null)} className="sidebar-status sticky top-0 z-30 flex h-dvh w-16 shrink-0 flex-col items-center gap-2 border-r border-frame-line bg-frame-deep px-0 py-4 md:w-20">
       <nav aria-label="Navegação principal" className="flex min-h-0 w-full flex-col items-center gap-1.5">
         {onAbrirBusca && (
-          <button type="button" onClick={onAbrirBusca} aria-label="Buscar (Ctrl+K)" data-label="Buscar (Ctrl+K)" className={`${itemBase} text-frame-muted hover:bg-white/10 hover:text-white md:mb-2`}>
+          <button type="button" onClick={onAbrirBusca} aria-label="Buscar (Ctrl+K)" data-label="Buscar (Ctrl+K)" data-cor="ciano" className={`${itemBase} text-frame-muted hover:bg-white/10 hover:text-white md:mb-2`}>
             <Search size={22} strokeWidth={2.2} aria-hidden="true" />
           </button>
         )}
-        {itens.map(({ href, icon: Icon, label, ativo }) => (
+        {itens.map(({ href, icon: Icon, cor, label, ativo }) => (
           <Link
             key={href}
             href={href}
             aria-label={label}
             data-label={label}
+            data-cor={cor}
             aria-current={ativo ? (pathname === href ? "page" : "location") : undefined}
             className={`${itemBase} ${ativo ? "bg-gold text-gold-ink shadow-[0_0_18px_rgb(245_217_10_/_0.4)]" : "text-frame-muted hover:bg-white/10 hover:text-white"}`}
           >
@@ -78,7 +79,7 @@ export function Sidebar({ professor, turmas }: { professor: Professor | null; tu
           </Link>
         ))}
         {!professor.senha_provisoria && turmas.length > 0 && (
-          <button type="button" onClick={() => setExportacaoAberta(true)} aria-label="Exportar turmas" data-label="Exportar turmas" aria-haspopup="dialog" className={`${itemBase} text-frame-muted hover:bg-white/10 hover:text-white`}>
+          <button type="button" onClick={() => setExportacaoAberta(true)} aria-label="Exportar turmas" data-label="Exportar turmas" data-cor="verde" aria-haspopup="dialog" className={`${itemBase} text-frame-muted hover:bg-white/10 hover:text-white`}>
             <FileSpreadsheet size={22} strokeWidth={2.2} aria-hidden="true" />
           </button>
         )}
@@ -88,7 +89,7 @@ export function Sidebar({ professor, turmas }: { professor: Professor | null; tu
           <Avatar nome={professor.nome} />
         </span>
         <form action={logout}>
-          <button type="submit" aria-label="Sair" data-label="Sair" className={`${itemBase} text-frame-muted hover:bg-danger/20 hover:text-white`}>
+          <button type="submit" aria-label="Sair" data-label="Sair" data-cor="coral" className={`${itemBase} text-frame-muted hover:bg-danger/20 hover:text-white`}>
             <LogOut size={22} strokeWidth={2.2} aria-hidden="true" />
           </button>
         </form>

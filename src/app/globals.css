@@ -249,6 +249,19 @@ body {
   }
 
 }
+/* Cores dos ícones por função, preservando a seleção da escola. */
+.sidebar-botao[data-cor="azul"] { --sidebar-icone: #93c5fd; }
+.sidebar-botao[data-cor="ciano"] { --sidebar-icone: #67e8f9; }
+.sidebar-botao[data-cor="laranja"] { --sidebar-icone: #fdba74; }
+.sidebar-botao[data-cor="lilas"] { --sidebar-icone: #c4b5fd; }
+.sidebar-botao[data-cor="verde"] { --sidebar-icone: #86efac; }
+.sidebar-botao[data-cor="turquesa"] { --sidebar-icone: #5eead4; }
+.sidebar-botao[data-cor="coral"] { --sidebar-icone: #fda4af; }
+.sidebar-botao[data-cor="dourado"] { --sidebar-icone: #fcd34d; }
+.sidebar-botao:not([aria-current]) > svg {
+  color: var(--sidebar-icone, var(--color-frame-muted));
+}
+
 .sidebar-etiqueta {
   position: fixed;
   z-index: 100;
