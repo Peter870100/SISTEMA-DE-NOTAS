@@ -8,7 +8,7 @@ export async function validarCapaEnviada(caminho: string | null | undefined, ant
   if (typeof caminho !== "string" || !caminhoCapaValido(caminho, professor.escola_id, professor.id, tipo)) throw new Error("Imagem inválida para esta conta.");
   const { data, error } = await armazenamentoCapas().download(caminho);
   if (error || !data) throw new Error("A imagem não foi enviada. Escolha o arquivo novamente.");
-  if (!data.size || data.size > LIMITE_CAPA || !assinaturaImagemValida(new Uint8Array(await data.slice(0, 12).arrayBuffer()), caminho.split(".").pop()!)) throw new Error("Envie uma imagem PNG, JPG ou WebP válida, de até 2 MB.");
+  if (!data.size || data.size > LIMITE_CAPA || !assinaturaImagemValida(new Uint8Array(await data.slice(0, 12).arrayBuffer()), caminho.split(".").pop()!)) throw new Error("Não foi possível salvar esta imagem. Escolha uma imagem válida.");
   return caminho;
 }
 export async function apagarCapaAnterior(anterior: string | null | undefined, atual: string | null | undefined) {

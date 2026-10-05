@@ -4,7 +4,7 @@ export const TIPOS_CAPA = { "image/png": "png", "image/jpeg": "jpg", "image/webp
 export type TipoCapa = "curso" | "aula";
 export function validarCapa(tipo: string, tamanho: number): string | null {
   if (!Object.hasOwn(TIPOS_CAPA, tipo)) return "Envie uma imagem PNG, JPG ou WebP.";
-  if (!Number.isFinite(tamanho) || tamanho <= 0 || tamanho > LIMITE_CAPA) return "A imagem pode ter no máximo 2 MB.";
+  if (!Number.isFinite(tamanho) || tamanho <= 0 || tamanho > LIMITE_CAPA) return "Não foi possível preparar a imagem para envio. Escolha novamente.";
   return null;
 }
 export function caminhoCapaValido(caminho: string, escolaId: string, professorId: string, tipo: TipoCapa): boolean {

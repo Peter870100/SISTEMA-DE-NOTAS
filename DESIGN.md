@@ -104,3 +104,5 @@ Controle de bimestres: cada período mostra Aberto, Em vigência (bolinha verde)
 
 Capas de cursos: cartões verticais 2:3, imagem enviada pelo professor, título sobre degradê escuro, contagem de módulos/aulas e progresso real do aluno sobre a capa. Envio de PNG/JPG/WebP até 2 MB com prévia ao criar/editar. Aulas: miniaturas horizontais 16:9, automáticas a partir do vídeo ou personalizadas no editor; remover a personalizada volta à automática. Imagens indisponíveis usam o ícone de livro e o azul da escola. Hover eleva 3px; redução de movimento respeitada.
 Armazenamento de capas: bucket público `capas`, sem políticas de envio/exclusão anônimas; URLs de envio assinadas após autenticação/autorização do professor. Chave SUPABASE_SERVICE_ROLE_KEY restrita ao servidor.
+
+Escolha de capas: aceita qualquer proporção e os formatos de imagem reconhecidos pelo navegador. Redimensionamento proporcional até 1600px e compressão JPEG automáticos antes do envio; o limite interno de armazenamento não aparece no formulário.
