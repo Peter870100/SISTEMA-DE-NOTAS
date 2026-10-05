@@ -109,6 +109,7 @@ export type ItemLixeira = {
   excluido_por: string | null;
   excluido_via: OrigemRegistro;
   excluido_em: string;
+  escola_id: string;
 };
 
 export type ResultadoRestauracao = {
@@ -129,6 +130,7 @@ export type Escola = {
   foto_login_url: string | null;
   nome_remetente_email: string;
   codigo_convite_professor: string;
+  ativa: boolean;
   created_at: string;
 };
 
@@ -439,6 +441,7 @@ export type Database = {
           logo_url: string;
           nome_remetente_email: string;
           codigo_convite_professor: string;
+          ativa?: boolean;
         };
         Update: Partial<Omit<Escola, "id" | "created_at">>;
         Relationships: [];
