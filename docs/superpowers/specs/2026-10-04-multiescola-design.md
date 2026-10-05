@@ -37,6 +37,18 @@ alter table lixeira add column if not exists escola_id uuid not null
     default '00000000-0000-0000-0000-000000000001' references escolas(id);
 create index if not exists idx_lixeira_escola on lixeira (escola_id, excluido_em desc);
 
+-- lixeira_excluir() não conhece a escola: o gatilho pega a da turma (ainda existe no momento do insert)
+create or replace function lixeira_definir_escola()
+returns trigger language plpgsql as $$
+begin
+  new.escola_id := coalesce((select escola_id from turmas where id = new.turma_id), new.escola_id);
+  return new;
+end;
+$$;
+drop trigger if exists trg_lixeira_escola on lixeira;
+create trigger trg_lixeira_escola before insert on lixeira
+for each row execute function lixeira_definir_escola();
+
 -- Escola pode ser desativada pelo dono
 alter table escolas add column if not exists ativa boolean not null default true;
 
