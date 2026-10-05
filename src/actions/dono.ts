@@ -124,12 +124,24 @@ export async function urlEnvioMarca(escolaId: string, tipo: "logo" | "login", ti
 export async function confirmarMarca(escolaId: string, tipo: "logo" | "login", caminho: string): Promise<void> {
   await exigirDono();
   if (tipo !== "logo" && tipo !== "login") throw new Error("Tipo inválido.");
-  const { data: escola } = await supabase.from("escolas").select("id").eq("id", escolaId).maybeSingle();
+  const { data: escola } = await supabase.from("escolas").select("id, logo_url, foto_login_url").eq("id", escolaId).maybeSingle();
   if (!escola) throw new Error("Escola não encontrada.");
   if (!new RegExp(`^${escola.id}/${tipo}-[0-9a-f-]{36}\\.(png|jpg|webp)$`).test(String(caminho ?? ""))) throw new Error("Arquivo inválido.");
   const url = supabase.storage.from(BUCKET).getPublicUrl(caminho).data.publicUrl;
   const { error } = await supabase.from("escolas").update(tipo === "logo" ? { logo_url: url } : { foto_login_url: url }).eq("id", escola.id);
   if (error) throw new Error(error.message);
+  const anterior = caminhoNoBucket(tipo === "logo" ? escola.logo_url : escola.foto_login_url, escola.id, tipo);
+  if (anterior && anterior !== caminho) {
+    // A imagem trocada não é mais usada; se a remoção falhar, só sobra um arquivo órfão.
+    await supabase.storage.from(BUCKET).remove([anterior]).catch(() => undefined);
+  }
+}
+
+/** Caminho dentro do bucket de uma URL pública nossa, ou null (ex.: arquivos de /public do Status). */
+function caminhoNoBucket(url: string | null, escolaId: string, tipo: "logo" | "login"): string | null {
+  const m = url ? /\/storage\/v1\/object\/public\/marcas\/(.+)$/.exec(url) : null;
+  const caminho = m ? decodeURIComponent(m[1]) : null;
+  return caminho && caminho.startsWith(`${escolaId}/${tipo}-`) ? caminho : null;
 }
 
 export async function verificarEndereco(escolaId: string): Promise<boolean> {

@@ -22,7 +22,7 @@ export default async function EscolaDonoPage({ params }: PageProps) {
   const { data: e } = await supabase.from("escolas").select("*").eq("id", id).maybeSingle();
   if (!e) notFound();
   const ehStatus = e.id === ESCOLA_PADRAO_ID;
-  const endereco = `${e.slug}.${DOMINIO_BASE}`;
+  const endereco = ehStatus ? `www.${DOMINIO_BASE}` : `${e.slug}.${DOMINIO_BASE}`;
 
   return (
     <PageLayout crumb="Plataforma" titulo={e.nome} subtitulo={e.ativa ? "Escola ativa" : "Escola desativada"} largura="max-w-3xl">

@@ -17,10 +17,16 @@ export default async function HomePage() {
 
   const contagemPorTurma: Record<string, number> = {};
   const ids = turmas.map((t) => t.id);
+  // Páginas de 1000 linhas: o Supabase corta cada resposta nesse limite.
   for (let i = 0; i < ids.length; i += 150) {
-    const { data: alunos } = await supabase.from("alunos").select("turma_id").in("turma_id", ids.slice(i, i + 150));
-    for (const a of alunos ?? []) {
-      contagemPorTurma[a.turma_id] = (contagemPorTurma[a.turma_id] ?? 0) + 1;
+    const bloco = ids.slice(i, i + 150);
+    for (let de = 0; ; de += 1000) {
+      const { data: alunos, error } = await supabase.from("alunos").select("turma_id").in("turma_id", bloco).order("id").range(de, de + 999);
+      if (error) throw new Error(error.message);
+      for (const a of alunos ?? []) {
+        contagemPorTurma[a.turma_id] = (contagemPorTurma[a.turma_id] ?? 0) + 1;
+      }
+      if ((alunos ?? []).length < 1000) break;
     }
   }
 
