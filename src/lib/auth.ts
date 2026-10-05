@@ -3,6 +3,8 @@ import { supabase } from "@/lib/supabase/client";
 import type { AlunoConta, Professor } from "@/lib/types";
 import { COOKIE_NOME, assinarSessao, segredo, verificarSessao, type Sessao, type TipoConta } from "@/lib/sessao";
 import { ehAdmin } from "@/lib/papeis";
+import { obterEscola } from "@/lib/escolas";
+import { podeAcessarTurma } from "@/lib/escola-regras";
 import { contaDoToken, validarTokenRedefinicao } from "@/lib/token-senha";
 
 export { COOKIE_NOME, segredo } from "@/lib/sessao";
@@ -47,6 +49,8 @@ export async function getAlunoAtual(): Promise<AlunoConta | null> {
     .eq("id", sessao.id)
     .maybeSingle();
   if (!data || !data.ativo) return null;
+  const escola = await obterEscola(data.escola_id).catch(() => null);
+  if (!escola || escola.ativa === false) return null;
 
   const desatualizado =
     !data.ultimo_acesso || Date.now() - new Date(data.ultimo_acesso).getTime() > THROTTLE_ULTIMO_ACESSO_MS;
@@ -82,6 +86,8 @@ export async function getProfessorAtual(): Promise<Professor | null> {
     .eq("id", professorId)
     .maybeSingle();
   if (!data) return null;
+  const escola = await obterEscola(data.escola_id).catch(() => null);
+  if (!escola || escola.ativa === false) return null;
 
   const desatualizado =
     !data.ultimo_acesso || Date.now() - new Date(data.ultimo_acesso).getTime() > THROTTLE_ULTIMO_ACESSO_MS;
@@ -122,17 +128,16 @@ export async function professorTemAcessoATurma(professor: Professor, turmaNome: 
 }
 
 /**
- * Lança erro se houver um professor logado (requisição anônima direta passa —
- * mesmo modelo permissivo de `upsertCelula`) e ele não tiver acesso à turma do id dado.
- * Usar em toda Server Action que mexe em dado de uma turma específica.
+ * Lança erro se não houver professor logado, ou se a turma do id dado não for da escola dele
+ * ou não estiver liberada pra ele. Usar em toda Server Action que mexe em dado de uma turma.
  */
 export async function exigirAcessoATurmaId(
   professor: Professor | null,
   turmaId: string
 ): Promise<void> {
-  if (!professor) return;
-  const { data: turma } = await supabase.from("turmas").select("nome").eq("id", turmaId).single();
-  if (!turma || !(await professorTemAcessoATurma(professor, turma.nome))) {
+  if (!professor) throw new Error("Faça login novamente.");
+  const { data: turma } = await supabase.from("turmas").select("nome, escola_id").eq("id", turmaId).single();
+  if (!turma || !podeAcessarTurma(professor, turma, await turmasLiberadasPara(professor))) {
     throw new Error("Você não tem acesso a essa turma.");
   }
 }

@@ -9,7 +9,7 @@ import { CommandPalette } from "@/components/command/CommandPalette";
 import { listarTurmasAcessiveis } from "@/actions/turmas";
 import { EscolaProvider } from "@/components/layout/EscolaContexto";
 import { MARCA_PADRAO, marcaDaEscola } from "@/lib/marca";
-import { ESCOLA_PADRAO_ID, obterEscola } from "@/lib/escolas";
+import { ESCOLA_PADRAO_ID, escolaDoEndereco, obterEscola } from "@/lib/escolas";
 import "./globals.css";
 import { ehRotaPublica } from "@/lib/rotas";
 import { ehAdmin } from "@/lib/papeis";
@@ -43,6 +43,28 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const escolaEndereco = await escolaDoEndereco();
+  if (escolaEndereco === null || escolaEndereco.ativa === false) {
+    const naoEncontrada = escolaEndereco === null;
+    return (
+      <html lang="pt-BR" className={`${manrope.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}>
+        <body className="flex min-h-dvh items-center justify-center bg-canvas p-6">
+          <main className="max-w-md text-center">
+            <h1 className="text-2xl font-bold">{naoEncontrada ? "Escola não encontrada" : "Acesso suspenso"}</h1>
+            <p className="mt-3">
+              {naoEncontrada
+                ? "Este endereço não corresponde a nenhuma escola da plataforma."
+                : "Acesso suspenso. Fale com a plataforma."}
+            </p>
+            <a href="https://www.statusavalia.com.br" className="mt-4 inline-block font-semibold underline">
+              www.statusavalia.com.br
+            </a>
+          </main>
+        </body>
+      </html>
+    );
+  }
+
   const professor = await getProfessorAtual();
 
   if (professor?.senha_provisoria) {
