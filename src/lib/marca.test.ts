@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { hexParaRgb, razaoContraste, textoSobre, validarCores, variaveisDaMarca, marcaDaEscola, MARCA_PADRAO } from "./marca";
+import { hexParaRgb, normalizarHex, razaoContraste, textoSobre, validarCores, variaveisDaMarca, marcaDaEscola, MARCA_PADRAO } from "./marca";
 
 test("hexParaRgb", () => {
   assert.deepEqual(hexParaRgb("#0a2a6e"), [10, 42, 110]);
@@ -44,4 +44,10 @@ test("marcaDaEscola", () => {
   assert.equal(x.padrao, false);
   assert.equal(x.slogan, "Oi");
   assert.equal(MARCA_PADRAO.padrao, true);
+});
+
+test("normalizarHex", () => {
+  assert.equal(normalizarHex("#ABC"), "#aabbcc");
+  assert.equal(normalizarHex("#0B3D91"), "#0b3d91");
+  assert.equal(normalizarHex("azul"), null);
 });

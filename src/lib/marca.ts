@@ -32,6 +32,11 @@ function paraHex([r, g, b]: Rgb): string {
   return `#${[r, g, b].map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0")).join("")}`;
 }
 
+export function normalizarHex(hex: string): string | null {
+  const rgb = hexParaRgb(hex);
+  return rgb ? paraHex(rgb) : null;
+}
+
 function misturar(a: Rgb, b: Rgb, t: number): Rgb {
   return [0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * t) as Rgb;
 }

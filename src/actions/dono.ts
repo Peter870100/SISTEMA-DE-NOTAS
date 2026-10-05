@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase/client";
 import { getProfessorAtual } from "@/lib/auth";
 import { ESCOLA_PADRAO_ID } from "@/lib/escolas";
 import { urlDaEscola, validarSubdominio } from "@/lib/dominio";
-import { validarCores } from "@/lib/marca";
+import { normalizarHex, validarCores } from "@/lib/marca";
 
 const BUCKET = "marcas";
 const TIPOS = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" } as const;
@@ -26,10 +26,12 @@ function limpar(d: DadosEscola) {
   const codigo = String(d.codigo_convite_professor ?? "").trim();
   if (!nome) throw new Error("Informe o nome da escola.");
   if (codigo.length < 4 || codigo.length > 50) throw new Error("O código de convite precisa ter de 4 a 50 caracteres.");
-  const cor_principal = String(d.cor_principal ?? "").trim() || null;
-  const cor_destaque = String(d.cor_destaque ?? "").trim() || null;
-  const cores = validarCores(cor_principal, cor_destaque);
+  const crua_p = String(d.cor_principal ?? "").trim() || null;
+  const crua_d = String(d.cor_destaque ?? "").trim() || null;
+  const cores = validarCores(crua_p, crua_d);
   if (cores.erro) throw new Error(cores.erro);
+  const cor_principal = crua_p ? normalizarHex(crua_p) : null;
+  const cor_destaque = crua_d ? normalizarHex(crua_d) : null;
   return { nome: nome.slice(0, 120), nome_remetente_email: remetente.slice(0, 120), slogan: String(d.slogan ?? "").trim().slice(0, 160) || null, cor_principal, cor_destaque, codigo_convite_professor: codigo };
 }
 
@@ -76,6 +78,7 @@ export async function criarEscola(slug: string, d: DadosEscola, admin: { nome: s
   if (jaSlug) throw new Error("Esse endereço já está em uso.");
   if (jaProf || jaAluno) throw new Error("Esse e-mail já tem conta na plataforma.");
   const { data: escola, error } = await supabase.from("escolas").insert({ ...campos, slug: s, logo_url: "", ativa: true }).select("id").single();
+  if (error?.code === "23505") throw new Error("Esse endereço já está em uso.");
   if (error || !escola) throw new Error(error?.message ?? "Falha ao criar a escola.");
   const senhaProvisoria = randomBytes(6).toString("base64url");
   const { error: e2 } = await supabase.from("professores").insert({
@@ -84,22 +87,24 @@ export async function criarEscola(slug: string, d: DadosEscola, admin: { nome: s
   });
   if (e2) {
     await supabase.from("escolas").delete().eq("id", escola.id);
-    throw new Error(e2.message);
+    throw new Error(e2.code === "23505" ? "Esse e-mail já tem conta na plataforma." : e2.message);
   }
   return { escolaId: escola.id, senhaProvisoria };
 }
 
 export async function salvarEscola(id: string, d: DadosEscola): Promise<void> {
   await exigirDono();
-  const { error } = await supabase.from("escolas").update(limpar(d)).eq("id", id);
+  const { data, error } = await supabase.from("escolas").update(limpar(d)).eq("id", id).select("id").maybeSingle();
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("Escola não encontrada.");
 }
 
 export async function definirEscolaAtiva(id: string, ativa: boolean): Promise<void> {
   await exigirDono();
   if (id === ESCOLA_PADRAO_ID && !ativa) throw new Error("O Colégio Status não pode ser desativado.");
-  const { error } = await supabase.from("escolas").update({ ativa: Boolean(ativa) }).eq("id", id);
+  const { data, error } = await supabase.from("escolas").update({ ativa: Boolean(ativa) }).eq("id", id).select("id").maybeSingle();
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("Escola não encontrada.");
 }
 
 export async function urlEnvioMarca(escolaId: string, tipo: "logo" | "login", tipoArquivo: string, tamanho: number) {
