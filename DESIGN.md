@@ -94,3 +94,6 @@ Cabeçalho da área de trabalho: degradê azul de #062056 para #0A2A6E e #154E9B
 Cartões das turmas: degradê branco para azul-claro, ícone com degradê azul e hover com elevação de 3px, sombra suave e borda azul. Sem movimento contínuo; redução de movimento respeitada.
 Agrupamentos de turmas: títulos das séries em Rajdhani 700, 20px, azul brand, com ícone de 20px, superfície branca suave e barra amarela à esquerda.
 Turmas agrupadas por série e nome: um cartão expansível por turma, usando details/summary nativo para abrir e recolher bimestres. Links por bimestre ordenados numericamente, com contagem de alunos e selo Hermes preservados. Busca e navegação por teclado continuam disponíveis.
+
+## Multiescola
+Cada escola tem endereço próprio (`<slug>.statusavalia.com.br`; `www`/apex/`status.` = Status), logo, cores (principal → moldura e botões; destaque → dourado, tons derivados em `src/lib/marca.ts`), slogan e foto de login. O Status mantém o tema e a tela de login originais (vídeo, Fera). Dados sempre filtrados pela escola da conta logada (`src/lib/escola-acesso.ts`). Painel do dono em `/dono`: criar/editar/desativar escolas, enviar logo e foto, verificar endereço.
