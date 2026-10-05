@@ -5,7 +5,7 @@ import { turmasDoAluno } from "@/lib/aulas/acesso";
 import { imagensParaTela } from "@/lib/questoes/consultas";
 import type { ImagemTela } from "@/components/questoes/ImagemQuestao";
 import type { AlunoConta, Alternativa, Area, Letra, Professor, Simulado } from "@/lib/types";
-import { acumularTempo, corrigir, tempoEsgotado, TOLERANCIA_SEG, type Gabarito } from "./regras";
+import { acumularTempo, correcaoLiberada, corrigir, emBlocos, tempoEsgotado, TOLERANCIA_SEG, type Gabarito } from "./regras";
 
 export type QuestaoAluno = { id: string; enunciado: string; comando: string; alternativas: Alternativa[]; imagens: ImagemTela[] };
 
@@ -61,9 +61,44 @@ export async function candidatosSorteio(escolaId: string, f: FiltrosSorteio, exc
   if (f.banca) c = c.eq("banca", f.banca);
   if (f.anoDe) c = c.gte("ano", f.anoDe);
   if (f.anoAte) c = c.lte("ano", f.anoAte);
-  const { data } = await c.limit(3000);
+  // O PostgREST limita cada resposta a 1000 linhas: lê por páginas ordenadas até acabar.
+  const ids: string[] = [];
+  for (let de = 0; ; de += 1000) {
+    const { data, error } = await c.order("id").range(de, de + 999);
+    if (error) throw new Error(error.message);
+    ids.push(...(data ?? []).map((q) => q.id));
+    if ((data ?? []).length < 1000) break;
+  }
   const fora = new Set(excluir);
-  return (data ?? []).map((q) => q.id).filter((id) => !fora.has(id));
+  return ids.filter((id) => !fora.has(id));
+}
+
+/** Questões de simulados do professor já publicados para as turmas do aluno e cuja correção ainda não saiu. */
+export async function questoesDeProvasEmSigilo(aluno: AlunoConta): Promise<string[]> {
+  const turmas = await turmasDoAluno(aluno.id);
+  const minhas = new Set(turmas.map((t) => `${t.turma_nome}|${t.ano_letivo}`));
+  const nomes = [...new Set(turmas.map((t) => t.turma_nome))];
+  if (nomes.length === 0) return [];
+  const { data: alvos, error: eA } = await supabase.from("simulado_turmas").select("simulado_id, turma_nome, ano_letivo").eq("escola_id", aluno.escola_id).in("turma_nome", nomes);
+  if (eA) throw new Error(eA.message);
+  const simuladoIds = [...new Set((alvos ?? []).filter((a) => minhas.has(`${a.turma_nome}|${a.ano_letivo}`)).map((a) => a.simulado_id))];
+  const agora = new Date();
+  const sigilosos: string[] = [];
+  for (const bloco of emBlocos(simuladoIds, 100)) {
+    const { data, error } = await supabase.from("simulados").select("id, tipo, correcao, fecha_em").in("id", bloco).eq("escola_id", aluno.escola_id).eq("tipo", "professor").eq("status", "publicado");
+    if (error) throw new Error(error.message);
+    sigilosos.push(...(data ?? []).filter((s) => !correcaoLiberada(s, agora)).map((s) => s.id));
+  }
+  const questoes = new Set<string>();
+  for (const bloco of emBlocos(sigilosos, 50)) {
+    for (let de = 0; ; de += 1000) {
+      const { data, error } = await supabase.from("simulado_questoes").select("simulado_id, questao_id").in("simulado_id", bloco).order("simulado_id").order("questao_id").range(de, de + 999);
+      if (error) throw new Error(error.message);
+      for (const q of data ?? []) questoes.add(q.questao_id);
+      if ((data ?? []).length < 1000) break;
+    }
+  }
+  return [...questoes];
 }
 
 /** Corrige e grava o resultado. Idempotente: pode rodar mais de uma vez para a mesma tentativa. */

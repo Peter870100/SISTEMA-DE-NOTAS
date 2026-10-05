@@ -11,6 +11,13 @@ export function prazoFinal(iniciadaEm: Date, duracaoMin: number | null, fechaEm:
   return porDuracao ?? fechaEm ?? null;
 }
 
+/** Divide uma lista em pedaços (listas longas em `.in()` estouram o limite de URL). */
+export function emBlocos<T>(lista: T[], tamanho: number): T[][] {
+  const blocos: T[][] = [];
+  for (let i = 0; i < lista.length; i += tamanho) blocos.push(lista.slice(i, i + tamanho));
+  return blocos;
+}
+
 export function aceitaResposta(agora: Date, prazoEm: Date | null): boolean {
   return !prazoEm || agora.getTime() <= prazoEm.getTime() + TOLERANCIA_SEG * 1000;
 }
@@ -46,7 +53,7 @@ export function corrigir(respostas: Map<string, Letra | null>, gabarito: Gabarit
 
 export function correcaoLiberada(s: Pick<Simulado, "tipo" | "correcao" | "fecha_em">, agora: Date): boolean {
   if (s.tipo === "treino" || s.correcao === "na_hora") return true;
-  return !!s.fecha_em && agora.getTime() >= Date.parse(s.fecha_em);
+  return !!s.fecha_em && agora.getTime() >= Date.parse(s.fecha_em) + TOLERANCIA_SEG * 1000;
 }
 
 /** PRNG determinístico (mulberry32) a partir de um hash da semente. */

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual } from "@/lib/auth";
 import { AREAS } from "@/lib/questoes/materias";
-import { candidatosSorteio, entregarTentativa, fecharVencidas, questoesParaAluno, simuladoVisivelParaAluno, type FiltrosSorteio, type QuestaoAluno } from "@/lib/simulados/servidor";
+import { candidatosSorteio, entregarTentativa, fecharVencidas, questoesDeProvasEmSigilo, questoesParaAluno, simuladoVisivelParaAluno, type FiltrosSorteio, type QuestaoAluno } from "@/lib/simulados/servidor";
 import { aceitaResposta, acumularTempo, correcaoLiberada, MAX_TREINO, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, tempoEsgotado } from "@/lib/simulados/regras";
 import type { AlunoConta, Letra, PorArea, Simulado, Tentativa, TipoSimulado } from "@/lib/types";
 
@@ -36,7 +36,7 @@ export async function criarTreino(f: FiltrosSorteio & { quantidade: number; dura
   if (f.area !== undefined && f.area !== null && !Object.prototype.hasOwnProperty.call(AREAS, f.area)) throw new Error("Área inválida.");
   const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
   const filtros: FiltrosSorteio = { area: f.area || undefined, materia: f.materia, assunto_id: f.assunto_id, banca: f.banca, anoDe: num(f.anoDe), anoAte: num(f.anoAte) };
-  const ids = sortear(await candidatosSorteio(aluno.escola_id, filtros, []), pedidas);
+  const ids = sortear(await candidatosSorteio(aluno.escola_id, filtros, await questoesDeProvasEmSigilo(aluno)), pedidas);
   if (ids.length === 0) throw new Error("Não há questões publicadas com esses filtros.");
   const { data: s, error } = await supabase.from("simulados")
     .insert({ escola_id: aluno.escola_id, tipo: "treino", conta_id: aluno.id, titulo: (f.titulo?.trim() || `Treino de ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`).slice(0, 120), duracao_min: duracao, status: "publicado", correcao: "na_hora", embaralhar: false })

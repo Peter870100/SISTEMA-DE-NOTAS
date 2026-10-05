@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { fecharVencidas, podeEditarSimulado } from "@/lib/simulados/servidor";
-import { situacaoSimulado } from "@/lib/simulados/regras";
+import { emBlocos, situacaoSimulado } from "@/lib/simulados/regras";
 import { AREAS } from "@/lib/questoes/materias";
 import type { Area } from "@/lib/types";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -28,18 +28,24 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
   const entregues = todas.filter((t) => t.status === "entregue");
 
   const contaIds = todas.map((t) => t.conta_id);
-  const { data: contas } = contaIds.length ? await supabase.from("alunos_contas").select("id, nome").in("id", contaIds) : { data: [] };
-  const nomes = new Map((contas ?? []).map((c) => [c.id, c.nome]));
+  const nomes = new Map<string, string>();
+  for (const bloco of emBlocos(contaIds, 150)) {
+    const { data: contas, error: erroContas } = await supabase.from("alunos_contas").select("id, nome").in("id", bloco);
+    if (erroContas) throw new Error(erroContas.message);
+    for (const c of contas ?? []) nomes.set(c.id, c.nome);
+  }
 
   const entregueIds = entregues.map((t) => t.id);
   const respostas: { questao_id: string; alternativa: string | null; correta: boolean | null }[] = [];
-  for (let de = 0; entregueIds.length; de += 1000) {
-    const { data, error: erroResp } = await supabase
-      .from("tentativa_respostas").select("tentativa_id, questao_id, alternativa, correta").in("tentativa_id", entregueIds)
-      .order("tentativa_id").order("questao_id").range(de, de + 999);
-    if (erroResp) throw new Error(erroResp.message);
-    respostas.push(...(data ?? []));
-    if ((data ?? []).length < 1000) break;
+  for (const bloco of emBlocos(entregueIds, 150)) {
+    for (let de = 0; ; de += 1000) {
+      const { data, error: erroResp } = await supabase
+        .from("tentativa_respostas").select("tentativa_id, questao_id, alternativa, correta").in("tentativa_id", bloco)
+        .order("tentativa_id").order("questao_id").range(de, de + 999);
+      if (erroResp) throw new Error(erroResp.message);
+      respostas.push(...(data ?? []));
+      if ((data ?? []).length < 1000) break;
+    }
   }
   const agg = new Map<string, { total: number; certas: number; marcadas: Map<string, number> }>();
   for (const r of respostas) {
@@ -79,7 +85,7 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
       {podeLiberar && (
         <section className={`${estilos.card} p-4`}>
           <p className="mb-2 text-sm text-muted">A correção só aparece para os alunos depois do prazo.</p>
-          <LiberarCorrecao simuladoId={id} />
+          <LiberarCorrecao simuladoId={id} emAndamento={todas.length - entregues.length} />
         </section>
       )}
       <section aria-labelledby="titulo-alunos" className={`${estilos.card} overflow-x-auto p-4`}>
@@ -96,7 +102,8 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
             <tbody className="divide-y divide-line">
               {linhas.map((t) => {
                 const feita = t.status === "entregue";
-                const min = feita && t.entregue_em ? Math.round((Date.parse(t.entregue_em) - Date.parse(t.iniciada_em)) / 60000) : null;
+                const fim = feita && t.entregue_em ? Math.min(Date.parse(t.entregue_em), t.prazo_em ? Date.parse(t.prazo_em) : Infinity) : null;
+                const min = fim != null ? Math.max(0, Math.round((fim - Date.parse(t.iniciada_em)) / 60000)) : null;
                 return (
                   <tr key={t.id}>
                     <td className="py-2 pr-3 font-medium text-ink">{nomes.get(t.conta_id) ?? "—"}</td>

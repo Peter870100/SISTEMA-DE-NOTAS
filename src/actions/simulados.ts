@@ -84,6 +84,8 @@ async function idsDoSimulado(id: string): Promise<{ ids: string[]; proxima: numb
   return { ids: linhas.map((q) => q.questao_id), proxima: linhas.reduce((m, q) => Math.max(m, q.ordem + 1), 0) };
 }
 
+const MAX_QUESTOES = 200;
+
 export async function criarSimulado(d: DadosSimulado): Promise<string> {
   await exigirNaoAluno();
   const professor = await getProfessorAtual();
@@ -110,6 +112,11 @@ export async function salvarSimulado(id: string, d: DadosSimulado): Promise<void
   const { error } = await supabase.from("simulados").update({ ...campos, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw new Error(error.message);
   await gravarTurmas(id, simulado.escola_id, d.turmas);
+  // Fechamento antecipado vale também para quem já está fazendo a prova.
+  if (Date.parse(campos.fecha_em) !== Date.parse(simulado.fecha_em ?? "")) {
+    const { error: ePrazo } = await supabase.from("tentativas").update({ prazo_em: campos.fecha_em }).eq("simulado_id", id).eq("status", "em_andamento").gt("prazo_em", campos.fecha_em);
+    if (ePrazo) throw new Error(ePrazo.message);
+  }
 }
 
 export async function sortearQuestoes(id: string, f: FiltrosSorteio & { quantidade: number }) {
@@ -118,7 +125,9 @@ export async function sortearQuestoes(id: string, f: FiltrosSorteio & { quantida
   if (!Number.isFinite(pedidas) || pedidas < 1 || pedidas > 200) throw new Error("Quantidade de 1 a 200.");
   const filtros = limparFiltros(f);
   const { ids: atuais, proxima } = await idsDoSimulado(id);
-  const novas = sortear(await candidatosSorteio(simulado.escola_id, filtros, atuais), pedidas);
+  const vagas = MAX_QUESTOES - atuais.length;
+  if (vagas <= 0) throw new Error(`Um simulado pode ter no máximo ${MAX_QUESTOES} questões.`);
+  const novas = sortear(await candidatosSorteio(simulado.escola_id, filtros, atuais), Math.min(pedidas, vagas));
   if (novas.length) {
     const { error } = await supabase.from("simulado_questoes").insert(novas.map((questao_id, i) => ({ simulado_id: id, questao_id, ordem: proxima + i })));
     if (error) throw new Error(error.message);
@@ -150,6 +159,7 @@ export async function adicionarQuestao(id: string, questaoId: string): Promise<v
   if (!q) throw new Error("Questão não disponível.");
   const { ids: atuais, proxima } = await idsDoSimulado(id);
   if (atuais.includes(questaoId)) return;
+  if (atuais.length >= MAX_QUESTOES) throw new Error(`Um simulado pode ter no máximo ${MAX_QUESTOES} questões.`);
   const { error } = await supabase.from("simulado_questoes").insert({ simulado_id: id, questao_id: questaoId, ordem: proxima });
   if (error) throw new Error(error.message);
 }

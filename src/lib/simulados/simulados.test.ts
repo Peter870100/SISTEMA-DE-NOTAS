@@ -51,7 +51,9 @@ test("correcaoLiberada", () => {
   assert.equal(correcaoLiberada({ tipo: "treino", correcao: "apos_prazo", fecha_em: null }, T0), true);
   assert.equal(correcaoLiberada({ tipo: "professor", correcao: "na_hora", fecha_em: mais(100).toISOString() }, T0), true);
   assert.equal(correcaoLiberada({ tipo: "professor", correcao: "apos_prazo", fecha_em: mais(100).toISOString() }, T0), false);
-  assert.equal(correcaoLiberada({ tipo: "professor", correcao: "apos_prazo", fecha_em: mais(100).toISOString() }, mais(100)), true);
+  assert.equal(correcaoLiberada({ tipo: "professor", correcao: "apos_prazo", fecha_em: mais(100).toISOString() }, mais(100)), false);
+  assert.equal(correcaoLiberada({ tipo: "professor", correcao: "apos_prazo", fecha_em: mais(100).toISOString() }, mais(129)), false);
+  assert.equal(correcaoLiberada({ tipo: "professor", correcao: "apos_prazo", fecha_em: mais(100).toISOString() }, mais(130)), true);
   assert.equal(correcaoLiberada({ tipo: "professor", correcao: "apos_prazo", fecha_em: null }, T0), false);
 });
 

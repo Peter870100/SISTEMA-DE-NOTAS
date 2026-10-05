@@ -49,14 +49,13 @@ export default async function AlunoSimuladosPage() {
       daTurma = data ?? [];
     }
   }
-  const { data: treinosData } = await supabase.from("simulados").select("*").eq("escola_id", aluno.escola_id).eq("tipo", "treino").eq("conta_id", aluno.id).order("created_at", { ascending: false });
+  const { data: treinosData } = await supabase.from("simulados").select("*").eq("escola_id", aluno.escola_id).eq("tipo", "treino").eq("conta_id", aluno.id).order("created_at", { ascending: false }).limit(50);
   const treinos = treinosData ?? [];
 
-  const todos = [...daTurma, ...treinos].map((s) => s.id);
-  const { data: tentData } = todos.length > 0
-    ? await supabase.from("tentativas").select("simulado_id, status, porcentagem").eq("conta_id", aluno.id).in("simulado_id", todos)
-    : { data: [] as Tent[] };
-  const tentativas = new Map((tentData ?? []).map((t) => [t.simulado_id, t]));
+  const exibidos = new Set([...daTurma, ...treinos].map((s) => s.id));
+  const { data: tentData, error: erroTent } = await supabase.from("tentativas").select("simulado_id, status, porcentagem").eq("conta_id", aluno.id);
+  if (erroTent) throw new Error(erroTent.message);
+  const tentativas = new Map((tentData ?? []).filter((t) => exibidos.has(t.simulado_id)).map((t) => [t.simulado_id, t]));
   const agora = new Date();
 
   return (

@@ -28,6 +28,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
   const fila = useRef<Pendente[]>([]);
   const enviando = useRef(false);
   const encerrando = useRef(false);
+  const pulsoRef = useRef<(() => Promise<void>) | null>(null);
   // Diferença entre o relógio do servidor e o do aparelho, para o cronômetro do professor.
   const [desvio] = useState(() => Date.parse(prova.agoraServidor) - Date.now());
 
@@ -136,13 +137,19 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       if (document.visibilityState !== "visible") return;
       try { const r = await pulsoTreino(prova.tentativaId); setRestante(r.restanteSeg); if (r.encerrada) await terminar(); } catch { /* tenta no próximo */ }
     };
+    pulsoRef.current = pulso;
     const aoMudar = () => { if (document.visibilityState === "hidden") void pausarTreino(prova.tentativaId); else void pulso(); };
     const tPulso = setInterval(() => void pulso(), PULSO_SEG * 1000);
     const tLocal = setInterval(() => { if (document.visibilityState === "visible") setRestante((r) => (r == null ? r : Math.max(0, r - 1))); }, 1000);
     document.addEventListener("visibilitychange", aoMudar);
     void pulso();
-    return () => { clearInterval(tPulso); clearInterval(tLocal); document.removeEventListener("visibilitychange", aoMudar); };
+    return () => { clearInterval(tPulso); clearInterval(tLocal); document.removeEventListener("visibilitychange", aoMudar); pulsoRef.current = null; };
   }, [prova.simulado.tipo, prova.simulado.duracaoMin, prova.tentativaId, terminar]);
+
+  // Treino: ao zerar a contagem local, confirma com o servidor na hora (sem esperar o próximo pulso).
+  useEffect(() => {
+    if (restante === 0 && prova.simulado.tipo === "treino") void pulsoRef.current?.();
+  }, [restante, prova.simulado.tipo]);
 
   const q = prova.questoes[atual];
   const emBranco = prova.questoes.filter((x) => !respostas[x.id]).length;

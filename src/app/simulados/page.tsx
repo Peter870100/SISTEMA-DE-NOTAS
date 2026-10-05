@@ -4,7 +4,7 @@ import { Plus, Timer } from "lucide-react";
 import { getProfessorAtual } from "@/lib/auth";
 import { ehAdmin } from "@/lib/papeis";
 import { supabase } from "@/lib/supabase/client";
-import { situacaoSimulado, type Situacao } from "@/lib/simulados/regras";
+import { emBlocos, situacaoSimulado, type Situacao } from "@/lib/simulados/regras";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos } from "@/components/ui/estilos";
 
@@ -22,6 +22,26 @@ export default async function SimuladosPage() {
   const { data: simulados, error } = await consulta;
   if (error) throw new Error(error.message);
   const agora = new Date();
+
+  // Turmas e contagem de alunos por simulado, em lote (sem consulta por item).
+  const turmasPorSimulado = new Map<string, string[]>();
+  const contagem = new Map<string, { comecaram: number; entregaram: number }>();
+  for (const bloco of emBlocos((simulados ?? []).map((s) => s.id), 100)) {
+    const { data: alvos, error: eT } = await supabase.from("simulado_turmas").select("simulado_id, turma_nome, ano_letivo").in("simulado_id", bloco).order("turma_nome");
+    if (eT) throw new Error(eT.message);
+    for (const a of alvos ?? []) turmasPorSimulado.set(a.simulado_id, [...(turmasPorSimulado.get(a.simulado_id) ?? []), `${a.turma_nome} · ${a.ano_letivo}`]);
+    for (let de = 0; ; de += 1000) {
+      const { data: tents, error: eN } = await supabase.from("tentativas").select("id, simulado_id, status").in("simulado_id", bloco).order("id").range(de, de + 999);
+      if (eN) throw new Error(eN.message);
+      for (const t of tents ?? []) {
+        const c = contagem.get(t.simulado_id) ?? { comecaram: 0, entregaram: 0 };
+        c.comecaram++;
+        if (t.status === "entregue") c.entregaram++;
+        contagem.set(t.simulado_id, c);
+      }
+      if ((tents ?? []).length < 1000) break;
+    }
+  }
 
   return (
     <PageLayout
@@ -43,6 +63,10 @@ export default async function SimuladosPage() {
                   <span className="min-w-0">
                     <span className="block font-semibold text-ink">{s.titulo}</span>
                     <span className="block text-xs text-muted">{ROTULOS[situacaoSimulado(s, agora)]} · {data(s.abre_em)} até {data(s.fecha_em)}</span>
+                    <span className="block text-xs text-muted">
+                      {(turmasPorSimulado.get(s.id) ?? []).join(", ") || "Sem turmas"}
+                      {s.status === "publicado" && ` · ${contagem.get(s.id)?.entregaram ?? 0}/${contagem.get(s.id)?.comecaram ?? 0} entregaram`}
+                    </span>
                   </span>
                   <span aria-hidden="true" className="text-brand">→</span>
                 </Link>

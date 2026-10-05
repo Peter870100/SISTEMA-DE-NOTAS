@@ -57,7 +57,7 @@ export default async function AlunoInicioPage({ searchParams }: Props) {
           <ClipboardCheck size={22} className="mt-0.5 text-brand" aria-hidden="true" />
           <div>
             <h2 className="font-semibold text-ink">Simulados</h2>
-            <p className="mt-1 text-sm text-muted">Simulados da turma e treinos com correção na hora.</p>
+            <p className="mt-1 text-sm text-muted">Simulados da turma com cronômetro e treinos livres.</p>
           </div>
         </Link>
       </div>
