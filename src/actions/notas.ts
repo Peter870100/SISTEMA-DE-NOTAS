@@ -1,7 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { exigirNaoAluno, getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
+import { exigirProfessorLogado, exigirColunaDaEscola, exigirAlunoDaEscola } from "@/lib/escola-acesso";
 import type { ValorCelula } from "@/lib/status";
 
 export async function upsertCelula(
@@ -9,21 +9,12 @@ export async function upsertCelula(
   colunaId: string,
   patch: ValorCelula
 ): Promise<{ atualizadoPorNome: string | null; atualizadoEm: string }> {
-  await exigirNaoAluno();
-  const professor = await getProfessorAtual();
-
-  if (!professor) throw new Error("Entre como professor para lançar notas.");
-  const [{ data: coluna }, { data: aluno }] = await Promise.all([
-    supabase.from("atividades_colunas").select("turma_id").eq("id", colunaId).single(),
-    supabase.from("alunos").select("turma_id").eq("id", alunoId).single(),
+  const professor = await exigirProfessorLogado();
+  const [{ coluna, turma }, { aluno }] = await Promise.all([
+    exigirColunaDaEscola(professor, colunaId),
+    exigirAlunoDaEscola(professor, alunoId),
   ]);
-  if (!coluna || !aluno || coluna.turma_id !== aluno.turma_id) {
-    throw new Error("Aluno e atividade devem pertencer ao mesmo bimestre.");
-  }
-  const { data: turma } = await supabase.from("turmas").select("*").eq("id", coluna.turma_id).single();
-  if (!turma || turma.escola_id !== professor.escola_id || !(await professorTemAcessoATurma(professor, turma.nome))) {
-    throw new Error("Você não tem acesso a essa turma.");
-  }
+  if (aluno.turma_id !== coluna.turma_id) throw new Error("Aluno e atividade de turmas diferentes.");
   if (turma.bimestre_encerrado) throw new Error("Bimestre encerrado. Reabra o bimestre para fazer lançamentos.");
 
   const { data: atual } = await supabase
@@ -39,14 +30,14 @@ export async function upsertCelula(
       coluna_id: colunaId,
       valor: patch.valor,
       status_texto: patch.status_texto,
-      atualizado_por: professor?.id ?? null,
+      atualizado_por: professor.id,
     },
     { onConflict: "aluno_id,coluna_id" }
   );
   if (error) throw new Error(error.message);
 
   const mudou = (atual?.valor ?? null) !== (patch.valor ?? null) || (atual?.status_texto ?? null) !== (patch.status_texto ?? null);
-  if (professor?.role === "professor" && mudou) {
+  if (professor.role === "professor" && mudou) {
     await supabase.from("notas_historico").insert({
       aluno_id: alunoId,
       coluna_id: colunaId,
@@ -58,5 +49,5 @@ export async function upsertCelula(
     });
   }
 
-  return { atualizadoPorNome: professor?.nome ?? null, atualizadoEm: new Date().toISOString() };
+  return { atualizadoPorNome: professor.nome, atualizadoEm: new Date().toISOString() };
 }

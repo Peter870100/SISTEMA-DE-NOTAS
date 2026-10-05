@@ -5,8 +5,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
 import { enviarEmailVerificacao } from "@/lib/email";
-import { obterEscolaPadrao } from "@/lib/escolas";
-import { obterCodigoConvite } from "@/lib/configuracoes";
+import { escolaDoEndereco, linkDaEscola } from "@/lib/escolas";
 
 export async function cadastrar(formData: FormData) {
   const nome = String(formData.get("nome") ?? "").trim();
@@ -14,7 +13,9 @@ export async function cadastrar(formData: FormData) {
   const senha = String(formData.get("senha") ?? "");
   const codigo = String(formData.get("codigo") ?? "").trim();
 
-  const codigoEsperado = await obterCodigoConvite();
+  const escola = await escolaDoEndereco();
+  if (!escola || escola.ativa === false) redirect("/cadastro?erro=codigo");
+  const codigoEsperado = escola.codigo_convite_professor;
   if (!codigoEsperado || codigo !== codigoEsperado) {
     redirect("/cadastro?erro=codigo");
   }
@@ -27,11 +28,11 @@ export async function cadastrar(formData: FormData) {
 
   const { data: existente } = await supabase
     .from("professores")
-    .select("id, email_verificado")
+    .select("id, email_verificado, escola_id")
     .eq("email", email)
     .maybeSingle();
 
-  if (existente?.email_verificado) {
+  if (existente?.email_verificado || (existente && existente.escola_id !== escola.id)) {
     redirect("/cadastro?erro=duplicado");
   }
 
@@ -43,6 +44,7 @@ export async function cadastrar(formData: FormData) {
     nome,
     email,
     senha_hash: senhaHash,
+    escola_id: escola.id,
     role: "professor" as const,
     email_verificado: false,
     token_verificacao: token,
@@ -57,9 +59,9 @@ export async function cadastrar(formData: FormData) {
     redirect("/cadastro?erro=falha");
   }
 
-  const link = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/verificar-email?token=${token}`;
+  const link = linkDaEscola(escola, `/verificar-email?token=${token}`);
   try {
-    await enviarEmailVerificacao(email, nome, link, await obterEscolaPadrao());
+    await enviarEmailVerificacao(email, nome, link, escola);
   } catch {
     redirect("/cadastro?erro=email");
   }

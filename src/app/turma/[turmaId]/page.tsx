@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { TurmaDashboard } from "@/components/turma/TurmaDashboard";
-import { getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
-import { listarTurmasAcessiveis } from "@/actions/turmas";
+import { getProfessorAtual } from "@/lib/auth";
+import { exigirTurmaDaEscola, turmasDaEscola } from "@/lib/escola-acesso";
 import type { NotaCelula } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -16,21 +16,13 @@ export default async function TurmaPage({ params, searchParams }: PageProps) {
   const { turmaId } = await params;
   const { aluno: alunoParam, t } = await searchParams;
 
-  const { data: turma } = await supabase
-    .from("turmas")
-    .select("*")
-    .eq("id", turmaId)
-    .maybeSingle();
-
+  const professor = await getProfessorAtual();
+  if (!professor) redirect("/login");
+  const turma = await exigirTurmaDaEscola(professor, turmaId).catch(() => null);
   if (!turma) notFound();
 
-  const professor = await getProfessorAtual();
-  if (!professor || !(await professorTemAcessoATurma(professor, turma.nome))) {
-    redirect("/");
-  }
-
   const [todasTurmas, { data: colunas }, { data: alunos }] = await Promise.all([
-    listarTurmasAcessiveis(),
+    turmasDaEscola(professor),
     supabase
       .from("atividades_colunas")
       .select("*")

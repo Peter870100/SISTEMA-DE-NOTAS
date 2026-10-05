@@ -20,7 +20,7 @@ export default async function ProfessoresPage() {
 
   const [professores, codigoConvite, nomesTurmas, acessoPorProfessor] = await Promise.all([
     listarProfessores(),
-    obterCodigoConvite(),
+    obterCodigoConvite(atual.escola_id),
     listarNomesTurmas(),
     listarAcessoTurmasPorProfessor(),
   ]);

@@ -2,7 +2,8 @@
 
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
-import { getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
+import { exigirProfessorLogado, exigirTurmaDaEscola } from "@/lib/escola-acesso";
+import { mesmaEscola } from "@/lib/escola-regras";
 import { gerarCodigoConvite, gerarSenhaProvisoria } from "@/lib/contas-aluno";
 import type { Professor, Turma } from "@/lib/types";
 
@@ -13,12 +14,8 @@ export type PainelCodigoTurma = {
 
 /** Professor logado com acesso à turma (da escola dele), e a turma. */
 async function exigirTurma(turmaId: string): Promise<{ professor: Professor; turma: Turma }> {
-  const professor = await getProfessorAtual();
-  if (!professor) throw new Error("Faça login novamente.");
-  const { data: turma } = await supabase.from("turmas").select("*").eq("id", turmaId).single();
-  if (!turma || turma.escola_id !== professor.escola_id || !(await professorTemAcessoATurma(professor, turma.nome))) {
-    throw new Error("Você não tem acesso a essa turma.");
-  }
+  const professor = await exigirProfessorLogado();
+  const turma = await exigirTurmaDaEscola(professor, turmaId);
   return { professor, turma };
 }
 
@@ -100,6 +97,8 @@ export async function novaSenhaAlunoPeloProfessor(turmaId: string, contaId: stri
     .eq("ano_letivo", turma.ano_letivo)
     .maybeSingle();
   if (!vinculo) throw new Error("Esse aluno não está nessa turma.");
+  const { data: conta } = await supabase.from("alunos_contas").select("escola_id").eq("id", contaId).maybeSingle();
+  if (!conta || !mesmaEscola(conta, turma.escola_id)) throw new Error("Esse aluno não está nessa turma.");
 
   const senha = gerarSenhaProvisoria();
   const { error } = await supabase

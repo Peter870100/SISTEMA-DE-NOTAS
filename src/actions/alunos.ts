@@ -1,9 +1,8 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { exigirNaoAluno, exigirAcessoATurmaId, getProfessorAtual, professorTemAcessoATurma } from "@/lib/auth";
+import { exigirProfessorLogado, exigirTurmaDaEscola, exigirAlunoDaEscola } from "@/lib/escola-acesso";
 import type { Aluno } from "@/lib/types";
-import { ehAdmin } from "@/lib/papeis";
 
 /** Remove acentos e caixa pra comparar títulos de atividade entre turmas diferentes. */
 function normalizar(s: string): string {
@@ -21,28 +20,10 @@ function normalizar(s: string): string {
  * já com o que tinha lançado.
  */
 export async function transferirAluno(alunoId: string, turmaDestinoId: string): Promise<void> {
-  await exigirNaoAluno();
-  const [{ data: aluno }, { data: turmaDestino }] = await Promise.all([
-    supabase.from("alunos").select("*").eq("id", alunoId).single(),
-    supabase.from("turmas").select("*").eq("id", turmaDestinoId).single(),
-  ]);
-  if (!aluno) throw new Error("Aluno não encontrado.");
-  if (!turmaDestino) throw new Error("Turma de destino não encontrada.");
+  const professor = await exigirProfessorLogado();
+  const { aluno } = await exigirAlunoDaEscola(professor, alunoId);
+  await exigirTurmaDaEscola(professor, turmaDestinoId);
   if (aluno.turma_id === turmaDestinoId) throw new Error("O aluno já está nessa turma.");
-
-  const professor = await getProfessorAtual();
-  if (professor && !ehAdmin(professor.role)) {
-    const { data: turmaOrigem } = await supabase
-      .from("turmas")
-      .select("nome")
-      .eq("id", aluno.turma_id)
-      .single();
-    const podeOrigem = turmaOrigem ? await professorTemAcessoATurma(professor, turmaOrigem.nome) : false;
-    const podeDestino = await professorTemAcessoATurma(professor, turmaDestino.nome);
-    if (!podeOrigem || !podeDestino) {
-      throw new Error("Você não tem acesso a uma dessas turmas.");
-    }
-  }
 
   const [{ data: notasAluno }, { data: colunasOrigem }, { data: colunasDestino }] = await Promise.all([
     supabase.from("notas_celulas").select("*").eq("aluno_id", alunoId),
@@ -119,12 +100,10 @@ export async function addAluno(
   nome: string,
   ordem: number
 ): Promise<Aluno> {
-  await exigirNaoAluno();
+  const professor = await exigirProfessorLogado();
+  await exigirTurmaDaEscola(professor, turmaId);
   const nomeLimpo = nome.trim();
   if (!nomeLimpo) throw new Error("Nome do aluno não pode ser vazio");
-
-  const professor = await getProfessorAtual();
-  await exigirAcessoATurmaId(professor, turmaId);
 
   const { data, error } = await supabase
     .from("alunos")
@@ -141,12 +120,10 @@ export async function adicionarAlunos(
   nomes: string[],
   ordemInicial: number
 ): Promise<Aluno[]> {
-  await exigirNaoAluno();
+  const professor = await exigirProfessorLogado();
+  await exigirTurmaDaEscola(professor, turmaId);
   const limpos = nomes.map((n) => n.trim()).filter(Boolean);
   if (limpos.length === 0) throw new Error("Nenhum nome informado.");
-
-  const professor = await getProfessorAtual();
-  await exigirAcessoATurmaId(professor, turmaId);
 
   const { data, error } = await supabase
     .from("alunos")
@@ -158,22 +135,13 @@ export async function adicionarAlunos(
 
 /** Manda o aluno (com notas e histórico) pra lixeira. Devolve o id do item na lixeira, pro Ctrl+Z. */
 export async function deleteAluno(alunoId: string): Promise<string> {
-  await exigirNaoAluno();
-  const professor = await getProfessorAtual();
-  if (professor) {
-    const { data: aluno } = await supabase
-      .from("alunos")
-      .select("turma_id")
-      .eq("id", alunoId)
-      .single();
-    if (!aluno) throw new Error("Aluno não encontrado.");
-    await exigirAcessoATurmaId(professor, aluno.turma_id);
-  }
+  const professor = await exigirProfessorLogado();
+  await exigirAlunoDaEscola(professor, alunoId);
 
   const { data, error } = await supabase.rpc("lixeira_excluir", {
     p_tipo: "aluno",
     p_id: alunoId,
-    p_ator: professor?.id ?? null,
+    p_ator: professor.id,
     p_via: "app",
   });
   if (error) throw new Error(error.message);
@@ -189,13 +157,12 @@ export async function reordenarAlunos(
   turmaId: string,
   ordens: { id: string; ordem: number; numero: number | null }[]
 ): Promise<void> {
-  await exigirNaoAluno();
-  const professor = await getProfessorAtual();
-  await exigirAcessoATurmaId(professor, turmaId);
+  const professor = await exigirProfessorLogado();
+  await exigirTurmaDaEscola(professor, turmaId);
 
   const resultados = await Promise.all(
     ordens.map(({ id, ordem, numero }) =>
-      supabase.from("alunos").update({ ordem, numero }).eq("id", id)
+      supabase.from("alunos").update({ ordem, numero }).eq("id", id).eq("turma_id", turmaId)
     )
   );
   const falha = resultados.find((r) => r.error);
@@ -212,20 +179,10 @@ export async function renomearAluno(
   nome: string,
   opts?: { nomeEditadoEm?: string | null }
 ): Promise<Aluno> {
-  await exigirNaoAluno();
+  const professor = await exigirProfessorLogado();
+  await exigirAlunoDaEscola(professor, alunoId);
   const nomeLimpo = nome.trim();
   if (!nomeLimpo) throw new Error("Nome do aluno não pode ser vazio");
-
-  const professor = await getProfessorAtual();
-  if (professor) {
-    const { data: aluno } = await supabase
-      .from("alunos")
-      .select("turma_id")
-      .eq("id", alunoId)
-      .single();
-    if (!aluno) throw new Error("Aluno não encontrado.");
-    await exigirAcessoATurmaId(professor, aluno.turma_id);
-  }
 
   const nome_editado_em = opts?.nomeEditadoEm !== undefined ? opts.nomeEditadoEm : new Date().toISOString();
 

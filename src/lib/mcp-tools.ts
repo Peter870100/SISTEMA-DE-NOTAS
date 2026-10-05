@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { ehAdmin } from "@/lib/papeis";
 import type { ProfessorRole } from "@/lib/types";
+import { ESCOLA_PADRAO_ID } from "@/lib/escolas";
 
 export function criarSupabaseClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -49,8 +50,10 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       .from("professores")
       .select("id, role, acesso_restrito")
       .eq("telefone", telefone.trim())
+      .eq("escola_id", ESCOLA_PADRAO_ID)
       .maybeSingle();
-    return data ?? null;
+    if (!data) throw new Error("Telefone não cadastrado como professor do Colégio Status.");
+    return data;
   }
 
   /** Nomes de turma liberados pro professor, ou null se ele pode ver todas (admin, sem restrição, ou telefone não identificado). */
@@ -103,7 +106,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     bimestreQuery?: string,
     liberadas?: Set<string> | null
   ): Promise<Turma> {
-    const { data, error } = await supabase.from("turmas").select("*");
+    const { data, error } = await supabase.from("turmas").select("*").eq("escola_id", ESCOLA_PADRAO_ID);
     if (error) throw new Error(error.message);
     const alvo = normalizar(nomeQuery);
     let candidatos = (data ?? []).filter((t) => normalizar(t.nome).includes(alvo));
@@ -219,7 +222,12 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       p_via: "hermes",
     });
     if (error) throw new Error(error.message);
-    const { data: item } = await supabase.from("lixeira").select("resumo").eq("id", lixeiraId).single();
+    const { data: item } = await supabase
+      .from("lixeira")
+      .select("resumo")
+      .eq("id", lixeiraId)
+      .eq("escola_id", ESCOLA_PADRAO_ID)
+      .maybeSingle();
     return (item?.resumo ?? {}) as { alunos?: number; atividades?: number; notas?: number };
   }
 
@@ -235,7 +243,7 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
     async ({ professor_telefone }) => {
       const professor = await resolverProfessorInfo(professor_telefone);
       const liberadas = await turmasLiberadas(professor);
-      const { data, error } = await supabase.from("turmas").select("*").order("nome");
+      const { data, error } = await supabase.from("turmas").select("*").eq("escola_id", ESCOLA_PADRAO_ID).order("nome");
       if (error) throw new Error(error.message);
       const visiveis = liberadas ? (data ?? []).filter((t) => liberadas.has(t.nome)) : data ?? [];
       if (visiveis.length === 0) return texto("Nenhuma turma cadastrada (ou nenhuma liberada pra esse professor).");
@@ -262,7 +270,11 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       const nomeLimpo = nome.trim();
       if (!nomeLimpo) throw new Error("Informe o nome da turma.");
 
-      const insert: { nome: string; bimestre?: string; ano_letivo?: string; criado_via: string } = { nome: nomeLimpo, criado_via: "hermes" };
+      const insert: { nome: string; bimestre?: string; ano_letivo?: string; criado_via: string; escola_id: string } = {
+        nome: nomeLimpo,
+        criado_via: "hermes",
+        escola_id: ESCOLA_PADRAO_ID,
+      };
       if (bimestre) insert.bimestre = bimestre.trim();
       if (ano_letivo) insert.ano_letivo = ano_letivo.trim();
 

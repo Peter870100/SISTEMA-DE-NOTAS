@@ -736,6 +736,36 @@ create policy "acesso_total_tentativas" on tentativas for all using (true) with 
 drop policy if exists "acesso_total_tentativa_respostas" on tentativa_respostas;
 create policy "acesso_total_tentativa_respostas" on tentativa_respostas for all using (true) with check (true);
 
+-- ===== Multiescola (2026-10-04) =====
+
+alter table lixeira add column if not exists escola_id uuid not null
+    default '00000000-0000-0000-0000-000000000001' references escolas(id);
+create index if not exists idx_lixeira_escola on lixeira (escola_id, excluido_em desc);
+
+-- lixeira_excluir() não conhece a escola: o gatilho pega a da turma (ainda existe no momento do insert)
+create or replace function lixeira_definir_escola()
+returns trigger language plpgsql as $$
+begin
+  new.escola_id := coalesce((select escola_id from turmas where id = new.turma_id), new.escola_id);
+  return new;
+end;
+$$;
+drop trigger if exists trg_lixeira_escola on lixeira;
+create trigger trg_lixeira_escola before insert on lixeira
+for each row execute function lixeira_definir_escola();
+
+alter table escolas add column if not exists ativa boolean not null default true;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('marcas', 'marcas', true, 2097152, array['image/png', 'image/jpeg', 'image/webp'])
+on conflict (id) do nothing;
+drop policy if exists "marcas_ler" on storage.objects;
+create policy "marcas_ler" on storage.objects for select using (bucket_id = 'marcas');
+drop policy if exists "marcas_enviar" on storage.objects;
+create policy "marcas_enviar" on storage.objects for insert with check (bucket_id = 'marcas');
+drop policy if exists "marcas_apagar" on storage.objects;
+create policy "marcas_apagar" on storage.objects for delete using (bucket_id = 'marcas');
+
 -- Controle de bimestres (2026-10-04)
 -- Controle manual por turma, escola e ano. Executar no SQL Editor do Supabase.
 begin;

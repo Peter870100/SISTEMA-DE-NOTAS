@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthAviso, AuthShell, authBotao, authInput } from "@/components/layout/AuthShell";
 import { buscarConviteValido, cadastrarAlunoComCodigo } from "@/actions/contas-aluno";
+import { marcaDoEndereco } from "@/lib/marca-servidor";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +26,12 @@ async function irParaCodigo(formData: FormData) {
 }
 
 export default async function EntrarComCodigoPage({ searchParams }: Props) {
+  const marca = await marcaDoEndereco();
   const { codigo, erro, enviado } = await searchParams;
 
   if (enviado) {
     return (
-      <AuthShell titulo="Confira seu email" subtitulo="Enviamos um link para confirmar sua conta. Ele vale por 24 horas — veja também a caixa de spam.">
+      <AuthShell marca={marca} titulo="Confira seu email" subtitulo="Enviamos um link para confirmar sua conta. Ele vale por 24 horas — veja também a caixa de spam.">
         <Link href="/login" className={`${authBotao} text-center`}>Ir para o login</Link>
       </AuthShell>
     );
@@ -39,7 +41,7 @@ export default async function EntrarComCodigoPage({ searchParams }: Props) {
 
   if (!convite) {
     return (
-      <AuthShell titulo="Entrar com código" subtitulo="Digite o código que seu professor passou." comoForm={irParaCodigo}>
+      <AuthShell marca={marca} titulo="Entrar com código" subtitulo="Digite o código que seu professor passou." comoForm={irParaCodigo}>
         {(erro || codigo) && <AuthAviso tipo="erro">{MENSAGENS.codigo}</AuthAviso>}
         <label className={rotulo}>
           Código da turma
@@ -52,7 +54,7 @@ export default async function EntrarComCodigoPage({ searchParams }: Props) {
   }
 
   return (
-    <AuthShell titulo="Criar sua conta" subtitulo={`${convite.escola_nome} · ${convite.turma_nome} · ${convite.ano_letivo}`} comoForm={cadastrarAlunoComCodigo}>
+    <AuthShell marca={marca} titulo="Criar sua conta" subtitulo={`${convite.escola_nome} · ${convite.turma_nome} · ${convite.ano_letivo}`} comoForm={cadastrarAlunoComCodigo}>
       {erro && <AuthAviso tipo="erro">{MENSAGENS[erro] ?? MENSAGENS.falha}</AuthAviso>}
       <input type="hidden" name="codigo" value={convite.codigo} />
       <label className={rotulo}>Nome completo<input name="nome" required autoComplete="name" className={authInput} /></label>

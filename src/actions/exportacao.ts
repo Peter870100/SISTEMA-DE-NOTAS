@@ -1,8 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { getProfessorAtual } from "@/lib/auth";
-import { listarTurmasAcessiveis } from "@/actions/turmas";
+import { exigirProfessorLogado, turmasDaEscola } from "@/lib/escola-acesso";
 import type { Aluno, AtividadeColuna, NotaCelula, Turma } from "@/lib/types";
 
 export type TurmaParaExportar = {
@@ -40,10 +39,9 @@ async function buscarTudo<T>(ids: string[], consulta: (lote: string[], de: numbe
  * chamada (presença) ficam de fora.
  */
 export async function dadosExportacao(bimestre: string | null): Promise<TurmaParaExportar[]> {
-  const professor = await getProfessorAtual();
-  if (!professor) throw new Error("Faça login novamente.");
+  const professor = await exigirProfessorLogado();
 
-  const turmas = (await listarTurmasAcessiveis()).filter((t) => bimestre === null || t.bimestre === bimestre);
+  const turmas = (await turmasDaEscola(professor)).filter((t) => bimestre === null || t.bimestre === bimestre);
   if (turmas.length === 0) return [];
   const turmaIds = turmas.map((t) => t.id);
 

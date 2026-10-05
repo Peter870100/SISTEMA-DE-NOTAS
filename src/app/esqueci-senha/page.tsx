@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { pedirRedefinicaoSenha } from "@/actions/auth";
 import { AuthAviso, AuthShell, authBotao, authInput } from "@/components/layout/AuthShell";
+import { marcaDoEndereco } from "@/lib/marca-servidor";
 
 type EsqueciSenhaPageProps = {
   searchParams: Promise<{ erro?: string; enviado?: string }>;
@@ -14,11 +15,12 @@ const MENSAGENS_ERRO: Record<string, string> = {
 const linkSecundario = "text-center text-sm text-frame-muted hover:text-white hover:underline";
 
 export default async function EsqueciSenhaPage({ searchParams }: EsqueciSenhaPageProps) {
+  const marca = await marcaDoEndereco();
   const { erro, enviado } = await searchParams;
 
   if (enviado) {
     return (
-      <AuthShell
+      <AuthShell marca={marca}
         titulo="Confira seu email"
         subtitulo="Se esse email tiver uma conta, enviamos um link pra redefinir a senha. Ele vale por 1 hora — veja também a caixa de spam."
       >
@@ -30,7 +32,7 @@ export default async function EsqueciSenhaPage({ searchParams }: EsqueciSenhaPag
   }
 
   return (
-    <AuthShell
+    <AuthShell marca={marca}
       titulo="Esqueci minha senha"
       subtitulo="Informe o email da sua conta e enviaremos um link pra você criar uma senha nova."
       comoForm={pedirRedefinicaoSenha}

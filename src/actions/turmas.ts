@@ -1,28 +1,50 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
-import { exigirNaoAluno, exigirAdmin, getProfessorAtual, professorTemAcessoATurma, turmasLiberadasPara } from "@/lib/auth";
+import { exigirAdminDaEscola, exigirProfessorLogado, exigirTurmaDaEscola, turmasDaEscola } from "@/lib/escola-acesso";
 import type { Turma } from "@/lib/types";
 
-/** Turmas visíveis pro professor logado — todas, ou só as liberadas se ele tiver acesso restrito. */
+/** Turmas visíveis pro professor logado — da escola dele, todas ou só as liberadas se ele tiver acesso restrito. */
 export async function listarTurmasAcessiveis(): Promise<Turma[]> {
-  await exigirNaoAluno();
-  const professor = await getProfessorAtual();
-  const { data, error } = await supabase.from("turmas").select("*").order("nome").order("bimestre");
-  if (error) throw new Error(error.message);
-
-  if (!professor) return data ?? [];
-  const liberadas = await turmasLiberadasPara(professor);
-  if (liberadas === null) return data ?? [];
-  return (data ?? []).filter((t) => liberadas.has(t.nome));
+  return turmasDaEscola(await exigirProfessorLogado());
 }
 
 /** Nomes distintos de turma (ex: "1ª série A"), pra montar a lista de acesso no admin. */
 export async function listarNomesTurmas(): Promise<string[]> {
-  await exigirAdmin();
-  const { data, error } = await supabase.from("turmas").select("nome").order("nome");
+  const professor = await exigirAdminDaEscola();
+  const { data, error } = await supabase.from("turmas").select("nome").eq("escola_id", professor.escola_id).order("nome");
   if (error) throw new Error(error.message);
   return [...new Set((data ?? []).map((t) => t.nome))];
+}
+
+/** Cria a turma (primeira de um bimestre) na escola do admin logado. Devolve o id. */
+export async function criarTurma(nome: string, bimestre: string, anoLetivo: string): Promise<string> {
+  const admin = await exigirAdminDaEscola();
+  const n = String(nome ?? "").trim();
+  const b = String(bimestre ?? "").trim();
+  const a = String(anoLetivo ?? "").trim();
+  if (n.length < 1 || n.length > 255) throw new Error("Informe o nome da turma (até 255 caracteres).");
+  if (b.length < 1 || b.length > 50) throw new Error("Informe o bimestre (até 50 caracteres).");
+  if (!/^\d{4}$/.test(a)) throw new Error("Informe o ano letivo com 4 dígitos.");
+
+  const { data: existente, error: erroBusca } = await supabase
+    .from("turmas")
+    .select("id")
+    .eq("escola_id", admin.escola_id)
+    .eq("nome", n)
+    .eq("bimestre", b)
+    .eq("ano_letivo", a)
+    .limit(1);
+  if (erroBusca) throw new Error(erroBusca.message);
+  if (existente && existente.length > 0) throw new Error("Já existe essa turma nesse bimestre.");
+
+  const { data, error } = await supabase
+    .from("turmas")
+    .insert({ nome: n, bimestre: b, ano_letivo: a, escola_id: admin.escola_id })
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Falha ao criar a turma.");
+  return data.id;
 }
 
 /**
@@ -34,26 +56,15 @@ export async function criarBimestre(
   turmaAtualId: string,
   novoBimestre: string
 ): Promise<Turma> {
+  const professor = await exigirProfessorLogado();
+  const turmaAtual = await exigirTurmaDaEscola(professor, turmaAtualId);
+
   const label = novoBimestre.trim();
   if (!label) throw new Error("Informe o nome do bimestre");
 
-  const { data: turmaAtual, error: erroTurma } = await supabase
-    .from("turmas")
-    .select("nome, ano_letivo, escola_id")
-    .eq("id", turmaAtualId)
-    .single();
-  if (erroTurma || !turmaAtual) {
-    throw new Error(erroTurma?.message ?? "Turma não encontrada");
-  }
-
-  const professor = await getProfessorAtual();
-  if (!professor || professor.escola_id !== turmaAtual.escola_id || !(await professorTemAcessoATurma(professor, turmaAtual.nome))) {
-    throw new Error("Você não tem acesso a essa turma.");
-  }
-
   const { data: novaTurma, error: erroNovaTurma } = await supabase
     .from("turmas")
-    .insert({ nome: turmaAtual.nome, bimestre: label, ano_letivo: turmaAtual.ano_letivo, escola_id: turmaAtual.escola_id })
+    .insert({ nome: turmaAtual.nome, bimestre: label, ano_letivo: turmaAtual.ano_letivo, escola_id: professor.escola_id })
     .select()
     .single();
   if (erroNovaTurma || !novaTurma) {
