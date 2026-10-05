@@ -14,7 +14,7 @@ export async function cadastrar(formData: FormData) {
   const codigo = String(formData.get("codigo") ?? "").trim();
 
   const escola = await escolaDoEndereco();
-  if (!escola || !escola.ativa) redirect("/cadastro?erro=codigo");
+  if (!escola || escola.ativa === false) redirect("/cadastro?erro=codigo");
   const codigoEsperado = escola.codigo_convite_professor;
   if (!codigoEsperado || codigo !== codigoEsperado) {
     redirect("/cadastro?erro=codigo");
@@ -28,11 +28,11 @@ export async function cadastrar(formData: FormData) {
 
   const { data: existente } = await supabase
     .from("professores")
-    .select("id, email_verificado")
+    .select("id, email_verificado, escola_id")
     .eq("email", email)
     .maybeSingle();
 
-  if (existente?.email_verificado) {
+  if (existente?.email_verificado || (existente && existente.escola_id !== escola.id)) {
     redirect("/cadastro?erro=duplicado");
   }
 

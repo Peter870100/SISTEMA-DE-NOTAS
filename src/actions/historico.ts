@@ -63,7 +63,7 @@ async function alunoIdsDasTurmas(turmaIds: string[]): Promise<string[]> {
  */
 export async function listarHistorico(filtro: HistoricoFiltro = {}): Promise<HistoricoPagina> {
   const admin = await exigirAdminDaEscola();
-  const limite = filtro.limit ?? 50;
+  const limite = Math.min(Math.max(1, Math.trunc(Number(filtro.limit ?? 50)) || 50), 200);
   const vazia: HistoricoPagina = { linhas: [], proximoCursor: null };
 
   // Turmas da escola; um turmaId de fora da escola não devolve nada.

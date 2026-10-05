@@ -52,7 +52,8 @@ export function registrarFerramentas(server: McpServer, supabase: SupabaseClient
       .eq("telefone", telefone.trim())
       .eq("escola_id", ESCOLA_PADRAO_ID)
       .maybeSingle();
-    return data ?? null;
+    if (!data) throw new Error("Telefone não cadastrado como professor do Colégio Status.");
+    return data;
   }
 
   /** Nomes de turma liberados pro professor, ou null se ele pode ver todas (admin, sem restrição, ou telefone não identificado). */

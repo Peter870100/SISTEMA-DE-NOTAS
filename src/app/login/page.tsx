@@ -22,7 +22,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const marca = await marcaDoEndereco();
   const { erro, escola: escolaParam, "senha-redefinida": senhaRedefinida } = await searchParams;
   // O parâmetro é só um slug a validar; o link sai da escola encontrada.
-  const outraEscola = erro === "outra-escola" && escolaParam ? await obterEscolaPorSlug(escolaParam) : null;
+  const outraEscola = erro === "outra-escola" && escolaParam ? await obterEscolaPorSlug(escolaParam).catch(() => null) : null;
 
   return (
     <LoginShell marca={marca} action={login}>

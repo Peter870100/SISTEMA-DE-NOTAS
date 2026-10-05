@@ -9,7 +9,7 @@ import { CommandPalette } from "@/components/command/CommandPalette";
 import { listarTurmasAcessiveis } from "@/actions/turmas";
 import { EscolaProvider } from "@/components/layout/EscolaContexto";
 import { MARCA_PADRAO, marcaDaEscola, variaveisDaMarca } from "@/lib/marca";
-import { escolaDoEndereco, obterEscola } from "@/lib/escolas";
+import { ESCOLA_PADRAO_ID, escolaDoEndereco, obterEscola } from "@/lib/escolas";
 import "./globals.css";
 import { ehRotaPublica } from "@/lib/rotas";
 import { ehAdmin } from "@/lib/papeis";
@@ -54,8 +54,14 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const escolaEndereco = await escolaDoEndereco();
-  if (escolaEndereco === null || escolaEndereco.ativa === false) {
+  // Falha na consulta (não "sem escola"): segue com o layout normal e a marca padrão.
+  let escolaEndereco: Awaited<ReturnType<typeof escolaDoEndereco>> | undefined;
+  try {
+    escolaEndereco = await escolaDoEndereco();
+  } catch {
+    escolaEndereco = undefined;
+  }
+  if (escolaEndereco === null || escolaEndereco?.ativa === false) {
     const naoEncontrada = escolaEndereco === null;
     return (
       <html lang="pt-BR" className={`${manrope.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}>
@@ -89,7 +95,7 @@ export default async function RootLayout({
   let marca = MARCA_PADRAO;
   let variaveis: Record<string, string> = {};
   try {
-    const escola = await obterEscola(professor?.escola_id ?? aluno?.escola_id ?? escolaEndereco.id);
+    const escola = await obterEscola(professor?.escola_id ?? aluno?.escola_id ?? escolaEndereco?.id ?? ESCOLA_PADRAO_ID);
     marca = marcaDaEscola(escola);
     variaveis = variaveisDaMarca(escola.cor_principal, escola.cor_destaque);
   } catch {

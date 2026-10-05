@@ -16,7 +16,8 @@ export const obterEscola = cache(async (id: string): Promise<Escola> => {
 export const obterEscolaPadrao = cache(() => obterEscola(ESCOLA_PADRAO_ID));
 
 export const obterEscolaPorSlug = cache(async (slug: string): Promise<Escola | null> => {
-  const { data } = await supabase.from("escolas").select("*").eq("slug", slug).maybeSingle();
+  const { data, error } = await supabase.from("escolas").select("*").eq("slug", slug).maybeSingle();
+  if (error) throw new Error("Falha ao consultar a escola.");
   return data ?? null;
 });
 

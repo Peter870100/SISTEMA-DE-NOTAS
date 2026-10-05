@@ -41,3 +41,8 @@ test("destinoDoLogin", () => {
   assert.deepEqual(destinoDoLogin("status", "colegiox"), { ok: false, slug: "status" });
   assert.deepEqual(destinoDoLogin("status", null), { ok: false, slug: "status" });
 });
+
+test("escolaDoHost: hosts parecidos com o dominio nao viram escola", () => {
+  assert.equal(escolaDoHost("evilstatusavalia.com.br"), null);
+  assert.equal(escolaDoHost("x.statusavalia.com.br.evil.com"), null);
+});

@@ -14,7 +14,7 @@ import { gerarTokenRedefinicao } from "@/lib/token-senha";
 /** A conta só entra no endereço da própria escola, e só se a escola estiver ativa. */
 async function validarEscolaDoLogin(escolaId: string): Promise<void> {
   const escolaConta = await obterEscola(escolaId);
-  if (!escolaConta.ativa) redirect("/login?erro=suspenso");
+  if (escolaConta.ativa === false) redirect("/login?erro=suspenso");
   const endereco = await escolaDoEndereco();
   const destino = destinoDoLogin(escolaConta.slug, endereco?.slug ?? null);
   if (!destino.ok) redirect(`/login?erro=outra-escola&escola=${encodeURIComponent(destino.slug)}`);

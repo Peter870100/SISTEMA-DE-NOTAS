@@ -17,6 +17,36 @@ export async function listarNomesTurmas(): Promise<string[]> {
   return [...new Set((data ?? []).map((t) => t.nome))];
 }
 
+/** Cria a turma (primeira de um bimestre) na escola do admin logado. Devolve o id. */
+export async function criarTurma(nome: string, bimestre: string, anoLetivo: string): Promise<string> {
+  const admin = await exigirAdminDaEscola();
+  const n = String(nome ?? "").trim();
+  const b = String(bimestre ?? "").trim();
+  const a = String(anoLetivo ?? "").trim();
+  if (n.length < 1 || n.length > 255) throw new Error("Informe o nome da turma (até 255 caracteres).");
+  if (b.length < 1 || b.length > 50) throw new Error("Informe o bimestre (até 50 caracteres).");
+  if (!/^\d{4}$/.test(a)) throw new Error("Informe o ano letivo com 4 dígitos.");
+
+  const { data: existente, error: erroBusca } = await supabase
+    .from("turmas")
+    .select("id")
+    .eq("escola_id", admin.escola_id)
+    .eq("nome", n)
+    .eq("bimestre", b)
+    .eq("ano_letivo", a)
+    .limit(1);
+  if (erroBusca) throw new Error(erroBusca.message);
+  if (existente && existente.length > 0) throw new Error("Já existe essa turma nesse bimestre.");
+
+  const { data, error } = await supabase
+    .from("turmas")
+    .insert({ nome: n, bimestre: b, ano_letivo: a, escola_id: admin.escola_id })
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Falha ao criar a turma.");
+  return data.id;
+}
+
 /**
  * Cria um novo bimestre para a mesma turma (mesmo nome/ano letivo), copiando
  * a lista de alunos — mas sem as atividades e notas do bimestre atual, já que

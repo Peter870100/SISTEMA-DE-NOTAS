@@ -138,7 +138,7 @@ export async function verificarEndereco(escolaId: string): Promise<boolean> {
   if (!e) return false;
   try {
     const r = await fetch(urlDaEscola(e.slug, "/login"), { redirect: "manual", signal: AbortSignal.timeout(5000), cache: "no-store" });
-    return r.status < 500;
+    return r.status >= 200 && r.status < 400;
   } catch {
     return false;
   }

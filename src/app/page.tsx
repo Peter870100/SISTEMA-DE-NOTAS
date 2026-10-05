@@ -5,6 +5,8 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { turmasDaEscola } from "@/lib/escola-acesso";
 import { getProfessorAtual } from "@/lib/auth";
 import { obterEscola } from "@/lib/escolas";
+import { ehAdmin } from "@/lib/papeis";
+import { NovaTurma } from "@/components/turmas/NovaTurma";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,7 @@ export default async function HomePage() {
     }
   }
 
+  const admin = ehAdmin(professor.role);
   const primeiroNome = professor.nome.trim().split(/\s+/)[0];
 
   return (
@@ -31,7 +34,17 @@ export default async function HomePage() {
       subtitulo={primeiroNome ? <><span className="mr-2">Olá, Prof. <strong className="font-heading text-xl font-bold uppercase tracking-[0.025em] text-gold">{primeiroNome}</strong>.</span><span>Escolha uma turma para lançar e acompanhar as notas.</span></> : undefined}
       largura="max-w-6xl"
     >
-      <TurmasLista turmas={turmas} contagemPorTurma={contagemPorTurma} />
+      {admin && turmas.length === 0 ? (
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-muted">Nenhuma turma ainda. Crie a primeira.</p>
+          <NovaTurma destaque />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {admin && <NovaTurma />}
+          <TurmasLista turmas={turmas} contagemPorTurma={contagemPorTurma} />
+        </div>
+      )}
     </PageLayout>
   );
 }
