@@ -5,7 +5,12 @@ import { exigirCursoEditavel } from "@/lib/aulas/acesso";
 import { armazenamentoCapas } from "@/lib/aulas/capas-armazenamento";
 import { TIPOS_CAPA, validarCapa, type TipoCapa } from "@/lib/aulas/capas";
 import { supabase } from "@/lib/supabase/client";
-export async function prepararEnvioCapa(tipo: TipoCapa, mime: string, tamanho: number, aulaId?: string) {
+/** Devolve o erro como texto: em produção o Next esconde a mensagem de erros lançados por actions. */
+export async function prepararEnvioCapa(tipo: TipoCapa, mime: string, tamanho: number, aulaId?: string): Promise<{ ok: true; caminho: string; url: string } | { ok: false; erro: string }> {
+  try { return { ok: true, ...(await gerarEnvioCapa(tipo, mime, tamanho, aulaId)) }; }
+  catch (e) { return { ok: false, erro: e instanceof Error && e.message ? e.message : "Não foi possível preparar o envio da imagem." }; }
+}
+async function gerarEnvioCapa(tipo: TipoCapa, mime: string, tamanho: number, aulaId?: string) {
   await exigirNaoAluno();
   const professor = await getProfessorAtual();
   if (!professor) throw new Error("Faça login novamente.");

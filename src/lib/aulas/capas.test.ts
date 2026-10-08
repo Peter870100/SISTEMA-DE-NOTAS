@@ -69,15 +69,15 @@ function envio(autenticado: boolean, permitido = true) {
   return {executar:exports.prepararEnvioCapa!,chamadas};
 }
 test("envio: não gera URL sem autenticação nem acesso à aula",async()=>{
-  for(const s of [envio(false),envio(true,false)]) {await assert.rejects(s.executar("aula","image/jpeg",100,"aula"));assert.deepEqual(s.chamadas,[]);}
+  for(const s of [envio(false),envio(true,false)]) {assert.equal(((await s.executar("aula","image/jpeg",100,"aula")) as {ok:boolean}).ok,false);assert.deepEqual(s.chamadas,[]);}
 });
 test("envio: rejeita tipo de capa, MIME e tamanho antes de usar a chave privada",async()=>{
   const s=envio(true);
-  for(const args of [["logo","image/jpeg",100],["curso","image/svg+xml",100],["curso","image/jpeg",capas.LIMITE_CAPA+1]] as const) await assert.rejects(s.executar(args[0],args[1],args[2]));
+  for(const args of [["logo","image/jpeg",100],["curso","image/svg+xml",100],["curso","image/jpeg",capas.LIMITE_CAPA+1]] as const) assert.equal(((await s.executar(args[0],args[1],args[2])) as {ok:boolean}).ok,false);
   assert.deepEqual(s.chamadas,[]);
 });
 test("envio: caminho assinado pertence à escola e ao professor autenticados",async()=>{
-  const s=envio(true);await s.executar("curso","image/jpeg",100);assert.deepEqual(s.chamadas,[caminho]);
+  const s=envio(true);assert.deepEqual(JSON.parse(JSON.stringify(await s.executar("curso","image/jpeg",100))),{ok:true,caminho,url:"url"});assert.deepEqual(s.chamadas,[caminho]);
 });
 test("SQL: migração preserva cursos antigos, é repetível e salva/remova capas",async()=>{
   const {PGlite}=await import("@electric-sql/pglite");const db=new PGlite();

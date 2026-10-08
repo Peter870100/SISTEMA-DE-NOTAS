@@ -18,7 +18,9 @@ export function EscolherCapa({ tipo, aulaId, caminho, onChange, onOcupado, disab
     setEnviando(true); onOcupado(true);
     try {
       const preparada = await prepararImagemCapa(arquivo);
-      const { caminho: novo, url } = await prepararEnvioCapa(tipo, preparada.type, preparada.size, aulaId);
+      const envio = await prepararEnvioCapa(tipo, preparada.type, preparada.size, aulaId);
+      if (!envio.ok) throw new Error(envio.erro);
+      const { caminho: novo, url } = envio;
       const corpo = new FormData();
       corpo.append("cacheControl", "3600"); corpo.append("", preparada, preparada.name);
       const resposta = await fetch(url, { method: "PUT", body: corpo, headers: { "x-upsert": "false" } });
