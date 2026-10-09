@@ -90,6 +90,13 @@ export function custoDoUso(u: { input_tokens: number; output_tokens: number; cac
   return entrada * PRECO_ENTRADA_LOTE + u.output_tokens * PRECO_SAIDA_LOTE;
 }
 
+/** Porcentagem do lote já processada pela Anthropic (0–100). */
+export function progressoDoLote(c: { processing: number; succeeded: number; errored: number; canceled: number; expired: number }): number {
+  const feitos = c.succeeded + c.errored + c.canceled + c.expired;
+  const total = feitos + c.processing;
+  return total === 0 ? 0 : Math.round((feitos / total) * 100);
+}
+
 export function estimarCustoPaginas(paginas: number): number {
   return Math.round(paginas * (9000 * PRECO_ENTRADA_LOTE + 3000 * PRECO_SAIDA_LOTE) * 100) / 100;
 }

@@ -5,6 +5,7 @@ import { ASSUNTOS_INICIAIS } from "./assuntos-iniciais";
 import { estiloRecorte, limitarQuadro } from "./quadro";
 import { markdownParaBlocos } from "./markdown";
 import { urlImagemPermitida } from "./enemdev";
+import { progressoDoLote } from "./ia";
 import { respostaParaQuestoes, RespostaPaginaSchema, classificacaoParaAtualizacoes } from "./formato-ia";
 
 test("matérias e áreas", () => {
@@ -245,4 +246,12 @@ test("urlImagemPermitida só aceita https://enem.dev", () => {
   assert.equal(urlImagemPermitida("https://enem.dev.evil.com/a.png"), false);
   assert.equal(urlImagemPermitida("http://169.254.169.254/latest"), false);
   assert.equal(urlImagemPermitida("não é url"), false);
+});
+
+test("progresso do lote da IA", () => {
+  const zero = { processing: 0, succeeded: 0, errored: 0, canceled: 0, expired: 0 };
+  assert.equal(progressoDoLote(zero), 0);
+  assert.equal(progressoDoLote({ ...zero, processing: 9 }), 0);
+  assert.equal(progressoDoLote({ ...zero, processing: 6, succeeded: 2, errored: 1 }), 33);
+  assert.equal(progressoDoLote({ ...zero, succeeded: 8, expired: 1 }), 100);
 });

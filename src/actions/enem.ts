@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { supabase } from "@/lib/supabase/client";
 import { exigirProfessor } from "@/lib/questoes/acesso";
 import { enemDevParaQuestao, urlImagemPermitida, type EnemDevQuestao } from "@/lib/questoes/enemdev";
-import { clienteIA, custoDoUso, iaDisponivel, pedidoClassificacao } from "@/lib/questoes/ia";
+import { clienteIA, custoDoUso, iaDisponivel, pedidoClassificacao, progressoDoLote } from "@/lib/questoes/ia";
 import { ClassificacaoSchema, classificacaoParaAtualizacoes } from "@/lib/questoes/formato-ia";
 import { BUCKET } from "@/lib/questoes/storage";
 import type { StatusImportacao } from "@/lib/types";
@@ -19,7 +19,7 @@ async function exigirDono() {
   return p;
 }
 
-export type PassoEnem = { importacaoId: string; feitas: number; total: number; terminou: boolean; status: StatusImportacao; semIA?: boolean };
+export type PassoEnem = { importacaoId: string; feitas: number; total: number; terminou: boolean; status: StatusImportacao; semIA?: boolean; progresso?: number };
 
 const MARCA_SEM_CLASSIFICACAO = "Matéria e assunto a classificar.";
 
@@ -191,7 +191,7 @@ export async function atualizarClassificacaoEnem(importacaoId: string): Promise<
   }
   if (imp.status !== "lendo" || !imp.batch_id) return passo(imp.status, imp.status !== "enviando");
   const lote = await clienteIA().messages.batches.retrieve(imp.batch_id);
-  if (lote.processing_status !== "ended") return passo("lendo", false);
+  if (lote.processing_status !== "ended") return { ...passo("lendo", false), progresso: progressoDoLote(lote.request_counts) };
 
   const { data: tomou } = await supabase.from("importacoes").update({ status: "revisao" }).eq("id", importacaoId).eq("status", "lendo").select("id");
   if (!tomou || tomou.length === 0) return passo("revisao", true);

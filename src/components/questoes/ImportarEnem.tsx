@@ -49,13 +49,24 @@ export function ImportarEnem() {
           <li key={ano}>
             <strong>{ano}:</strong>{" "}
             {typeof p === "string" ? <span className="text-danger">{p}</span>
-              : p.status === "enviando" ? `baixando ${p.feitas} de ${p.total}`
-              : p.status === "lendo" ? "classificando matérias e assuntos…"
+              : p.status === "enviando" ? <Barra rotulo={`baixando ${p.feitas} de ${p.total}`} pct={p.total ? Math.round((p.feitas / p.total) * 100) : 0} />
+              : p.status === "lendo" ? (p.progresso === 100 ? "IA terminou · gravando matérias e assuntos nas questões…" : <Barra rotulo="classificando matérias e assuntos" pct={p.progresso ?? 0} />)
               : p.semIA ? <>baixado, em revisão · matéria e assunto ficam para quando houver chave da IA · <Link href={`/banco/importacoes/${p.importacaoId}`} className="text-brand hover:underline">ver</Link></>
               : <>concluído · <Link href={`/banco/importacoes/${p.importacaoId}`} className="text-brand hover:underline">ver</Link></>}
           </li>
         ))}
       </ul>
     </div>
+  );
+}
+
+function Barra({ rotulo, pct }: { rotulo: string; pct: number }) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      {rotulo} · {pct}%
+      <span className="inline-block h-2 w-32 overflow-hidden rounded-full bg-surface-sunken" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={rotulo}>
+        <span className="block h-full bg-brand transition-all" style={{ width: `${pct}%` }} />
+      </span>
+    </span>
   );
 }
