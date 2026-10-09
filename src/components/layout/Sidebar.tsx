@@ -4,7 +4,7 @@ import { useState, type FocusEvent, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Contact, KeyRound, LogOut, Users, History, GraduationCap, Search, Trash2, FileSpreadsheet, ClipboardList, Timer, Building2, Settings } from "lucide-react";
+import { BookOpen, Contact, LogOut, Users, GraduationCap, Search, FileSpreadsheet, ClipboardList, Timer, Building2, Settings } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Avatar } from "@/components/ui/Avatar";
 import { useComandosOpcional } from "@/components/command/CommandProvider";
@@ -40,6 +40,8 @@ export function Sidebar({ professor, turmas }: { professor: Professor | null; tu
 
   if (!professor) return null;
 
+  const emConfiguracoes = ["/configuracoes", "/admin/historico", "/admin/lixeira", "/trocar-senha"].includes(pathname);
+
   const itens = [
     { href: "/", icon: GraduationCap, cor: "azul", label: "Turmas", ativo: pathname === "/" || pathname.startsWith("/turma/") },
     { href: "/cursos", icon: BookOpen, cor: "ciano", label: "Aulas", ativo: pathname.startsWith("/cursos") },
@@ -48,18 +50,15 @@ export function Sidebar({ professor, turmas }: { professor: Professor | null; tu
     ...(ehAdmin(professor.role) ? [
       { href: "/admin/professores", icon: Users, cor: "verde", label: "Professores", ativo: pathname === "/admin/professores" },
       { href: "/admin/alunos", icon: Contact, cor: "turquesa", label: "Alunos", ativo: pathname === "/admin/alunos" },
-      { href: "/admin/historico", icon: History, cor: "lilas", label: "Histórico", ativo: pathname === "/admin/historico" },
-      { href: "/admin/lixeira", icon: Trash2, cor: "coral", label: "Lixeira", ativo: pathname === "/admin/lixeira" },
     ] : []),
     ...(professor.role === "dono" ? [
       { href: "/dono", icon: Building2, cor: "dourado", label: "Escolas", ativo: pathname.startsWith("/dono") },
     ] : []),
-    { href: "/trocar-senha", icon: KeyRound, cor: "dourado", label: "Senha", ativo: pathname === "/trocar-senha" },
   ];
 
   return (
     <aside onMouseOver={mostrarEtiqueta} onMouseOut={ocultarEtiqueta} onFocus={mostrarEtiqueta} onBlur={ocultarEtiqueta} onScrollCapture={() => setEtiqueta(null)} className="sidebar-status sticky top-0 z-30 flex h-dvh w-16 shrink-0 flex-col items-center gap-2 border-r border-frame-line bg-frame-deep px-0 py-4 md:w-20">
-      <nav aria-label="Navegação principal" className="flex min-h-0 w-full flex-col items-center gap-1.5">
+      <nav aria-label="Navegação principal" className="flex min-h-0 w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto overflow-x-hidden [scrollbar-width:none]">
         {onAbrirBusca && (
           <button type="button" onClick={onAbrirBusca} aria-label="Buscar (Ctrl+K)" data-label="Buscar (Ctrl+K)" data-cor="ciano" className={`${itemBase} text-frame-muted hover:bg-white/10 hover:text-white md:mb-2`}>
             <Search size={22} strokeWidth={2.2} aria-hidden="true" />
@@ -90,8 +89,8 @@ export function Sidebar({ professor, turmas }: { professor: Professor | null; tu
           aria-label="Configurações"
           data-label="Configurações"
           data-cor="dourado"
-          aria-current={pathname === "/configuracoes" ? "page" : undefined}
-          className={`${itemBase} ${pathname === "/configuracoes" ? "bg-gold text-gold-ink shadow-[0_0_18px_rgb(245_217_10_/_0.4)]" : "text-frame-muted hover:bg-white/10 hover:text-white"}`}
+          aria-current={emConfiguracoes ? "page" : undefined}
+          className={`${itemBase} ${emConfiguracoes ? "bg-gold text-gold-ink shadow-[0_0_18px_rgb(245_217_10_/_0.4)]" : "text-frame-muted hover:bg-white/10 hover:text-white"}`}
         >
           <Settings size={22} strokeWidth={2.2} aria-hidden="true" />
         </Link>
