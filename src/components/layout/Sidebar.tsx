@@ -4,7 +4,7 @@ import { useState, type FocusEvent, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Contact, KeyRound, LogOut, Users, History, GraduationCap, Search, Trash2, FileSpreadsheet, ClipboardList, Timer, Building2 } from "lucide-react";
+import { BookOpen, Contact, KeyRound, LogOut, Users, History, GraduationCap, Search, Trash2, FileSpreadsheet, ClipboardList, Timer, Building2, Settings } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Avatar } from "@/components/ui/Avatar";
 import { useComandosOpcional } from "@/components/command/CommandProvider";
@@ -85,6 +85,16 @@ export function Sidebar({ professor, turmas }: { professor: Professor | null; tu
         )}
       </nav>
       <div className="mt-auto flex shrink-0 flex-col items-center gap-3">
+        <Link
+          href="/configuracoes"
+          aria-label="Configurações"
+          data-label="Configurações"
+          data-cor="dourado"
+          aria-current={pathname === "/configuracoes" ? "page" : undefined}
+          className={`${itemBase} ${pathname === "/configuracoes" ? "bg-gold text-gold-ink shadow-[0_0_18px_rgb(245_217_10_/_0.4)]" : "text-frame-muted hover:bg-white/10 hover:text-white"}`}
+        >
+          <Settings size={22} strokeWidth={2.2} aria-hidden="true" />
+        </Link>
         <span title={professor.nome} className="block">
           <Avatar nome={professor.nome} />
         </span>
