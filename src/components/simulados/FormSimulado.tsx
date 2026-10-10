@@ -36,8 +36,15 @@ export function FormSimulado({ inicial, turmas }: Props) {
       abreEm: abre ? new Date(abre).toISOString() : "", fechaEm: fecha ? new Date(fecha).toISOString() : "", correcao, embaralhar,
     };
     try {
-      if (inicial) { await salvarSimulado(inicial.id, dados); setAviso("Salvo."); router.refresh(); }
-      else router.push(`/simulados/${await criarSimulado(dados)}/editar`);
+      if (inicial) {
+        const r = await salvarSimulado(inicial.id, dados);
+        if (!r.ok) throw new Error(r.erro);
+        setAviso("Salvo."); router.refresh();
+      } else {
+        const r = await criarSimulado(dados);
+        if (!r.ok) throw new Error(r.erro);
+        router.push(`/simulados/${r.valor}/editar`);
+      }
     } catch (err) { setErro(err instanceof Error ? err.message : "Não foi possível salvar."); }
     finally { setOcupado(false); }
   }

@@ -86,7 +86,23 @@ async function idsDoSimulado(id: string): Promise<{ ids: string[]; proxima: numb
 
 const MAX_QUESTOES = 200;
 
-export async function criarSimulado(d: DadosSimulado): Promise<string> {
+type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
+
+/** Devolve o erro como texto: em produção o Next esconde a mensagem de erros lançados por actions. */
+async function comErro<T>(f: () => Promise<T>, padrao: string): Promise<Resultado<T>> {
+  try { return { ok: true, valor: await f() }; }
+  catch (e) { return { ok: false, erro: e instanceof Error && e.message ? e.message : padrao }; }
+}
+
+export async function criarSimulado(d: DadosSimulado): Promise<Resultado<string>> {
+  return comErro(() => gravarNovoSimulado(d), "Não foi possível criar o simulado.");
+}
+
+export async function salvarSimulado(id: string, d: DadosSimulado): Promise<Resultado<void>> {
+  return comErro(() => gravarSimulado(id, d), "Não foi possível salvar o simulado.");
+}
+
+async function gravarNovoSimulado(d: DadosSimulado): Promise<string> {
   await exigirNaoAluno();
   const professor = await getProfessorAtual();
   if (!professor) throw new Error("Faça login novamente.");
@@ -96,7 +112,7 @@ export async function criarSimulado(d: DadosSimulado): Promise<string> {
   return data.id;
 }
 
-export async function salvarSimulado(id: string, d: DadosSimulado): Promise<void> {
+async function gravarSimulado(id: string, d: DadosSimulado): Promise<void> {
   const { simulado } = await exigirSimuladoEditavel(id);
   const campos = limpar(d);
   if (await temTentativas(id)) {
