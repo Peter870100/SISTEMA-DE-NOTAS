@@ -9,6 +9,8 @@ import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { TextoQuestao } from "@/components/questoes/TextoQuestao";
 import { estilos } from "@/components/ui/estilos";
 
+import css from "./ProvaAluno.module.css";
+
 const LETRAS: Letra[] = ["A", "B", "C", "D", "E"];
 type Pendente = { questaoId: string; alternativa: Letra | null };
 const chaveLocal = (t: string) => `prova:${t}`;
@@ -155,11 +157,17 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
   const emBranco = prova.questoes.filter((x) => !respostas[x.id]).length;
   const alerta = restante !== null && restante <= 300;
 
+  const respondidas = prova.questoes.length - emBranco;
+  function navegar(indice: number) {
+    setAtual(indice);
+    document.getElementById("caderno-questao")?.scrollIntoView({ block: "start" });
+  }
+
   if (!q) return <p className="text-sm text-muted">Nenhuma questão.</p>;
   return (
-    <div className="flex flex-col gap-4">
+    <div className={css.prova}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-display text-xl font-semibold text-ink">{prova.simulado.titulo}</h1>
+        <div><p className={css.rotulo}>Caderno de questões</p><h1 className="font-display text-2xl font-semibold text-ink sm:text-3xl">{prova.simulado.titulo}</h1></div>
         <div className="flex items-center gap-2">
           {restante !== null && <span role="timer" aria-live="off" className={`rounded-control px-3 py-1 font-mono text-lg tabular-nums ${alerta ? "bg-gold/40 text-gold-ink" : "bg-surface-sunken text-ink"}`}>⏱ {formatar(restante)}</span>}
           {prova.simulado.tipo === "treino" && <button type="button" onClick={async () => { try { await pausarTreino(prova.tentativaId); } catch { /* sai mesmo assim */ } router.push("/aluno/simulados"); }} className={estilos.botaoFantasma}>Pausar</button>}
@@ -169,33 +177,43 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       {alerta && restante! > 0 && <p role="status" className="rounded-control bg-gold/25 px-3 py-2 text-sm text-ink">Faltam menos de 5 minutos. Ao zerar, a prova é entregue automaticamente.</p>}
       {erroEntrega && <p role="alert" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{erroEntrega}</p>}
       {aviso && <p role="status" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{aviso}</p>}
-      <section className={`${estilos.card} flex flex-col gap-3 p-4`} aria-label={`Questão ${atual + 1}`}>
-        <p className="text-xs text-muted">Questão {atual + 1} de {prova.questoes.length} · <span aria-live="polite">{salvando ? "salvando…" : "salvo ✓"}</span></p>
-        <TextoQuestao texto={q.enunciado} />
-        {q.imagens.filter((i) => i.alvo === "enunciado").map((i) => <ImagemQuestao key={i.id} imagem={i} />)}
-        {q.comando && <p className="text-sm font-medium text-ink">{q.comando}</p>}
-        <fieldset className="flex flex-col gap-2">
+      <div className={css.layout}><div className="min-w-0"><section id="caderno-questao" className={css.caderno} aria-label={`Questão ${atual + 1}`}>
+        <div className={css.cabecalho}><span>Simulado · questões objetivas</span><span>{atual + 1} / {prova.questoes.length}</span></div><div className={css.titulo}><h2>QUESTÃO {String(atual + 1).padStart(2, "0")}</h2><span aria-hidden="true" /></div>
+        <div className={css.texto}><TextoQuestao texto={q.enunciado} /></div>
+        {q.imagens.filter((i) => i.alvo === "enunciado").map((i) => <div key={i.id} className={css.figura}><ImagemQuestao imagem={i} /></div>)}
+        {q.comando && <p className={css.comando}>{q.comando}</p>}
+        <fieldset className={css.alternativas}>
           <legend className="sr-only">Alternativas</legend>
           {LETRAS.map((l) => (
-            <label key={l} className={`flex cursor-pointer items-start gap-2 rounded-control border p-2 text-sm ${respostas[q.id] === l ? "border-brand bg-brand/10" : "border-line"}`}>
-              <input type="radio" name={`q-${q.id}`} checked={respostas[q.id] === l} onChange={() => marcar(q.id, l)} className="mt-1" />
-              <span className="flex-1"><strong>{l})</strong> {q.alternativas.find((a) => a.letra === l)?.texto}
-                {q.imagens.filter((i) => i.alvo === l).map((i) => <ImagemQuestao key={i.id} imagem={i} />)}</span>
+            <label key={l} className={css.alternativa}>
+              <input type="radio" name={`q-${q.id}`} value={l} aria-label={`Alternativa ${l}`} checked={respostas[q.id] === l} onChange={() => marcar(q.id, l)} className={css.radio} />
+              <span className={css.letra} aria-hidden="true">{l}</span>
+              <div className={css.texto}><TextoQuestao texto={q.alternativas.find((a) => a.letra === l)?.texto ?? ""} />
+                {q.imagens.filter((i) => i.alvo === l).map((i) => <div key={i.id} className={css.figuraAlternativa}><ImagemQuestao imagem={i} /></div>)}</div>
             </label>
           ))}
           {respostas[q.id] && <button type="button" onClick={() => marcar(q.id, null)} className={`${estilos.botaoFantasma} w-fit text-xs`}>Limpar resposta</button>}
         </fieldset>
       </section>
-      <div className="flex justify-between">
-        <button type="button" disabled={atual === 0} onClick={() => setAtual(atual - 1)} className={estilos.botaoSecundario}>◀ Anterior</button>
-        <button type="button" disabled={atual === prova.questoes.length - 1} onClick={() => setAtual(atual + 1)} className={estilos.botaoSecundario}>Próxima ▶</button>
+      <div className="mt-5 flex justify-between gap-3">
+        <button type="button" disabled={atual === 0} onClick={() => navegar(atual - 1)} className={estilos.botaoSecundario}>◀ Anterior</button>
+        <button type="button" disabled={atual === prova.questoes.length - 1} onClick={() => navegar(atual + 1)} className={estilos.botaoSecundario}>Próxima ▶</button>
       </div>
-      <nav aria-label="Ir para a questão" className="flex flex-wrap gap-1">
+      </div><aside className={css.painel} aria-label="Progresso do simulado">
+        <p className={css.rotulo}>Seu progresso</p>
+        <p className={css.contagem}><strong>{respondidas}</strong> de {prova.questoes.length}</p>
+        <p className="text-sm text-muted">questões respondidas</p>
+        <progress className={css.progresso} value={respondidas} max={prova.questoes.length} aria-label="Questões respondidas" />
+        <p className={css.salvamento} role="status">{salvando ? "Salvando respostas…" : aviso ? "Confira o aviso de salvamento" : "Respostas salvas"}</p>
+        <nav aria-label="Ir para a questão" className={css.mapa}>
         {prova.questoes.map((x, i) => (
-          <button key={x.id} type="button" onClick={() => setAtual(i)} aria-current={i === atual ? "step" : undefined} aria-label={`Questão ${i + 1}${respostas[x.id] ? ", respondida" : ""}`}
-            className={`h-9 w-9 rounded-control text-sm font-semibold ${i === atual ? "ring-2 ring-brand" : ""} ${respostas[x.id] ? "bg-brand text-white" : "bg-surface-sunken text-ink"}`}>{i + 1}</button>
+          <button key={x.id} type="button" onClick={() => navegar(i)} aria-current={i === atual ? "step" : undefined} aria-label={`Questão ${i + 1}${respostas[x.id] ? ", respondida" : ""}`}
+            className={`${css.numero} ${respostas[x.id] ? css.respondida : ""}`}>{String(i + 1).padStart(2, "0")}</button>
         ))}
       </nav>
+        <div className={css.legenda}><span><i className={css.respondida} />Respondida</span><span><i />Em branco</span></div>
+        <p className={css.pendentes}>{emBranco ? `${emBranco} questão(ões) em branco` : "Todas as questões respondidas"}</p>
+      </aside></div>
     </div>
   );
 }
