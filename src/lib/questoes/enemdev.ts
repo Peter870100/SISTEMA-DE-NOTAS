@@ -84,3 +84,11 @@ export function urlImagemPermitida(url: string): boolean {
     return false;
   }
 }
+
+const AVISOS_DE_CLASSIFICACAO = [/Matéria e assunto a classificar\./g, /Assunto novo proposto: [^.]*\./g, /Sem assunto\./g, /Não classificada pela IA\./g];
+
+/** Tira do motivo de revisão os avisos da classificação anterior; null se não sobrar nada. */
+export function motivoSemClassificacao(motivo: string | null): string | null {
+  const resto = AVISOS_DE_CLASSIFICACAO.reduce((t, re) => t.replace(re, ""), motivo ?? "").replace(/\s{2,}/g, " ").trim();
+  return resto || null;
+}

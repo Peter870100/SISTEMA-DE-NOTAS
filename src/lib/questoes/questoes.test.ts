@@ -255,3 +255,13 @@ test("progresso do lote da IA", () => {
   assert.equal(progressoDoLote({ ...zero, processing: 6, succeeded: 2, errored: 1 }), 33);
   assert.equal(progressoDoLote({ ...zero, succeeded: 8, expired: 1 }), 100);
 });
+
+import { motivoSemClassificacao } from "./enemdev";
+
+test("motivoSemClassificacao tira os avisos da classificação anterior e mantém os outros", () => {
+  assert.equal(motivoSemClassificacao("Assunto novo proposto: Análise de gráficos e tabelas."), null);
+  assert.equal(motivoSemClassificacao("Matéria e assunto a classificar."), null);
+  assert.equal(motivoSemClassificacao("Uma imagem não pôde ser copiada do enem.dev. Assunto novo proposto: Razão e proporção."), "Uma imagem não pôde ser copiada do enem.dev.");
+  assert.equal(motivoSemClassificacao("Alternativa A sem conteúdo. Sem assunto. Não classificada pela IA."), "Alternativa A sem conteúdo.");
+  assert.equal(motivoSemClassificacao(null), null);
+});

@@ -3,7 +3,8 @@
 import { randomUUID } from "node:crypto";
 import { supabase } from "@/lib/supabase/client";
 import { exigirProfessor } from "@/lib/questoes/acesso";
-import { enemDevParaQuestao, urlImagemPermitida, type EnemDevQuestao } from "@/lib/questoes/enemdev";
+import { enemDevParaQuestao, motivoSemClassificacao, urlImagemPermitida, type EnemDevQuestao } from "@/lib/questoes/enemdev";
+import { inserirAssuntosIniciais } from "@/lib/questoes/assuntos-servidor";
 import { clienteIA, custoDoUso, iaDisponivel, pedidoClassificacao, progressoDoLote } from "@/lib/questoes/ia";
 import { ClassificacaoSchema, classificacaoParaAtualizacoes } from "@/lib/questoes/formato-ia";
 import { BUCKET } from "@/lib/questoes/storage";
@@ -33,12 +34,6 @@ async function marcarSemClassificacao(importacaoId: string) {
       .eq("id", q.id);
     if (error) throw new Error(error.message);
   }
-}
-
-/** Tira o aviso de "a classificar" do motivo; null se não sobrar nada. */
-function semMarca(motivo: string | null): string | null {
-  const resto = (motivo ?? "").replace(MARCA_SEM_CLASSIFICACAO, "").replace(/\s{2,}/g, " ").trim();
-  return resto || null;
 }
 
 /** Reserva a importação (a partir do status `de`) e cria o lote de classificação; volta para `de` se falhar antes do lote existir. */
@@ -149,6 +144,9 @@ export async function avancarImportacaoEnem(importacaoId: string): Promise<Passo
 class LoteCriadoError extends Error {}
 
 async function iniciarClassificacao(importacaoId: string) {
+  // Sem assuntos aprovados a IA inventaria um assunto por questão: garante a lista inicial antes.
+  const { count: aprovados } = await supabase.from("assuntos").select("id", { count: "exact", head: true }).eq("situacao", "aprovado");
+  if ((aprovados ?? 0) === 0) await inserirAssuntosIniciais();
   const [{ data: questoes }, { data: assuntos }] = await Promise.all([
     supabase.from("questoes").select("id, area, enunciado, comando").eq("importacao_id", importacaoId).is("assunto_id", null),
     supabase.from("assuntos").select("id, materia, nome").eq("situacao", "aprovado"),
@@ -214,8 +212,8 @@ export async function atualizarClassificacaoEnem(importacaoId: string): Promise<
       const { data: q } = await supabase.from("questoes").select("precisa_revisao, motivo_revisao, importacao_id").eq("id", u.id).maybeSingle();
       if (!q || q.importacao_id !== importacaoId) continue;
       atualizadas.add(u.id);
-      // O aviso de "a classificar" (importação sem IA) sai; os outros motivos continuam.
-      const motivoBase = semMarca(q.motivo_revisao);
+      // Os avisos da classificação anterior saem; os outros motivos continuam.
+      const motivoBase = motivoSemClassificacao(q.motivo_revisao);
       await supabase.from("questoes").update({
         materia: u.materia, area: u.area, assunto_id,
         precisa_revisao: !!motivoBase || u.precisa,

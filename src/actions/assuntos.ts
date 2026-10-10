@@ -2,7 +2,7 @@
 
 import { supabase } from "@/lib/supabase/client";
 import { exigirProfessor } from "@/lib/questoes/acesso";
-import { ASSUNTOS_INICIAIS } from "@/lib/questoes/assuntos-iniciais";
+import { inserirAssuntosIniciais } from "@/lib/questoes/assuntos-servidor";
 import type { Assunto } from "@/lib/types";
 
 async function exigirDono() {
@@ -39,14 +39,5 @@ export async function juntarAssunto(propostoId: string, destinoId: string): Prom
 
 export async function carregarAssuntosIniciais(): Promise<number> {
   await exigirDono();
-  const linhas = Object.entries(ASSUNTOS_INICIAIS).flatMap(([materia, nomes]) => nomes.map((nome) => ({ materia, nome, situacao: "aprovado" as const })));
-  const { data: existentes } = await supabase.from("assuntos").select("materia, nome");
-  const chave = (m: string, n: string) => `${m}|${n.toLowerCase()}`;
-  const ja = new Set((existentes ?? []).map((e) => chave(e.materia, e.nome)));
-  const novas = linhas.filter((l) => !ja.has(chave(l.materia, l.nome)));
-  if (novas.length) {
-    const { error } = await supabase.from("assuntos").insert(novas);
-    if (error) throw new Error(error.message);
-  }
-  return novas.length;
+  return inserirAssuntosIniciais();
 }
