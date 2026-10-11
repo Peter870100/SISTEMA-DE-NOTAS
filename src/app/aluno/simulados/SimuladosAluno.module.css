@@ -12,3 +12,6 @@
 .vazio { padding: 1.5rem; border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; color: var(--color-brand); font-size: .9375rem; font-weight: 500; }
 .pagina :is(input, select, option) { color: var(--color-ink); font-size: .9375rem; font-weight: 600; }
 .pagina input::placeholder { color: var(--color-faint); font-weight: 500; opacity: 1; }
+
+.tituloPagina { display: flex; align-items: center; gap: .75rem; }
+.iconeTitulo { display: grid; place-items: center; flex-shrink: 0; width: 2.75rem; height: 2.75rem; border-radius: .8rem; background: var(--color-gold); color: var(--color-gold-ink); }
