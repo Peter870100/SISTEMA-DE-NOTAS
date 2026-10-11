@@ -4,7 +4,7 @@ import { ehAdmin } from "@/lib/papeis";
 import { turmasDoAluno } from "@/lib/aulas/acesso";
 import { imagensParaTela } from "@/lib/questoes/consultas";
 import type { ImagemTela } from "@/components/questoes/ImagemQuestao";
-import type { AlunoConta, Alternativa, Area, Letra, Professor, Simulado } from "@/lib/types";
+import type { AlunoConta, Alternativa, Area, Letra, Professor, Simulado, Tentativa } from "@/lib/types";
 import { acumularTempo, correcaoLiberada, corrigir, emBlocos, LIMITE_TEMPO_QUESTAO_SEG, mesclarTempos, tempoEsgotado, TOLERANCIA_SEG, type Gabarito } from "./regras";
 
 export type QuestaoAluno = { id: string; enunciado: string; comando: string; alternativas: Alternativa[]; imagens: ImagemTela[] };
@@ -163,4 +163,31 @@ export async function fecharVencidas(simuladoId: string): Promise<void> {
   for (const t of semNota ?? []) {
     try { await corrigirTentativa(t.id); } catch (e) { console.error("fecharVencidas: falha ao corrigir", t.id, e); }
   }
+}
+
+export type TentativaLista = Pick<Tentativa, "simulado_id" | "status" | "porcentagem" | "total" | "iniciada_em" | "entregue_em" | "prazo_em" | "tempo_usado_seg">;
+
+/** Simulados da turma (publicados), treinos do aluno (últimos 50) e a tentativa dele em cada um. */
+export async function simuladosDoAluno(aluno: AlunoConta): Promise<{ daTurma: Simulado[]; treinos: Simulado[]; tentativas: Map<string, TentativaLista> }> {
+  const turmas = await turmasDoAluno(aluno.id);
+  const minhas = new Set(turmas.map((t) => `${t.turma_nome}|${t.ano_letivo}`));
+  const nomes = [...new Set(turmas.map((t) => t.turma_nome))];
+
+  let daTurma: Simulado[] = [];
+  if (nomes.length > 0) {
+    const { data: alvos } = await supabase.from("simulado_turmas").select("simulado_id, turma_nome, ano_letivo").eq("escola_id", aluno.escola_id).in("turma_nome", nomes);
+    const ids = [...new Set((alvos ?? []).filter((a) => minhas.has(`${a.turma_nome}|${a.ano_letivo}`)).map((a) => a.simulado_id))];
+    if (ids.length > 0) {
+      const { data } = await supabase.from("simulados").select("*").in("id", ids).eq("escola_id", aluno.escola_id).eq("tipo", "professor").eq("status", "publicado").order("created_at", { ascending: false });
+      daTurma = data ?? [];
+    }
+  }
+  const { data: treinosData } = await supabase.from("simulados").select("*").eq("escola_id", aluno.escola_id).eq("tipo", "treino").eq("conta_id", aluno.id).order("created_at", { ascending: false }).limit(50);
+  const treinos = treinosData ?? [];
+
+  const exibidos = new Set([...daTurma, ...treinos].map((s) => s.id));
+  const { data: tentData, error } = await supabase.from("tentativas").select("simulado_id, status, porcentagem, total, iniciada_em, entregue_em, prazo_em, tempo_usado_seg").eq("conta_id", aluno.id);
+  if (error) throw new Error(error.message);
+  const tentativas = new Map((tentData ?? []).filter((t) => exibidos.has(t.simulado_id)).map((t) => [t.simulado_id, t]));
+  return { daTurma, treinos, tentativas };
 }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aceitaResposta, acumularTempo, correcaoLiberada, corrigir, formatarDuracao, mesclarTempos, tempoDeProvaSeg, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, tempoEsgotado } from "./regras";
+import { aceitaResposta, acumularTempo, correcaoLiberada, corrigir, formatarDuracao, mesclarTempos, resumoSimulados, tempoDeProvaSeg, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, tempoEsgotado } from "./regras";
 
 const T0 = new Date("2026-10-20T13:00:00Z");
 const mais = (seg: number) => new Date(T0.getTime() + seg * 1000);
@@ -104,4 +104,29 @@ test("tempoDeProvaSeg: professor pelo relógio (limitado ao prazo), treino pelo 
   assert.equal(tempoDeProvaSeg("professor", { ...base, entregue_em: null, prazo_em: null }), null);
   assert.equal(tempoDeProvaSeg("treino", { ...base, tempo_usado_seg: 420, entregue_em: mais(9999).toISOString(), prazo_em: null }), 420);
   assert.equal(tempoDeProvaSeg("treino", { ...base, entregue_em: mais(9999).toISOString(), prazo_em: null }), null);
+});
+
+test("resumoSimulados: para fazer, concluídos, média só liberada e tempo total", () => {
+  const sim = (id: string, extra: object) => ({ id, tipo: "professor", status: "publicado", abre_em: null, fecha_em: null, correcao: "na_hora", ...extra }) as never;
+  const entregue = (pct: number, seg: number) => ({ status: "entregue", porcentagem: pct, iniciada_em: T0.toISOString(), entregue_em: mais(seg).toISOString(), prazo_em: null, tempo_usado_seg: seg }) as never;
+  const daTurma = [
+    sim("aberto", {}),
+    sim("andamento", {}),
+    sim("agendado", { abre_em: mais(99999).toISOString() }),
+    sim("sigilo", { correcao: "apos_prazo", fecha_em: mais(99999).toISOString() }),
+    sim("feito", {}),
+  ];
+  const treinos = [sim("treino", { tipo: "treino" })];
+  const t = new Map<string, never>([
+    ["andamento", { status: "em_andamento", porcentagem: null, iniciada_em: T0.toISOString(), entregue_em: null, prazo_em: null, tempo_usado_seg: 0 } as never],
+    ["sigilo", entregue(10, 600)],
+    ["feito", entregue(80, 300)],
+    ["treino", entregue(60, 120)],
+  ]);
+  const r = resumoSimulados(daTurma, treinos, t, mais(1000));
+  assert.equal(r.paraFazer, 2); // aberto + em andamento
+  assert.equal(r.concluidos, 2); // feito + treino (sigilo fora)
+  assert.equal(r.media, 70);
+  assert.equal(r.tempoTotalSeg, 600 + 300 + 120);
+  assert.equal(resumoSimulados([], [], new Map(), T0).media, null);
 });

@@ -1,4 +1,4 @@
-import type { Area, Letra, PorArea, Simulado } from "@/lib/types";
+import type { Area, Letra, PorArea, Simulado, Tentativa } from "@/lib/types";
 
 export const TOLERANCIA_SEG = 30;
 export const PULSO_SEG = 15;
@@ -129,4 +129,23 @@ export function tempoDeProvaSeg(
   if (!t.entregue_em) return null;
   const fim = Math.min(Date.parse(t.entregue_em), t.prazo_em ? Date.parse(t.prazo_em) : Infinity);
   return Math.max(0, Math.round((fim - Date.parse(t.iniciada_em)) / 1000));
+}
+
+type TentResumo = Pick<Tentativa, "status" | "porcentagem" | "iniciada_em" | "entregue_em" | "prazo_em" | "tempo_usado_seg">;
+type SimResumo = Pick<Simulado, "id" | "tipo" | "status" | "abre_em" | "fecha_em" | "correcao">;
+
+/** Números do painel do aluno. Só notas já liberadas entram em concluídos/média (prova em sigilo fica de fora). */
+export function resumoSimulados(daTurma: SimResumo[], treinos: SimResumo[], tentativas: Map<string, TentResumo>, agora: Date) {
+  const todos = [...daTurma, ...treinos];
+  const comNota = todos.filter((s) => tentativas.get(s.id)?.status === "entregue" && correcaoLiberada(s, agora));
+  const notas = comNota.map((s) => tentativas.get(s.id)?.porcentagem).filter((p): p is number => p != null).map(Number);
+  const tempoTotalSeg = todos.reduce((soma, s) => {
+    const t = tentativas.get(s.id);
+    return soma + (t?.status === "entregue" ? tempoDeProvaSeg(s.tipo, t) ?? 0 : 0);
+  }, 0);
+  const paraFazer = daTurma.filter((s) => {
+    const t = tentativas.get(s.id);
+    return t ? t.status === "em_andamento" : situacaoSimulado(s, agora) === "aberto";
+  }).length;
+  return { paraFazer, concluidos: comNota.length, media: notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : null, tempoTotalSeg };
 }
