@@ -6,7 +6,7 @@
 .aula { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding: .9rem .25rem; border-radius: var(--radius-control); font-size: .875rem; transition: background-color .15s; }
 .aula:hover { background-color: var(--color-surface-sunken); }
 .aula:focus-visible { outline: 2px solid var(--color-brand-bright); outline-offset: 3px; }
-.tituloAula { flex: 1; min-width: 8rem; color: var(--color-ink); }
+.tituloAula { flex: 1; min-width: 8rem; color: var(--color-ink); font-family: var(--font-heading), sans-serif; font-size: 1.125rem; font-weight: 700; line-height: 1.35; letter-spacing: .025em; text-transform: uppercase; overflow-wrap: anywhere; }
 .estado { display: inline-flex; align-items: baseline; gap: .35rem; padding: .4rem .65rem; border: 1px solid var(--color-line-soft); border-radius: .6rem; background: var(--color-surface-sunken); color: var(--color-muted); font-size: .75rem; white-space: nowrap; }
 .estado strong { color: var(--color-brand); font-family: var(--font-display), sans-serif; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .estado[data-concluida="true"] { color: var(--color-ok); }
