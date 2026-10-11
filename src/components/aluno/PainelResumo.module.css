@@ -1,0 +1,19 @@
+/* ===== Painel de números ===== */
+.painel { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: 1rem; }
+.painel > div { display: flex; align-items: center; gap: .9rem; padding: 1rem 1.15rem; border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; box-shadow: 0 6px 22px rgb(10 42 110 / .07); animation: subir .45s ease-out both; }
+.painel > div:nth-child(2) { animation-delay: 60ms; }
+.painel > div:nth-child(3) { animation-delay: 120ms; }
+.painel > div:nth-child(4) { animation-delay: 180ms; }
+.icone { display: grid; place-items: center; flex-shrink: 0; width: 2.75rem; height: 2.75rem; border-radius: .8rem; background: var(--color-gold); color: var(--color-gold-ink); }
+.painel dt { color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: .8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.painel dd { color: var(--color-ink); font-family: var(--font-display), sans-serif; font-size: 1.75rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.painel p { color: var(--color-brand); font-size: .8125rem; font-weight: 500; }
+
+@keyframes subir { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (max-width: 639px) {
+  .painel { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+  .painel > div { flex-direction: column; align-items: flex-start; gap: .5rem; padding: .85rem; }
+  .painel dd { font-size: 1.5rem; }
+  .painel p { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .painel > div { animation: none; } }

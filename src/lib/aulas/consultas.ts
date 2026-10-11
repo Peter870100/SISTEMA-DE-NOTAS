@@ -44,6 +44,7 @@ export type ResumoCursoAluno = {
   porcentagem: number;
   qtd_modulos: number;
   qtd_aulas: number;
+  qtd_concluidas: number;
   continuar: { aula_id: string; titulo: string } | null;
 };
 
@@ -70,6 +71,7 @@ export async function resumosCursosAluno(aluno: AlunoConta): Promise<ResumoCurso
         porcentagem: porcentagemAssistida(aulas, progresso),
         qtd_modulos: arvore.filter((m) => m.aulas.length > 0).length,
         qtd_aulas: aulas.length,
+        qtd_concluidas: aulas.filter((a) => !!progresso.get(a.id)?.concluida_em).length,
         continuar: proxima ? { aula_id: proxima.id, titulo: proxima.titulo } : null,
       };
     })

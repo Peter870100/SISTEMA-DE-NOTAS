@@ -7,6 +7,7 @@ import { CartaoSimuladoAluno } from "@/components/simulados/CartaoSimuladoAluno"
 import { CheckCircle2, ClipboardList, Hourglass, ListTodo, Target, Timer, UsersRound } from "lucide-react";
 import { correcaoLiberada, formatarDuracao, situacaoSimulado, tempoDeProvaSeg } from "@/lib/simulados/regras";
 import { NovoTreino } from "@/components/simulados/NovoTreino";
+import { PainelResumo, type ItemResumo } from "@/components/aluno/PainelResumo";
 import css from "./SimuladosAluno.module.css";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ export default async function AlunoSimuladosPage() {
     const t = tentativas.get(s.id);
     return t ? t.status === "em_andamento" : situacaoSimulado(s, agora) === "aberto";
   }).length;
-  const painel = [
+  const painel: ItemResumo[] = [
     { rotulo: "Para fazer", valor: String(paraFazer), detalhe: "simulados da turma", Icone: ListTodo },
     { rotulo: "Concluídos", valor: String(comNota.length), detalhe: "com resultado", Icone: CheckCircle2 },
     { rotulo: "Média de acerto", valor: media == null ? "—" : `${media.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`, detalhe: "nos concluídos", Icone: Target },
@@ -63,14 +64,7 @@ export default async function AlunoSimuladosPage() {
         <div><p className={css.rotulo}>Prática e conhecimento</p><h1 className={css.tituloPagina}><span className={css.iconeTitulo}><Timer size={25} strokeWidth={2.2} aria-hidden="true" /></span>Seus simulados</h1><p className={css.descricao}>Treine no seu ritmo e acompanhe seus resultados.</p></div>
         <span className={css.quantidade}><ClipboardList size={20} aria-hidden="true" />{daTurma.length + treinos.length} {daTurma.length + treinos.length === 1 ? "atividade" : "atividades"}</span>
       </header>
-      <dl className={css.painel} aria-label="Resumo">
-        {painel.map(({ rotulo, valor, detalhe, Icone }) => (
-          <div key={rotulo}>
-            <span className={css.painelIcone} aria-hidden="true"><Icone size={22} strokeWidth={2.2} /></span>
-            <div><dt>{rotulo}</dt><dd>{valor}</dd><p>{detalhe}</p></div>
-          </div>
-        ))}
-      </dl>
+      <PainelResumo itens={painel} />
       <div className={css.colunas}>
         <div className={css.principal}>
           <section aria-labelledby="titulo-turma" className={css.secao}>
