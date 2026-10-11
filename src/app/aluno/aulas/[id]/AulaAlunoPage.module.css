@@ -36,3 +36,21 @@
   .anterior, .proxima, .arquivos button { transition: none; }
   .anterior:hover, .proxima:hover, .arquivos button:not(:disabled):hover { transform: none; }
 }
+
+
+.expansivel summary {
+  display: inline-flex; align-items: center; justify-content: center; gap: .6rem;
+  min-height: 2.75rem; padding: .6rem 1rem; border-radius: var(--radius-control);
+  background: var(--color-gold); color: var(--color-gold-ink); cursor: pointer;
+  font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 700;
+  list-style: none; transition: background-color 180ms ease, color 180ms ease;
+}
+.expansivel summary::-webkit-details-marker { display: none; }
+.expansivel summary:focus-visible { outline: 3px solid var(--color-brand-bright); outline-offset: 3px; }
+.expansivel summary svg { transition: transform 180ms ease; }
+.expansivel[open] summary svg { transform: rotate(180deg); }
+.recolher, .expansivel[open] .saibaMais { display: none; }
+.expansivel[open] .recolher { display: inline; }
+.expansivel .texto { margin-top: 1rem; }
+@media (hover: hover) { .expansivel summary:hover { background: var(--color-brand); color: white; } }
+@media (prefers-reduced-motion: reduce) { .expansivel summary, .expansivel summary svg { transition: none; } }

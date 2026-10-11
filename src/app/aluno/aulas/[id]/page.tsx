@@ -7,7 +7,7 @@ import { arvoreDoCurso } from "@/lib/aulas/consultas";
 import { gabaritoLiberado, porcentagemAula } from "@/lib/aulas/progresso";
 import { AulaAluno } from "@/components/aulas/AulaAluno";
 import { BaixarArquivo } from "@/components/aulas/BaixarArquivo";
-import { ArrowLeft, ArrowRight, BookOpen, FileText, FolderDown, LockKeyhole, Play } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, FileText, FolderDown, LockKeyhole, Play } from "lucide-react";
 import css from "./AulaAlunoPage.module.css";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +55,10 @@ export default async function AlunoAulaPage({ params }: { params: Promise<{ id: 
       <div className={`${css.conteudos} ${aula.texto && (materiais.length > 0 || gabaritos.length > 0) ? css.comMateriais : ""}`}>
         {aula.texto && <section aria-labelledby="titulo-sobre" className={css.secao}>
           <h2 id="titulo-sobre"><BookOpen size={21} aria-hidden="true" />Sobre esta aula</h2>
-          <div className={css.texto}>{aula.texto}</div>
+          <details className={css.expansivel}>
+            <summary><span className={css.saibaMais}>Saiba mais</span><span className={css.recolher}>Recolher</span><ChevronDown size={18} aria-hidden="true" /></summary>
+            <div className={css.texto}>{aula.texto}</div>
+          </details>
         </section>}
         {(materiais.length > 0 || gabaritos.length > 0) && <div className={css.recursos}>
           {materiais.length > 0 && <section aria-labelledby="titulo-material" className={css.secao}>
