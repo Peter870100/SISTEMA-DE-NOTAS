@@ -24,7 +24,7 @@ export default async function AlunoCursoPage({ params }: { params: Promise<{ id:
   return (
     <>
       <div>
-        <Link href="/aluno/cursos" className="text-sm text-brand hover:underline">← Seus cursos</Link>
+        <Link href="/aluno/cursos" className={`${css.voltar} text-brand hover:underline`}>← Seus cursos</Link>
         <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight text-ink">{curso.titulo}</h1>
         {curso.descricao && <p className="mt-1 text-sm text-muted">{curso.descricao}</p>}
         <div className={css.progressoGeral}><p className={css.rotulo}>Seu progresso</p><ProgressoCurso porcentagem={total} rotulo="Progresso no curso" /></div>
