@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpen, Timer } from "lucide-react";
+import { BookOpen, GraduationCap, Timer } from "lucide-react";
 import { getAlunoAtual } from "@/lib/auth";
 import { obterEscola } from "@/lib/escolas";
 import { entrarEmTurmaComCodigo } from "@/actions/contas-aluno";
 import { listarMinhasTurmas } from "@/lib/convites";
 import { estilos } from "@/components/ui/estilos";
+import css from "./InicioAluno.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -22,10 +23,10 @@ export default async function AlunoInicioPage({ searchParams }: Props) {
 
   return (
     <>
-      <div>
-        <p className={estilos.rotulo}>{escola.nome}</p>
-        <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight text-ink">Olá, {aluno.nome.split(" ")[0]}!</h1>
-      </div>
+      <header className={css.cabecalho}>
+        <p className={css.rotulo}>{escola.nome}</p>
+        <h1 className={css.titulo}><span className={css.icone}><GraduationCap size={25} strokeWidth={2.2} aria-hidden="true" /></span>Olá, {aluno.nome.split(" ")[0]}!</h1>
+      </header>
 
       {senha === "ok" && <p role="status" className="rounded-control bg-ok/15 px-3 py-2 text-sm text-ink">Senha alterada.</p>}
       {turma === "ok" && <p role="status" className="rounded-control bg-ok/15 px-3 py-2 text-sm text-ink">Pronto! Você entrou na turma.</p>}
