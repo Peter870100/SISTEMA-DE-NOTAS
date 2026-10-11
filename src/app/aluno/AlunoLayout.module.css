@@ -53,3 +53,7 @@
 @media (min-width: 1024px) {
   .conta .rotulo { display: inline; }
 }
+@media (max-width: 639px) {
+  .navegacao { min-width: 0; }
+  .navegacao .botao { min-width: 0; flex-direction: column; gap: .25rem; padding-inline: .25rem; font-size: .8125rem; }
+}
