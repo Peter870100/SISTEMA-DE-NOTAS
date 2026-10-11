@@ -51,26 +51,32 @@ export function filtroVisivel(escolaId: string): string {
   return `escopo.eq.geral,escola_id.eq.${escolaId}`;
 }
 
-export type FiltrosSorteio = { area?: Area; materia?: string; assunto_id?: string; banca?: string; anoDe?: number; anoAte?: number };
+export type FiltrosSorteio = { area?: Area; materia?: string; materias?: string[]; assunto_id?: string; banca?: string; anoDe?: number; anoAte?: number };
 
 export async function candidatosSorteio(escolaId: string, f: FiltrosSorteio, excluir: string[]): Promise<string[]> {
-  let c = supabase.from("questoes").select("id").eq("status", "publicada").or(filtroVisivel(escolaId));
+  return (await candidatosComMateria(escolaId, f, excluir)).map((q) => q.id);
+}
+
+/** Candidatos ao sorteio com a matéria de cada um (para o sorteio equilibrado entre matérias). */
+export async function candidatosComMateria(escolaId: string, f: FiltrosSorteio, excluir: string[]): Promise<{ id: string; materia: string | null }[]> {
+  let c = supabase.from("questoes").select("id, materia").eq("status", "publicada").or(filtroVisivel(escolaId));
   if (f.area) c = c.eq("area", f.area);
   if (f.materia) c = c.eq("materia", f.materia);
+  if (f.materias?.length) c = c.in("materia", f.materias);
   if (f.assunto_id) c = c.eq("assunto_id", f.assunto_id);
   if (f.banca) c = c.eq("banca", f.banca);
   if (f.anoDe) c = c.gte("ano", f.anoDe);
   if (f.anoAte) c = c.lte("ano", f.anoAte);
   // O PostgREST limita cada resposta a 1000 linhas: lê por páginas ordenadas até acabar.
-  const ids: string[] = [];
+  const linhas: { id: string; materia: string | null }[] = [];
   for (let de = 0; ; de += 1000) {
     const { data, error } = await c.order("id").range(de, de + 999);
     if (error) throw new Error(error.message);
-    ids.push(...(data ?? []).map((q) => q.id));
+    linhas.push(...(data ?? []).map((q) => ({ id: q.id, materia: q.materia })));
     if ((data ?? []).length < 1000) break;
   }
   const fora = new Set(excluir);
-  return ids.filter((id) => !fora.has(id));
+  return linhas.filter((q) => !fora.has(q.id));
 }
 
 /** Questões de simulados do professor já publicados para as turmas do aluno e cuja correção ainda não saiu. */

@@ -26,7 +26,6 @@
 
 @media (min-width: 1200px) {
   .colunas { grid-template-columns: minmax(0, 1fr) 27rem; }
-  .lateral { position: sticky; top: 1.5rem; }
   .atalho { display: none; }
 }
 @media (min-width: 1700px) {

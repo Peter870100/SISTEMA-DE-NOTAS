@@ -3,9 +3,9 @@
 import { randomUUID } from "node:crypto";
 import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual } from "@/lib/auth";
-import { AREAS } from "@/lib/questoes/materias";
-import { candidatosSorteio, entregarTentativa, fecharVencidas, salvarTempos, questoesDeProvasEmSigilo, questoesParaAluno, simuladoVisivelParaAluno, type FiltrosSorteio, type QuestaoAluno } from "@/lib/simulados/servidor";
-import { aceitaResposta, acumularTempo, correcaoLiberada, MAX_TREINO, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, tempoDeProvaSeg, tempoEsgotado, type TemposQuestoes } from "@/lib/simulados/regras";
+import { AREAS, ehMateria, MATERIAS } from "@/lib/questoes/materias";
+import { candidatosComMateria, candidatosSorteio, entregarTentativa, fecharVencidas, salvarTempos, questoesDeProvasEmSigilo, questoesParaAluno, simuladoVisivelParaAluno, type FiltrosSorteio, type QuestaoAluno } from "@/lib/simulados/servidor";
+import { aceitaResposta, acumularTempo, correcaoLiberada, MAX_TREINO, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, sortearEquilibrado, tempoDeProvaSeg, tempoEsgotado, type TemposQuestoes } from "@/lib/simulados/regras";
 import type { AlunoConta, Letra, PorArea, Simulado, Tentativa, TipoSimulado } from "@/lib/types";
 
 async function exigirAluno(): Promise<AlunoConta> {
@@ -35,8 +35,18 @@ export async function criarTreino(f: FiltrosSorteio & { quantidade: number; dura
   if (duracao !== null && (duracao < 1 || duracao > 600)) throw new Error("Tempo de 1 a 600 minutos, ou sem tempo.");
   if (f.area !== undefined && f.area !== null && !Object.prototype.hasOwnProperty.call(AREAS, f.area)) throw new Error("Área inválida.");
   const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
-  const filtros: FiltrosSorteio = { area: f.area || undefined, materia: f.materia, assunto_id: f.assunto_id, banca: f.banca, anoDe: num(f.anoDe), anoAte: num(f.anoAte) };
-  const ids = sortear(await candidatosSorteio(aluno.escola_id, filtros, await questoesDeProvasEmSigilo(aluno)), pedidas);
+  // Várias matérias: só da lista oficial e, com área escolhida, só daquela área. Sorteio equilibrado entre elas.
+  const materias = Array.isArray(f.materias) ? [...new Set(f.materias)] : [];
+  if (materias.some((m) => typeof m !== "string" || !ehMateria(m) || (f.area && MATERIAS[m].area !== f.area))) throw new Error("Matéria inválida.");
+  const filtros: FiltrosSorteio = { area: f.area || undefined, materia: materias.length ? undefined : f.materia, materias: materias.length ? materias : undefined, assunto_id: f.assunto_id, banca: f.banca, anoDe: num(f.anoDe), anoAte: num(f.anoAte) };
+  const sigilo = await questoesDeProvasEmSigilo(aluno);
+  let ids: string[];
+  if (materias.length > 1) {
+    const candidatos = await candidatosComMateria(aluno.escola_id, filtros, sigilo);
+    ids = sortearEquilibrado(materias.map((m) => candidatos.filter((q) => q.materia === m).map((q) => q.id)), pedidas);
+  } else {
+    ids = sortear(await candidatosSorteio(aluno.escola_id, filtros, sigilo), pedidas);
+  }
   if (ids.length === 0) throw new Error("Não há questões publicadas com esses filtros.");
   const { data: s, error } = await supabase.from("simulados")
     .insert({ escola_id: aluno.escola_id, tipo: "treino", conta_id: aluno.id, titulo: (f.titulo?.trim() || `Treino de ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`).slice(0, 120), duracao_min: duracao, status: "publicado", correcao: "na_hora", embaralhar: false })

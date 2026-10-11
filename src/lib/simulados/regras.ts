@@ -89,6 +89,19 @@ export function sortear<T>(candidatos: T[], quantidade: number, aleatorio: () =>
   return lista.slice(0, n);
 }
 
+/** Sorteio equilibrado entre grupos (matérias): um de cada grupo por rodada; grupo esgotado deixa a vaga para os outros. */
+export function sortearEquilibrado<T>(grupos: T[][], quantidade: number, aleatorio: () => number = Math.random): T[] {
+  const filas = sortear(grupos.filter((g) => g.length > 0), grupos.length, aleatorio).map((g) => sortear(g, g.length, aleatorio));
+  const escolhidos: T[] = [];
+  for (let rodada = 0; escolhidos.length < quantidade && filas.some((f) => f.length > rodada); rodada++) {
+    for (const fila of filas) {
+      if (escolhidos.length >= quantidade) break;
+      if (rodada < fila.length) escolhidos.push(fila[rodada]);
+    }
+  }
+  return sortear(escolhidos, escolhidos.length, aleatorio); // mistura a ordem das matérias no caderno
+}
+
 export type Situacao = "rascunho" | "agendado" | "aberto" | "encerrado";
 
 export function situacaoSimulado(s: Pick<Simulado, "status" | "abre_em" | "fecha_em">, agora: Date): Situacao {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aceitaResposta, acumularTempo, correcaoLiberada, corrigir, formatarDuracao, mesclarTempos, resumoSimulados, tempoDeProvaSeg, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, tempoEsgotado } from "./regras";
+import { aceitaResposta, acumularTempo, correcaoLiberada, corrigir, formatarDuracao, mesclarTempos, resumoSimulados, tempoDeProvaSeg, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, sortearEquilibrado, tempoEsgotado } from "./regras";
 
 const T0 = new Date("2026-10-20T13:00:00Z");
 const mais = (seg: number) => new Date(T0.getTime() + seg * 1000);
@@ -129,4 +129,17 @@ test("resumoSimulados: para fazer, concluídos, média só liberada e tempo tota
   assert.equal(r.media, 70);
   assert.equal(r.tempoTotalSeg, 600 + 300 + 120);
   assert.equal(resumoSimulados([], [], new Map(), T0).media, null);
+});
+
+test("sortearEquilibrado: divide igual entre as matérias e completa quando uma acaba", () => {
+  const g = (p: string, n: number) => Array.from({ length: n }, (_, i) => `${p}${i}`);
+  const conta = (ids: string[]) => ["a", "b", "c"].map((p) => ids.filter((id) => id.startsWith(p)).length);
+  const r = sortearEquilibrado([g("a", 10), g("b", 10), g("c", 10)], 10);
+  assert.equal(r.length, 10);
+  assert.equal(new Set(r).size, 10);
+  const c = conta(r);
+  assert.ok(Math.max(...c) - Math.min(...c) <= 1, `divisão ${c}`);
+  assert.deepEqual(conta(sortearEquilibrado([g("a", 1), g("b", 10)], 6)), [1, 5, 0]);
+  assert.equal(sortearEquilibrado([g("a", 2), g("b", 1)], 10).length, 3);
+  assert.deepEqual(sortearEquilibrado([], 5), []);
 });
