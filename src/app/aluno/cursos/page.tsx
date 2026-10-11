@@ -14,7 +14,7 @@ export default async function AlunoCursosPage() {
     <div className={css.cabecalho}>
       <div>
         <p className={css.rotulo}>Aulas e conhecimento</p>
-        <h1 className="mt-1">Seus cursos</h1>
+        <h1 className={css.tituloPagina}><span className={css.iconeTitulo}><BookOpen size={25} strokeWidth={2.2} aria-hidden="true" /></span>Seus cursos</h1>
         <p className={css.descricao}>Continue seus estudos e acompanhe cada etapa.</p>
       </div>
       {resumos.length > 0 && <span className={css.quantidade}><BookOpen size={19} aria-hidden="true" />{resumos.length} {resumos.length === 1 ? "curso disponível" : "cursos disponíveis"}</span>}
