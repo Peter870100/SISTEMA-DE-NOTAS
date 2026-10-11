@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpen, ClipboardCheck } from "lucide-react";
+import { BookOpen, Timer } from "lucide-react";
 import { getAlunoAtual } from "@/lib/auth";
 import { obterEscola } from "@/lib/escolas";
 import { entrarEmTurmaComCodigo } from "@/actions/contas-aluno";
@@ -47,14 +47,14 @@ export default async function AlunoInicioPage({ searchParams }: Props) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Link href="/aluno/cursos" className={`${estilos.card} flex items-start gap-3 p-5 transition hover:border-brand-bright/40`}>
-          <BookOpen size={22} className="mt-0.5 text-brand" aria-hidden="true" />
+          <BookOpen size={22} strokeWidth={2.2} className="mt-0.5 text-brand" aria-hidden="true" />
           <div>
             <h2 className="font-semibold text-ink">Aulas</h2>
             <p className="mt-1 text-sm text-muted">Videoaulas e materiais dos seus professores.</p>
           </div>
         </Link>
         <Link href="/aluno/simulados" className={`${estilos.card} flex items-start gap-3 p-5 transition hover:border-brand-bright/40`}>
-          <ClipboardCheck size={22} className="mt-0.5 text-brand" aria-hidden="true" />
+          <Timer size={22} strokeWidth={2.2} className="mt-0.5 text-brand" aria-hidden="true" />
           <div>
             <h2 className="font-semibold text-ink">Simulados</h2>
             <p className="mt-1 text-sm text-muted">Simulados da turma com cronômetro e treinos livres.</p>
