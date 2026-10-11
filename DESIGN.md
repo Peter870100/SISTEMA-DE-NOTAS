@@ -107,4 +107,4 @@ Armazenamento de capas: bucket público `capas`, sem políticas de envio/exclus�
 
 Escolha de capas: aceita qualquer proporção e os formatos de imagem reconhecidos pelo navegador. Redimensionamento proporcional até 1600px e compressão JPEG automáticos antes do envio; o limite interno de armazenamento não aparece no formulário.
 
-Área do aluno: identidade alinhada ao professor, com cabeçalho cabecalho-status, logo de 160 px (208 px no desktop), títulos Rajdhani em caixa alta (36–48 px), ícones Lucide de 22 px e traço 2,2, controles sidebar-botao com cores por função e seleção amarela. Navegação superior em segunda linha abaixo de 1024 px; fundo escolar compartilhado. Questões mantêm a tipografia de caderno de prova.
+Área do aluno: identidade alinhada ao professor, com cabeçalho cabecalho-status, logo de 128 px (144 px no desktop), títulos Rajdhani em caixa alta (28–32 px), ícones Lucide de 20 px e traço 2,2, controles sidebar-botao com largura automática com cores por função e seleção amarela. Navegação superior em segunda linha abaixo de 1024 px; fundo escolar compartilhado. Questões mantêm a tipografia de caderno de prova.

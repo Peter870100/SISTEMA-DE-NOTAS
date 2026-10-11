@@ -23,7 +23,7 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
       <header className="cabecalho-status border-b border-frame-line bg-frame text-white">
         <div className={css.cabecalho}>
           <Link href="/aluno" aria-label="Início" className={css.marca}>
-            <LogoEscola className="h-auto w-40 lg:w-52" />
+            <LogoEscola className="h-auto w-32 lg:w-36" />
           </Link>
           <nav aria-label="Área do aluno" className={css.navegacao}>
             {[
@@ -35,7 +35,7 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
               return (
                 <Link key={href} href={href} aria-label={rotulo} data-cor={cor} aria-current={ativo ? "page" : undefined}
                   className={`sidebar-botao ${css.botao}`}>
-                  <Icone size={22} strokeWidth={2.2} aria-hidden="true" /> <span className={css.rotulo}> {rotulo}</span>
+                  <Icone size={20} strokeWidth={2.2} aria-hidden="true" /> <span className={css.rotulo}> {rotulo}</span>
                 </Link>
               );
             })}
@@ -43,11 +43,11 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
           <nav aria-label="Conta" className={css.conta}>
             <span className="mr-2 hidden max-w-40 truncate text-sm text-frame-muted lg:inline">{aluno.nome}</span>
             <Link href="/aluno/trocar-senha" aria-label="Senha" data-cor="dourado" aria-current={pathname === "/aluno/trocar-senha" ? "page" : undefined} className={`sidebar-botao ${css.botao}`}>
-              <KeyRound size={22} strokeWidth={2.2} aria-hidden="true" /> <span className={css.rotulo}>Senha</span>
+              <KeyRound size={20} strokeWidth={2.2} aria-hidden="true" /> <span className={css.rotulo}>Senha</span>
             </Link>
             <form action={logout}>
               <button type="submit" aria-label="Sair" data-cor="coral" className={`sidebar-botao ${css.botao}`}>
-                <LogOut size={22} strokeWidth={2.2} aria-hidden="true" /> <span className={css.rotulo}>Sair</span>
+                <LogOut size={20} strokeWidth={2.2} aria-hidden="true" /> <span className={css.rotulo}>Sair</span>
               </button>
             </form>
           </nav>
