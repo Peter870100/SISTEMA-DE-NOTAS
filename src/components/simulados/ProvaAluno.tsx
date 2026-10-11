@@ -163,15 +163,15 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
     document.getElementById("caderno-questao")?.scrollIntoView({ block: "start" });
   }
 
-  if (!q) return <p className="text-sm text-muted">Nenhuma questão.</p>;
+  if (!q) return <p className={css.textoPainel}>Nenhuma questão.</p>;
   return (
     <div className={css.prova}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><p className={css.rotulo}>Caderno de questões</p><h1 className="font-display text-2xl font-semibold text-ink sm:text-3xl">{prova.simulado.titulo}</h1></div>
         <div className="flex items-center gap-2">
           {restante !== null && <span role="timer" aria-live="off" className={`rounded-control px-3 py-1 font-mono text-lg tabular-nums ${alerta ? "bg-gold/40 text-gold-ink" : "bg-surface-sunken text-ink"}`}>⏱ {formatar(restante)}</span>}
-          {prova.simulado.tipo === "treino" && <button type="button" onClick={async () => { try { await pausarTreino(prova.tentativaId); } catch { /* sai mesmo assim */ } router.push("/aluno/simulados"); }} className={estilos.botaoFantasma}>Pausar</button>}
-          <button type="button" onClick={() => { if (window.confirm(emBranco ? `Você deixou ${emBranco} questão(ões) em branco. Entregar mesmo assim?` : "Entregar o simulado?")) void terminar(); }} className={estilos.botaoPrimario}>Entregar</button>
+          {prova.simulado.tipo === "treino" && <button type="button" onClick={async () => { try { await pausarTreino(prova.tentativaId); } catch { /* sai mesmo assim */ } router.push("/aluno/simulados"); }} className={`${estilos.botaoFantasma} ${css.acaoDiscreta}`}>Pausar</button>}
+          <button type="button" onClick={() => { if (window.confirm(emBranco ? `Você deixou ${emBranco} questão(ões) em branco. Entregar mesmo assim?` : "Entregar o simulado?")) void terminar(); }} className={`${estilos.botaoPrimario} ${css.acaoPrincipal}`}>Entregar</button>
         </div>
       </div>
       {alerta && restante! > 0 && <p role="status" className="rounded-control bg-gold/25 px-3 py-2 text-sm text-ink">Faltam menos de 5 minutos. Ao zerar, a prova é entregue automaticamente.</p>}
@@ -192,17 +192,17 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
                 {q.imagens.filter((i) => i.alvo === l).map((i) => <div key={i.id} className={css.figuraAlternativa}><ImagemQuestao imagem={i} /></div>)}</div>
             </label>
           ))}
-          {respostas[q.id] && <button type="button" onClick={() => marcar(q.id, null)} className={`${estilos.botaoFantasma} w-fit text-xs`}>Limpar resposta</button>}
+          {respostas[q.id] && <button type="button" onClick={() => marcar(q.id, null)} className={`${estilos.botaoFantasma} ${css.acaoDiscreta} w-fit text-xs`}>Limpar resposta</button>}
         </fieldset>
       </section>
       <div className="mt-5 flex justify-between gap-3">
-        <button type="button" disabled={atual === 0} onClick={() => navegar(atual - 1)} className={estilos.botaoSecundario}>◀ Anterior</button>
-        <button type="button" disabled={atual === prova.questoes.length - 1} onClick={() => navegar(atual + 1)} className={estilos.botaoSecundario}>Próxima ▶</button>
+        <button type="button" disabled={atual === 0} onClick={() => navegar(atual - 1)} className={`${css.navegacao} ${css.anterior}`}>◀ Anterior</button>
+        <button type="button" disabled={atual === prova.questoes.length - 1} onClick={() => navegar(atual + 1)} className={`${css.navegacao} ${css.proxima}`}>Próxima ▶</button>
       </div>
       </div><aside className={css.painel} aria-label="Progresso do simulado">
         <p className={css.rotulo}>Seu progresso</p>
         <p className={css.contagem}><strong>{respondidas}</strong> de {prova.questoes.length}</p>
-        <p className="text-sm text-muted">questões respondidas</p>
+        <p className={css.textoPainel}>questões respondidas</p>
         <progress className={css.progresso} value={respondidas} max={prova.questoes.length} aria-label="Questões respondidas" />
         <p className={css.salvamento} role="status">{salvando ? "Salvando respostas…" : aviso ? "Confira o aviso de salvamento" : "Respostas salvas"}</p>
         <nav aria-label="Ir para a questão" className={css.mapa}>
