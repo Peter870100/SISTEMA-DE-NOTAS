@@ -41,7 +41,7 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
             })}
           </nav>
           <nav aria-label="Conta" className={css.conta}>
-            <span className="mr-2 hidden max-w-40 truncate text-sm text-frame-muted lg:inline">{aluno.nome}</span>
+            <span className={`mr-2 hidden max-w-40 truncate lg:inline ${css.nomeAluno}`}>{aluno.nome}</span>
             <Link href="/aluno/trocar-senha" aria-label="Senha" data-cor="dourado" aria-current={pathname === "/aluno/trocar-senha" ? "page" : undefined} className={`sidebar-botao ${css.botao}`}>
               <KeyRound size={20} strokeWidth={2.2} aria-hidden="true" /> <span className={css.rotulo}>Senha</span>
             </Link>
