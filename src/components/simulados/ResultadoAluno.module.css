@@ -83,9 +83,11 @@
 .seloNeutro { background: var(--color-ink); }
 .seloVazio { background: var(--color-surface-sunken); color: var(--color-ink); border: 1px dashed var(--color-faint); }
 
-.tempo { display: inline-flex; flex-direction: column; gap: .25rem; margin-left: auto; padding: .3rem .7rem; border-radius: 999px; background: color-mix(in srgb, var(--color-brand) 9%, #fff); font-size: .8rem; font-weight: 800; color: var(--color-ink); font-variant-numeric: tabular-nums; }
-.tempo > i { display: block; width: 4.5rem; height: 3px; border-radius: 3px; background: color-mix(in srgb, var(--color-brand) 15%, #fff); overflow: hidden; }
-.tempo > i > i { display: block; width: var(--pct); height: 100%; background: var(--color-brand); transform-origin: left; animation: encher .8s ease-out both; animation-delay: .3s; }
+.tempo { display: inline-flex; align-items: center; gap: .5rem; margin-left: auto; color: var(--color-ink); }
+.tempo svg { width: 1.6rem; height: 1.6rem; fill: none; stroke: var(--color-brand); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tempo > span { display: flex; flex-direction: column; line-height: 1.05; }
+.tempo strong { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tempo small { font-size: .6rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--color-brand); }
 
 /* ===== Ver questão ===== */
 .detalhes { margin-top: .6rem; }
@@ -121,7 +123,7 @@
   .resumo { grid-template-columns: auto 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .item, .areas li, .barra > div, .tempo > i > i, .anelValor, .corpo { animation: none; }
+  .item, .areas li, .barra > div, .anelValor, .corpo { animation: none; }
   .item, .filtros label, .detalhes summary, .detalhes summary::before { transition: none; }
   .item:hover { transform: none; }
 }

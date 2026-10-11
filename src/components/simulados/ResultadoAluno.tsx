@@ -30,7 +30,6 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
   const areas = Object.entries(resultado.porArea) as [Area, { acertos: number; total: number }][];
   const erros = resultado.itens.filter((it) => !it.correta && !it.anulada).length;
   const certas = resultado.itens.filter((it) => it.correta && !it.anulada).length;
-  const maiorTempo = Math.max(1, ...resultado.itens.map((it) => it.tempoSeg ?? 0));
   const pct = Math.max(0, Math.min(100, resultado.porcentagem));
 
   return (
@@ -89,8 +88,8 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
                   </span>
                   {it.tempoSeg != null && (
                     <span className={css.tempo} aria-label={`Tempo na questão: ${formatarDuracao(it.tempoSeg)}`}>
-                      <span>⏱ {formatarDuracao(it.tempoSeg)}</span>
-                      <i aria-hidden="true"><i style={vars({ "--pct": `${Math.round((100 * it.tempoSeg) / maiorTempo)}%` })} /></i>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2.5M9.5 2.5h5M19 6l1.5-1.5" /></svg>
+                      <span aria-hidden="true"><strong>{formatarDuracao(it.tempoSeg)}</strong><small>tempo</small></span>
                     </span>
                   )}
                 </div>
