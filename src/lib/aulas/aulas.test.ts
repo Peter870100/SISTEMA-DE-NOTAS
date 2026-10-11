@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { extrairIdYoutube } from "./youtube";
-import { calcularProgresso, estadoAula, gabaritoLiberado, porcentagemAula, porcentagemConjunto } from "./progresso";
+import { calcularProgresso, estadoAula, gabaritoLiberado, porcentagemAula, porcentagemAssistida, porcentagemConjunto } from "./progresso";
 import { caminhoArquivo, validarArquivo } from "./arquivos";
 
 const ID = "dQw4w9WgXcQ";
@@ -147,4 +147,18 @@ test("arquivos: só PDF até 25 MB", () => {
   assert.match(validarArquivo("grande.pdf", 26214401)!, /25 MB/);
   assert.match(validarArquivo("vazio.pdf", 0)!, /vazio/);
   assert.equal(caminhoArquivo("e", "c", "a", "u"), "e/c/a/u.pdf");
+});
+
+
+test("progresso do curso inclui aula parcialmente assistida", () => {
+  const progresso = new Map([
+    ["parcial", { maior_posicao_seg: 132, duracao_seg: 600, concluida_em: null }],
+    ["concluida", { maior_posicao_seg: 540, duracao_seg: 600, concluida_em: "2026-10-10T12:00:00Z" }],
+    ["fora-do-curso", { maior_posicao_seg: 600, duracao_seg: 600, concluida_em: null }],
+  ]);
+  assert.equal(porcentagemAssistida([{ id: "parcial" }], progresso), 22);
+  assert.equal(porcentagemAssistida([{ id: "concluida" }, { id: "parcial" }, { id: "nao-iniciada" }], progresso), 41);
+  assert.equal(porcentagemAssistida([{ id: "nao-iniciada" }], progresso), 0);
+  assert.equal(porcentagemAssistida([{ id: "concluida" }], progresso), 100);
+  assert.equal(porcentagemAssistida([], progresso), 0);
 });

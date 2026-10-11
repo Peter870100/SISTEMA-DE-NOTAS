@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase/client";
 import type { AlunoConta, Aula, AulaProgresso, Curso, Modulo } from "@/lib/types";
 import { cursosDoAluno } from "@/lib/aulas/acesso";
-import { porcentagemConjunto } from "@/lib/aulas/progresso";
+import { porcentagemAssistida } from "@/lib/aulas/progresso";
 
 export type AulaResumo = Aula & { qtd_material: number; qtd_gabarito: number };
 export type ModuloComAulas = Modulo & { aulas: AulaResumo[] };
@@ -60,7 +60,6 @@ export async function resumosCursosAluno(aluno: AlunoConta): Promise<ResumoCurso
     cursos.map(async (curso) => {
       const [arvore, progresso] = await Promise.all([arvoreDoCurso(curso.id, true), progressoDoAluno(aluno.id, curso.id)]);
       const aulas = arvore.flatMap((m) => m.aulas);
-      const concluidas = aulas.filter((a) => progresso.get(a.id)?.concluida_em).length;
       const emAndamento = aulas
         .filter((a) => progresso.has(a.id) && !progresso.get(a.id)!.concluida_em)
         .sort((x, y) => Date.parse(progresso.get(y.id)!.atualizado_em) - Date.parse(progresso.get(x.id)!.atualizado_em))[0];
@@ -68,7 +67,7 @@ export async function resumosCursosAluno(aluno: AlunoConta): Promise<ResumoCurso
       return {
         curso,
         professor_nome: curso.professor_id ? nomes.get(curso.professor_id) ?? null : null,
-        porcentagem: porcentagemConjunto(concluidas, aulas.length),
+        porcentagem: porcentagemAssistida(aulas, progresso),
         qtd_modulos: arvore.filter((m) => m.aulas.length > 0).length,
         qtd_aulas: aulas.length,
         continuar: proxima ? { aula_id: proxima.id, titulo: proxima.titulo } : null,

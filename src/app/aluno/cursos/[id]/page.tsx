@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getAlunoAtual } from "@/lib/auth";
 import { cursoVisivelParaAluno } from "@/lib/aulas/acesso";
 import { arvoreDoCurso, progressoDoAluno } from "@/lib/aulas/consultas";
-import { estadoAula, porcentagemAula, porcentagemConjunto } from "@/lib/aulas/progresso";
+import { estadoAula, porcentagemAula, porcentagemAssistida } from "@/lib/aulas/progresso";
 import { BarraProgresso } from "@/components/aulas/AulaAluno";
 import { MiniaturaAula } from "@/components/cursos/MiniaturaAula";
 import { estilos } from "@/components/ui/estilos";
@@ -18,7 +18,7 @@ export default async function AlunoCursoPage({ params }: { params: Promise<{ id:
   if (!curso) notFound();
   const [modulos, progresso] = await Promise.all([arvoreDoCurso(id, true), progressoDoAluno(aluno.id, id)]);
   const todas = modulos.flatMap((m) => m.aulas);
-  const total = porcentagemConjunto(todas.filter((a) => progresso.get(a.id)?.concluida_em).length, todas.length);
+  const total = porcentagemAssistida(todas, progresso);
 
   return (
     <>
@@ -29,7 +29,7 @@ export default async function AlunoCursoPage({ params }: { params: Promise<{ id:
         <div className="mt-3 flex items-center gap-3"><div className="flex-1"><BarraProgresso porcentagem={total} rotulo="Progresso no curso" /></div><span className="text-sm font-semibold text-ink">{total}%</span></div>
       </div>
       {modulos.filter((m) => m.aulas.length > 0).map((m) => {
-        const pct = porcentagemConjunto(m.aulas.filter((a) => progresso.get(a.id)?.concluida_em).length, m.aulas.length);
+        const pct = porcentagemAssistida(m.aulas, progresso);
         return (
           <section key={m.id} aria-label={m.titulo} className={`${estilos.card} p-4`}>
             <div className="flex items-center gap-3">

@@ -50,6 +50,16 @@ export function porcentagemConjunto(concluidas: number, total: number): number {
   return total > 0 ? Math.round((100 * concluidas) / total) : 0;
 }
 
+/** Progresso medio das aulas publicadas, incluindo as parcialmente assistidas. */
+export function porcentagemAssistida(
+  aulas: readonly { id: string }[],
+  progresso: ReadonlyMap<string, Parameters<typeof porcentagemAula>[0]>,
+): number {
+  if (aulas.length === 0) return 0;
+  const soma = aulas.reduce((total, aula) => total + porcentagemAula(progresso.get(aula.id) ?? null), 0);
+  return Math.round(soma / aulas.length);
+}
+
 export type EstadoAula = "concluida" | "andamento" | "nao_iniciada";
 
 export function estadoAula(p: { maior_posicao_seg: number; concluida_em: string | null } | null): EstadoAula {
