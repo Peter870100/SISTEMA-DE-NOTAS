@@ -8,6 +8,7 @@ import type { Letra } from "@/lib/types";
 import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { TextoQuestao } from "@/components/questoes/TextoQuestao";
 import { estilos } from "@/components/ui/estilos";
+import { Modal } from "@/components/ui/Modal";
 
 import css from "./ProvaAluno.module.css";
 
@@ -42,6 +43,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
   // Diferença entre o relógio do servidor e o do aparelho, para o cronômetro do professor.
   const [desvio] = useState(() => Date.parse(prova.agoraServidor) - Date.now());
 
+  const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
   const [erroEntrega, setErroEntrega] = useState<string | null>(null);
 
   // Backup local = só o que ainda não foi confirmado pelo servidor.
@@ -202,12 +204,26 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
   if (!q) return <p className={css.textoPainel}>Nenhuma questão.</p>;
   return (
     <div className={css.prova} data-prova-aluno>
+      {confirmacaoAberta && (
+        <div className={css.confirmacao}>
+          <Modal open onClose={() => setConfirmacaoAberta(false)} largura="md"
+            titulo="Entregar o simulado?"
+            descricao={emBranco
+              ? `Você deixou ${emBranco} questão(ões) em branco. Deseja entregar mesmo assim?`
+              : "Todas as questões foram respondidas. Deseja confirmar a entrega?"}
+            rodape={<>
+              <button type="button" onClick={() => setConfirmacaoAberta(false)} className={`${estilos.botaoSecundario} ${css.cancelarEntrega}`}>Continuar revisando</button>
+              <button type="button" onClick={() => { setConfirmacaoAberta(false); void terminar(); }} className={`${estilos.botaoPrimario} ${css.confirmarEntrega}`}>Confirmar entrega</button>
+            </>}
+          />
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><p className={css.rotulo}>Caderno de questões</p><h1 className="font-display text-2xl font-semibold text-ink sm:text-3xl">{prova.simulado.titulo}</h1></div>
         <div className="flex items-center gap-2">
           {restante !== null && <span role="timer" aria-live="off" className={`rounded-control px-3 py-1 font-mono text-lg tabular-nums ${alerta ? "bg-gold/40 text-gold-ink" : "bg-surface-sunken text-ink"}`}>⏱ {formatarDuracao(restante)}</span>}
           {prova.simulado.tipo === "treino" && <button type="button" onClick={async () => { try { await pausarTreino(prova.tentativaId, { ...tempos.current }); } catch { /* sai mesmo assim */ } router.push("/aluno/simulados"); }} className={`${estilos.botaoFantasma} ${css.acaoDiscreta}`}>Pausar</button>}
-          <button type="button" onClick={() => { if (window.confirm(emBranco ? `Você deixou ${emBranco} questão(ões) em branco. Entregar mesmo assim?` : "Entregar o simulado?")) void terminar(); }} className={`${estilos.botaoPrimario} ${css.acaoPrincipal}`}>Entregar</button>
+          <button type="button" onClick={() => setConfirmacaoAberta(true)} className={`${estilos.botaoPrimario} ${css.acaoPrincipal}`}>Entregar</button>
         </div>
       </div>
       {alerta && restante! > 0 && <p role="status" className="rounded-control bg-gold/25 px-3 py-2 text-sm text-ink">Faltam menos de 5 minutos. Ao zerar, a prova é entregue automaticamente.</p>}
