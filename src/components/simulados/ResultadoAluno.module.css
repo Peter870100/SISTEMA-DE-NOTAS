@@ -122,6 +122,15 @@
 @media (min-width: 640px) {
   .resumo { grid-template-columns: auto 1fr; }
 }
+/* Tela larga: painel em uma faixa (anel | números | áreas) e questões em 2 colunas. */
+@media (min-width: 1200px) {
+  .resumo { grid-template-columns: auto minmax(18rem, 1fr) minmax(22rem, 1.4fr); gap: 2rem; }
+  .areas { grid-column: auto; align-self: center; }
+  .numeros { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .anel { width: 9.5rem; height: 9.5rem; }
+  .lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: .8rem; }
+  .item:has(.detalhes[open]) { grid-column: 1 / -1; }
+}
 @media (prefers-reduced-motion: reduce) {
   .item, .areas li, .barra > div, .anelValor, .corpo { animation: none; }
   .item, .filtros label, .detalhes summary, .detalhes summary::before { transition: none; }

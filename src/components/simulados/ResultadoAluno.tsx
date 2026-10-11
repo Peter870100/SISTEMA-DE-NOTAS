@@ -33,7 +33,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
   const pct = Math.max(0, Math.min(100, resultado.porcentagem));
 
   return (
-    <div className={css.resultado}>
+    <div className={css.resultado} data-resultado-aluno>
       <section className={css.resumo} aria-label="Resultado">
         <div className={css.anel} style={vars({ "--pct": pct })} role="img" aria-label={`${resultado.porcentagem.toLocaleString("pt-BR")}% de acerto`}>
           <svg viewBox="0 0 120 120" aria-hidden="true">
