@@ -7,7 +7,8 @@ import { arvoreDoCurso } from "@/lib/aulas/consultas";
 import { gabaritoLiberado, porcentagemAula } from "@/lib/aulas/progresso";
 import { AulaAluno } from "@/components/aulas/AulaAluno";
 import { BaixarArquivo } from "@/components/aulas/BaixarArquivo";
-import { estilos } from "@/components/ui/estilos";
+import { ArrowLeft, ArrowRight, BookOpen, FileText, FolderDown, LockKeyhole, Play } from "lucide-react";
+import css from "./AulaAlunoPage.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -37,11 +38,12 @@ export default async function AlunoAulaPage({ params }: { params: Promise<{ id: 
     : "Disponível depois que você concluir a aula";
 
   return (
-    <>
-      <div>
-        <Link href={`/aluno/cursos/${curso.id}`} className="text-sm text-brand hover:underline">← {curso.titulo}</Link>
-        <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">{aula.titulo}</h1>
-      </div>
+    <div className={css.pagina}>
+      <header className={css.cabecalho}>
+        <Link href={`/aluno/cursos/${curso.id}`} className={css.voltar}><ArrowLeft size={18} aria-hidden="true" />{curso.titulo}</Link>
+        <div className={css.identificacao}><span className={css.icone}><Play size={20} aria-hidden="true" /></span><span>{aula.video_id ? "Videoaula" : "Aula"}{posicao >= 0 && ` · ${posicao + 1} de ${sequencia.length}`}</span></div>
+        <h1>{aula.titulo}</h1>
+      </header>
       <AulaAluno
         key={aula.id}
         aulaId={aula.id}
@@ -50,27 +52,32 @@ export default async function AlunoAulaPage({ params }: { params: Promise<{ id: 
         porcentagemInicial={porcentagemAula(progresso ?? null)}
         concluidaInicial={concluida}
       />
-      {aula.texto && <section aria-label="Texto da aula" className={`${estilos.card} whitespace-pre-line p-4 text-sm text-ink`}>{aula.texto}</section>}
-      {materiais.length > 0 && (
-        <section aria-labelledby="titulo-material" className={`${estilos.card} p-4`}>
-          <h2 id="titulo-material" className="mb-2 font-semibold text-ink">Material</h2>
-          <ul className="flex flex-col gap-1">{materiais.map((a) => <li key={a.id} className="flex items-center justify-between gap-2 text-sm"><span className="truncate text-ink">{a.nome_arquivo}</span><BaixarArquivo arquivoId={a.id} /></li>)}</ul>
-        </section>
-      )}
-      {gabaritos.length > 0 && (
-        <section aria-labelledby="titulo-gabarito" className={`${estilos.card} p-4`}>
-          <h2 id="titulo-gabarito" className="mb-2 font-semibold text-ink">Gabarito</h2>
-          {liberado ? (
-            <ul className="flex flex-col gap-1">{gabaritos.map((a) => <li key={a.id} className="flex items-center justify-between gap-2 text-sm"><span className="truncate text-ink">{a.nome_arquivo}</span><BaixarArquivo arquivoId={a.id} /></li>)}</ul>
-          ) : (
-            <p className="text-sm text-muted">{avisoGabarito}</p>
-          )}
-        </section>
-      )}
-      <nav aria-label="Navegação entre aulas" className="flex justify-between gap-2">
-        {anterior ? <Link href={`/aluno/aulas/${anterior.id}`} className={estilos.botaoSecundario}>← Aula anterior</Link> : <span />}
-        {proxima && <Link href={`/aluno/aulas/${proxima.id}`} className={estilos.botaoPrimario}>Próxima aula →</Link>}
+      <div className={`${css.conteudos} ${aula.texto && (materiais.length > 0 || gabaritos.length > 0) ? css.comMateriais : ""}`}>
+        {aula.texto && <section aria-labelledby="titulo-sobre" className={css.secao}>
+          <h2 id="titulo-sobre"><BookOpen size={21} aria-hidden="true" />Sobre esta aula</h2>
+          <div className={css.texto}>{aula.texto}</div>
+        </section>}
+        {(materiais.length > 0 || gabaritos.length > 0) && <div className={css.recursos}>
+          {materiais.length > 0 && <section aria-labelledby="titulo-material" className={css.secao}>
+            <h2 id="titulo-material"><FolderDown size={21} aria-hidden="true" />Material de apoio</h2>
+            <ul className={css.arquivos}>{materiais.map((a) => <li key={a.id}>
+              <div className={css.arquivoNome}><FileText size={20} aria-hidden="true" /><span>{a.nome_arquivo}</span></div>
+              <BaixarArquivo arquivoId={a.id} />
+            </li>)}</ul>
+          </section>}
+          {gabaritos.length > 0 && <section aria-labelledby="titulo-gabarito" className={css.secao}>
+            <h2 id="titulo-gabarito"><FileText size={21} aria-hidden="true" />Gabarito</h2>
+            {liberado ? <ul className={css.arquivos}>{gabaritos.map((a) => <li key={a.id}>
+              <div className={css.arquivoNome}><FileText size={20} aria-hidden="true" /><span>{a.nome_arquivo}</span></div>
+              <BaixarArquivo arquivoId={a.id} />
+            </li>)}</ul> : <p className={css.bloqueado}><LockKeyhole size={18} aria-hidden="true" />{avisoGabarito}</p>}
+          </section>}
+        </div>}
+      </div>
+      <nav aria-label="Navegação entre aulas" className={css.navegacao}>
+        {anterior ? <Link href={`/aluno/aulas/${anterior.id}`} className={css.anterior}><ArrowLeft size={18} aria-hidden="true" />Aula anterior</Link> : <span />}
+        {proxima && <Link href={`/aluno/aulas/${proxima.id}`} className={css.proxima}>Próxima aula<ArrowRight size={18} aria-hidden="true" /></Link>}
       </nav>
-    </>
+    </div>
   );
 }

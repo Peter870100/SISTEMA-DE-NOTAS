@@ -1,0 +1,38 @@
+.pagina { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
+.cabecalho { padding: 1.5rem; border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; box-shadow: 0 6px 22px rgb(10 42 110 / .06); }
+.voltar { display: inline-flex; align-items: center; gap: .5rem; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 700; text-transform: uppercase; overflow-wrap: anywhere; }
+.voltar svg { flex-shrink: 0; }
+.identificacao { display: flex; align-items: center; gap: .65rem; margin-top: 1.25rem; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: .875rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.icone { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .6rem; background: var(--color-gold); color: var(--color-gold-ink); }
+.cabecalho h1 { margin-top: .75rem; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: clamp(1.375rem, 3vw, 1.875rem); font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.conteudos { display: grid; align-items: start; gap: 1.5rem; }
+.recursos { display: grid; gap: 1.5rem; min-width: 0; }
+.secao { min-width: 0; padding: 1.5rem; border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; box-shadow: 0 6px 22px rgb(10 42 110 / .06); }
+.secao h2 { display: flex; align-items: center; gap: .6rem; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--color-line); color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1.25rem; font-weight: 700; }
+.secao h2 svg { flex-shrink: 0; }
+.texto { white-space: pre-line; color: var(--color-ink); font-size: 1rem; font-weight: 500; line-height: 1.8; overflow-wrap: anywhere; text-align: justify; hyphens: auto; }
+.arquivos { display: flex; flex-direction: column; gap: .75rem; }
+.arquivos li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding-block: .4rem; }
+.arquivoNome { display: flex; align-items: flex-start; gap: .65rem; flex: 1 1 10rem; min-width: 0; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+.arquivoNome svg { flex-shrink: 0; margin-top: .1rem; }
+.arquivos button { min-height: 2.75rem; border: 1px solid var(--color-brand); background: white; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 700; }
+.bloqueado { display: flex; align-items: flex-start; gap: .5rem; padding: .75rem; border-radius: .6rem; background: color-mix(in srgb, var(--color-gold) 20%, white); color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 600; }
+.bloqueado svg { flex-shrink: 0; margin-top: .15rem; }
+.navegacao { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .75rem; }
+.anterior, .proxima { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; padding: .65rem 1rem; border-radius: var(--radius-control); color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 700; }
+.anterior { border: 1px solid var(--color-brand); background: white; }
+.proxima { border: 1px solid var(--color-gold); background: var(--color-gold); color: var(--color-gold-ink); }
+.pagina a:focus-visible, .arquivos button:focus-visible { outline: 3px solid var(--color-brand-bright); outline-offset: 3px; }
+.anterior, .proxima, .arquivos button { transition: background-color 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease; }
+@media (min-width: 1024px) { .comMateriais { grid-template-columns: minmax(0, 1fr) 18rem; } }
+@media (hover: hover) and (pointer: fine) {
+  .voltar:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .anterior:hover, .arquivos button:not(:disabled):hover { background: var(--color-gold); box-shadow: 0 4px 12px rgb(245 217 10 / .2); transform: translateY(-2px); }
+  .proxima:hover { background: var(--color-brand); border-color: var(--color-brand); color: white; transform: translateY(-2px); box-shadow: 0 4px 14px rgb(4 68 160 / .2); }
+  .anterior:active, .proxima:active, .arquivos button:not(:disabled):active { transform: translateY(0); }
+}
+@media (max-width: 639px) { .cabecalho, .secao { padding: 1.1rem; } }
+@media (prefers-reduced-motion: reduce) {
+  .anterior, .proxima, .arquivos button { transition: none; }
+  .anterior:hover, .proxima:hover, .arquivos button:not(:disabled):hover { transform: none; }
+}

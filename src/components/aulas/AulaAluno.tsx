@@ -7,6 +7,8 @@ import { concluirAulaSemVideo, registrarProgresso } from "@/actions/progresso";
 import type { ProvedorVideo } from "@/lib/types";
 import { PlayerVideo } from "@/components/aulas/PlayerVideo";
 import { estilos } from "@/components/ui/estilos";
+import { ProgressoCurso } from "./ProgressoCurso";
+import css from "./AulaAluno.module.css";
 
 type Props = {
   aulaId: string;
@@ -32,26 +34,27 @@ export function AulaAluno({ aulaId, video, iniciarEm, porcentagemInicial, conclu
   }, [aulaId, concluida, router]);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={css.aula}>
       {video ? (
         <>
-          <PlayerVideo provedor={video.provedor} videoId={video.id} iniciarEm={iniciarEm} onTempo={aoTempo} />
-          <div className="flex items-center gap-3">
-            <div className="flex-1"><BarraProgresso porcentagem={porcentagem} rotulo="Quanto do vídeo você assistiu" /></div>
-            <span className={`text-sm font-semibold ${concluida ? "text-ok" : "text-muted"}`}>
-              {concluida ? <span className="inline-flex items-center gap-1"><CheckCircle2 size={15} aria-hidden="true" /> Concluída</span> : `${porcentagem}% assistido`}
-            </span>
+          <div className={css.player}><PlayerVideo provedor={video.provedor} videoId={video.id} iniciarEm={iniciarEm} onTempo={aoTempo} /></div>
+          <div className={css.resumo}>
+            <div className={css.cabecalhoProgresso}>
+              <p>Seu progresso nesta aula</p>
+              <span className={css.estado}>{concluida ? <><CheckCircle2 size={17} aria-hidden="true" />Concluída</> : "Assistido"}</span>
+            </div>
+            <ProgressoCurso porcentagem={porcentagem} rotulo="Quanto do vídeo você assistiu" />
           </div>
         </>
       ) : concluida ? (
-        <p className="inline-flex items-center gap-1 text-sm font-semibold text-ok"><CheckCircle2 size={15} aria-hidden="true" /> Concluída</p>
+        <p className={css.semVideo}><CheckCircle2 size={15} aria-hidden="true" /> Concluída</p>
       ) : (
         <button type="button" onClick={async () => {
           try { await concluirAulaSemVideo(aulaId); setConcluida(true); router.refresh(); }
           catch (e) { setErro(e instanceof Error ? e.message : "Não foi possível concluir."); }
-        }} className={`${estilos.botaoPrimario} w-fit`}>Concluir aula</button>
+        }} className={`${estilos.botaoPrimario} ${css.concluir}`}>Concluir aula</button>
       )}
-      {erro && <p role="status" className="text-xs text-muted">{erro}</p>}
+      {erro && <p role="status" className={css.erro}>{erro}</p>}
     </div>
   );
 }

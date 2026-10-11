@@ -1,0 +1,12 @@
+.aula { overflow: hidden; border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; box-shadow: 0 8px 28px rgb(10 42 110 / .09); }
+.player { overflow: hidden; background: var(--color-frame-deep); }
+.player > div { border-radius: 0; }
+.resumo { padding: 1.25rem 1.5rem; }
+.cabecalhoProgresso { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .75rem; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: .9375rem; font-weight: 700; }
+.cabecalhoProgresso > p { text-transform: uppercase; letter-spacing: .04em; }
+.estado { display: inline-flex; align-items: center; gap: .4rem; }
+.semVideo { display: flex; align-items: center; gap: .5rem; padding: 1.5rem; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1.125rem; font-weight: 700; }
+.concluir { margin: 1.25rem; background: var(--color-gold); color: var(--color-gold-ink); font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 700; }
+.erro { padding: 0 1.5rem 1rem; color: var(--color-brand); font-size: .875rem; font-weight: 600; }
+@media (hover: hover) { .concluir:hover { background: var(--color-brand); color: white; } }
+@media (max-width: 639px) { .resumo { padding: 1rem; } }
