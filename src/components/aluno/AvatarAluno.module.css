@@ -1,0 +1,22 @@
+.avatar { position:relative; flex-shrink:0; display:grid; place-items:center; width:44px; height:44px; margin-left:.35rem; border:2px solid var(--color-gold); border-radius:50%; background:white; color:var(--color-brand); font-family:var(--font-heading),sans-serif; font-size:1.35rem; font-weight:700; cursor:pointer; transition:transform .18s,box-shadow .18s; }
+.avatar img,.previa img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+.avatar:hover { transform:translateY(-2px); box-shadow:0 0 0 4px #f5d90a25; }
+.avatar:focus-visible,.painel button:focus-visible { outline:3px solid var(--color-gold); outline-offset:3px; }
+.camera { position:absolute; right:-3px; bottom:-2px; padding:2px; box-sizing:content-box; background:var(--color-gold); color:var(--color-frame-deep); border-radius:50%; }
+.painel { display:flex; flex-direction:column; gap:1rem; color:var(--color-brand); }
+.previa { display:grid; place-items:center; align-self:center; width:88px; height:88px; border:3px solid var(--color-gold); border-radius:50%; background:white; font-size:2.7rem; font-weight:700; }
+.nome { text-align:center; font-family:var(--font-heading),sans-serif; font-size:1.25rem; font-weight:700; }
+.rotulo { display:flex; align-items:center; gap:.5rem; font-size:.875rem; font-weight:700; }
+.emojis { display:grid; grid-template-columns:repeat(4,1fr); gap:.5rem; }
+.emojis button { min-height:48px; border:1px solid var(--color-line); border-radius:.75rem; background:white; font-size:1.6rem; cursor:pointer; }
+.emojis button:hover,.emojis button[aria-pressed=true] { background:#fff9cc; border-color:var(--color-gold); }
+.arquivo { display:none; }
+.foto,.salvar,.remover { display:flex; align-items:center; justify-content:center; gap:.5rem; min-height:44px; padding:.5rem 1rem; border:1px solid var(--color-brand); border-radius:.75rem; font-weight:700; cursor:pointer; transition:background .18s,transform .18s; }
+.foto,.remover { background:white; color:var(--color-brand); }
+.salvar { background:var(--color-gold); color:var(--color-frame-deep); border-color:var(--color-gold); }
+.foto:hover,.remover:hover,.salvar:hover { background:#fff2a0; transform:translateY(-1px); }
+.acoes { display:flex; justify-content:space-between; gap:1rem; padding-top:.5rem; border-top:1px solid var(--color-line); }
+.ajuda { font-size:.75rem; line-height:1.6; }
+.erro { color:var(--color-danger); font-size:.875rem; }
+.painel button:disabled { opacity:.5; cursor:default; transform:none; }
+@media(prefers-reduced-motion:reduce) { .avatar,.painel button { transition:none; transform:none; } }

@@ -69,3 +69,12 @@
   max-width: none;
   padding-inline: clamp(1rem, 2vw, 2rem);
 }
+
+/* Mesma geometria e contraste para todas as acoes do cabecalho. */
+.botao.botao { height:44px; min-height:44px; border-radius:.75rem; padding:.5rem .8rem; color:white; background:var(--color-frame-deep); border-color:#ffffff26; box-shadow:none; transition:background .18s,color .18s,transform .18s,box-shadow .18s; }
+.botao.botao > svg { color:inherit; }
+.botao.botao[aria-current=page],.botao.botao:hover { color:var(--color-frame-deep); background:var(--color-gold); border-color:var(--color-gold); box-shadow:0 4px 12px #f5d90a26; }
+.botao.botao:hover { transform:translateY(-2px); }
+.conta form { display:flex; }
+@media(min-width:1024px) { .cabecalho { gap:.75rem; } .nomeAluno { max-width:7.5rem; margin-right:.25rem; font-size:1rem; } }
+@media(prefers-reduced-motion:reduce) { .botao.botao { transition:none; transform:none; } }

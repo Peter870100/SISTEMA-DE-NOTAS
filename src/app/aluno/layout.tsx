@@ -6,6 +6,7 @@ import { logout } from "@/actions/auth";
 import { getAlunoAtual } from "@/lib/auth";
 import { LogoEscola } from "@/components/layout/EscolaContexto";
 
+import { AvatarAluno } from "@/components/aluno/AvatarAluno";
 import css from "./AlunoLayout.module.css";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,7 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
                 <LogOut size={20} strokeWidth={2.2} aria-hidden="true" /> <span className={css.rotulo}>Sair</span>
               </button>
             </form>
+            <AvatarAluno alunoId={aluno.id} nome={aluno.nome} />
           </nav>
         </div>
       </header>
