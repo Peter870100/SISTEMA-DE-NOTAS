@@ -1,0 +1,6 @@
+.cabecalho { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding-block: .25rem .5rem; }
+.rotulo { color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: .8125rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.descricao { margin-top: .65rem; color: var(--color-ink); font-size: .9375rem; font-weight: 500; }
+.quantidade { display: inline-flex; align-items: center; gap: .6rem; padding: .6rem .9rem; border: 1px solid var(--color-line); border-radius: .75rem; background: white; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 700; }
+.lista { display: grid; gap: 1.5rem; }
+.lista > li { min-width: 0; }
