@@ -41,3 +41,28 @@
   font-weight: 500;
   opacity: 1;
 }
+.pagina :is(button, a)[class*="bg-brand"] {
+  transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pagina :is(button, a)[class*="bg-brand"]:not(:disabled):hover {
+    background: var(--color-gold);
+    color: var(--color-gold-ink);
+    box-shadow: 0 6px 18px rgb(245 217 10 / .3);
+    transform: translateY(-2px);
+  }
+  .pagina :is(button, a)[class*="bg-brand"]:not(:disabled):active {
+    transform: translateY(0);
+  }
+}
+
+.pagina :is(button, a)[class*="bg-brand"]:focus-visible {
+  outline: 2px solid var(--color-brand-bright);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pagina :is(button, a)[class*="bg-brand"] { transition: none; }
+  .pagina :is(button, a)[class*="bg-brand"]:not(:disabled):hover { transform: none; }
+}

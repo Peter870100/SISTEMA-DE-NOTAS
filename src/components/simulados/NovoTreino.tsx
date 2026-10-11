@@ -6,6 +6,7 @@ import { criarTreino, iniciarTentativa } from "@/actions/simulados-aluno";
 import { AREAS, MATERIAS } from "@/lib/questoes/materias";
 import type { Area } from "@/lib/types";
 import { estilos } from "@/components/ui/estilos";
+import { SeletorTreino } from "./SeletorTreino";
 
 const rotulo = "mb-1 block text-xs font-semibold text-muted";
 
@@ -56,18 +57,14 @@ export function NovoTreino() {
       <h3 className="font-semibold text-ink">Novo treino</h3>
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
-          <label htmlFor="t-area" className={rotulo}>Área</label>
-          <select id="t-area" value={area} onChange={(e) => { setArea(e.target.value); setMateria(""); }} className={estilos.input}>
-            <option value="">Todas</option>
-            {Object.entries(AREAS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
+          <label id="t-area-rotulo" htmlFor="t-area" className={rotulo}>Área</label>
+          <SeletorTreino id="t-area" value={area} onChange={(valor) => { setArea(valor); setMateria(""); }}
+            options={[{ value: "", label: "Todas" }, ...Object.entries(AREAS).map(([value, label]) => ({ value, label }))]} />
         </div>
         <div>
-          <label htmlFor="t-materia" className={rotulo}>Matéria</label>
-          <select id="t-materia" value={materia} onChange={(e) => setMateria(e.target.value)} className={estilos.input}>
-            <option value="">Todas</option>
-            {materias.map(([k, m]) => <option key={k} value={k}>{m.rotulo}</option>)}
-          </select>
+          <label id="t-materia-rotulo" htmlFor="t-materia" className={rotulo}>Matéria</label>
+          <SeletorTreino id="t-materia" value={materia} onChange={setMateria}
+            options={[{ value: "", label: "Todas" }, ...materias.map(([value, m]) => ({ value, label: m.rotulo }))]} />
         </div>
         <div>
           <label htmlFor="t-banca" className={rotulo}>Banca</label>
