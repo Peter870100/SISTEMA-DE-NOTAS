@@ -201,7 +201,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
 
   if (!q) return <p className={css.textoPainel}>Nenhuma questão.</p>;
   return (
-    <div className={css.prova}>
+    <div className={css.prova} data-prova-aluno>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><p className={css.rotulo}>Caderno de questões</p><h1 className="font-display text-2xl font-semibold text-ink sm:text-3xl">{prova.simulado.titulo}</h1></div>
         <div className="flex items-center gap-2">
@@ -244,6 +244,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
         <p className={css.textoPainel}>questões respondidas</p>
         <progress className={css.progresso} value={respondidas} max={prova.questoes.length} aria-label="Questões respondidas" />
         <p className={css.salvamento} role="status">{salvando ? "Salvando respostas…" : aviso ? "Confira o aviso de salvamento" : "Respostas salvas"}</p>
+        <p className={css.resumoQuestoes}>{prova.questoes.length} questões <span>· {emBranco} a responder</span></p>
         <nav aria-label="Ir para a questão" className={css.mapa}>
         {prova.questoes.map((x, i) => (
           <button key={x.id} type="button" onClick={() => navegar(i)} aria-current={i === atual ? "step" : undefined} aria-label={`Questão ${i + 1}${respostas[x.id] ? ", respondida" : ""}`}

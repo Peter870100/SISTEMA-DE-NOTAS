@@ -45,7 +45,7 @@
 .legenda i { width: .6rem; height: .6rem; border: 1px solid var(--color-line); border-radius: .1rem; }
 .pendentes { margin-top: 1rem; border-top: 1px solid var(--color-line); padding-top: 1rem; font-size: .8rem; color: var(--color-muted); }
 @media (min-width: 768px) {
-  .layout { grid-template-columns: minmax(0, 1fr) 13.5rem; }
+  .layout { grid-template-columns: minmax(0, 1fr) 16rem; }
   .painel { position: sticky; top: 1.5rem; }
   .caderno { font-size: 1.25rem; }
 }
@@ -98,4 +98,25 @@
 @media (prefers-reduced-motion: reduce) {
   .navegacao, .acaoPrincipal, .acaoDiscreta, .numero { transition: none; }
   .navegacao:not(:disabled):hover, .acaoPrincipal:not(:disabled):hover, .acaoDiscreta:not(:disabled):hover, .numero:not(:disabled):hover { transform: none; }
+}
+
+
+.texto, .comando {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+}
+
+.resumoQuestoes {
+  margin-bottom: .75rem;
+  color: var(--color-ink);
+  font-family: var(--font-heading), sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.resumoQuestoes span { font-weight: 600; }
+
+@media (min-width: 1200px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 20rem; }
+  .mapa { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
