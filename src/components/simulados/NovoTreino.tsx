@@ -7,8 +7,10 @@ import { AREAS, MATERIAS } from "@/lib/questoes/materias";
 import type { Area } from "@/lib/types";
 import { estilos } from "@/components/ui/estilos";
 import { SeletorTreino } from "./SeletorTreino";
+import { ArrowRight, Play, SlidersHorizontal } from "lucide-react";
+import css from "./NovoTreino.module.css";
 
-const rotulo = "mb-1 block text-xs font-semibold text-muted";
+const rotulo = css.rotulo;
 
 export function NovoTreino() {
   const router = useRouter();
@@ -53,9 +55,9 @@ export function NovoTreino() {
   }
 
   return (
-    <form onSubmit={(e) => void comecar(e)} className={`${estilos.card} flex flex-col gap-3 p-4`}>
-      <h3 className="font-semibold text-ink">Novo treino</h3>
-      <div className="grid gap-3 sm:grid-cols-3">
+    <form onSubmit={(e) => void comecar(e)} className={css.formulario}>
+      <div className={css.cabecalho}><span className={css.icone}><SlidersHorizontal size={24} aria-hidden="true" /></span><div><h3>Novo treino</h3><p>Escolha os assuntos e monte seu próximo desafio.</p></div></div>
+      <div className={css.campos}>
         <div>
           <label id="t-area-rotulo" htmlFor="t-area" className={rotulo}>Área</label>
           <SeletorTreino id="t-area" value={area} onChange={(valor) => { setArea(valor); setMateria(""); }}
@@ -89,7 +91,7 @@ export function NovoTreino() {
       </div>
       {erro && <p role="alert" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{erro}</p>}
       {aviso && <p role="status" className="rounded-control bg-gold/25 px-3 py-2 text-sm text-ink">{aviso}</p>}
-      <button type="submit" disabled={ocupado} className={`${estilos.botaoPrimario} w-fit`}>{ocupado ? "Montando…" : "Começar treino"}</button>
+      <div className={css.rodape}><p>Até 90 questões. O tempo é opcional.</p><button type="submit" disabled={ocupado} className={css.comecar}><Play size={18} aria-hidden="true" />{ocupado ? "Montando…" : "Começar treino"}<ArrowRight size={18} aria-hidden="true" /></button></div>
     </form>
   );
 }

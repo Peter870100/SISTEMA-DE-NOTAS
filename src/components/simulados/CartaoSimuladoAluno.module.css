@@ -1,0 +1,29 @@
+.cartao { display: grid; min-width: 0; overflow: hidden; border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; box-shadow: 0 6px 22px rgb(10 42 110 / .07); transition: border-color 180ms ease, box-shadow 180ms ease; }
+.visual { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1.25rem; background: linear-gradient(140deg, var(--color-brand), var(--color-frame-deep)); color: white; }
+.visual > span { font-family: var(--font-heading), sans-serif; font-size: .875rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; text-align: center; }
+.nota { display: grid; place-items: center; flex-shrink: 0; width: 6.5rem; height: 6.5rem; border-radius: 50%; background: conic-gradient(var(--color-gold) var(--nota), rgb(255 255 255 / .2) 0); }
+.nota > div { display: flex; align-items: center; justify-content: center; flex-direction: column; width: 5.5rem; height: 5.5rem; border-radius: 50%; background: white; color: var(--color-brand); }
+.nota strong { font-family: var(--font-display), sans-serif; font-size: 1.75rem; font-weight: 700; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.nota small { font-size: .875rem; margin-left: .1rem; }
+.nota span { font-family: var(--font-heading), sans-serif; font-size: .75rem; font-weight: 700; text-transform: uppercase; }
+.conteudo { display: flex; flex-direction: column; gap: .75rem; min-width: 0; padding: 1.5rem; }
+.cabecalho { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+.tipo { color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: .8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.status { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .6rem; border-radius: .45rem; background: var(--color-gold); color: var(--color-gold-ink); font-family: var(--font-heading), sans-serif; font-size: .8125rem; font-weight: 700; text-transform: uppercase; }
+.titulo { color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1.5rem; font-weight: 700; line-height: 1.25; text-transform: uppercase; overflow-wrap: anywhere; }
+.metadados { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; color: var(--color-ink); font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 600; }
+.metadados span { display: inline-flex; align-items: center; gap: .4rem; }
+.metadados svg { color: var(--color-brand); flex-shrink: 0; }
+.rodape { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-top: .25rem; padding-top: 1rem; border-top: 1px solid var(--color-line); }
+.mensagem { color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: .9375rem; font-weight: 600; }
+.continuar, .resultado, .acoes button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; padding: .6rem .9rem; border-radius: var(--radius-control); font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 700; transition: background-color 180ms ease, color 180ms ease, transform 180ms ease; }
+.continuar, .acoes button { background: var(--color-gold); color: var(--color-gold-ink); box-shadow: 0 4px 12px rgb(245 217 10 / .2); }
+.resultado { border: 1px solid var(--color-brand); color: var(--color-brand); background: white; }
+.cartao :is(a, button):focus-visible { outline: 3px solid var(--color-brand-bright); outline-offset: 3px; }
+@media (min-width: 640px) { .cartao { grid-template-columns: 10rem minmax(0, 1fr); } .visual { flex-direction: column; } }
+@media (hover: hover) and (pointer: fine) {
+  .cartao:hover { border-color: var(--color-brand); box-shadow: 0 10px 28px rgb(10 42 110 / .12); }
+  .continuar:hover, .acoes button:not(:disabled):hover { background: var(--color-brand); color: white; transform: translateY(-2px); }
+  .resultado:hover { background: var(--color-gold); transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) { .cartao, .continuar, .resultado, .acoes button { transition: none; } .continuar:hover, .resultado:hover, .acoes button:not(:disabled):hover { transform: none; } }

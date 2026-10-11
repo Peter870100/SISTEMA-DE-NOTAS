@@ -1,37 +1,14 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAlunoAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { turmasDoAluno } from "@/lib/aulas/acesso";
-import { correcaoLiberada, situacaoSimulado } from "@/lib/simulados/regras";
-import type { Simulado, Tentativa } from "@/lib/types";
-import { ComecarTentativa } from "@/components/simulados/ComecarTentativa";
+import type { Simulado } from "@/lib/types";
+import { CartaoSimuladoAluno } from "@/components/simulados/CartaoSimuladoAluno";
+import { ClipboardList, Timer, UsersRound } from "lucide-react";
 import { NovoTreino } from "@/components/simulados/NovoTreino";
-import { estilos } from "@/components/ui/estilos";
 import css from "./SimuladosAluno.module.css";
 
 export const dynamic = "force-dynamic";
-
-const fmt = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-
-type Tent = Pick<Tentativa, "simulado_id" | "status" | "porcentagem">;
-
-function Situacao({ s, t, agora }: { s: Simulado; t: Tent | undefined; agora: Date }) {
-  if (t?.status === "entregue") {
-    const liberada = correcaoLiberada(s, agora);
-    return (
-      <div className="flex flex-wrap items-center gap-3 text-sm text-ink">
-        <span>{liberada ? `Entregue · ${t.porcentagem == null ? "—" : `${Number(t.porcentagem).toLocaleString("pt-BR")}%`}` : `Entregue · correção em ${s.fecha_em ? fmt(s.fecha_em) : "breve"}`}</span>
-        <Link href={`/aluno/simulados/${s.id}`} className="font-semibold text-brand hover:underline">Ver resultado</Link>
-      </div>
-    );
-  }
-  if (t) return <Link href={`/aluno/simulados/${s.id}`} className={estilos.botaoPrimario}>Continuar</Link>;
-  const situacao = situacaoSimulado(s, agora);
-  if (situacao === "aberto") return <ComecarTentativa simuladoId={s.id} />;
-  if (situacao === "agendado") return <span className="text-sm text-muted">Abre em {s.abre_em ? fmt(s.abre_em) : "breve"}</span>;
-  return <span className="text-sm text-muted">Encerrado</span>;
-}
 
 export default async function AlunoSimuladosPage() {
   const aluno = await getAlunoAtual();
@@ -54,53 +31,29 @@ export default async function AlunoSimuladosPage() {
   const treinos = treinosData ?? [];
 
   const exibidos = new Set([...daTurma, ...treinos].map((s) => s.id));
-  const { data: tentData, error: erroTent } = await supabase.from("tentativas").select("simulado_id, status, porcentagem").eq("conta_id", aluno.id);
+  const { data: tentData, error: erroTent } = await supabase.from("tentativas").select("simulado_id, status, porcentagem, total").eq("conta_id", aluno.id);
   if (erroTent) throw new Error(erroTent.message);
   const tentativas = new Map((tentData ?? []).filter((t) => exibidos.has(t.simulado_id)).map((t) => [t.simulado_id, t]));
   const agora = new Date();
 
   return (
     <div className={css.pagina}>
-      <div>
-        <p className={estilos.rotulo}>Simulados</p>
-        <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight text-ink">Seus simulados</h1>
-      </div>
-
-      <section aria-labelledby="titulo-turma" className="flex flex-col gap-3">
-        <h2 id="titulo-turma" className="font-semibold text-ink">Da turma</h2>
-        {daTurma.length === 0 ? (
-          <p className={`${estilos.card} p-5 text-sm text-muted`}>Nenhum simulado da turma por enquanto.</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {daTurma.map((s) => (
-              <li key={s.id} className={`${estilos.card} flex flex-wrap items-center justify-between gap-3 p-4`}>
-                <div>
-                  <p className="font-semibold text-ink">{s.titulo}</p>
-                  <p className="text-xs text-muted">{s.duracao_min ? `${s.duracao_min} min` : "Sem limite de tempo"}{s.fecha_em ? ` · fecha em ${fmt(s.fecha_em)}` : ""}</p>
-                </div>
-                <Situacao s={s} t={tentativas.get(s.id)} agora={agora} />
-              </li>
-            ))}
-          </ul>
-        )}
+      <header className={css.cabecalho}>
+        <div><p className={css.rotulo}>Prática e conhecimento</p><h1>Seus simulados</h1><p className={css.descricao}>Treine no seu ritmo e acompanhe seus resultados.</p></div>
+        <span className={css.quantidade}><ClipboardList size={20} aria-hidden="true" />{daTurma.length + treinos.length} {daTurma.length + treinos.length === 1 ? "atividade" : "atividades"}</span>
+      </header>
+      <section aria-labelledby="titulo-turma" className={css.secao}>
+        <h2 id="titulo-turma" className={css.tituloSecao}><UsersRound size={23} aria-hidden="true" />Da turma<span>{daTurma.length}</span></h2>
+        {daTurma.length === 0 ? <p className={css.vazio}>Nenhum simulado da turma por enquanto.</p> : <ul className={css.lista}>
+          {daTurma.map((s) => <li key={s.id}><CartaoSimuladoAluno simulado={s} tentativa={tentativas.get(s.id)} agora={agora} /></li>)}
+        </ul>}
       </section>
-
-      <section aria-labelledby="titulo-treinos" className="flex flex-col gap-3">
-        <h2 id="titulo-treinos" className="font-semibold text-ink">Meus treinos</h2>
+      <section aria-labelledby="titulo-treinos" className={css.secao}>
+        <h2 id="titulo-treinos" className={css.tituloSecao}><Timer size={23} aria-hidden="true" />Meus treinos<span>{treinos.length}</span></h2>
         <NovoTreino />
-        {treinos.length > 0 && (
-          <ul className="flex flex-col gap-3">
-            {treinos.map((s) => (
-              <li key={s.id} className={`${estilos.card} flex flex-wrap items-center justify-between gap-3 p-4`}>
-                <div>
-                  <p className="font-semibold text-ink">{s.titulo}</p>
-                  <p className="text-xs text-muted">{s.duracao_min ? `${s.duracao_min} min` : "Sem tempo"}</p>
-                </div>
-                <Situacao s={s} t={tentativas.get(s.id)} agora={agora} />
-              </li>
-            ))}
-          </ul>
-        )}
+        {treinos.length > 0 && <ul className={css.lista}>
+          {treinos.map((s) => <li key={s.id}><CartaoSimuladoAluno simulado={s} tentativa={tentativas.get(s.id)} agora={agora} /></li>)}
+        </ul>}
       </section>
     </div>
   );
