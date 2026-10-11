@@ -1,0 +1,14 @@
+.progressoGeral { margin-top: 1rem; padding: .9rem 1.1rem; border: 1px solid var(--color-line); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: 0 4px 16px rgb(10 42 110 / .04); }
+.rotulo { margin-bottom: .5rem; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--color-muted); }
+.modulo { padding: 1.25rem; }
+.cabecalhoModulo { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; padding-bottom: .75rem; border-bottom: 1px solid var(--color-line-soft); }
+.progressoModulo { flex: 1; min-width: min(100%, 13rem); }
+.aula { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding: .9rem .25rem; border-radius: var(--radius-control); font-size: .875rem; transition: background-color .15s; }
+.aula:hover { background-color: var(--color-surface-sunken); }
+.aula:focus-visible { outline: 2px solid var(--color-brand-bright); outline-offset: 3px; }
+.tituloAula { flex: 1; min-width: 8rem; color: var(--color-ink); }
+.estado { display: inline-flex; align-items: baseline; gap: .35rem; padding: .4rem .65rem; border: 1px solid var(--color-line-soft); border-radius: .6rem; background: var(--color-surface-sunken); color: var(--color-muted); font-size: .75rem; white-space: nowrap; }
+.estado strong { color: var(--color-brand); font-family: var(--font-display), sans-serif; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.estado[data-concluida="true"] { color: var(--color-ok); }
+@media (max-width: 639px) { .estado { margin-left: auto; } }
+@media (prefers-reduced-motion: reduce) { .aula { transition: none; } }

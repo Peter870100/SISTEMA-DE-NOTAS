@@ -4,7 +4,8 @@ import { getAlunoAtual } from "@/lib/auth";
 import { cursoVisivelParaAluno } from "@/lib/aulas/acesso";
 import { arvoreDoCurso, progressoDoAluno } from "@/lib/aulas/consultas";
 import { estadoAula, porcentagemAula, porcentagemAssistida } from "@/lib/aulas/progresso";
-import { BarraProgresso } from "@/components/aulas/AulaAluno";
+import { ProgressoCurso } from "@/components/aulas/ProgressoCurso";
+import css from "./CursoAluno.module.css";
 import { MiniaturaAula } from "@/components/cursos/MiniaturaAula";
 import { estilos } from "@/components/ui/estilos";
 
@@ -26,16 +27,15 @@ export default async function AlunoCursoPage({ params }: { params: Promise<{ id:
         <Link href="/aluno/cursos" className="text-sm text-brand hover:underline">← Seus cursos</Link>
         <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight text-ink">{curso.titulo}</h1>
         {curso.descricao && <p className="mt-1 text-sm text-muted">{curso.descricao}</p>}
-        <div className="mt-3 flex items-center gap-3"><div className="flex-1"><BarraProgresso porcentagem={total} rotulo="Progresso no curso" /></div><span className="text-sm font-semibold text-ink">{total}%</span></div>
+        <div className={css.progressoGeral}><p className={css.rotulo}>Seu progresso</p><ProgressoCurso porcentagem={total} rotulo="Progresso no curso" /></div>
       </div>
       {modulos.filter((m) => m.aulas.length > 0).map((m) => {
         const pct = porcentagemAssistida(m.aulas, progresso);
         return (
-          <section key={m.id} aria-label={m.titulo} className={`${estilos.card} p-4`}>
-            <div className="flex items-center gap-3">
+          <section key={m.id} aria-label={m.titulo} className={`${estilos.card} ${css.modulo}`}>
+            <div className={css.cabecalhoModulo}>
               <h2 className="font-semibold text-ink">{m.titulo}</h2>
-              <div className="flex-1"><BarraProgresso porcentagem={pct} rotulo={`Progresso em ${m.titulo}`} /></div>
-              <span className="text-sm font-semibold text-ink">{pct}%</span>
+              <div className={css.progressoModulo}><ProgressoCurso porcentagem={pct} rotulo={`Progresso em ${m.titulo}`} /></div>
             </div>
             <ol className="mt-2 divide-y divide-line">
               {m.aulas.map((a, i) => {
@@ -45,11 +45,11 @@ export default async function AlunoCursoPage({ params }: { params: Promise<{ id:
                 const icone = estado === "concluida" ? "✓" : estado === "andamento" ? "◐" : "○";
                 return (
                   <li key={a.id}>
-                    <Link href={`/aluno/aulas/${a.id}`} className="flex items-center gap-3 rounded-control px-1 py-2 text-sm hover:bg-surface-sunken">
+                    <Link href={`/aluno/aulas/${a.id}`} className={css.aula}>
                       <MiniaturaAula caminho={a.capa_caminho} videoId={a.video_id} porcentagem={porcentagemAula(p)} />
                       <span aria-hidden="true" className={estado === "concluida" ? "text-ok" : "text-muted"}>{icone}</span>
-                      <span className="flex-1 text-ink">{i + 1}. {a.titulo}</span>
-                      <span className={`text-xs ${estado === "concluida" ? "text-ok" : "text-muted"}`}>{texto}</span>
+                      <span className={css.tituloAula}>{i + 1}. {a.titulo}</span>
+                      <span className={css.estado} data-concluida={estado === "concluida"} aria-label={texto}>{estado === "andamento" ? <><strong>{porcentagemAula(p)}%</strong> assistido</> : texto}</span>
                     </Link>
                   </li>
                 );
