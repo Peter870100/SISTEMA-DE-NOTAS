@@ -34,7 +34,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
 
   return (
     <div className={css.resultado} data-resultado-aluno>
-      <section className={css.resumo} aria-label="Resultado">
+      <section className={`${css.resumo} cartao-interativo`} aria-label="Resultado">
         <div className={css.anel} style={vars({ "--pct": pct })} role="img" aria-label={`${resultado.porcentagem.toLocaleString("pt-BR")}% de acerto`}>
           <svg viewBox="0 0 120 120" aria-hidden="true">
             <circle className={css.anelFundo} cx="60" cy="60" r="52" pathLength={100} />
@@ -77,7 +77,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
             const q = porId.get(it.questaoId);
             const estado = it.anulada ? "anulada" : it.correta ? "certa" : "errada";
             return (
-              <li key={it.questaoId} className={css.item} data-estado={estado} style={vars({ "--i": Math.min(i, 15) })}>
+              <li key={it.questaoId} className={`${css.item} cartao-interativo`} data-estado={estado} style={vars({ "--i": Math.min(i, 15) })}>
                 <div className={css.linha}>
                   <span className={css.numero}>Q{String(i + 1).padStart(2, "0")}</span>
                   <span className={css.status}>{estado === "anulada" ? "Anulada" : estado === "certa" ? "✓ Acertou" : "✗ Errou"}</span>

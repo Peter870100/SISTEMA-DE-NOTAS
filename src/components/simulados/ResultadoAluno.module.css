@@ -29,7 +29,7 @@
 .numeroTempo dt { color: var(--color-brand); }
 
 .areas { grid-column: 1 / -1; display: grid; gap: .9rem; }
-.areas li { animation: subir .45s ease-out both; animation-delay: calc(var(--i) * 70ms + 150ms); }
+.areas li { animation: subir .45s ease-out backwards; animation-delay: calc(var(--i) * 70ms + 150ms); }
 .areaTopo { display: flex; justify-content: space-between; gap: 1rem; font-size: .9rem; font-weight: 600; color: var(--color-ink); }
 .areaTopo strong { color: var(--color-brand); }
 .barra { height: .6rem; margin-top: .35rem; border-radius: 1rem; overflow: hidden; background: var(--color-line-soft); }
@@ -63,7 +63,7 @@
   border: 1px solid var(--color-line); border-radius: var(--radius-card); background: var(--color-surface);
   box-shadow: 0 2px 10px rgb(10 42 110 / .05);
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-  animation: subir .4s ease-out both; animation-delay: calc(var(--i) * 45ms);
+  animation: subir .4s ease-out backwards; animation-delay: calc(var(--i) * 45ms);
 }
 .item::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--tom); }
 .item[data-estado="certa"] { --tom: var(--color-ok); }

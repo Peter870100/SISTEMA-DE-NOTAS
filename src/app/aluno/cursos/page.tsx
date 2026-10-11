@@ -24,13 +24,13 @@ export default async function AlunoCursosPage() {
     { rotulo: "Aulas concluídas", valor: `${aulasFeitas}/${aulas}`, detalhe: "assistidas até o fim", Icone: CheckCircle2 },
   ];
   return <div className={css.pagina} data-largura-total>
-    <div className={css.cabecalho}>
+    <div className={`${css.cabecalho} cartao-interativo`}>
       <div>
         <p className={css.rotulo}>Aulas e conhecimento</p>
-        <h1 className={css.tituloPagina}><span className={css.iconeTitulo}><BookOpen size={25} strokeWidth={2.2} aria-hidden="true" /></span>Seus cursos</h1>
+        <h1 className={css.tituloPagina}><span className={css.iconeTitulo} data-icone><BookOpen size={25} strokeWidth={2.2} aria-hidden="true" /></span>Seus cursos</h1>
         <p className={css.descricao}>Continue seus estudos e acompanhe cada etapa.</p>
       </div>
-      {resumos.length > 0 && <span className={css.quantidade}><BookOpen size={19} aria-hidden="true" />{resumos.length} {resumos.length === 1 ? "curso disponível" : "cursos disponíveis"}</span>}
+      {resumos.length > 0 && <span className={`${css.quantidade} cartao-interativo`}><BookOpen size={19} aria-hidden="true" />{resumos.length} {resumos.length === 1 ? "curso disponível" : "cursos disponíveis"}</span>}
     </div>
     {resumos.length > 0 && <PainelResumo itens={painel} />}
     {resumos.length === 0 ? <p className={estilos.card + " p-5 text-sm text-ink"}>Ainda não há cursos para as suas turmas.</p> :

@@ -49,9 +49,9 @@ export default async function AlunoInicioPage({ searchParams }: Props) {
 
   return (
     <div className={css.pagina} data-largura-total>
-      <header className={css.cabecalho}>
+      <header className={`${css.cabecalho} cartao-interativo`}>
         <p className={css.rotulo}>{escola.nome}</p>
-        <h1 className={css.titulo}><span className={css.icone}><GraduationCap size={25} strokeWidth={2.2} aria-hidden="true" /></span>Olá, {aluno.nome.split(" ")[0]}!</h1>
+        <h1 className={css.titulo}><span className={css.icone} data-icone><GraduationCap size={25} strokeWidth={2.2} aria-hidden="true" /></span>Olá, {aluno.nome.split(" ")[0]}!</h1>
       </header>
 
       {senha === "ok" && <p role="status" className={css.ok}>Senha alterada.</p>}
@@ -60,7 +60,7 @@ export default async function AlunoInicioPage({ searchParams }: Props) {
       <PainelResumo itens={painel} />
 
       <div className={css.atalhos}>
-        <article className={css.atalho} aria-labelledby="atalho-cursos">
+        <article className={`${css.atalho} cartao-interativo`} aria-labelledby="atalho-cursos">
           <div className={css.visual}><BookOpen size={44} strokeWidth={1.6} aria-hidden="true" /><span>Aulas</span></div>
           <div className={css.conteudo}>
             <span className={css.etiqueta}>Aulas e conhecimento</span>
@@ -80,7 +80,7 @@ export default async function AlunoInicioPage({ searchParams }: Props) {
           </div>
         </article>
 
-        <article className={css.atalho} aria-labelledby="atalho-simulados">
+        <article className={`${css.atalho} cartao-interativo`} aria-labelledby="atalho-simulados">
           <div className={css.visual}><Timer size={44} strokeWidth={1.6} aria-hidden="true" /><span>Simulados</span></div>
           <div className={css.conteudo}>
             <span className={css.etiqueta}>Prática e conhecimento</span>
@@ -102,9 +102,9 @@ export default async function AlunoInicioPage({ searchParams }: Props) {
       </div>
 
       <div className={css.inferior}>
-        <section aria-labelledby="titulo-turmas" className={css.cartao}>
+        <section aria-labelledby="titulo-turmas" className={`${css.cartao} cartao-interativo`}>
           <div className={css.cabecalhoCartao}>
-            <span className={css.iconeCartao} aria-hidden="true"><UsersRound size={22} strokeWidth={2.2} /></span>
+            <span className={css.iconeCartao} data-icone aria-hidden="true"><UsersRound size={22} strokeWidth={2.2} /></span>
             <div><h2 id="titulo-turmas">Minhas turmas</h2><p>{turmas.length === 1 ? "1 turma" : `${turmas.length} turmas`}</p></div>
           </div>
           {turmas.length === 0 ? (
@@ -118,9 +118,9 @@ export default async function AlunoInicioPage({ searchParams }: Props) {
           )}
         </section>
 
-        <section aria-labelledby="titulo-outra-turma" className={css.cartao}>
+        <section aria-labelledby="titulo-outra-turma" className={`${css.cartao} cartao-interativo`}>
           <div className={css.cabecalhoCartao}>
-            <span className={css.iconeCartao} aria-hidden="true"><KeyRound size={22} strokeWidth={2.2} /></span>
+            <span className={css.iconeCartao} data-icone aria-hidden="true"><KeyRound size={22} strokeWidth={2.2} /></span>
             <div><h2 id="titulo-outra-turma">Entrar em outra turma</h2><p>Mudou de turma ou de ano? Digite o código que o professor passou.</p></div>
           </div>
           {erro === "codigo" && <p role="alert" className={css.erro}>Código inválido. Confira com seu professor.</p>}

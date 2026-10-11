@@ -17,7 +17,7 @@ export function CartaoSimuladoAluno({ simulado: s, tentativa: t, agora }: { simu
   const status = entregue ? "Entregue" : t ? "Em andamento" : situacao === "aberto" ? "Disponível" : situacao === "agendado" ? "Agendado" : "Encerrado";
   const Icone = s.tipo === "treino" ? Timer : ClipboardList;
   const tempo = entregue && t?.iniciada_em ? tempoDeProvaSeg(s.tipo, { iniciada_em: t.iniciada_em, entregue_em: t.entregue_em ?? null, prazo_em: t.prazo_em ?? null, tempo_usado_seg: t.tempo_usado_seg ?? 0 }) : null;
-  return <article className={css.cartao} aria-labelledby={`simulado-${s.id}`}>
+  return <article className={`${css.cartao} cartao-interativo`} aria-labelledby={`simulado-${s.id}`}>
     <div className={css.visual}>
       {nota !== null ? <div className={css.nota} style={{ "--nota": `${nota}%` } as CSSProperties}>
         <div><strong>{nota.toLocaleString("pt-BR")}<small>%</small></strong><span>de acerto</span></div>

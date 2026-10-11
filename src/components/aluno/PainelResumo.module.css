@@ -1,6 +1,6 @@
 /* ===== Painel de números ===== */
 .painel { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: 1rem; }
-.painel > div { display: flex; align-items: center; gap: .9rem; padding: 1rem 1.15rem; border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; box-shadow: 0 6px 22px rgb(10 42 110 / .07); animation: subir .45s ease-out both; }
+.painel > div { display: flex; align-items: center; gap: .9rem; padding: 1rem 1.15rem; border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; box-shadow: 0 6px 22px rgb(10 42 110 / .07); animation: subir .45s ease-out backwards; }
 .painel > div:nth-child(2) { animation-delay: 60ms; }
 .painel > div:nth-child(3) { animation-delay: 120ms; }
 .painel > div:nth-child(4) { animation-delay: 180ms; }

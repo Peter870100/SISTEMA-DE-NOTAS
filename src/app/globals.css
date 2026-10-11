@@ -367,3 +367,28 @@ body {
 .curso-capa:focus-visible { outline: 3px solid var(--color-brand); outline-offset: 4px; }
 @media (hover: hover) and (pointer: fine) { a.curso-capa:hover { transform: translateY(-3px); box-shadow: 0 16px 32px rgb(6 32 86 / .24); } }
 @media (prefers-reduced-motion: reduce) { .curso-capa { transition: none; } a.curso-capa:hover { transform: none; } }
+
+/* Efeito dos botões do topo aplicado a cartões da página: sobe, borda e brilho dourados,
+   e o quadrado do ícone inverte (dourado → azul-escuro). Classe dobrada para vencer os :hover dos módulos. */
+.cartao-interativo.cartao-interativo {
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+.cartao-interativo [data-icone] {
+  transition: background-color 200ms ease, color 200ms ease, transform 200ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cartao-interativo.cartao-interativo:hover {
+    transform: translateY(-3px);
+    border-color: var(--color-gold);
+    box-shadow: 0 10px 26px rgb(245 217 10 / 0.22), 0 4px 12px rgb(10 42 110 / 0.08);
+  }
+  .cartao-interativo:hover [data-icone] {
+    background-color: var(--color-frame-deep);
+    color: var(--color-gold);
+    transform: scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cartao-interativo.cartao-interativo, .cartao-interativo [data-icone] { transition: none; }
+  .cartao-interativo.cartao-interativo:hover, .cartao-interativo:hover [data-icone] { transform: none; }
+}

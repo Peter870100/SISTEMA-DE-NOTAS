@@ -26,9 +26,9 @@ export default async function AlunoSimuladosPage() {
 
   return (
     <div className={css.pagina} data-largura-total>
-      <header className={css.cabecalho}>
-        <div><p className={css.rotulo}>Prática e conhecimento</p><h1 className={css.tituloPagina}><span className={css.iconeTitulo}><Timer size={25} strokeWidth={2.2} aria-hidden="true" /></span>Seus simulados</h1><p className={css.descricao}>Treine no seu ritmo e acompanhe seus resultados.</p></div>
-        <span className={css.quantidade}><ClipboardList size={20} aria-hidden="true" />{daTurma.length + treinos.length} {daTurma.length + treinos.length === 1 ? "atividade" : "atividades"}</span>
+      <header className={`${css.cabecalho} cartao-interativo`}>
+        <div><p className={css.rotulo}>Prática e conhecimento</p><h1 className={css.tituloPagina}><span className={css.iconeTitulo} data-icone><Timer size={25} strokeWidth={2.2} aria-hidden="true" /></span>Seus simulados</h1><p className={css.descricao}>Treine no seu ritmo e acompanhe seus resultados.</p></div>
+        <span className={`${css.quantidade} cartao-interativo`}><ClipboardList size={20} aria-hidden="true" />{daTurma.length + treinos.length} {daTurma.length + treinos.length === 1 ? "atividade" : "atividades"}</span>
       </header>
       <PainelResumo itens={painel} />
       <div className={css.colunas}>

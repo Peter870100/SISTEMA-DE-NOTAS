@@ -11,7 +11,7 @@ export function CartaoCursoAluno({ resumo }: { resumo: ResumoCursoAluno }) {
   const progresso = Math.max(0, Math.min(100, Math.round(porcentagem)));
   const href = `/aluno/cursos/${curso.id}`;
   return (
-    <article className={css.cartao} aria-labelledby={`curso-${curso.id}`}>
+    <article className={`${css.cartao} cartao-interativo`} aria-labelledby={`curso-${curso.id}`}>
       <Link href={href} className={css.capa} aria-label={`Ver curso ${curso.titulo}`}>
         <ImagemCapa src={urlCapa(curso.capa_caminho)} sizes="(max-width: 639px) 100vw, 272px" className={css.imagem} />
         <span className={css.estado}>{progresso === 100 ? "Concluído" : progresso > 0 ? "Em andamento" : "Para começar"}</span>

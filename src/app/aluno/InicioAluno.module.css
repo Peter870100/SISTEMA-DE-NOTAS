@@ -8,7 +8,7 @@
 
 /* ===== Atalhos (cursos / simulados) ===== */
 .atalhos { display: grid; gap: 1.5rem; }
-.atalho { display: grid; min-width: 0; overflow: hidden; border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; box-shadow: 0 6px 22px rgb(10 42 110 / .07); transition: border-color 180ms ease, box-shadow 180ms ease; animation: subir .45s ease-out both; }
+.atalho { display: grid; min-width: 0; overflow: hidden; border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; box-shadow: 0 6px 22px rgb(10 42 110 / .07); transition: border-color 180ms ease, box-shadow 180ms ease; animation: subir .45s ease-out backwards; }
 .atalho + .atalho { animation-delay: 80ms; }
 .visual { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1.25rem; background: linear-gradient(140deg, var(--color-brand), var(--color-frame-deep)); color: white; }
 .visual > span { font-family: var(--font-heading), sans-serif; font-size: .9375rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }

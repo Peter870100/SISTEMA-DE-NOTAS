@@ -8,8 +8,8 @@ export function PainelResumo({ itens }: { itens: ItemResumo[] }) {
   return (
     <dl className={css.painel} aria-label="Resumo">
       {itens.map(({ rotulo, valor, detalhe, Icone }) => (
-        <div key={rotulo}>
-          <span className={css.icone} aria-hidden="true"><Icone size={22} strokeWidth={2.2} /></span>
+        <div key={rotulo} className="cartao-interativo">
+          <span className={css.icone} data-icone aria-hidden="true"><Icone size={22} strokeWidth={2.2} /></span>
           <div><dt>{rotulo}</dt><dd>{valor}</dd><p>{detalhe}</p></div>
         </div>
       ))}
