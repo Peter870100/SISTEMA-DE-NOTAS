@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { ResultadoAluno as Resultado } from "@/actions/simulados-aluno";
 import type { QuestaoAluno } from "@/lib/simulados/servidor";
 import { AREAS } from "@/lib/questoes/materias";
@@ -7,8 +8,11 @@ import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { TextoQuestao } from "@/components/questoes/TextoQuestao";
 import { estilos } from "@/components/ui/estilos";
 
+import css from "./ResultadoAluno.module.css";
+
 const LETRAS = ["A", "B", "C", "D", "E"] as const;
 const fmt = (iso: string, opcoes: Intl.DateTimeFormatOptions) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", ...opcoes });
+const vars = (v: Record<string, string | number>) => v as CSSProperties;
 
 export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; questoes: QuestaoAluno[] }) {
   if (!resultado.liberado) {
@@ -24,20 +28,35 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
   }
   const porId = new Map(questoes.map((q) => [q.id, q]));
   const areas = Object.entries(resultado.porArea) as [Area, { acertos: number; total: number }][];
+  const erros = resultado.itens.filter((it) => !it.correta && !it.anulada).length;
+  const certas = resultado.itens.filter((it) => it.correta && !it.anulada).length;
+  const maiorTempo = Math.max(1, ...resultado.itens.map((it) => it.tempoSeg ?? 0));
+  const pct = Math.max(0, Math.min(100, resultado.porcentagem));
+
   return (
-    <div className="flex flex-col gap-4">
-      <section className={`${estilos.card} p-5`} aria-label="Resultado">
-        <p className="text-3xl font-semibold text-ink">{resultado.acertos}/{resultado.total} <span className="text-xl text-muted">· {resultado.porcentagem.toLocaleString("pt-BR")}%</span></p>
-        {resultado.tempoSeg != null && <p className="mt-1 text-sm text-muted">⏱ Você levou <strong className="font-semibold text-ink tabular-nums">{formatarDuracao(resultado.tempoSeg)}</strong> para finalizar</p>}
+    <div className={css.resultado}>
+      <section className={css.resumo} aria-label="Resultado">
+        <div className={css.anel} style={vars({ "--pct": pct })} role="img" aria-label={`${resultado.porcentagem.toLocaleString("pt-BR")}% de acerto`}>
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle className={css.anelFundo} cx="60" cy="60" r="52" pathLength={100} />
+            <circle className={css.anelValor} cx="60" cy="60" r="52" pathLength={100} />
+          </svg>
+          <div><strong>{resultado.porcentagem.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</strong><span>de acerto</span></div>
+        </div>
+        <dl className={css.numeros}>
+          <div className={css.numeroOk}><dt>Acertos</dt><dd>{resultado.acertos}<small>/{resultado.total}</small></dd></div>
+          <div className={css.numeroErro}><dt>Erros</dt><dd>{erros}</dd></div>
+          {resultado.tempoSeg != null && <div className={css.numeroTempo}><dt>Tempo total</dt><dd>{formatarDuracao(resultado.tempoSeg)}</dd></div>}
+        </dl>
         {areas.length > 0 && (
-          <ul className="mt-4 flex flex-col gap-2">
-            {areas.map(([area, v]) => {
-              const pct = v.total ? Math.round((100 * v.acertos) / v.total) : 0;
+          <ul className={css.areas}>
+            {areas.map(([area, v], i) => {
+              const p = v.total ? Math.round((100 * v.acertos) / v.total) : 0;
               return (
-                <li key={area} className="text-sm text-ink">
-                  <div className="flex justify-between"><span>{AREAS[area] ?? area}</span><span>{v.acertos}/{v.total} · {pct}%</span></div>
-                  <div className="mt-1 h-2 overflow-hidden rounded bg-surface-sunken" role="progressbar" aria-label={AREAS[area] ?? area} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-                    <div className="h-full bg-brand" style={{ width: `${pct}%` }} />
+                <li key={area} style={vars({ "--i": i })}>
+                  <div className={css.areaTopo}><span>{AREAS[area] ?? area}</span><span>{v.acertos}/{v.total} · <strong>{p}%</strong></span></div>
+                  <div className={css.barra} role="progressbar" aria-label={AREAS[area] ?? area} aria-valuenow={p} aria-valuemin={0} aria-valuemax={100}>
+                    <div style={vars({ "--pct": `${p}%` })} />
                   </div>
                 </li>
               );
@@ -45,41 +64,68 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
           </ul>
         )}
       </section>
-      <ol className="flex flex-col gap-2">
-        {resultado.itens.map((it, i) => {
-          const q = porId.get(it.questaoId);
-          return (
-            <li key={it.questaoId} className={`${estilos.card} p-3`}>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
-                <strong>{i + 1}.</strong>
-                {it.anulada
-                  ? <span className="text-muted">anulada</span>
-                  : <span className={it.correta ? "font-semibold text-ok" : "font-semibold text-danger"} aria-label={it.correta ? "Acertou" : "Errou"}>{it.correta ? "✓" : "✗"}</span>}
-                <span className="text-muted">Sua resposta: {it.marcada ?? "em branco"} · Certa: {it.certa ?? "—"}</span>
-                {it.tempoSeg != null && <span className="ml-auto text-xs text-muted tabular-nums" aria-label={`Tempo na questão: ${formatarDuracao(it.tempoSeg)}`}>⏱ {formatarDuracao(it.tempoSeg)}</span>}
-              </div>
-              {q && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-sm font-semibold text-brand">Ver questão</summary>
-                  <div className="mt-2 flex flex-col gap-2">
-                    <TextoQuestao texto={q.enunciado} />
-                    {q.imagens.filter((im) => im.alvo === "enunciado").map((im) => <ImagemQuestao key={im.id} imagem={im} />)}
-                    {q.comando && <p className="text-sm font-medium text-ink">{q.comando}</p>}
-                    <ul className="flex flex-col gap-1">
-                      {LETRAS.map((l) => (
-                        <li key={l} className={`rounded-control border p-2 text-sm ${it.certa === l ? "border-ok bg-ok/10" : it.marcada === l ? "border-danger bg-danger/10" : "border-line"}`}>
-                          <strong>{l})</strong> {q.alternativas.find((a) => a.letra === l)?.texto}
-                          {q.imagens.filter((im) => im.alvo === l).map((im) => <ImagemQuestao key={im.id} imagem={im} />)}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </details>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+
+      <div className={css.revisao}>
+        <fieldset className={css.filtros}>
+          <legend className="sr-only">Mostrar questões</legend>
+          <label><input type="radio" name="filtro-resultado" value="todas" defaultChecked />Todas <span>{resultado.itens.length}</span></label>
+          <label><input type="radio" name="filtro-resultado" value="erradas" className={css.fErradas} />Erradas <span>{erros}</span></label>
+          <label><input type="radio" name="filtro-resultado" value="certas" className={css.fCertas} />Certas <span>{certas}</span></label>
+        </fieldset>
+
+        <ol className={css.lista}>
+          {resultado.itens.map((it, i) => {
+            const q = porId.get(it.questaoId);
+            const estado = it.anulada ? "anulada" : it.correta ? "certa" : "errada";
+            return (
+              <li key={it.questaoId} className={css.item} data-estado={estado} style={vars({ "--i": Math.min(i, 15) })}>
+                <div className={css.linha}>
+                  <span className={css.numero}>Q{String(i + 1).padStart(2, "0")}</span>
+                  <span className={css.status}>{estado === "anulada" ? "Anulada" : estado === "certa" ? "✓ Acertou" : "✗ Errou"}</span>
+                  <span className={css.respostas}>
+                    <span>Sua resposta <b className={`${css.selo} ${!it.marcada ? css.seloVazio : it.anulada ? css.seloNeutro : it.correta ? css.seloOk : css.seloErro}`}>{it.marcada ?? "–"}</b></span>
+                    <span aria-hidden="true" className={css.seta}>→</span>
+                    <span>Certa <b className={`${css.selo} ${css.seloOk}`}>{it.certa ?? "–"}</b></span>
+                  </span>
+                  {it.tempoSeg != null && (
+                    <span className={css.tempo} aria-label={`Tempo na questão: ${formatarDuracao(it.tempoSeg)}`}>
+                      <span>⏱ {formatarDuracao(it.tempoSeg)}</span>
+                      <i aria-hidden="true"><i style={vars({ "--pct": `${Math.round((100 * it.tempoSeg) / maiorTempo)}%` })} /></i>
+                    </span>
+                  )}
+                </div>
+                {q && (
+                  <details className={css.detalhes}>
+                    <summary>Ver questão</summary>
+                    <div className={css.corpo}>
+                      <TextoQuestao texto={q.enunciado} />
+                      {q.imagens.filter((im) => im.alvo === "enunciado").map((im) => <ImagemQuestao key={im.id} imagem={im} />)}
+                      {q.comando && <p className={css.comando}>{q.comando}</p>}
+                      <ul className={css.alternativas}>
+                        {LETRAS.map((l) => {
+                          const tipo = it.certa === l ? css.altCerta : it.marcada === l ? css.altErrada : "";
+                          return (
+                            <li key={l} className={`${css.alternativa} ${tipo}`}>
+                              <b className={css.letra}>{l}</b>
+                              <div className="min-w-0 flex-1">
+                                {q.alternativas.find((a) => a.letra === l)?.texto}
+                                {q.imagens.filter((im) => im.alvo === l).map((im) => <ImagemQuestao key={im.id} imagem={im} />)}
+                              </div>
+                              {it.certa === l && <span className={css.marca}>✓ Correta</span>}
+                              {it.certa !== l && it.marcada === l && <span className={css.marca}>✗ Sua resposta</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </details>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        <p className={css.vazio}>Nenhuma questão neste filtro.</p>
+      </div>
     </div>
   );
 }
