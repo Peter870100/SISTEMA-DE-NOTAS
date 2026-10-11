@@ -1,0 +1,43 @@
+.pagina {
+  --color-muted: #293b5b;
+  --color-faint: #465574;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  color: var(--color-ink);
+}
+
+.pagina :is(h2, h3, label) {
+  font-family: var(--font-heading), sans-serif;
+  font-weight: 700;
+}
+
+.pagina :is(h2, h3) {
+  font-size: 1.25rem;
+}
+
+.pagina label {
+  color: var(--color-ink);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+.pagina :global(.text-muted) {
+  font-weight: 600;
+}
+
+.pagina :global(.text-xs) {
+  font-size: 0.8125rem;
+}
+
+.pagina :is(input, select, option) {
+  color: var(--color-ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.pagina input::placeholder {
+  color: var(--color-faint);
+  font-weight: 500;
+  opacity: 1;
+}

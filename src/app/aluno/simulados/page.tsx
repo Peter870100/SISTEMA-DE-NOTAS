@@ -8,6 +8,7 @@ import type { Simulado, Tentativa } from "@/lib/types";
 import { ComecarTentativa } from "@/components/simulados/ComecarTentativa";
 import { NovoTreino } from "@/components/simulados/NovoTreino";
 import { estilos } from "@/components/ui/estilos";
+import css from "./SimuladosAluno.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,7 @@ export default async function AlunoSimuladosPage() {
   const agora = new Date();
 
   return (
-    <>
+    <div className={css.pagina}>
       <div>
         <p className={estilos.rotulo}>Simulados</p>
         <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight text-ink">Seus simulados</h1>
@@ -101,6 +102,6 @@ export default async function AlunoSimuladosPage() {
           </ul>
         )}
       </section>
-    </>
+    </div>
   );
 }
