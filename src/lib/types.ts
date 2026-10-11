@@ -360,6 +360,7 @@ export type Tentativa = {
   total: number | null;
   porcentagem: number | null;
   por_area: PorArea | null;
+  tempo_questoes: Record<string, number> | null;
   created_at: string;
 };
 export type TentativaResposta = { tentativa_id: string; questao_id: string; alternativa: Letra | null; respondida_em: string; correta: boolean | null };

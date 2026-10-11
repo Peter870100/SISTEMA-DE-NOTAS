@@ -5,7 +5,7 @@ import { turmasDoAluno } from "@/lib/aulas/acesso";
 import { imagensParaTela } from "@/lib/questoes/consultas";
 import type { ImagemTela } from "@/components/questoes/ImagemQuestao";
 import type { AlunoConta, Alternativa, Area, Letra, Professor, Simulado } from "@/lib/types";
-import { acumularTempo, correcaoLiberada, corrigir, emBlocos, tempoEsgotado, TOLERANCIA_SEG, type Gabarito } from "./regras";
+import { acumularTempo, correcaoLiberada, corrigir, emBlocos, LIMITE_TEMPO_QUESTAO_SEG, mesclarTempos, tempoEsgotado, TOLERANCIA_SEG, type Gabarito } from "./regras";
 
 export type QuestaoAluno = { id: string; enunciado: string; comando: string; alternativas: Alternativa[]; imagens: ImagemTela[] };
 
@@ -124,10 +124,23 @@ export async function corrigirTentativa(tentativaId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/** Grava o tempo por questão enviado pelo aparelho (junta com o já salvo). Falha aqui não atrapalha a prova. */
+export async function salvarTempos(t: { id: string; ordem: string[]; tempo_questoes: unknown }, tempos: unknown): Promise<void> {
+  if (!tempos) return;
+  const antes = mesclarTempos(t.tempo_questoes, null, t.ordem, LIMITE_TEMPO_QUESTAO_SEG);
+  const novo = mesclarTempos(t.tempo_questoes, tempos, t.ordem, LIMITE_TEMPO_QUESTAO_SEG);
+  if (JSON.stringify(novo) === JSON.stringify(antes)) return;
+  const { error } = await supabase.from("tentativas").update({ tempo_questoes: novo }).eq("id", t.id);
+  if (error) console.error("salvarTempos", t.id, error.message);
+}
+
 /** Entrega e corrige. O update condicional garante uma única entrega, mesmo com dois chamadores. */
 export async function entregarTentativa(tentativaId: string): Promise<void> {
-  const agora = new Date().toISOString();
-  const { data: tomou, error } = await supabase.from("tentativas").update({ status: "entregue", entregue_em: agora }).eq("id", tentativaId).eq("status", "em_andamento").select("id");
+  const agora = new Date();
+  // Treino: fecha o tempo ativo até agora (na prova do professor não há pulso, nada muda).
+  const { data: antes } = await supabase.from("tentativas").select("tempo_usado_seg, ultimo_pulso_em").eq("id", tentativaId).maybeSingle();
+  const tempo = antes ? { tempo_usado_seg: acumularTempo(antes.tempo_usado_seg, antes.ultimo_pulso_em ? new Date(antes.ultimo_pulso_em) : null, agora), ultimo_pulso_em: null } : {};
+  const { data: tomou, error } = await supabase.from("tentativas").update({ status: "entregue", entregue_em: agora.toISOString(), ...tempo }).eq("id", tentativaId).eq("status", "em_andamento").select("id");
   if (error) throw new Error(error.message);
   if (!tomou?.[0]) return;
   await corrigirTentativa(tentativaId);

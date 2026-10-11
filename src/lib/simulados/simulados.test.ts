@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aceitaResposta, acumularTempo, correcaoLiberada, corrigir, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, tempoEsgotado } from "./regras";
+import { aceitaResposta, acumularTempo, correcaoLiberada, corrigir, formatarDuracao, mesclarTempos, tempoDeProvaSeg, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, tempoEsgotado } from "./regras";
 
 const T0 = new Date("2026-10-20T13:00:00Z");
 const mais = (seg: number) => new Date(T0.getTime() + seg * 1000);
@@ -81,4 +81,27 @@ test("situacaoSimulado", () => {
   assert.equal(situacaoSimulado(base, mais(150)), "aberto");
   assert.equal(situacaoSimulado(base, mais(200)), "encerrado");
   assert.equal(situacaoSimulado({ status: "publicado", abre_em: null, fecha_em: null }, T0), "aberto");
+});
+
+test("formatarDuracao: m:ss e h:mm:ss", () => {
+  assert.equal(formatarDuracao(0), "0:00");
+  assert.equal(formatarDuracao(65), "1:05");
+  assert.equal(formatarDuracao(3725), "1:02:05");
+  assert.equal(formatarDuracao(-5), "0:00");
+});
+
+test("mesclarTempos: só ids da prova, inteiros, limitados, fica o maior", () => {
+  const r = mesclarTempos({ q1: 30, q2: 10 }, { q1: 20, q2: 15.6, q3: 5, x: 99, q4: -3 }, ["q1", "q2", "q3", "q4"], 100);
+  assert.deepEqual(r, { q1: 30, q2: 16, q3: 5 });
+  assert.deepEqual(mesclarTempos(null, { q1: 500 }, ["q1"], 100), { q1: 100 });
+  assert.deepEqual(mesclarTempos("lixo", "lixo", ["q1"], 100), {});
+});
+
+test("tempoDeProvaSeg: professor pelo relógio (limitado ao prazo), treino pelo tempo usado", () => {
+  const base = { iniciada_em: T0.toISOString(), tempo_usado_seg: 0 };
+  assert.equal(tempoDeProvaSeg("professor", { ...base, entregue_em: mais(600).toISOString(), prazo_em: mais(3600).toISOString() }), 600);
+  assert.equal(tempoDeProvaSeg("professor", { ...base, entregue_em: mais(4000).toISOString(), prazo_em: mais(3600).toISOString() }), 3600);
+  assert.equal(tempoDeProvaSeg("professor", { ...base, entregue_em: null, prazo_em: null }), null);
+  assert.equal(tempoDeProvaSeg("treino", { ...base, tempo_usado_seg: 420, entregue_em: mais(9999).toISOString(), prazo_em: null }), 420);
+  assert.equal(tempoDeProvaSeg("treino", { ...base, entregue_em: mais(9999).toISOString(), prazo_em: null }), null);
 });

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { fecharVencidas, podeEditarSimulado } from "@/lib/simulados/servidor";
-import { emBlocos, situacaoSimulado } from "@/lib/simulados/regras";
+import { emBlocos, formatarDuracao, situacaoSimulado, tempoDeProvaSeg } from "@/lib/simulados/regras";
 import { AREAS } from "@/lib/questoes/materias";
 import type { Area } from "@/lib/types";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -36,7 +36,7 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
   }
 
   const entregueIds = entregues.map((t) => t.id);
-  const respostas: { questao_id: string; alternativa: string | null; correta: boolean | null }[] = [];
+  const respostas: { tentativa_id: string; questao_id: string; alternativa: string | null; correta: boolean | null }[] = [];
   for (const bloco of emBlocos(entregueIds, 150)) {
     for (let de = 0; ; de += 1000) {
       const { data, error: erroResp } = await supabase
@@ -62,6 +62,17 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
     }))
     .sort((x, y) => x.pct - y.pct)
     .slice(0, 10);
+  // Tempo por questão: ordem do caderno do professor; média só entre quem tem o tempo registrado.
+  const { data: ordemQs } = await supabase.from("simulado_questoes").select("questao_id").eq("simulado_id", id).order("ordem");
+  const colunas = (ordemQs ?? []).map((q) => q.questao_id);
+  const acertou = new Map(respostas.map((r) => [`${r.tentativa_id}|${r.questao_id}`, r.correta]));
+  const mediaTempo = new Map<string, number>();
+  for (const qid of colunas) {
+    const v = entregues.map((t) => t.tempo_questoes?.[qid]).filter((s): s is number => typeof s === "number");
+    if (v.length) mediaTempo.set(qid, Math.round(v.reduce((a, b) => a + b, 0) / v.length));
+  }
+  const comTempo = entregues.filter((t) => t.tempo_questoes && Object.keys(t.tempo_questoes).length);
+
   const ids = piores.map((p) => p.questaoId);
   const { data: qs } = ids.length ? await supabase.from("questoes").select("id, banca, ano, numero, materia").in("id", ids) : { data: [] };
   const qPorId = new Map((qs ?? []).map((q) => [q.id, q]));
@@ -102,15 +113,14 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
             <tbody className="divide-y divide-line">
               {linhas.map((t) => {
                 const feita = t.status === "entregue";
-                const fim = feita && t.entregue_em ? Math.min(Date.parse(t.entregue_em), t.prazo_em ? Date.parse(t.prazo_em) : Infinity) : null;
-                const min = fim != null ? Math.max(0, Math.round((fim - Date.parse(t.iniciada_em)) / 60000)) : null;
+                const tempo = feita ? tempoDeProvaSeg("professor", t) : null;
                 return (
                   <tr key={t.id}>
                     <td className="py-2 pr-3 font-medium text-ink">{nomes.get(t.conta_id) ?? "—"}</td>
                     <td className="pr-3">{feita ? `${t.acertos ?? 0}/${t.total ?? 0}` : "Em andamento"}</td>
                     <td className="pr-3">{feita && t.porcentagem != null ? `${fmt(Number(t.porcentagem))}%` : "—"}</td>
                     {areas.map((a) => { const p = t.por_area?.[a]; return <td key={a} className="pr-3">{feita && p ? `${p.acertos}/${p.total}` : "—"}</td>; })}
-                    <td>{min != null ? `${min} min` : "—"}</td>
+                    <td className="tabular-nums">{tempo != null ? formatarDuracao(tempo) : "—"}</td>
                   </tr>
                 );
               })}
@@ -118,6 +128,36 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
           </table>
         )}
       </section>
+      {comTempo.length > 0 && (
+        <section aria-labelledby="titulo-tempos" className={`${estilos.card} overflow-x-auto p-4`}>
+          <h2 id="titulo-tempos" className="font-semibold text-ink">Tempo por questão</h2>
+          <p className="mb-3 text-xs text-muted">Quanto tempo cada aluno ficou em cada questão (numeração do seu caderno). Verde = acertou, vermelho = errou.</p>
+          <table className="w-full text-left text-sm tabular-nums">
+            <thead className="text-xs text-muted">
+              <tr>
+                <th className="sticky left-0 bg-surface py-1 pr-3">Aluno</th>
+                {colunas.map((qid, i) => <th key={qid} className="px-2 text-center">{String(i + 1).padStart(2, "0")}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {[...comTempo].sort((a, b) => (nomes.get(a.conta_id) ?? "").localeCompare(nomes.get(b.conta_id) ?? "", "pt-BR")).map((t) => (
+                <tr key={t.id}>
+                  <td className="sticky left-0 bg-surface py-2 pr-3 font-medium text-ink">{nomes.get(t.conta_id) ?? "—"}</td>
+                  {colunas.map((qid) => {
+                    const s = t.tempo_questoes?.[qid];
+                    const c = acertou.get(`${t.id}|${qid}`);
+                    return <td key={qid} className={`px-2 text-center ${c === true ? "text-ok" : c === false ? "text-danger" : "text-muted"}`}>{s != null ? formatarDuracao(s) : "—"}</td>;
+                  })}
+                </tr>
+              ))}
+              <tr className="font-semibold text-ink">
+                <td className="sticky left-0 bg-surface py-2 pr-3">Média</td>
+                {colunas.map((qid) => <td key={qid} className="px-2 text-center">{mediaTempo.has(qid) ? formatarDuracao(mediaTempo.get(qid)!) : "—"}</td>)}
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      )}
       <section aria-labelledby="titulo-erradas" className={`${estilos.card} p-4`}>
         <h2 id="titulo-erradas" className="mb-3 font-semibold text-ink">Questões mais erradas</h2>
         {piores.length === 0 ? <p className="text-sm text-muted">Sem entregas ainda.</p> : (
@@ -127,7 +167,7 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
               return (
                 <li key={p.questaoId} className="flex items-center gap-3 py-2 text-sm">
                   <span className="min-w-0 flex-1 text-ink">{q ? `${q.banca} ${q.ano ?? ""} · Nº ${q.numero ?? "—"}` : "Questão"}</span>
-                  <span className="text-muted">{fmt(p.pct)}% de acerto · mais marcada: {p.maisMarcada}</span>
+                  <span className="text-muted">{fmt(p.pct)}% de acerto · mais marcada: {p.maisMarcada}{mediaTempo.has(p.questaoId) ? ` · tempo médio: ${formatarDuracao(mediaTempo.get(p.questaoId)!)}` : ""}</span>
                   <Link href={`/banco/questoes/${p.questaoId}`} target="_blank" className={estilos.botaoFantasma}>Ver</Link>
                 </li>
               );

@@ -97,3 +97,36 @@ export function situacaoSimulado(s: Pick<Simulado, "status" | "abre_em" | "fecha
   if (s.fecha_em && agora.getTime() >= Date.parse(s.fecha_em)) return "encerrado";
   return "aberto";
 }
+
+/** Segundos como "m:ss" ou "h:mm:ss". */
+export function formatarDuracao(seg: number): string {
+  const t = Math.max(0, Math.floor(seg));
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  return `${h ? `${h}:` : ""}${String(m).padStart(h ? 2 : 1, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+export type TemposQuestoes = Record<string, number>;
+export const LIMITE_TEMPO_QUESTAO_SEG = 600 * 60;
+
+/** Junta o tempo por questão salvo com o enviado pelo aparelho (valores acumulados: fica o maior). */
+export function mesclarTempos(salvo: unknown, novo: unknown, ids: string[], limiteSeg: number): TemposQuestoes {
+  const ler = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+  const a = ler(salvo), b = ler(novo);
+  const r: TemposQuestoes = {};
+  for (const id of ids) {
+    const valores = [a[id], b[id]].filter((x): x is number => typeof x === "number" && Number.isFinite(x) && x > 0);
+    if (valores.length) r[id] = Math.min(limiteSeg, Math.round(Math.max(...valores)));
+  }
+  return r;
+}
+
+/** Tempo total de uma tentativa entregue. Professor: relógio desde o início (até o prazo); treino: tempo ativo. */
+export function tempoDeProvaSeg(
+  tipo: "professor" | "treino",
+  t: { iniciada_em: string; entregue_em: string | null; prazo_em: string | null; tempo_usado_seg: number },
+): number | null {
+  if (tipo === "treino") return t.tempo_usado_seg > 0 ? t.tempo_usado_seg : null;
+  if (!t.entregue_em) return null;
+  const fim = Math.min(Date.parse(t.entregue_em), t.prazo_em ? Date.parse(t.prazo_em) : Infinity);
+  return Math.max(0, Math.round((fim - Date.parse(t.iniciada_em)) / 1000));
+}

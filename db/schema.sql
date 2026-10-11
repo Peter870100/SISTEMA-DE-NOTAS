@@ -709,6 +709,8 @@ create table if not exists tentativas (
     created_at timestamptz not null default now(),
     unique (simulado_id, conta_id)
 );
+-- Tempo (segundos) que cada questão ficou na tela: {questao_id: segundos} (2026-10-11)
+alter table tentativas add column if not exists tempo_questoes jsonb;
 create index if not exists idx_tentativas_conta on tentativas (conta_id, status);
 
 create table if not exists tentativa_respostas (

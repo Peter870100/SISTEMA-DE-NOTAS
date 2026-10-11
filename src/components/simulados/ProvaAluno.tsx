@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { entregar, pausarTreino, pulsoTreino, responder, type ProvaAluno as Prova } from "@/actions/simulados-aluno";
-import { PULSO_SEG } from "@/lib/simulados/regras";
+import { formatarDuracao, PULSO_SEG, type TemposQuestoes } from "@/lib/simulados/regras";
 import type { Letra } from "@/lib/types";
 import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { TextoQuestao } from "@/components/questoes/TextoQuestao";
@@ -14,10 +14,12 @@ import css from "./ProvaAluno.module.css";
 const LETRAS: Letra[] = ["A", "B", "C", "D", "E"];
 type Pendente = { questaoId: string; alternativa: Letra | null };
 const chaveLocal = (t: string) => `prova:${t}`;
+const chaveTempo = (t: string) => `prova-tempo:${t}`;
 
-function formatar(seg: number) {
-  const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60), s = seg % 60;
-  return `${h ? `${h}:` : ""}${String(m).padStart(h ? 2 : 1, "0")}:${String(s).padStart(2, "0")}`;
+/** Prova do professor: tempo desde o início, parando no prazo. */
+function decorridoProfessor(iniciadaEm: string, prazoEm: string | null, agoraMs: number) {
+  const fim = Math.min(agoraMs, prazoEm ? Date.parse(prazoEm) : Infinity);
+  return Math.max(0, Math.floor((fim - Date.parse(iniciadaEm)) / 1000));
 }
 
 export function ProvaAluno({ prova }: { prova: Prova }) {
@@ -27,6 +29,12 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [restante, setRestante] = useState<number | null>(prova.restanteSeg);
+  const [decorrido, setDecorrido] = useState(() => prova.simulado.tipo === "professor"
+    ? decorridoProfessor(prova.iniciadaEm, prova.prazoEm, Date.parse(prova.agoraServidor))
+    : prova.usadoSeg);
+  // Segundos que cada questão ficou na tela (acumulado; também guardado no aparelho).
+  const tempos = useRef<TemposQuestoes>({ ...prova.temposSeg });
+  const atualRef = useRef(0);
   const fila = useRef<Pendente[]>([]);
   const enviando = useRef(false);
   const encerrando = useRef(false);
@@ -55,13 +63,13 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       for (let i = 0; i < 50 && (enviando.current || fila.current.length); i++) await new Promise((ok) => setTimeout(ok, 200));
     }
     try {
-      await entregar(prova.tentativaId);
+      await entregar(prova.tentativaId, { ...tempos.current });
     } catch {
       encerrando.current = false;
       setErroEntrega("Não foi possível entregar — verifique a conexão e tente de novo.");
       return;
     }
-    try { localStorage.removeItem(chaveLocal(prova.tentativaId)); } catch { /* sem armazenamento local */ }
+    try { localStorage.removeItem(chaveLocal(prova.tentativaId)); localStorage.removeItem(chaveTempo(prova.tentativaId)); } catch { /* sem armazenamento local */ }
     router.refresh();
   }, [prova.tentativaId, router]);
 
@@ -74,7 +82,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       const p = fila.current[0];
       const esperar = async (msg: string) => { setAviso(msg); await new Promise((ok) => setTimeout(ok, 3000)); };
       try {
-        const r = await responder(prova.tentativaId, p.questaoId, p.alternativa);
+        const r = await responder(prova.tentativaId, p.questaoId, p.alternativa, { ...tempos.current });
         if (r.ok) {
           backup((b) => { if (b[p.questaoId] === p.alternativa) delete b[p.questaoId]; });
           if (fila.current[0] === p) fila.current.shift();
@@ -120,33 +128,61 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
     void processar();
   }, [prova.tentativaId, prova.questoes, prova.respostas, processar]);
 
+  // Tempo por questão: soma 1 s à questão aberta enquanto a página está visível.
+  useEffect(() => { atualRef.current = atual; }, [atual]);
+  useEffect(() => {
+    try {
+      const local: unknown = JSON.parse(localStorage.getItem(chaveTempo(prova.tentativaId)) ?? "{}");
+      for (const [id, s] of Object.entries(local ?? {})) if (typeof s === "number" && s > (tempos.current[id] ?? 0)) tempos.current[id] = s;
+    } catch { /* sem armazenamento local */ }
+    const t = setInterval(() => {
+      if (document.visibilityState !== "visible" || encerrando.current) return;
+      const id = prova.questoes[atualRef.current]?.id;
+      if (!id) return;
+      tempos.current[id] = (tempos.current[id] ?? 0) + 1;
+      try { localStorage.setItem(chaveTempo(prova.tentativaId), JSON.stringify(tempos.current)); } catch { /* sem armazenamento local */ }
+    }, 1000);
+    return () => clearInterval(t);
+  }, [prova.tentativaId, prova.questoes]);
+
   // Cronômetro do professor: prazo do servidor menos o "agora" do servidor estimado.
   useEffect(() => {
-    if (prova.simulado.tipo !== "professor" || !prova.prazoEm) return;
-    const prazo = Date.parse(prova.prazoEm);
+    if (prova.simulado.tipo !== "professor") return;
+    const prazo = prova.prazoEm ? Date.parse(prova.prazoEm) : null;
     const t = setInterval(() => {
+      setDecorrido(decorridoProfessor(prova.iniciadaEm, prova.prazoEm, Date.now() + desvio));
+      if (prazo === null) return;
       const r = Math.max(0, Math.floor((prazo - (Date.now() + desvio)) / 1000));
       setRestante(r);
       if (r === 0) void terminar();
     }, 1000);
     return () => clearInterval(t);
-  }, [prova.simulado.tipo, prova.prazoEm, desvio, terminar]);
+  }, [prova.simulado.tipo, prova.prazoEm, prova.iniciadaEm, desvio, terminar]);
 
-  // Treino com tempo: pulso a cada 15 s enquanto a página está visível; contagem local entre pulsos.
+  // Treino: pulso a cada 15 s enquanto a página está visível (conta o tempo ativo); contagem local entre pulsos.
   useEffect(() => {
-    if (prova.simulado.tipo !== "treino" || !prova.simulado.duracaoMin) return;
+    if (prova.simulado.tipo !== "treino") return;
     const pulso = async () => {
       if (document.visibilityState !== "visible") return;
-      try { const r = await pulsoTreino(prova.tentativaId); setRestante(r.restanteSeg); if (r.encerrada) await terminar(); } catch { /* tenta no próximo */ }
+      try {
+        const r = await pulsoTreino(prova.tentativaId, { ...tempos.current });
+        setRestante(r.restanteSeg);
+        if (r.usadoSeg != null) setDecorrido(r.usadoSeg);
+        if (r.encerrada) await terminar();
+      } catch { /* tenta no próximo */ }
     };
     pulsoRef.current = pulso;
-    const aoMudar = () => { if (document.visibilityState === "hidden") void pausarTreino(prova.tentativaId); else void pulso(); };
+    const aoMudar = () => { if (document.visibilityState === "hidden") void pausarTreino(prova.tentativaId, { ...tempos.current }); else void pulso(); };
     const tPulso = setInterval(() => void pulso(), PULSO_SEG * 1000);
-    const tLocal = setInterval(() => { if (document.visibilityState === "visible") setRestante((r) => (r == null ? r : Math.max(0, r - 1))); }, 1000);
+    const tLocal = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      setRestante((r) => (r == null ? r : Math.max(0, r - 1)));
+      setDecorrido((d) => d + 1);
+    }, 1000);
     document.addEventListener("visibilitychange", aoMudar);
     void pulso();
     return () => { clearInterval(tPulso); clearInterval(tLocal); document.removeEventListener("visibilitychange", aoMudar); pulsoRef.current = null; };
-  }, [prova.simulado.tipo, prova.simulado.duracaoMin, prova.tentativaId, terminar]);
+  }, [prova.simulado.tipo, prova.tentativaId, terminar]);
 
   // Treino: ao zerar a contagem local, confirma com o servidor na hora (sem esperar o próximo pulso).
   useEffect(() => {
@@ -169,8 +205,8 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><p className={css.rotulo}>Caderno de questões</p><h1 className="font-display text-2xl font-semibold text-ink sm:text-3xl">{prova.simulado.titulo}</h1></div>
         <div className="flex items-center gap-2">
-          {restante !== null && <span role="timer" aria-live="off" className={`rounded-control px-3 py-1 font-mono text-lg tabular-nums ${alerta ? "bg-gold/40 text-gold-ink" : "bg-surface-sunken text-ink"}`}>⏱ {formatar(restante)}</span>}
-          {prova.simulado.tipo === "treino" && <button type="button" onClick={async () => { try { await pausarTreino(prova.tentativaId); } catch { /* sai mesmo assim */ } router.push("/aluno/simulados"); }} className={`${estilos.botaoFantasma} ${css.acaoDiscreta}`}>Pausar</button>}
+          {restante !== null && <span role="timer" aria-live="off" className={`rounded-control px-3 py-1 font-mono text-lg tabular-nums ${alerta ? "bg-gold/40 text-gold-ink" : "bg-surface-sunken text-ink"}`}>⏱ {formatarDuracao(restante)}</span>}
+          {prova.simulado.tipo === "treino" && <button type="button" onClick={async () => { try { await pausarTreino(prova.tentativaId, { ...tempos.current }); } catch { /* sai mesmo assim */ } router.push("/aluno/simulados"); }} className={`${estilos.botaoFantasma} ${css.acaoDiscreta}`}>Pausar</button>}
           <button type="button" onClick={() => { if (window.confirm(emBranco ? `Você deixou ${emBranco} questão(ões) em branco. Entregar mesmo assim?` : "Entregar o simulado?")) void terminar(); }} className={`${estilos.botaoPrimario} ${css.acaoPrincipal}`}>Entregar</button>
         </div>
       </div>
@@ -201,6 +237,9 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       </div>
       </div><aside className={css.painel} aria-label="Progresso do simulado">
         <p className={css.rotulo}>Seu progresso</p>
+        <p className={css.cronometro} role="timer" aria-live="off" aria-label={`Tempo de prova: ${formatarDuracao(decorrido)}`}>
+          <span aria-hidden="true">⏱</span><strong>{formatarDuracao(decorrido)}</strong><span>de prova</span>
+        </p>
         <p className={css.contagem}><strong>{respondidas}</strong> de {prova.questoes.length}</p>
         <p className={css.textoPainel}>questões respondidas</p>
         <progress className={css.progresso} value={respondidas} max={prova.questoes.length} aria-label="Questões respondidas" />

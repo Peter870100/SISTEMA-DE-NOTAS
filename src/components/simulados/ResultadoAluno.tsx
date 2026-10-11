@@ -1,6 +1,7 @@
 import type { ResultadoAluno as Resultado } from "@/actions/simulados-aluno";
 import type { QuestaoAluno } from "@/lib/simulados/servidor";
 import { AREAS } from "@/lib/questoes/materias";
+import { formatarDuracao } from "@/lib/simulados/regras";
 import type { Area } from "@/lib/types";
 import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { TextoQuestao } from "@/components/questoes/TextoQuestao";
@@ -14,6 +15,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
     return (
       <p role="status" className={`${estilos.card} p-5 text-sm text-ink`}>
         Entregue!{" "}
+        {resultado.tempoSeg != null && <>Você levou <strong>{formatarDuracao(resultado.tempoSeg)}</strong>. </>}
         {resultado.liberaEm
           ? `A correção sai em ${fmt(resultado.liberaEm, { day: "2-digit", month: "2-digit" })} às ${fmt(resultado.liberaEm, { hour: "2-digit", minute: "2-digit" })}.`
           : "A correção sai quando o professor liberar."}
@@ -26,6 +28,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
     <div className="flex flex-col gap-4">
       <section className={`${estilos.card} p-5`} aria-label="Resultado">
         <p className="text-3xl font-semibold text-ink">{resultado.acertos}/{resultado.total} <span className="text-xl text-muted">· {resultado.porcentagem.toLocaleString("pt-BR")}%</span></p>
+        {resultado.tempoSeg != null && <p className="mt-1 text-sm text-muted">⏱ Você levou <strong className="font-semibold text-ink tabular-nums">{formatarDuracao(resultado.tempoSeg)}</strong> para finalizar</p>}
         {areas.length > 0 && (
           <ul className="mt-4 flex flex-col gap-2">
             {areas.map(([area, v]) => {
@@ -53,6 +56,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
                   ? <span className="text-muted">anulada</span>
                   : <span className={it.correta ? "font-semibold text-ok" : "font-semibold text-danger"} aria-label={it.correta ? "Acertou" : "Errou"}>{it.correta ? "✓" : "✗"}</span>}
                 <span className="text-muted">Sua resposta: {it.marcada ?? "em branco"} · Certa: {it.certa ?? "—"}</span>
+                {it.tempoSeg != null && <span className="ml-auto text-xs text-muted tabular-nums" aria-label={`Tempo na questão: ${formatarDuracao(it.tempoSeg)}`}>⏱ {formatarDuracao(it.tempoSeg)}</span>}
               </div>
               {q && (
                 <details className="mt-2">

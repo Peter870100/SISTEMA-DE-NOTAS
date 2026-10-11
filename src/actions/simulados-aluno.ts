@@ -4,8 +4,8 @@ import { randomUUID } from "node:crypto";
 import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual } from "@/lib/auth";
 import { AREAS } from "@/lib/questoes/materias";
-import { candidatosSorteio, entregarTentativa, fecharVencidas, questoesDeProvasEmSigilo, questoesParaAluno, simuladoVisivelParaAluno, type FiltrosSorteio, type QuestaoAluno } from "@/lib/simulados/servidor";
-import { aceitaResposta, acumularTempo, correcaoLiberada, MAX_TREINO, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, tempoEsgotado } from "@/lib/simulados/regras";
+import { candidatosSorteio, entregarTentativa, fecharVencidas, salvarTempos, questoesDeProvasEmSigilo, questoesParaAluno, simuladoVisivelParaAluno, type FiltrosSorteio, type QuestaoAluno } from "@/lib/simulados/servidor";
+import { aceitaResposta, acumularTempo, correcaoLiberada, MAX_TREINO, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, tempoDeProvaSeg, tempoEsgotado, type TemposQuestoes } from "@/lib/simulados/regras";
 import type { AlunoConta, Letra, PorArea, Simulado, Tentativa, TipoSimulado } from "@/lib/types";
 
 async function exigirAluno(): Promise<AlunoConta> {
@@ -63,7 +63,7 @@ export async function iniciarTentativa(simuladoId: string): Promise<string> {
     ordem: s.tipo === "professor" && s.embaralhar ? ordemEmbaralhada(ids, id) : ids,
     iniciada_em: agora.toISOString(),
     prazo_em: s.tipo === "professor" ? prazoFinal(agora, s.duracao_min, s.fecha_em ? new Date(s.fecha_em) : null)?.toISOString() ?? null : null,
-    ultimo_pulso_em: s.tipo === "treino" && s.duracao_min ? agora.toISOString() : null,
+    ultimo_pulso_em: s.tipo === "treino" ? agora.toISOString() : null,
   });
   if (error) {
     const { data: outra } = await supabase.from("tentativas").select("id").eq("simulado_id", s.id).eq("conta_id", aluno.id).maybeSingle();
@@ -81,6 +81,10 @@ export type ProvaAluno = {
   respostas: Record<string, Letra | null>;
   prazoEm: string | null;
   restanteSeg: number | null;
+  /** Professor: o relógio conta desde `iniciadaEm`. Treino: tempo ativo já usado. */
+  iniciadaEm: string;
+  usadoSeg: number;
+  temposSeg: TemposQuestoes;
   agoraServidor: string;
 };
 
@@ -107,14 +111,18 @@ export async function obterProva(simuladoId: string): Promise<ProvaAluno | null>
     respostas: Object.fromEntries((resp ?? []).map((r) => [r.questao_id, r.alternativa as Letra | null])),
     prazoEm: t.prazo_em,
     restanteSeg,
+    iniciadaEm: t.iniciada_em,
+    usadoSeg: acumularTempo(t.tempo_usado_seg, t.ultimo_pulso_em ? new Date(t.ultimo_pulso_em) : null, agora),
+    temposSeg: t.tempo_questoes ?? {},
     agoraServidor: agora.toISOString(),
   };
 }
 
-export async function responder(tentativaId: string, questaoId: string, alternativa: Letra | null) {
+export async function responder(tentativaId: string, questaoId: string, alternativa: Letra | null, tempos?: TemposQuestoes) {
   const aluno = await exigirAluno();
   const { t, s } = await tentativaDoAluno(aluno, tentativaId);
   if (t.status !== "em_andamento") return { ok: false as const, erro: "Prova já entregue.", encerrada: true };
+  await salvarTempos(t, tempos);
   if (!t.ordem.includes(questaoId)) return { ok: false as const, erro: "Questão fora do simulado." };
   if (alternativa !== null && !["A", "B", "C", "D", "E"].includes(alternativa)) return { ok: false as const, erro: "Alternativa inválida." };
   const agora = new Date();
@@ -130,35 +138,40 @@ export async function responder(tentativaId: string, questaoId: string, alternat
   return { ok: true as const };
 }
 
-export async function pulsoTreino(tentativaId: string) {
+export async function pulsoTreino(tentativaId: string, tempos?: TemposQuestoes) {
   const aluno = await exigirAluno();
   const { t, s } = await tentativaDoAluno(aluno, tentativaId);
-  if (s.tipo !== "treino" || t.status !== "em_andamento") return { restanteSeg: null, encerrada: t.status !== "em_andamento" };
-  if (!s.duracao_min) return { restanteSeg: null, encerrada: false };
+  if (s.tipo !== "treino" || t.status !== "em_andamento") return { restanteSeg: null, usadoSeg: null, encerrada: t.status !== "em_andamento" };
   const agora = new Date();
   const usado = acumularTempo(t.tempo_usado_seg, t.ultimo_pulso_em ? new Date(t.ultimo_pulso_em) : null, agora);
-  await supabase.from("tentativas").update({ tempo_usado_seg: usado, ultimo_pulso_em: agora.toISOString() }).eq("id", t.id).eq("status", "em_andamento");
-  if (tempoEsgotado(usado, s.duracao_min)) { await entregarTentativa(t.id); return { restanteSeg: 0, encerrada: true }; }
-  return { restanteSeg: s.duracao_min * 60 - usado, encerrada: false };
+  await Promise.all([
+    supabase.from("tentativas").update({ tempo_usado_seg: usado, ultimo_pulso_em: agora.toISOString() }).eq("id", t.id).eq("status", "em_andamento"),
+    salvarTempos(t, tempos),
+  ]);
+  if (!s.duracao_min) return { restanteSeg: null, usadoSeg: usado, encerrada: false };
+  if (tempoEsgotado(usado, s.duracao_min)) { await entregarTentativa(t.id); return { restanteSeg: 0, usadoSeg: usado, encerrada: true }; }
+  return { restanteSeg: s.duracao_min * 60 - usado, usadoSeg: usado, encerrada: false };
 }
 
-export async function pausarTreino(tentativaId: string): Promise<void> {
+export async function pausarTreino(tentativaId: string, tempos?: TemposQuestoes): Promise<void> {
   const aluno = await exigirAluno();
   const { t, s } = await tentativaDoAluno(aluno, tentativaId);
   if (s.tipo !== "treino" || t.status !== "em_andamento") return;
+  await salvarTempos(t, tempos);
   const usado = acumularTempo(t.tempo_usado_seg, t.ultimo_pulso_em ? new Date(t.ultimo_pulso_em) : null, new Date());
   await supabase.from("tentativas").update({ tempo_usado_seg: usado, ultimo_pulso_em: null }).eq("id", t.id).eq("status", "em_andamento");
 }
 
-export async function entregar(tentativaId: string): Promise<void> {
+export async function entregar(tentativaId: string, tempos?: TemposQuestoes): Promise<void> {
   const aluno = await exigirAluno();
   const { t } = await tentativaDoAluno(aluno, tentativaId);
+  if (t.status === "em_andamento") await salvarTempos(t, tempos);
   await entregarTentativa(t.id);
 }
 
 export type ResultadoAluno =
-  | { liberado: false; liberaEm: string | null }
-  | { liberado: true; acertos: number; total: number; porcentagem: number; porArea: PorArea; itens: { questaoId: string; marcada: Letra | null; certa: Letra | null; anulada: boolean; correta: boolean }[] };
+  | { liberado: false; liberaEm: string | null; tempoSeg: number | null }
+  | { liberado: true; tempoSeg: number | null; acertos: number; total: number; porcentagem: number; porArea: PorArea; itens: { questaoId: string; marcada: Letra | null; certa: Letra | null; anulada: boolean; correta: boolean; tempoSeg: number | null }[] };
 
 export async function resultadoAluno(simuladoId: string): Promise<ResultadoAluno | null> {
   const aluno = await exigirAluno();
@@ -166,7 +179,8 @@ export async function resultadoAluno(simuladoId: string): Promise<ResultadoAluno
   await fecharVencidas(s.id);
   const { data: t } = await supabase.from("tentativas").select("*").eq("simulado_id", s.id).eq("conta_id", aluno.id).maybeSingle();
   if (!t || t.status !== "entregue") return null;
-  if (!correcaoLiberada(s, new Date())) return { liberado: false, liberaEm: s.fecha_em };
+  const tempoSeg = tempoDeProvaSeg(s.tipo, t);
+  if (!correcaoLiberada(s, new Date())) return { liberado: false, liberaEm: s.fecha_em, tempoSeg };
   const [{ data: resp }, { data: qs }] = await Promise.all([
     supabase.from("tentativa_respostas").select("questao_id, alternativa, correta").eq("tentativa_id", t.id),
     supabase.from("questoes").select("id, resposta, anulada").in("id", t.ordem),
@@ -175,7 +189,8 @@ export async function resultadoAluno(simuladoId: string): Promise<ResultadoAluno
   const q = new Map((qs ?? []).map((x) => [x.id, x]));
   return {
     liberado: true,
+    tempoSeg,
     acertos: t.acertos ?? 0, total: t.total ?? 0, porcentagem: Number(t.porcentagem ?? 0), porArea: t.por_area ?? {},
-    itens: t.ordem.map((id) => ({ questaoId: id, marcada: (r.get(id)?.alternativa as Letra | null) ?? null, certa: (q.get(id)?.resposta as Letra | null) ?? null, anulada: !!q.get(id)?.anulada, correta: !!r.get(id)?.correta })),
+    itens: t.ordem.map((id) => ({ questaoId: id, marcada: (r.get(id)?.alternativa as Letra | null) ?? null, certa: (q.get(id)?.resposta as Letra | null) ?? null, anulada: !!q.get(id)?.anulada, correta: !!r.get(id)?.correta, tempoSeg: t.tempo_questoes?.[id] ?? null })),
   };
 }
