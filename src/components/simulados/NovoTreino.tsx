@@ -12,7 +12,7 @@ import css from "./NovoTreino.module.css";
 
 const rotulo = css.rotulo;
 
-export function NovoTreino() {
+export function NovoTreino({ compacto = false }: { compacto?: boolean }) {
   const router = useRouter();
   const [area, setArea] = useState("");
   const [materia, setMateria] = useState("");
@@ -57,7 +57,7 @@ export function NovoTreino() {
   return (
     <form onSubmit={(e) => void comecar(e)} className={css.formulario}>
       <div className={css.cabecalho}><span className={css.icone}><SlidersHorizontal size={24} aria-hidden="true" /></span><div><h3>Novo treino</h3><p>Escolha os assuntos e monte seu próximo desafio.</p></div></div>
-      <div className={css.campos}>
+      <div className={`${css.campos} ${compacto ? css.compacto : ""}`}>
         <div>
           <label id="t-area-rotulo" htmlFor="t-area" className={rotulo}>Área</label>
           <SeletorTreino id="t-area" value={area} onChange={(valor) => { setArea(valor); setMateria(""); }}
