@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { publicarSimulado } from "@/actions/simulados";
-import { estilos } from "@/components/ui/estilos";
+import { CheckCircle2 } from "lucide-react";
+import base from "@/components/admin/ContasAdmin.module.css";
+import css from "./EditorSimulado.module.css";
 
 export function PublicarSimulado({ simuladoId }: { simuladoId: string }) {
   const router = useRouter();
@@ -11,6 +13,7 @@ export function PublicarSimulado({ simuladoId }: { simuladoId: string }) {
   const [erro, setErro] = useState<string | null>(null);
 
   async function publicar() {
+    if (ocupado) return;
     setOcupado(true); setErro(null);
     try {
       const r = await publicarSimulado(simuladoId);
@@ -20,9 +23,9 @@ export function PublicarSimulado({ simuladoId }: { simuladoId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      {erro && <p role="alert" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{erro}</p>}
-      <button type="button" onClick={() => void publicar()} disabled={ocupado} className={estilos.botaoPrimario}>{ocupado ? "Publicando…" : "Publicar simulado"}</button>
+    <div className={css.publishAction}>
+      {erro && <p role="alert" className={base.error}>{erro}</p>}
+      <button type="button" onClick={() => void publicar()} disabled={ocupado} className={css.publish}><CheckCircle2 size={19} aria-hidden="true" />{ocupado ? "Publicando…" : "Publicar simulado"}</button>
     </div>
   );
 }

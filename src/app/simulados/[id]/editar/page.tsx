@@ -8,7 +8,9 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { FormSimulado } from "@/components/simulados/FormSimulado";
 import { MontarQuestoes } from "@/components/simulados/MontarQuestoes";
 import { PublicarSimulado } from "@/components/simulados/PublicarSimulado";
-import { estilos } from "@/components/ui/estilos";
+import { BookOpen, ClipboardList, Rocket, CheckCircle2 } from "lucide-react";
+import base from "@/components/admin/ContasAdmin.module.css";
+import css from "@/components/simulados/EditorSimulado.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -51,11 +53,11 @@ export default async function EditarSimuladoPage({ params }: { params: Promise<{
       crumb="Simulados"
       titulo={simulado.titulo}
       subtitulo={publicado ? "Publicado" : "Rascunho — os alunos só veem depois de publicar."}
-      acoes={publicado ? <Link href={`/simulados/${id}`} className={estilos.botaoSecundario}>Ver resultados</Link> : undefined}
-      largura="max-w-4xl"
+      acoes={publicado ? <Link href={`/simulados/${id}`} className={base.secondary}>Ver resultados</Link> : undefined}
+      largura="max-w-6xl"
     >
-      <section aria-labelledby="titulo-dados" className={`${estilos.card} p-4`}>
-        <h2 id="titulo-dados" className="mb-3 font-semibold text-ink">Dados</h2>
+      <section aria-labelledby="titulo-dados" className={css.card}>
+        <div className={css.heading}><span className={css.step}><ClipboardList size={24} aria-hidden="true" /></span><div><h2 id="titulo-dados">Dados do simulado</h2><p>Defina as turmas, os prazos e como a correção será liberada.</p></div></div>
         <FormSimulado
           inicial={{
             id, titulo: simulado.titulo, turmas: turmasLigadas, duracaoMin: simulado.duracao_min ?? 90,
@@ -64,13 +66,14 @@ export default async function EditarSimuladoPage({ params }: { params: Promise<{
           turmas={opcoes}
         />
       </section>
-      <section aria-labelledby="titulo-questoes" className={`${estilos.card} p-4`}>
-        <h2 id="titulo-questoes" className="mb-3 font-semibold text-ink">Questões ({questoes.length})</h2>
+      <section aria-labelledby="titulo-questoes" className={css.card}>
+        <div className={css.heading}><span className={css.step}><BookOpen size={24} aria-hidden="true" /></span><div><h2 id="titulo-questoes">Questões do simulado</h2><p>Use os filtros para montar a prova do seu jeito.</p></div><span className={css.count} aria-label={`${questoes.length} questões`}>{questoes.length}</span></div>
         <MontarQuestoes simuladoId={id} questoes={questoes} travado={(count ?? 0) > 0} assuntos={assuntos ?? []} />
       </section>
-      <section className={`${estilos.card} p-4`}>
+      <section aria-labelledby="titulo-publicacao" className={css.card}>
+        <div className={css.heading}><span className={css.step}><Rocket size={24} aria-hidden="true" /></span><div><h2 id="titulo-publicacao">{publicado ? "Simulado publicado" : "Pronto para publicar?"}</h2><p>{publicado ? "Acompanhe as entregas e os resultados dos alunos." : "Confira os dados e as questões antes de disponibilizar para as turmas."}</p></div></div>
         {publicado ? (
-          <p className="text-sm text-ink">Publicado. <Link href={`/simulados/${id}`} className="font-semibold text-brand">Ver resultados</Link></p>
+          <p className={css.notice}><CheckCircle2 size={18} aria-hidden="true" />Publicado. <Link href={`/simulados/${id}`} className="font-semibold text-brand">Ver resultados</Link></p>
         ) : (
           <PublicarSimulado simuladoId={id} />
         )}

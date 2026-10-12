@@ -133,3 +133,6 @@ Opcoes em cartoes brancos com icones amarelos, titulos Rajdhani azuis e descrico
 
 ## Confirmacao de importacao
 ImportarProva usa ConfirmarImportacao no Modal da plataforma, com fundo branco, titulo Rajdhani azul, icone e custo em amarelo, confirmacao amarela e cancelamento branco com texto azul. Mantem a estimativa existente e aguarda confirmacao antes de criar a importacao ou enviar arquivos. Cancelar, fechar e Esc interrompem o fluxo.
+
+## Editor de simulados
+Criacao e edicao seguem cartoes brancos, titulos Rajdhani azuis, icones amarelos, campos com rotulos visiveis e filtros responsivos. Turmas e correcao selecionadas usam azul claro. Salvar e Sortear usam amarelo. Publicar simulado usa verde #087A55 com texto branco e hover #066444, conforme pedido do usuario; foco azul e reducao de movimento respeitada. Mantem bloqueio de questoes quando ha tentativas.

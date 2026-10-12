@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { criarSimulado, salvarSimulado, type DadosSimulado } from "@/actions/simulados";
-import { estilos } from "@/components/ui/estilos";
+import { Clock3, CalendarDays, CheckCircle2, Save, Shuffle, Users } from "lucide-react";
+import base from "@/components/admin/ContasAdmin.module.css";
+import css from "./EditorSimulado.module.css";
 
 type Props = { inicial?: DadosSimulado & { id: string }; turmas: { turma_nome: string; ano_letivo: string }[] };
 const chave = (t: { turma_nome: string; ano_letivo: string }) => `${t.turma_nome}|${t.ano_letivo}`;
@@ -50,31 +52,35 @@ export function FormSimulado({ inicial, turmas }: Props) {
   }
 
   return (
-    <form onSubmit={salvar} className="flex flex-col gap-3">
-      {erro && <p role="alert" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{erro}</p>}
-      {aviso && <p role="status" className="rounded-control bg-ok/15 px-3 py-2 text-sm text-ink">{aviso}</p>}
-      <label className="flex flex-col gap-1 text-xs text-muted">Título<input value={titulo} onChange={(e) => setTitulo(e.target.value)} required placeholder="Simulado ENEM — Natureza" className={estilos.input} /></label>
-      <fieldset className="flex flex-col gap-1">
-        <legend className="mb-1 text-xs text-muted">Turmas</legend>
-        <div className="flex flex-wrap gap-2">
+    <form onSubmit={salvar} className={css.form}>
+      {erro && <p role="alert" className={base.error}>{erro}</p>}
+      {aviso && <p role="status" className={css.notice}><CheckCircle2 size={18} aria-hidden="true" />Dados salvos com sucesso.</p>}
+      <label className={css.field}>Título do simulado<input value={titulo} onChange={(e) => setTitulo(e.target.value)} required placeholder="Ex.: Simulado ENEM — Natureza" /></label>
+      <fieldset className={css.fieldset}>
+        <legend><Users size={18} aria-hidden="true" />Turmas participantes</legend>
+        <p className={css.hint}>Selecione as turmas que poderão acessar este simulado.</p>
+        <div className={css.chips}>
           {turmas.map((t) => { const k = chave(t); return (
-            <label key={k} className="flex items-center gap-1.5 rounded-control border border-line px-2.5 py-1.5 text-sm text-ink">
-              <input type="checkbox" checked={marcadas.has(k)} onChange={(e) => { const n = new Set(marcadas); if (e.target.checked) n.add(k); else n.delete(k); setMarcadas(n); }} /> {t.turma_nome} · {t.ano_letivo}
+            <label key={k} className={css.chip} data-selected={marcadas.has(k)}>
+              <input type="checkbox" checked={marcadas.has(k)} onChange={(e) => { const n = new Set(marcadas); if (e.target.checked) n.add(k); else n.delete(k); setMarcadas(n); }} />{t.turma_nome} · {t.ano_letivo}
             </label>); })}
+          {turmas.length === 0 && <p className={css.hint}>Nenhuma turma disponível.</p>}
         </div>
       </fieldset>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="flex flex-col gap-1 text-xs text-muted">Duração (min)<input value={duracao} onChange={(e) => setDuracao(e.target.value.replace(/\D/g, ""))} inputMode="numeric" required className={estilos.input} /></label>
-        <label className="flex flex-col gap-1 text-xs text-muted">Abre em<input type="datetime-local" value={abre} onChange={(e) => setAbre(e.target.value)} required className={estilos.input} /></label>
-        <label className="flex flex-col gap-1 text-xs text-muted">Fecha em<input type="datetime-local" value={fecha} onChange={(e) => setFecha(e.target.value)} required className={estilos.input} /></label>
+      <div className={css.schedule}>
+        <label className={css.field}><span><Clock3 size={17} aria-hidden="true" />Duração (minutos)</span><input value={duracao} onChange={(e) => setDuracao(e.target.value.replace(/\D/g, ""))} inputMode="numeric" required /></label>
+        <label className={css.field}><span><CalendarDays size={17} aria-hidden="true" />Abre em</span><input type="datetime-local" value={abre} onChange={(e) => setAbre(e.target.value)} required /></label>
+        <label className={css.field}><span><CalendarDays size={17} aria-hidden="true" />Fecha em</span><input type="datetime-local" value={fecha} onChange={(e) => setFecha(e.target.value)} required /></label>
       </div>
-      <fieldset className="flex flex-col gap-1 text-sm text-ink">
-        <legend className="mb-1 text-xs text-muted">Quando o aluno vê a correção</legend>
-        <label className="flex items-center gap-2"><input type="radio" checked={correcao === "apos_prazo"} onChange={() => setCorrecao("apos_prazo")} /> Depois que o prazo terminar</label>
-        <label className="flex items-center gap-2"><input type="radio" checked={correcao === "na_hora"} onChange={() => setCorrecao("na_hora")} /> Logo que entregar</label>
+      <fieldset className={css.fieldset}>
+        <legend><CheckCircle2 size={18} aria-hidden="true" />Quando liberar a correção</legend>
+        <div className={css.correction}>
+          <label className={css.choice} data-selected={correcao === "apos_prazo"}><input type="radio" name="correcao" checked={correcao === "apos_prazo"} onChange={() => setCorrecao("apos_prazo")} /><span><strong>Depois do prazo</strong><small>O aluno vê a correção quando o simulado encerrar.</small></span></label>
+          <label className={css.choice} data-selected={correcao === "na_hora"}><input type="radio" name="correcao" checked={correcao === "na_hora"} onChange={() => setCorrecao("na_hora")} /><span><strong>Logo que entregar</strong><small>A correção fica disponível após a entrega.</small></span></label>
+        </div>
       </fieldset>
-      <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={embaralhar} onChange={(e) => setEmbaralhar(e.target.checked)} /> Embaralhar a ordem das questões para cada aluno</label>
-      <button type="submit" disabled={ocupado} className={estilos.botaoPrimario}>{ocupado ? "Salvando…" : inicial ? "Salvar dados" : "Criar e escolher questões"}</button>
+      <label className={css.shuffle}><input type="checkbox" checked={embaralhar} onChange={(e) => setEmbaralhar(e.target.checked)} /><Shuffle size={18} aria-hidden="true" /><span>Embaralhar a ordem das questões para cada aluno</span></label>
+      <div className={css.formFooter}><button type="submit" disabled={ocupado} className={base.primary}><Save size={18} aria-hidden="true" />{ocupado ? "Salvando..." : inicial ? "Salvar dados" : "Criar e escolher questões"}</button></div>
     </form>
   );
 }
