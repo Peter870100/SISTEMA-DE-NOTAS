@@ -12,6 +12,7 @@ import { estilos } from "@/components/ui/estilos";
 import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
 import { ExternalLink, Hourglass, Send, Target, TriangleAlert, Users, UsersRound, Clock3 } from "lucide-react";
 import css from "./ResultadosSimulado.module.css";
+import ui from "@/components/ui/SecaoPainel.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -111,16 +112,16 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
     >
       <PainelResumo itens={painel} />
       {podeLiberar && (
-        <section className={`${css.cartao} ${css.liberar}`}>
+        <section className={`${ui.cartao} ${css.liberar}`}>
           <p>A correção só aparece para os alunos depois do prazo.</p>
           <LiberarCorrecao simuladoId={id} emAndamento={todas.length - entregues.length} />
         </section>
       )}
-      <section aria-labelledby="titulo-alunos" className={css.cartao}>
-        <h2 id="titulo-alunos" className={css.titulo}><span className={css.icone} aria-hidden="true"><UsersRound size={20} /></span>Alunos<span className={css.contador}>{linhas.length}</span></h2>
-        {linhas.length === 0 ? <p className={css.vazio}>Ninguém começou ainda.</p> : (
-          <div className={css.rolagem}>
-            <table className={css.tabela}>
+      <section aria-labelledby="titulo-alunos" className={ui.cartao}>
+        <h2 id="titulo-alunos" className={ui.titulo}><span className={ui.icone} aria-hidden="true"><UsersRound size={20} /></span>Alunos<span className={ui.contador}>{linhas.length}</span></h2>
+        {linhas.length === 0 ? <p className={ui.vazio}>Ninguém começou ainda.</p> : (
+          <div className={ui.rolagem}>
+            <table className={ui.tabela}>
               <thead>
                 <tr>
                   <th>Aluno</th><th>Acertos</th><th>%</th>
@@ -135,11 +136,11 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
                   const pct = feita && t.porcentagem != null ? Number(t.porcentagem) : null;
                   return (
                     <tr key={t.id}>
-                      <td className={css.nome}>{nomes.get(t.conta_id) ?? "—"}</td>
-                      <td>{feita ? <strong>{t.acertos ?? 0}/{t.total ?? 0}</strong> : <span className={css.andamento}>Em andamento</span>}</td>
-                      <td>{pct != null ? <span className={css.nota} data-faixa={faixa(pct)}>{fmt(pct)}%</span> : "—"}</td>
+                      <td className={ui.nome}>{nomes.get(t.conta_id) ?? "—"}</td>
+                      <td>{feita ? <strong>{t.acertos ?? 0}/{t.total ?? 0}</strong> : <span className={ui.andamento}>Em andamento</span>}</td>
+                      <td>{pct != null ? <span className={ui.nota} data-faixa={faixa(pct)}>{fmt(pct)}%</span> : "—"}</td>
                       {areas.map((a) => { const p = t.por_area?.[a]; return <td key={a}>{feita && p ? `${p.acertos}/${p.total}` : "—"}</td>; })}
-                      <td className={css.num}>{tempo != null ? formatarDuracao(tempo) : "—"}</td>
+                      <td className={ui.num}>{tempo != null ? formatarDuracao(tempo) : "—"}</td>
                     </tr>
                   );
                 })}
@@ -149,11 +150,11 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
         )}
       </section>
       {comTempo.length > 0 && (
-        <section aria-labelledby="titulo-tempos" className={css.cartao}>
-          <h2 id="titulo-tempos" className={css.titulo}><span className={css.icone} aria-hidden="true"><Clock3 size={20} /></span>Tempo por questão</h2>
-          <p className={css.legenda}>Quanto tempo cada aluno ficou em cada questão (numeração do seu caderno). <span className={css.chipOk}>verde = acertou</span> <span className={css.chipErro}>vermelho = errou</span></p>
-          <div className={css.rolagem}>
-            <table className={`${css.tabela} ${css.tempos}`}>
+        <section aria-labelledby="titulo-tempos" className={ui.cartao}>
+          <h2 id="titulo-tempos" className={ui.titulo}><span className={ui.icone} aria-hidden="true"><Clock3 size={20} /></span>Tempo por questão</h2>
+          <p className={ui.legenda}>Quanto tempo cada aluno ficou em cada questão (numeração do seu caderno). <span className={css.chipOk}>verde = acertou</span> <span className={css.chipErro}>vermelho = errou</span></p>
+          <div className={ui.rolagem}>
+            <table className={`${ui.tabela} ${css.tempos}`}>
               <thead>
                 <tr>
                   <th className={css.fixa}>Aluno</th>
@@ -163,7 +164,7 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
               <tbody>
                 {[...comTempo].sort((a, b) => (nomes.get(a.conta_id) ?? "").localeCompare(nomes.get(b.conta_id) ?? "", "pt-BR")).map((t) => (
                   <tr key={t.id}>
-                    <td className={`${css.fixa} ${css.nome}`}>{nomes.get(t.conta_id) ?? "—"}</td>
+                    <td className={`${css.fixa} ${ui.nome}`}>{nomes.get(t.conta_id) ?? "—"}</td>
                     {colunas.map((qid) => {
                       const s = t.tempo_questoes?.[qid];
                       const c = acertou.get(`${t.id}|${qid}`);
@@ -180,9 +181,9 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
           </div>
         </section>
       )}
-      <section aria-labelledby="titulo-erradas" className={css.cartao}>
-        <h2 id="titulo-erradas" className={css.titulo}><span className={css.icone} aria-hidden="true"><TriangleAlert size={20} /></span>Questões mais erradas</h2>
-        {piores.length === 0 ? <p className={css.vazio}>Sem entregas ainda.</p> : (
+      <section aria-labelledby="titulo-erradas" className={ui.cartao}>
+        <h2 id="titulo-erradas" className={ui.titulo}><span className={ui.icone} aria-hidden="true"><TriangleAlert size={20} /></span>Questões mais erradas</h2>
+        {piores.length === 0 ? <p className={ui.vazio}>Sem entregas ainda.</p> : (
           <ul className={css.erradas}>
             {piores.map((p) => {
               const q = qPorId.get(p.questaoId);
@@ -190,9 +191,9 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
                 <li key={p.questaoId} className="cartao-interativo">
                   <div className={css.erradaTopo}>
                     <span className={css.erradaNome}>{q ? `${q.banca} ${q.ano ?? ""} · Nº ${q.numero ?? "—"}` : "Questão"}</span>
-                    <span className={css.nota} data-faixa={faixa(p.pct)}>{fmt(p.pct)}%</span>
+                    <span className={ui.nota} data-faixa={faixa(p.pct)}>{fmt(p.pct)}%</span>
                   </div>
-                  <span className={css.barra} role="progressbar" aria-label="Acerto" aria-valuenow={Math.round(p.pct)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${p.pct}%` }} data-faixa={faixa(p.pct)} /></span>
+                  <span className={ui.barra} role="progressbar" aria-label="Acerto" aria-valuenow={Math.round(p.pct)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${p.pct}%` }} data-faixa={faixa(p.pct)} /></span>
                   <div className={css.erradaRodape}>
                     <span>Mais marcada: <b className={css.selo}>{p.maisMarcada}</b></span>
                     {mediaTempo.has(p.questaoId) && <span><Clock3 size={15} aria-hidden="true" />{formatarDuracao(mediaTempo.get(p.questaoId)!)} em média</span>}

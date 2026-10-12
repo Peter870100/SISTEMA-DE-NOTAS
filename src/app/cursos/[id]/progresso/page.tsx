@@ -7,6 +7,9 @@ import { arvoreDoCurso } from "@/lib/aulas/consultas";
 import { porcentagemConjunto } from "@/lib/aulas/progresso";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos } from "@/components/ui/estilos";
+import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
+import { CircleOff, Gauge, PlayCircle, Trophy, Users, UsersRound } from "lucide-react";
+import ui from "@/components/ui/SecaoPainel.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -38,10 +41,22 @@ export default async function ProgressoTurmaPage({ params, searchParams }: Props
   const fez = (contaId: string, lista: { id: string }[]) => lista.filter((a) => concluidas.has(`${contaId}|${a.id}`)).length;
   const porAula = aulas.map((a) => ({ aula: a, alunos: (contas ?? []).filter((c) => concluidas.has(`${c.id}|${a.id}`)).length })).sort((x, y) => x.alunos - y.alunos);
 
+  const alunos = contas ?? [];
+  const pctAluno = new Map(alunos.map((c) => [c.id, porcentagemConjunto(fez(c.id, aulas), aulas.length)]));
+  const media = alunos.length ? Math.round([...pctAluno.values()].reduce((x, y) => x + y, 0) / alunos.length) : null;
+  const painel: ItemResumo[] = [
+    { rotulo: "Alunos", valor: String(alunos.length), detalhe: escolhida ? `${escolhida.turma_nome} · ${escolhida.ano_letivo}` : "sem turma", Icone: Users },
+    { rotulo: "Progresso médio", valor: media == null ? "—" : `${media}%`, detalhe: "do curso concluído", Icone: Gauge },
+    { rotulo: "Concluíram", valor: String([...pctAluno.values()].filter((p) => p >= 100).length), detalhe: "terminaram todas as aulas", Icone: Trophy },
+    { rotulo: "Nunca acessaram", valor: String(alunos.filter((c) => !c.ultimo_acesso).length), detalhe: "ainda sem entrar", Icone: CircleOff },
+  ];
+  const faixa = (pct: number) => (pct >= 70 ? "boa" : pct >= 40 ? "media" : "baixa");
+  const comAulas = modulos.filter((m) => m.aulas.length);
+
   return (
     <PageLayout crumb={`Aulas · ${curso.titulo}`} titulo="Progresso da turma" acoes={<Link href={`/cursos/${id}`} className={estilos.botaoSecundario}>← Voltar ao curso</Link>} largura="max-w-6xl">
       {opcoes.length === 0 ? (
-        <p className={`${estilos.card} p-4 text-sm text-muted`}>Este curso ainda não está ligado a nenhuma turma.</p>
+        <p className={`${ui.cartao} ${ui.vazio}`}>Este curso ainda não está ligado a nenhuma turma.</p>
       ) : (
         <>
           <nav aria-label="Turmas" className="flex flex-wrap gap-2">
@@ -49,31 +64,51 @@ export default async function ProgressoTurmaPage({ params, searchParams }: Props
               <Link key={o.chave} href={`/cursos/${id}/progresso?turma=${encodeURIComponent(o.chave)}`} aria-current={o.chave === escolhida?.chave ? "page" : undefined} className={o.chave === escolhida?.chave ? estilos.botaoPrimario : estilos.botaoSecundario}>{o.turma_nome} · {o.ano_letivo}</Link>
             ))}
           </nav>
-          <section aria-label="Alunos" className={`${estilos.card} overflow-x-auto p-4`}>
-            {(contas ?? []).length === 0 ? (
-              <p className="text-sm text-muted">Nenhum aluno com conta nesta turma ainda.</p>
+          <PainelResumo itens={painel} />
+          <section aria-labelledby="titulo-alunos" className={ui.cartao}>
+            <h2 id="titulo-alunos" className={ui.titulo}><span className={ui.icone} aria-hidden="true"><UsersRound size={20} /></span>Alunos<span className={ui.contador}>{alunos.length}</span></h2>
+            {alunos.length === 0 ? (
+              <p className={ui.vazio}>Nenhum aluno com conta nesta turma ainda.</p>
             ) : (
-              <table className="w-full text-left text-sm">
-                <thead className={estilos.rotulo}>
-                  <tr><th className="px-2 py-2">Aluno</th><th className="px-2 py-2">Curso</th>{modulos.filter((m) => m.aulas.length).map((m) => <th key={m.id} className="px-2 py-2">{m.titulo}</th>)}<th className="px-2 py-2">Último acesso</th></tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {(contas ?? []).map((c) => (
-                    <tr key={c.id}>
-                      <td className="px-2 py-2 font-medium text-ink">{c.nome}</td>
-                      <td className="px-2 py-2 font-mono tabular-nums">{porcentagemConjunto(fez(c.id, aulas), aulas.length)}%</td>
-                      {modulos.filter((m) => m.aulas.length).map((m) => <td key={m.id} className="px-2 py-2 font-mono tabular-nums text-muted">{porcentagemConjunto(fez(c.id, m.aulas), m.aulas.length)}%</td>)}
-                      <td className="px-2 py-2 text-muted">{c.ultimo_acesso ? new Date(c.ultimo_acesso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "nunca"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className={ui.rolagem}>
+                <table className={ui.tabela}>
+                  <thead>
+                    <tr><th>Aluno</th><th>Curso</th>{comAulas.map((m) => <th key={m.id}>{m.titulo}</th>)}<th>Último acesso</th></tr>
+                  </thead>
+                  <tbody>
+                    {alunos.map((c) => {
+                      const pct = pctAluno.get(c.id) ?? 0;
+                      return (
+                        <tr key={c.id}>
+                          <td className={ui.nome}>{c.nome}</td>
+                          <td><span className={ui.nota} data-faixa={faixa(pct)}>{pct}%</span></td>
+                          {comAulas.map((m) => <td key={m.id} className={ui.num}>{porcentagemConjunto(fez(c.id, m.aulas), m.aulas.length)}%</td>)}
+                          <td>{c.ultimo_acesso ? new Date(c.ultimo_acesso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : <span className={ui.andamento}>Nunca</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </section>
-          {aulas.length > 0 && (contas ?? []).length > 0 && (
-            <section aria-labelledby="titulo-aulas" className={`${estilos.card} p-4`}>
-              <h2 id="titulo-aulas" className="mb-2 font-semibold text-ink">Aulas com menos alunos concluindo</h2>
-              <ol className="flex flex-col gap-1 text-sm">{porAula.map(({ aula, alunos }) => <li key={aula.id} className="flex justify-between gap-2"><span className="text-ink">{aula.titulo}</span><span className="font-mono tabular-nums text-muted">{alunos}/{(contas ?? []).length}</span></li>)}</ol>
+          {aulas.length > 0 && alunos.length > 0 && (
+            <section aria-labelledby="titulo-aulas" className={ui.cartao}>
+              <h2 id="titulo-aulas" className={ui.titulo}><span className={ui.icone} aria-hidden="true"><PlayCircle size={20} /></span>Aulas com menos alunos concluindo</h2>
+              <ol className="grid gap-3 lg:grid-cols-2">
+                {porAula.map(({ aula, alunos: quantos }) => {
+                  const pct = Math.round((100 * quantos) / alunos.length);
+                  return (
+                    <li key={aula.id} className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-heading text-base font-bold uppercase text-ink">{aula.titulo}</span>
+                        <span className={ui.nota} data-faixa={faixa(pct)}>{quantos}/{alunos.length}</span>
+                      </div>
+                      <span className={ui.barra} role="progressbar" aria-label={`Concluíram ${aula.titulo}`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${pct}%` }} data-faixa={faixa(pct)} /></span>
+                    </li>
+                  );
+                })}
+              </ol>
             </section>
           )}
         </>

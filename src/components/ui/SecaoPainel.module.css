@@ -1,0 +1,25 @@
+/* Seções de painel do professor: cartão com título e ícone, tabelas, etiqueta de nota e barra. */
+.cartao { display: flex; flex-direction: column; gap: 1rem; min-width: 0; padding: 1.5rem; border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; box-shadow: 0 6px 22px rgb(10 42 110 / .07); }
+.titulo { display: flex; align-items: center; gap: .65rem; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1.35rem; font-weight: 700; text-transform: uppercase; }
+.icone { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: .75rem; background: var(--color-gold); color: var(--color-gold-ink); }
+.contador { display: grid; place-items: center; min-width: 1.5rem; height: 1.5rem; padding-inline: .35rem; border-radius: .45rem; background: var(--color-gold); color: var(--color-gold-ink); font-size: .875rem; }
+.vazio { color: var(--color-ink); font-weight: 600; }
+.legenda { color: var(--color-ink); font-size: .875rem; font-weight: 500; }
+.rolagem { overflow-x: auto; border: 1px solid var(--color-line); border-radius: 1rem; }
+.tabela { width: 100%; border-collapse: collapse; font-size: .9rem; color: var(--color-ink); }
+.tabela th { padding: .7rem .8rem; background: color-mix(in srgb, var(--color-brand) 6%, #fff); color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: .8125rem; font-weight: 700; letter-spacing: .06em; text-align: left; text-transform: uppercase; white-space: nowrap; border-bottom: 1px solid var(--color-line); }
+.tabela td { padding: .65rem .8rem; border-bottom: 1px solid var(--color-line-soft); white-space: nowrap; }
+.tabela tbody tr:nth-child(even) td { background: var(--color-zebra); }
+.tabela tbody tr:hover td { background: color-mix(in srgb, var(--color-gold) 12%, #fff); }
+.tabela strong { font-family: var(--font-display), sans-serif; color: var(--color-brand); font-variant-numeric: tabular-nums; }
+.nome { font-weight: 700; color: var(--color-ink); }
+.num { font-family: var(--font-display), sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
+.andamento { padding: .2rem .55rem; border-radius: 999px; background: color-mix(in srgb, var(--color-gold) 40%, #fff); color: var(--color-gold-ink); font-family: var(--font-heading), sans-serif; font-size: .8rem; font-weight: 700; text-transform: uppercase; }
+.nota { --tom: var(--color-ok); display: inline-block; padding: .2rem .55rem; border-radius: 999px; background: color-mix(in srgb, var(--tom) 13%, #fff); color: var(--tom); font-family: var(--font-display), sans-serif; font-size: .875rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.nota[data-faixa="media"] { --tom: #a67c00; }
+.nota[data-faixa="baixa"] { --tom: var(--color-danger); }
+.barra { display: block; height: .45rem; border-radius: 1rem; overflow: hidden; background: var(--color-line-soft); }
+.barra > span { display: block; height: 100%; border-radius: inherit; background: var(--color-ok); }
+.barra > span[data-faixa="media"] { background: var(--color-gold); }
+.barra > span[data-faixa="baixa"] { background: var(--color-danger); }
+@media (max-width: 639px) { .cartao { padding: 1.1rem; } }

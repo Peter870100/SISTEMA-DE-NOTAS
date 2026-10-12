@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Eye, Layers3, PlayCircle, UsersRound } from "lucide-react";
+import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
 import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { podeEditarCurso } from "@/lib/aulas/acesso";
@@ -32,6 +33,15 @@ export default async function CursoPage({ params }: { params: Promise<{ id: stri
     ...turmasCurso.map((t) => [`${t.turma_nome}|${t.ano_letivo}`, t] as const),
   ]).values()];
 
+  const aulas = modulos.flatMap((m) => m.aulas);
+  const publicadas = aulas.filter((a) => a.publicada).length;
+  const painel: ItemResumo[] = [
+    { rotulo: "Módulos", valor: String(modulos.length), detalhe: "no curso", Icone: Layers3 },
+    { rotulo: "Aulas", valor: String(aulas.length), detalhe: "criadas", Icone: PlayCircle },
+    { rotulo: "Publicadas", valor: `${publicadas}/${aulas.length}`, detalhe: "visíveis para os alunos", Icone: Eye },
+    { rotulo: "Turmas", valor: String(turmasCurso.length), detalhe: turmasCurso.length ? "com acesso" : "nenhuma vinculada ainda", Icone: UsersRound },
+  ];
+
   return (
     <PageLayout
       crumb={`Aulas · ${curso.disciplina}`}
@@ -43,8 +53,9 @@ export default async function CursoPage({ params }: { params: Promise<{ id: stri
           <Link href={`/cursos/${id}/progresso`} className={estilos.botaoSecundario}><BarChart3 size={16} aria-hidden="true" /> Progresso da turma</Link>
         </>
       }
-      largura="max-w-4xl"
+      largura="max-w-6xl"
     >
+      <PainelResumo itens={painel} />
       <EstruturaCurso cursoId={id} modulos={modulos} />
     </PageLayout>
   );
