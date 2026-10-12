@@ -3,7 +3,7 @@ import css from "./PainelResumo.module.css";
 
 export type ItemResumo = { rotulo: string; valor: string; detalhe: string; Icone: LucideIcon };
 
-/** Faixa de números do topo das páginas do aluno (simulados, cursos). */
+/** Faixa de números do topo das páginas (aluno e professor). */
 export function PainelResumo({ itens }: { itens: ItemResumo[] }) {
   return (
     <dl className={css.painel} aria-label="Resumo">

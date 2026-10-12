@@ -8,7 +8,7 @@ import { listarMinhasTurmas } from "@/lib/convites";
 import { resumosCursosAluno } from "@/lib/aulas/consultas";
 import { simuladosDoAluno } from "@/lib/simulados/servidor";
 import { resumoSimulados, situacaoSimulado } from "@/lib/simulados/regras";
-import { PainelResumo, type ItemResumo } from "@/components/aluno/PainelResumo";
+import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
 import { estilos } from "@/components/ui/estilos";
 import css from "./InicioAluno.module.css";
 

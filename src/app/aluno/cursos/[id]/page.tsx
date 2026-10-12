@@ -8,7 +8,7 @@ import { arvoreDoCurso, progressoDoAluno } from "@/lib/aulas/consultas";
 import { estadoAula, porcentagemAula, porcentagemAssistida } from "@/lib/aulas/progresso";
 import { ProgressoCurso } from "@/components/aulas/ProgressoCurso";
 import { MiniaturaAula } from "@/components/cursos/MiniaturaAula";
-import { PainelResumo, type ItemResumo } from "@/components/aluno/PainelResumo";
+import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
 import css from "./CursoAluno.module.css";
 
 export const dynamic = "force-dynamic";

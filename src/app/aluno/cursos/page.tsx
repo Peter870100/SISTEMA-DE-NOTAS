@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getAlunoAtual } from "@/lib/auth";
 import { resumosCursosAluno } from "@/lib/aulas/consultas";
 import { BookOpen, CheckCircle2, Gauge, PlayCircle, Trophy } from "lucide-react";
-import { PainelResumo, type ItemResumo } from "@/components/aluno/PainelResumo";
+import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
 import { CartaoCursoAluno } from "@/components/cursos/CartaoCursoAluno";
 import css from "./CursosAluno.module.css";
 import { estilos } from "@/components/ui/estilos";

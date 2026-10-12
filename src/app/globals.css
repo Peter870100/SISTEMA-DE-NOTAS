@@ -340,7 +340,9 @@ body {
   transition: translate 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
 }
 .turma-card-icone {
-  background-image: linear-gradient(145deg, #edf4ff, #d1e1fc);
+  background: var(--color-gold);
+  color: var(--color-gold-ink);
+  transition: background-color 200ms ease, color 200ms ease, transform 200ms ease;
 }
 .turma-card:focus-visible {
   border-color: var(--color-brand-bright);
@@ -348,12 +350,14 @@ body {
 @media (hover: hover) and (pointer: fine) {
   .turma-card:hover {
     translate: 0 -3px;
-    border-color: rgb(30 111 217 / 0.45);
+    border-color: var(--color-gold);
     background-image: linear-gradient(130deg, #ffffff 0%, #edf4ff 55%, #dce9ff 100%);
-    box-shadow: 0 14px 28px rgb(10 42 110 / 0.15), 0 3px 8px rgb(10 42 110 / 0.06);
+    box-shadow: 0 10px 26px rgb(245 217 10 / 0.22), 0 4px 12px rgb(10 42 110 / 0.08);
   }
   .turma-card:hover .turma-card-icone {
-    background-image: linear-gradient(145deg, #1e6fd9, #0444a0);
+    background: var(--color-frame-deep);
+    color: var(--color-gold);
+    transform: scale(1.06);
   }
   .turma-card:active { translate: 0 -1px; }
 }

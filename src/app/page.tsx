@@ -7,6 +7,9 @@ import { getProfessorAtual } from "@/lib/auth";
 import { obterEscola } from "@/lib/escolas";
 import { ehAdmin } from "@/lib/papeis";
 import { NovaTurma } from "@/components/turmas/NovaTurma";
+import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
+import { situacaoSimulado } from "@/lib/simulados/regras";
+import { CalendarCheck, ClipboardList, Timer, Users } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +34,28 @@ export default async function HomePage() {
   }
 
   const admin = ehAdmin(professor.role);
+
+  // Painel: turmas (cada turma tem uma linha por bimestre), alunos (maior bimestre de cada turma),
+  // bimestres em aberto e simulados abertos agora (os do professor; admin vê os da escola).
+  const porTurma = new Map<string, number>();
+  for (const t of turmas) {
+    const chave = `${t.nome.trim().toLocaleLowerCase("pt-BR")}|${t.ano_letivo}`;
+    porTurma.set(chave, Math.max(porTurma.get(chave) ?? 0, contagemPorTurma[t.id] ?? 0));
+  }
+  const totalAlunos = [...porTurma.values()].reduce((a, b) => a + b, 0);
+  const bimestresAbertos = turmas.filter((t) => !t.bimestre_encerrado).length;
+  let consultaSim = supabase.from("simulados").select("status, abre_em, fecha_em").eq("escola_id", professor.escola_id).eq("tipo", "professor").eq("status", "publicado");
+  if (!admin) consultaSim = consultaSim.eq("professor_id", professor.id);
+  const { data: sims, error: erroSim } = await consultaSim;
+  if (erroSim) throw new Error(erroSim.message);
+  const agora = new Date();
+  const simuladosAbertos = (sims ?? []).filter((s) => situacaoSimulado(s, agora) === "aberto").length;
+  const painel: ItemResumo[] = [
+    { rotulo: "Turmas", valor: String(porTurma.size), detalhe: porTurma.size === 1 ? "turma ativa" : "turmas ativas", Icone: ClipboardList },
+    { rotulo: "Alunos", valor: String(totalAlunos), detalhe: "nas suas turmas", Icone: Users },
+    { rotulo: "Bimestres abertos", valor: String(bimestresAbertos), detalhe: "aceitando notas", Icone: CalendarCheck },
+    { rotulo: "Simulados abertos", valor: String(simuladosAbertos), detalhe: "acontecendo agora", Icone: Timer },
+  ];
   const primeiroNome = professor.nome.trim().split(/\s+/)[0];
 
   return (
@@ -47,6 +72,7 @@ export default async function HomePage() {
         </div>
       ) : (
         <div className="flex flex-col gap-6">
+          <PainelResumo itens={painel} />
           {admin && <NovaTurma />}
           <TurmasLista turmas={turmas} contagemPorTurma={contagemPorTurma} />
         </div>

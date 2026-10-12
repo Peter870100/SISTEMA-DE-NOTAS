@@ -79,7 +79,7 @@ export function TurmasLista({ turmas, contagemPorTurma }: TurmasListaProps) {
               return (
                 <details key={chave} className="turma-card group self-start rounded-card border border-line bg-surface shadow-card">
                   <summary className="flex cursor-pointer list-none items-center gap-3 rounded-card px-5 py-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-bright [&::-webkit-details-marker]:hidden">
-                    <span className="turma-card-icone flex h-10 w-10 shrink-0 items-center justify-center rounded-control bg-brand/10 text-brand transition group-hover:bg-brand group-hover:text-white">
+                    <span className="turma-card-icone flex h-10 w-10 shrink-0 items-center justify-center rounded-control">
                       <BookOpen size={19} aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1">

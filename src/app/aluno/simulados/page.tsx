@@ -5,7 +5,7 @@ import { CartaoSimuladoAluno } from "@/components/simulados/CartaoSimuladoAluno"
 import { CheckCircle2, ClipboardList, Hourglass, ListTodo, Target, Timer, UsersRound } from "lucide-react";
 import { formatarDuracao, resumoSimulados } from "@/lib/simulados/regras";
 import { NovoTreino } from "@/components/simulados/NovoTreino";
-import { PainelResumo, type ItemResumo } from "@/components/aluno/PainelResumo";
+import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
 import css from "./SimuladosAluno.module.css";
 
 export const dynamic = "force-dynamic";

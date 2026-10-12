@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Plus, Timer } from "lucide-react";
+import { ArrowRight, CalendarClock, ClipboardList, FilePenLine, Plus, Send, Timer, Users } from "lucide-react";
 import { getProfessorAtual } from "@/lib/auth";
 import { ehAdmin } from "@/lib/papeis";
 import { supabase } from "@/lib/supabase/client";
 import { emBlocos, situacaoSimulado, type Situacao } from "@/lib/simulados/regras";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos } from "@/components/ui/estilos";
+import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
+import css from "./SimuladosProfessor.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -43,35 +45,63 @@ export default async function SimuladosPage() {
     }
   }
 
+  const lista = simulados ?? [];
+  const situacoes = new Map(lista.map((s) => [s.id, situacaoSimulado(s, agora)]));
+  const entregasTotal = [...contagem.values()].reduce((soma, c) => soma + c.entregaram, 0);
+  const painel: ItemResumo[] = [
+    { rotulo: "Simulados", valor: String(lista.length), detalhe: "criados até agora", Icone: ClipboardList },
+    { rotulo: "Abertos", valor: String(lista.filter((s) => situacoes.get(s.id) === "aberto").length), detalhe: "acontecendo agora", Icone: Timer },
+    { rotulo: "Rascunhos", valor: String(lista.filter((s) => situacoes.get(s.id) === "rascunho").length), detalhe: "ainda não publicados", Icone: FilePenLine },
+    { rotulo: "Entregas", valor: String(entregasTotal), detalhe: "provas entregues pelos alunos", Icone: Send },
+  ];
+
   return (
     <PageLayout
       crumb="Simulados"
       titulo="Simulados"
       subtitulo="Provas cronometradas com questões do banco, aplicadas às suas turmas."
       acoes={<Link href="/simulados/novo" className={estilos.botaoPrimario}><Plus size={16} aria-hidden="true" /> Novo simulado</Link>}
-      largura="max-w-4xl"
+      largura="max-w-7xl"
     >
-      <section aria-labelledby="titulo-lista" className={`${estilos.card} p-4`}>
-        <h2 id="titulo-lista" className="sr-only">Simulados</h2>
-        {(simulados ?? []).length === 0 ? (
-          <p className="flex items-center gap-2 py-6 text-sm text-muted"><Timer size={16} aria-hidden="true" /> Nenhum simulado ainda. Crie o primeiro.</p>
+      <PainelResumo itens={painel} />
+      <section aria-labelledby="titulo-lista" className="flex flex-col gap-3">
+        <h2 id="titulo-lista" className={css.tituloSecao}><ClipboardList size={22} aria-hidden="true" />Seus simulados<span>{lista.length}</span></h2>
+        {lista.length === 0 ? (
+          <p className={css.vazio}><Timer size={18} aria-hidden="true" /> Nenhum simulado ainda. Crie o primeiro em “Novo simulado”.</p>
         ) : (
-          <ul className="divide-y divide-line">
-            {(simulados ?? []).map((s) => (
-              <li key={s.id}>
-                <Link href={s.status === "publicado" ? `/simulados/${s.id}` : `/simulados/${s.id}/editar`} className="flex items-center justify-between gap-3 rounded-control px-2 py-3 hover:bg-surface-sunken">
-                  <span className="min-w-0">
-                    <span className="block font-semibold text-ink">{s.titulo}</span>
-                    <span className="block text-xs text-muted">{ROTULOS[situacaoSimulado(s, agora)]} · {data(s.abre_em)} até {data(s.fecha_em)}</span>
-                    <span className="block text-xs text-muted">
-                      {(turmasPorSimulado.get(s.id) ?? []).join(", ") || "Sem turmas"}
-                      {s.status === "publicado" && ` · ${contagem.get(s.id)?.entregaram ?? 0}/${contagem.get(s.id)?.comecaram ?? 0} entregaram`}
-                    </span>
-                  </span>
-                  <span aria-hidden="true" className="text-brand">→</span>
-                </Link>
-              </li>
-            ))}
+          <ul className={css.lista}>
+            {lista.map((s, i) => {
+              const situacao = situacoes.get(s.id)!;
+              const c = contagem.get(s.id) ?? { comecaram: 0, entregaram: 0 };
+              const pct = c.comecaram ? Math.round((100 * c.entregaram) / c.comecaram) : 0;
+              const turmas = turmasPorSimulado.get(s.id) ?? [];
+              const publicado = s.status === "publicado";
+              return (
+                <li key={s.id} style={{ "--i": Math.min(i, 12) } as React.CSSProperties}>
+                  <Link href={publicado ? `/simulados/${s.id}` : `/simulados/${s.id}/editar`} className={`${css.cartao} cartao-interativo`} data-situacao={situacao}>
+                    <div className={css.topo}>
+                      <span className={css.icone} data-icone aria-hidden="true"><Timer size={22} strokeWidth={2.2} /></span>
+                      <span className={css.etiqueta}>{ROTULOS[situacao]}</span>
+                    </div>
+                    <h3 className={css.titulo}>{s.titulo}</h3>
+                    <ul className={css.meta}>
+                      <li><CalendarClock size={16} aria-hidden="true" />{data(s.abre_em)} até {data(s.fecha_em)}</li>
+                      <li><Users size={16} aria-hidden="true" />{turmas.join(", ") || "Sem turmas"}</li>
+                      {s.duracao_min && <li><Timer size={16} aria-hidden="true" />{s.duracao_min} min</li>}
+                    </ul>
+                    <div className={css.rodape}>
+                      {publicado ? (
+                        <div className={css.entregas}>
+                          <p><strong>{c.entregaram}</strong>/{c.comecaram} entregaram</p>
+                          <span className={css.barra} role="progressbar" aria-label="Entregas" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${pct}%` }} /></span>
+                        </div>
+                      ) : <p className={css.aviso}>Rascunho — termine de montar e publique.</p>}
+                      <span className={css.acao}>{publicado ? "Ver resultados" : "Continuar editando"}<ArrowRight size={17} aria-hidden="true" /></span>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
