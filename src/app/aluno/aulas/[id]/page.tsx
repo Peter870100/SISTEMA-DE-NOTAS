@@ -6,6 +6,7 @@ import { obterAulaParaAluno } from "@/lib/aulas/acesso";
 import { arvoreDoCurso, progressoDoAluno } from "@/lib/aulas/consultas";
 import { estadoAula, gabaritoLiberado, porcentagemAssistida, porcentagemAula } from "@/lib/aulas/progresso";
 import { ProgressoCurso } from "@/components/aulas/ProgressoCurso";
+import { quizDoAluno } from "@/lib/aulas/quiz-consultas";
 import { AulaAluno } from "@/components/aulas/AulaAluno";
 import { BaixarArquivo } from "@/components/aulas/BaixarArquivo";
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, ChevronDown, CircleDashed, FileText, FolderDown, ListVideo, LockKeyhole, Play, PlayCircle } from "lucide-react";
@@ -21,11 +22,12 @@ export default async function AlunoAulaPage({ params }: { params: Promise<{ id: 
   if (!acesso) notFound();
   const { aula, curso } = acesso;
 
-  const [{ data: progresso }, { data: arquivos }, arvore, progressoCurso] = await Promise.all([
+  const [{ data: progresso }, { data: arquivos }, arvore, progressoCurso, quiz] = await Promise.all([
     supabase.from("aula_progresso").select("*").eq("conta_id", aluno.id).eq("aula_id", id).maybeSingle(),
     supabase.from("aula_arquivos").select("id, tipo, nome_arquivo").eq("aula_id", id).order("created_at"),
     arvoreDoCurso(curso.id, true),
     progressoDoAluno(aluno.id, curso.id),
+    quizDoAluno(id, aluno.id).catch(() => null),
   ]);
   const modulos = arvore.filter((m) => m.aulas.length > 0);
   const sequencia = modulos.flatMap((m) => m.aulas);
@@ -54,6 +56,7 @@ export default async function AlunoAulaPage({ params }: { params: Promise<{ id: 
           <AulaAluno
             key={aula.id}
             aulaId={aula.id}
+            quiz={quiz}
             video={aula.video_provedor && aula.video_id ? { provedor: aula.video_provedor, id: aula.video_id } : null}
             iniciarEm={progresso && !concluida ? progresso.posicao_seg : 0}
             porcentagemInicial={porcentagemAula(progresso ?? null)}

@@ -1,3 +1,4 @@
+import type { PerguntaQuiz, ResultadoQuiz } from "@/lib/aulas/quiz";
 export type Turma = {
   id: string;
   nome: string;
@@ -502,6 +503,18 @@ export type Database = {
         Row: Aula;
         Insert: Partial<Omit<Aula, "id" | "created_at" | "updated_at">> & { modulo_id: string; curso_id: string; titulo: string };
         Update: Partial<Omit<Aula, "id" | "created_at">>;
+        Relationships: [];
+      };
+      aula_quizzes: {
+        Row: { aula_id: string; rascunho: PerguntaQuiz[]; perguntas: PerguntaQuiz[]; publicado: boolean; versao: string; atualizado_em: string };
+        Insert: { aula_id: string; rascunho?: PerguntaQuiz[]; perguntas?: PerguntaQuiz[]; publicado?: boolean; versao?: string; atualizado_em?: string };
+        Update: { rascunho?: PerguntaQuiz[]; perguntas?: PerguntaQuiz[]; publicado?: boolean; versao?: string; atualizado_em?: string };
+        Relationships: [];
+      };
+      aula_quiz_tentativas: {
+        Row: { id: string; aula_id: string; conta_id: string; versao: string; resultado: ResultadoQuiz; created_at: string };
+        Insert: { aula_id: string; conta_id: string; versao: string; resultado: ResultadoQuiz; id?: string; created_at?: string };
+        Update: never;
         Relationships: [];
       };
       aula_arquivos: {

@@ -7,18 +7,21 @@ import { concluirAulaSemVideo, registrarProgresso } from "@/actions/progresso";
 import type { ProvedorVideo } from "@/lib/types";
 import { PlayerVideo } from "@/components/aulas/PlayerVideo";
 import { estilos } from "@/components/ui/estilos";
+import { QuizAulaAluno } from "./QuizAulaAluno";
+import type { QuizAlunoDados } from "@/lib/aulas/quiz";
 import { ProgressoCurso } from "./ProgressoCurso";
 import css from "./AulaAluno.module.css";
 
 type Props = {
   aulaId: string;
+  quiz?: QuizAlunoDados | null;
   video: { provedor: ProvedorVideo; id: string } | null;
   iniciarEm: number;
   porcentagemInicial: number;
   concluidaInicial: boolean;
 };
 
-export function AulaAluno({ aulaId, video, iniciarEm, porcentagemInicial, concluidaInicial }: Props) {
+export function AulaAluno({ aulaId, video, iniciarEm, porcentagemInicial, concluidaInicial, quiz }: Props) {
   const router = useRouter();
   const [porcentagem, setPorcentagem] = useState(porcentagemInicial);
   const [concluida, setConcluida] = useState(concluidaInicial);
@@ -55,6 +58,7 @@ export function AulaAluno({ aulaId, video, iniciarEm, porcentagemInicial, conclu
         }} className={`${estilos.botaoPrimario} ${css.concluir}`}>Concluir aula</button>
       )}
       {erro && <p role="status" className={css.erro}>{erro}</p>}
+      {quiz && <QuizAulaAluno key={quiz.versao} aulaId={aulaId} quiz={quiz} concluida={concluida} />}
     </div>
   );
 }

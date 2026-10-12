@@ -1,0 +1,38 @@
+.painel { display:flex; flex-direction:column; gap:1.25rem; padding:1.5rem; border:1px solid var(--color-line); border-radius:1.25rem; background:white; color:var(--color-brand); box-shadow:0 8px 24px #06205608; }
+.topo { display:flex; align-items:center; gap:.75rem; }
+.icone { display:grid; place-items:center; flex-shrink:0; width:44px; height:44px; border-radius:.85rem; background:var(--color-gold); color:var(--color-frame-deep); }
+.painel h2,.painel h3 { font-family:var(--font-heading),sans-serif; font-weight:700; }
+.painel h2 { font-size:1.5rem; line-height:1.2; }
+.painel h3 { font-size:1.2rem; }
+.ajuda { color:var(--color-frame-deep); font-size:.875rem; line-height:1.7; }
+.abas,.acoes { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; }
+.botao,.amarelo { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-height:44px; padding:.65rem 1rem; border:1px solid var(--color-brand); border-radius:.75rem; background:white; color:var(--color-brand); font-size:.875rem; font-weight:700; cursor:pointer; transition:background .18s,transform .18s; }
+.amarelo,.botao[aria-pressed=true] { background:var(--color-gold); border-color:var(--color-gold); color:var(--color-frame-deep); }
+.botao:hover,.amarelo:hover { background:#fff2a0; transform:translateY(-1px); }
+.painel button:disabled { cursor:default; opacity:.5; transform:none; }
+.painel button:focus-visible,.painel summary:focus-visible { outline:3px solid var(--color-gold); outline-offset:3px; }
+.campos { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.campo { display:flex; flex-direction:column; gap:.4rem; color:var(--color-brand); font-size:.875rem; font-weight:700; }
+.campo input,.campo textarea,.campo select { width:100%; min-height:44px; padding:.65rem .75rem; border:1px solid var(--color-line); border-radius:.65rem; background:white; color:var(--color-frame-deep); font-family:var(--font-sans),sans-serif; font-size:.875rem; font-weight:500; }
+.campo textarea { resize:vertical; line-height:1.6; }
+.campo input:focus,.campo textarea:focus,.campo select:focus { outline:2px solid var(--color-brand); outline-offset:2px; }
+.gerador,.pergunta { display:flex; flex-direction:column; gap:1rem; padding:1rem; border:1px solid var(--color-line); border-radius:1rem; }
+.perguntaTopo { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.alternativa { display:flex; align-items:center; gap:.65rem; padding:.75rem; border:1px solid var(--color-line); border-radius:.75rem; color:var(--color-frame-deep); font-size:.875rem; line-height:1.5; cursor:pointer; }
+.alternativa:has(input:checked) { border-color:var(--color-brand); background:#0444a00a; }
+.alternativa:hover { border-color:var(--color-gold); background:#fffbe6; }
+.alternativa input { accent-color:var(--color-brand); width:18px; height:18px; flex-shrink:0; }
+.alternativa .campo { flex:1; min-width:0; }
+.alternativa input[type=text] { width:100%; }
+.enunciado { color:var(--color-frame-deep); font-size:1rem; font-weight:700; line-height:1.7; white-space:pre-wrap; }
+.selo { display:inline-flex; align-items:center; gap:.4rem; width:fit-content; padding:.35rem .65rem; border-radius:.5rem; background:#fff6b3; color:var(--color-frame-deep); font-size:.75rem; font-weight:700; }
+.aviso { padding:.75rem 1rem; border-left:3px solid var(--color-gold); background:#fffbe6; color:var(--color-frame-deep); font-size:.875rem; line-height:1.6; }
+.erro { color:var(--color-danger); font-size:.875rem; line-height:1.6; }
+.resultado { display:flex; align-items:center; gap:1rem; padding:1rem; border:1px solid var(--color-line); border-radius:1rem; }
+.percentual { font-family:var(--font-display),sans-serif; font-size:2rem; font-weight:700; color:var(--color-brand); }
+.explicacao { border-left:3px solid var(--color-gold); padding-left:1rem; color:var(--color-frame-deep); font-size:.875rem; line-height:1.7; white-space:pre-wrap; }
+.lista { display:flex; flex-direction:column; gap:1rem; }
+.lista legend { margin-bottom:1rem; }
+.rodape { padding-top:1rem; border-top:1px solid var(--color-line); }
+@media(max-width:480px) { .painel { padding:1rem; } .campos { grid-template-columns:1fr; } .acoes > button { flex:1; } }
+@media(prefers-reduced-motion:reduce) { .botao,.amarelo { transition:none; transform:none; } }
