@@ -39,7 +39,7 @@ export default async function DonoPage() {
             <thead>
               <tr>
                 <th>Escola</th><th>Endereço</th><th>Situação</th>
-                <th className="text-right">Professores</th><th className="text-right">Turmas</th><th className="text-right">Contas</th>
+                <th className={ui.direita}>Professores</th><th className={ui.direita}>Turmas</th><th className={ui.direita}>Contas</th>
               </tr>
             </thead>
             <tbody>
@@ -48,9 +48,9 @@ export default async function DonoPage() {
                   <td><Link href={`/dono/escolas/${e.id}`} className="font-heading text-base font-bold uppercase text-brand hover:underline">{e.nome}</Link></td>
                   <td>{e.slug === SLUG_PADRAO ? `www.${DOMINIO_BASE}` : `${e.slug}.${DOMINIO_BASE}`}</td>
                   <td><span className={ui.nota} data-faixa={e.ativa ? "boa" : "baixa"}>{e.ativa ? "Ativa" : "Desativada"}</span></td>
-                  <td className={`${ui.num} text-right`}>{e.professores}</td>
-                  <td className={`${ui.num} text-right`}>{e.turmas}</td>
-                  <td className={`${ui.num} text-right`}>{e.contas}</td>
+                  <td className={`${ui.num} ${ui.direita}`}>{e.professores}</td>
+                  <td className={`${ui.num} ${ui.direita}`}>{e.turmas}</td>
+                  <td className={`${ui.num} ${ui.direita}`}>{e.contas}</td>
                 </tr>
               ))}
             </tbody>

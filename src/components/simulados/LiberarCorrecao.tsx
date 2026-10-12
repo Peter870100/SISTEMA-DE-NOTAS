@@ -20,9 +20,9 @@ export function LiberarCorrecao({ simuladoId, emAndamento = 0 }: { simuladoId: s
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col items-start gap-2">
       {erro && <p role="alert" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{erro}</p>}
-      <button type="button" onClick={() => void liberar()} disabled={ocupado} className={estilos.botaoSecundario}>{ocupado ? "Liberando…" : "Liberar correção agora"}</button>
+      <button type="button" onClick={() => void liberar()} disabled={ocupado} className={`${estilos.botaoPrimario} !bg-gold !text-gold-ink hover:!bg-brand hover:!text-white`}>{ocupado ? "Liberando…" : "Liberar correção agora"}</button>
     </div>
   );
 }

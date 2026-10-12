@@ -22,4 +22,5 @@
 .barra > span { display: block; height: 100%; border-radius: inherit; background: var(--color-ok); }
 .barra > span[data-faixa="media"] { background: var(--color-gold); }
 .barra > span[data-faixa="baixa"] { background: var(--color-danger); }
+.tabela .direita { text-align: right; }
 @media (max-width: 639px) { .cartao { padding: 1.1rem; } }

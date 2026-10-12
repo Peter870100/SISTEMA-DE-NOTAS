@@ -85,7 +85,7 @@ export default async function SimuladosPage() {
                     </div>
                     <h3 className={css.titulo}>{s.titulo}</h3>
                     <ul className={css.meta}>
-                      <li><CalendarClock size={16} aria-hidden="true" />{data(s.abre_em)} até {data(s.fecha_em)}</li>
+                      <li><CalendarClock size={16} aria-hidden="true" />{s.abre_em || s.fecha_em ? `${data(s.abre_em)} até ${data(s.fecha_em)}` : "Sem datas definidas"}</li>
                       <li><Users size={16} aria-hidden="true" />{turmas.join(", ") || "Sem turmas"}</li>
                       {s.duracao_min && <li><Timer size={16} aria-hidden="true" />{s.duracao_min} min</li>}
                     </ul>
