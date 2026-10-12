@@ -17,23 +17,39 @@ Decisões já tomadas com o Peter:
 
 Fora do escopo: corrigir o **código** do sistema (isso continua com o Claude Code / Peter).
 
-## Ponto de segurança central: um MCP só do dono
+## Dois perfis de acesso (segurança central)
 
-O MCP atual (`/api/mcp`, senha `MCP_SECRET_TOKEN`) é usado pela Hermes para atender **professores**
-pelo Telegram, identificados pelo telefone, e é restrito ao Colégio Status. Ele **não muda**.
+A Hermes atende duas pessoas diferentes, com poderes diferentes:
 
-Cria-se um segundo endereço: **`/api/mcp/dono`**, com senha própria **`MCP_DONO_TOKEN`** (Vercel),
-configurado só no perfil de assistente pessoal da Hermes. Assim um professor no Telegram nunca chega
-às ferramentas de dono. Comparação da senha em tempo constante; sem senha configurada = recusa tudo.
+| Perfil | Endereço / senha | Quem | Alcance |
+|---|---|---|---|
+| **Dono** | `/api/mcp/dono` · `MCP_DONO_TOKEN` | só o Peter (perfil de assistente pessoal) | todas as escolas, tudo, consulta livre |
+| **Professor** | `/api/mcp` · `MCP_SECRET_TOKEN` (o atual) | professores pelo Telegram, identificados pelo **telefone** | só a **escola** do professor e as **turmas** que ele pode ver (mesma regra da tela: admin vê tudo da escola; professor com acesso restrito só as turmas liberadas) |
+
+No perfil professor, **toda ferramenta nova exige o telefone**; telefone não cadastrado = recusa (hoje a
+planilha aceita sem telefone e trata como Colégio Status — isso continua só para as ferramentas antigas).
+O Peter, ao falar como professor pelo Telegram, também é atendido por esse perfil com o papel dele.
+Professores cadastrados depois entram automaticamente (basta o telefone no cadastro).
+
+**Áudio:** a transcrição é feita pela Hermes; o sistema recebe texto/parâmetros. Para ações que criam
+ou publicam (simulado, prova, liberar correção), as `instructions` mandam a Hermes **resumir e pedir
+confirmação** antes de executar.
+
+Comparação de senhas em tempo constante; sem senha configurada = recusa tudo.
 
 O servidor do dono declara `instructions` (texto que o cliente MCP entrega à IA): "você é a assistente
 pessoal do Peter, dono da plataforma Status Avalia; responda em português; antes de alterar, confirme o
-que vai fazer; exclusões vão para a Lixeira", mais um mapa curto do sistema (escolas, turmas por
-bimestre, simulados, treinos, cursos, banco de questões, importações).
+que vai fazer; exclusões vão para a Lixeira", mais um mapa curto do sistema. O do professor declara a
+versão para atender professores.
 
-Toda alteração feita por ele grava `criado_via = 'hermes'` onde a tabela tiver essa coluna e registra
-uma linha em `hermes_registro` (quando, ferramenta, parâmetros resumidos, resultado) — o Peter pode ver
-o que ela fez.
+## Selo da Hermes e registro
+
+Tudo que a Hermes **cria** ganha `criado_via = 'hermes'` e mostra o **ícone da Hermes** (componente
+`SeloHermes`, já usado na planilha) ao lado do nome: simulados, questões, importações, contas de aluno,
+cursos/aulas. Exige coluna `criado_via` nessas tabelas (SQL). Alterações (publicar, liberar correção,
+corrigir questão, liberar nova tentativa) ficam em `hermes_registro` (quando, quem pediu — dono ou
+professor pelo telefone —, ferramenta, parâmetros resumidos, resultado), com uma tela simples
+"Feito pela Hermes" no painel do dono.
 
 ## Etapa A — ver tudo + consulta livre
 
@@ -48,7 +64,16 @@ Ferramentas de leitura (todas aceitam `escola` opcional por nome ou slug; sem el
 | `buscar_questoes` | filtros banca (sem diferenciar maiúsculas), ano, matéria, área, situação, texto |
 | `estatisticas_banco` / `listar_importacoes` | números do banco; importações e situação |
 | `listar_contas_aluno` / `listar_professores` | contas (ativa, último acesso, turmas); professores (papel, acesso) |
+| `desempenho_turma` | por turma: notas da planilha, simulados (quem **terminou**, quem está **em andamento**, quem **não começou**, nota e tempo), cursos (quem **assistiu ou não** cada aula, até onde assistiu e %, aulas concluídas) |
 | `perfil_aluno` | turmas, notas da planilha, simulados/treinos (nota e tempo), progresso nos cursos, último acesso |
+
+`resultado_simulado`, `desempenho_turma`, `progresso_curso` e `perfil_aluno` também existem no **perfil
+professor**, limitados às turmas dele.
+
+**Tempo assistido:** hoje o sistema guarda o ponto mais adiantado do vídeo e se a aula foi concluída — a
+Hermes responde "assistiu até 12:40 de 18:00 (70%)". *Opcional:* gravar o **tempo real somado**
+(`aula_progresso.tempo_assistido_seg`, incrementado pelo player a cada 15 s com a aba visível) para
+responder "assistiu 23 min no total".
 
 As ferramentas pedem só as colunas necessárias: **nunca** `senha_hash`, `token_verificacao*`,
 `codigo_convite*`.
@@ -84,12 +109,20 @@ publicar/voltar para revisão, mandar para a Lixeira.
 **Simulados — configuração total**, com as mesmas regras da tela:
 - `criar_simulado` / `configurar_simulado`: título, turmas, duração, abre/fecha, quando sai a correção,
   embaralhar.
-- `sortear_questoes`: banca (sem diferenciar maiúsculas), ano de/até, área, matéria, assunto, quantidade;
+- `sortear_questoes`: banca (sem diferenciar maiúsculas), ano de/até, área, matéria, assunto, quantidade.
+  **Não repetir:** por padrão exclui questões que já estiveram em simulados (publicados) **das mesmas
+  turmas**; `permitir_repetidas: true` desliga. O resultado informa quantas foram puladas por já terem caído.
+  Mesmo filtro também na tela de montar simulado (caixa "Não repetir questões já aplicadas a estas turmas").
   `adicionar_questao`, `trocar_questao`, `remover_questao`, `ordenar_questoes`.
 - `publicar_simulado`, `liberar_correcao`, mandar para a Lixeira.
 
 Reaproveita as funções do sistema (`sortear`, `corrigir`, regras de publicação), para o resultado ser
 idêntico ao feito pela tela.
+
+**Também no perfil professor:** criar/configurar/sortear/publicar simulado e liberar correção para as
+turmas que ele pode ver; importar prova e cuidar das questões no **banco da escola** (o banco geral
+continua só do dono). O simulado criado fica com o professor que pediu como dono (`professor_id`), igual
+à tela.
 
 ## Etapa C — alunos, contas, turmas e cursos (ações)
 
