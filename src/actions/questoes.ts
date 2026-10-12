@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase/client";
 import { exigirEditorQuestao, exigirProfessor } from "@/lib/questoes/acesso";
 import { ehMateria, areaDaMateria, LETRAS } from "@/lib/questoes/materias";
@@ -84,6 +85,8 @@ export async function publicarQuestao(id: string, publicar: boolean): Promise<vo
     const { count } = await supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", questao.importacao_id).eq("status", "revisao");
     if (count === 0) await supabase.from("importacoes").update({ status: "concluida" }).eq("id", questao.importacao_id).eq("status", "revisao");
   }
+  // Listas do banco e das importações mudam de situação: não mostrar a versão guardada no navegador.
+  revalidatePath("/banco", "layout");
 }
 
 export async function excluirQuestao(id: string): Promise<void> {

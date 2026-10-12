@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase/client";
 import { exigirImportacao, exigirProfessor, podeImportar } from "@/lib/questoes/acesso";
 import { clienteIA, custoDoUso, estimarCustoPaginas, instrucoesLeitura, pedidoPagina } from "@/lib/questoes/ia";
@@ -273,5 +274,6 @@ export async function aprovarTodasSemAviso(importacaoId: string): Promise<number
   if (error) throw new Error(error.message);
   const { count } = await supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", importacaoId).eq("status", "revisao");
   if ((count ?? 0) === 0) await supabase.from("importacoes").update({ status: "concluida" }).eq("id", importacaoId).eq("status", "revisao");
+  revalidatePath("/banco", "layout");
   return data?.length ?? 0;
 }
