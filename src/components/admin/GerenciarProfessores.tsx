@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound, Pencil, School, Trash2, UserPlus } from "lucide-react";
+import { KeyRound, Phone, School, Trash2, UserPlus, Users, Mail, CheckCircle2, Clock3 } from "lucide-react";
 import type { Professor, ProfessorRole } from "@/lib/types";
 import {
   criarProfessor,
@@ -11,7 +11,7 @@ import {
   atualizarTelefoneProfessor,
 } from "@/actions/professores";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { estilos } from "@/components/ui/estilos";
+import styles from "./Professores.module.css";
 import { ehAdmin } from "@/lib/papeis";
 
 const ONLINE_LIMITE_MS = 3 * 60 * 1000;
@@ -197,288 +197,42 @@ export function GerenciarProfessores({
     }
   }
 
-  return (
-    <div className="flex flex-col gap-5">
-      <form
-        onSubmit={handleAdd}
-        className={`${estilos.card} flex flex-col gap-3 p-4`}
-      >
-        <h2 className="font-display text-base font-semibold text-ink">
-          Adicionar professor
-        </h2>
-
-        {erro && (
-          <p className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">
-            {erro}
-          </p>
-        )}
-
-        <div className="flex flex-wrap gap-2">
-          <input
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            placeholder="Nome"
-            className={`${estilos.input} min-w-40 flex-1`}
-          />
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            className={`${estilos.input} min-w-48 flex-1`}
-          />
-          <input
-            type="password"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            placeholder="Senha inicial"
-            className={`${estilos.input} min-w-40 flex-1`}
-          />
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as ProfessorRole)}
-            className={estilos.input}
-          >
-            <option value="professor">Professor</option>
-            <option value="admin">Admin</option>
-          </select>
+    return (<div className={styles.stack}>
+      {erro && <p role="alert" className={styles.error}>{erro}</p>}
+      <form onSubmit={handleAdd} className={styles.card}>
+        <div className={styles.sectionTitle}><span className={styles.icon}><UserPlus size={23}/></span><div><p className={styles.eyebrow}>AMPLIE SUA EQUIPE</p><h2>Adicionar professor</h2></div></div>
+        <div className={styles.fields}>
+          <label>Nome completo<input required autoComplete="name" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do professor"/></label>
+          <label>Email<input required type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="professor@escola.com.br"/></label>
+          <label>Senha inicial<input required type="password" autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Crie uma senha"/></label>
+          <label>Perfil de acesso<select value={role} onChange={(e) => setRole(e.target.value as ProfessorRole)}><option value="professor">Professor</option><option value="admin">Administrador</option></select></label>
         </div>
-
-        <button
-          type="submit"
-          disabled={salvando}
-          className={estilos.botaoPrimario}
-        >
-          <UserPlus size={15} />
-          {salvando ? "Criando..." : "Criar professor"}
-        </button>
-        <p className="text-xs text-muted">
-          Depois de criar, use os botões &quot;Telefone&quot; e &quot;Turmas&quot; na tabela abaixo pra configurar o acesso dele.
-        </p>
+        <div className={styles.formFooter}><p>Depois do cadastro, configure o telefone e o acesso às turmas no cartão do professor.</p><button type="submit" disabled={salvando} className={styles.primary}><UserPlus size={18}/>{salvando ? "Criando..." : "Criar professor"}</button></div>
       </form>
-
-      <div className={`${estilos.card} overflow-x-auto`}>
-        <table className="w-full text-sm">
-          <thead className="bg-surface-sunken">
-            <tr>
-              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Nome</th>
-              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Email</th>
-              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Telefone</th>
-              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Papel</th>
-              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Status</th>
-              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {professores.map((p) => (
-              <tr key={p.id} className="border-t border-line align-top">
-                <td className="px-3 py-2 text-ink">
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      title={statusPresenca(p.ultimo_acesso).texto}
-                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                        statusPresenca(p.ultimo_acesso).online
-                          ? "bg-ok"
-                          : "bg-faint"
-                      }`}
-                    />
-                    {p.nome}
-                  </div>
-                  <p className="mt-0.5 pl-3 text-[11px] text-faint">
-                    {statusPresenca(p.ultimo_acesso).texto}
-                  </p>
-                </td>
-                <td className="px-3 py-2 text-muted">{p.email}</td>
-                <td className="px-3 py-2">
-                  {telefoneAbertoId === p.id ? (
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        value={telefoneEdit}
-                        onChange={(e) => setTelefoneEdit(e.target.value)}
-                        autoFocus
-                        placeholder="(00) 00000-0000"
-                        className={`${estilos.input} w-32 px-2 py-1 text-xs`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSalvarTelefone(p.id)}
-                        disabled={salvandoTelefoneId === p.id}
-                        className={`${estilos.botaoPrimario} min-h-0 px-2 py-1 text-xs`}
-                      >
-                        {salvandoTelefoneId === p.id ? "..." : "Salvar"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTelefoneAbertoId(null)}
-                        className="text-xs text-muted hover:text-ink"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleAbrirTelefone(p)}
-                      className="flex items-center gap-1 text-xs text-muted hover:text-brand-bright"
-                    >
-                      {p.telefone ?? "—"}
-                      <Pencil size={11} />
-                    </button>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                      ehAdmin(p.role)
-                        ? "bg-gold/40 text-gold-ink"
-                        : "bg-surface-sunken text-muted"
-                    }`}
-                  >
-                    {p.role}
-                  </span>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                        p.email_verificado
-                          ? "bg-ok/10 text-ok"
-                          : "bg-warn/10 text-warn"
-                      }`}
-                    >
-                      {p.email_verificado ? "verificado" : "pendente"}
-                    </span>
-                    {p.senha_provisoria && (
-                      <span className="rounded bg-brand-bright/10 px-1.5 py-0.5 text-xs font-medium text-brand-bright">
-                        senha provisória
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-muted">
-                    {ehAdmin(p.role)
-                      ? "todas as turmas"
-                      : p.acesso_restrito
-                        ? (acessoPorProfessor[p.id]?.length ?? 0) > 0
-                          ? acessoPorProfessor[p.id].join(", ")
-                          : "nenhuma turma"
-                        : "todas as turmas"}
-                  </p>
-                </td>
-                <td className="px-3 py-2">
-                  {senhaAbertaId === p.id ? (
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="password"
-                        value={novaSenhaProvisoria}
-                        onChange={(e) => setNovaSenhaProvisoria(e.target.value)}
-                        autoFocus
-                        placeholder="Nova senha"
-                        className={`${estilos.input} w-32 px-2 py-1 text-xs`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleDefinirSenha(p.id)}
-                        disabled={definindoId === p.id}
-                        className={`${estilos.botaoPrimario} min-h-0 px-2 py-1 text-xs`}
-                      >
-                        {definindoId === p.id ? "Salvando..." : "Salvar"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSenhaAbertaId(null)}
-                        className="text-xs text-muted hover:text-ink"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ) : turmasAbertaId === p.id ? (
-                    <div className="flex w-56 flex-col gap-2 rounded-control border border-line bg-surface-sunken p-2">
-                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted">
-                        <input
-                          type="checkbox"
-                          checked={restritoEdit}
-                          onChange={(e) => setRestritoEdit(e.target.checked)}
-                        />
-                        Restringir a turmas específicas
-                      </label>
-                      {restritoEdit && (
-                        <div className="flex flex-col gap-1 border-t border-line pt-1.5">
-                          {nomesTurmas.map((t) => (
-                            <label key={t} className="flex items-center gap-1.5 text-xs text-muted">
-                              <input
-                                type="checkbox"
-                                checked={turmasSelecionadas.has(t)}
-                                onChange={() => toggleTurma(t)}
-                              />
-                              {t}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSalvarTurmas(p.id)}
-                          disabled={salvandoTurmasId === p.id}
-                          className={`${estilos.botaoPrimario} min-h-0 px-2 py-1 text-xs`}
-                        >
-                          {salvandoTurmasId === p.id ? "Salvando..." : "Salvar"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTurmasAbertaId(null)}
-                          className="text-xs text-muted hover:text-ink"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleAbrirSenha(p.id)}
-                        className="flex items-center gap-1 text-xs font-medium text-brand hover:underline"
-                      >
-                        <KeyRound size={12} />
-                        Senha provisória
-                      </button>
-                      {!ehAdmin(p.role) && (
-                        <button
-                          type="button"
-                          onClick={() => handleAbrirTurmas(p)}
-                          className="flex items-center gap-1 text-xs font-medium text-brand hover:underline"
-                        >
-                          <School size={12} />
-                          Turmas
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setConfirmExcluir(p)}
-                        disabled={excluindoId === p.id}
-                        className="flex items-center gap-1 text-xs font-medium text-danger hover:underline disabled:opacity-50"
-                      >
-                        <Trash2 size={12} />
-                        {excluindoId === p.id ? "Excluindo..." : "Excluir"}
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <ConfirmDialog
-        open={confirmExcluir !== null}
-        title="Excluir professor"
-        message={`Tem certeza que deseja excluir "${confirmExcluir?.nome}"? Essa ação não pode ser desfeita.`}
-        confirmLabel="Excluir"
-        onConfirm={handleExcluir}
-        onCancel={() => setConfirmExcluir(null)}
-      />
-    </div>
-  );
+      <section aria-labelledby="equipe-titulo" className={styles.stack}>
+        <div className={styles.listHeader}><div><p className={styles.eyebrow}>QUEM FAZ PARTE DA ESCOLA</p><h2 id="equipe-titulo">Sua equipe</h2></div><span className={styles.count}><Users size={18}/>{professores.length} {professores.length === 1 ? "profissional" : "profissionais"}</span></div>
+        <div className={styles.grid}>
+          {professores.map((p) => {
+            const presenca = statusPresenca(p.ultimo_acesso);
+            const ocupado = definindoId === p.id || salvandoTelefoneId === p.id || salvandoTurmasId === p.id || excluindoId === p.id;
+            return <article key={p.id} className={styles.professor} aria-busy={ocupado}>
+              <div className={styles.identity}><span className={styles.avatar} aria-hidden="true">{p.nome.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((parte) => parte[0]).join("").toUpperCase()}</span><div className={styles.identityText}><span className={styles.role}>{p.role === "dono" ? "Dono da escola" : ehAdmin(p.role) ? "Administrador" : "Professor"}</span><h3>{p.nome}</h3><p className={styles.presence}><span className={presenca.online ? styles.online : styles.offline}/>{presenca.texto}</p></div></div>
+              <div className={styles.details}><p><Mail size={17}/><span>{p.email}</span></p><p><Phone size={17}/><span>{p.telefone || "Telefone não informado"}</span></p><p><School size={17}/><span>{ehAdmin(p.role) || !p.acesso_restrito ? "Acesso a todas as turmas" : acessoPorProfessor[p.id]?.join(", ") || "Nenhuma turma liberada"}</span></p></div>
+              <div className={styles.badges}><span>{p.email_verificado ? <CheckCircle2 size={15}/> : <Clock3 size={15}/>} {p.email_verificado ? "Email verificado" : "Verificação pendente"}</span>{p.senha_provisoria && <span><KeyRound size={15}/>Senha provisória</span>}</div>
+              <div className={styles.actions}>
+                <button type="button" disabled={ocupado} aria-expanded={telefoneAbertoId === p.id} onClick={() => handleAbrirTelefone(p)} className={styles.secondary}><Phone size={16}/>Telefone</button>
+                <button type="button" disabled={ocupado} aria-expanded={senhaAbertaId === p.id} onClick={() => handleAbrirSenha(p.id)} className={styles.secondary}><KeyRound size={16}/>Senha provisória</button>
+                {!ehAdmin(p.role) && <button type="button" disabled={ocupado} aria-expanded={turmasAbertaId === p.id} onClick={() => handleAbrirTurmas(p)} className={styles.secondary}><School size={16}/>Turmas</button>}
+                <button type="button" disabled={ocupado} onClick={() => setConfirmExcluir(p)} className={styles.delete}><Trash2 size={16}/>{excluindoId === p.id ? "Excluindo..." : "Excluir"}</button>
+              </div>
+              {telefoneAbertoId === p.id && <form className={styles.panel} onSubmit={(e) => { e.preventDefault(); void handleSalvarTelefone(p.id); }}><label>Telefone de contato<input type="tel" autoFocus value={telefoneEdit} onChange={(e) => setTelefoneEdit(e.target.value)} placeholder="(00) 00000-0000"/></label><div className={styles.actions}><button disabled={ocupado} type="submit" className={styles.primary}>{ocupado ? "Salvando..." : "Salvar telefone"}</button><button disabled={ocupado} type="button" onClick={fecharPaineis} className={styles.secondary}>Cancelar</button></div></form>}
+              {senhaAbertaId === p.id && <form className={styles.panel} onSubmit={(e) => { e.preventDefault(); void handleDefinirSenha(p.id); }}><label>Nova senha provisória<input required minLength={6} autoComplete="new-password" type="password" autoFocus value={novaSenhaProvisoria} onChange={(e) => setNovaSenhaProvisoria(e.target.value)} placeholder="Pelo menos 6 caracteres"/></label><div className={styles.actions}><button disabled={ocupado} type="submit" className={styles.primary}>{ocupado ? "Salvando..." : "Salvar senha"}</button><button disabled={ocupado} type="button" onClick={fecharPaineis} className={styles.secondary}>Cancelar</button></div></form>}
+              {turmasAbertaId === p.id && <form className={styles.panel} onSubmit={(e) => { e.preventDefault(); void handleSalvarTurmas(p.id); }}><label className={styles.checkbox}><input type="checkbox" checked={restritoEdit} onChange={(e) => setRestritoEdit(e.target.checked)}/>Restringir a turmas específicas</label>{restritoEdit && <fieldset className={styles.turmas}><legend>Turmas liberadas</legend>{nomesTurmas.length === 0 && <p>Nenhuma turma cadastrada.</p>}{nomesTurmas.map((t) => <label key={t} className={styles.checkbox}><input type="checkbox" checked={turmasSelecionadas.has(t)} onChange={() => toggleTurma(t)}/>{t}</label>)}</fieldset>}<div className={styles.actions}><button disabled={ocupado} type="submit" className={styles.primary}>{ocupado ? "Salvando..." : "Salvar acesso"}</button><button disabled={ocupado} type="button" onClick={fecharPaineis} className={styles.secondary}>Cancelar</button></div></form>}
+            </article>;
+        })}
+        </div>
+        {professores.length === 0 && <div className={styles.card}><Users size={30}/><h3>Sua equipe começa aqui</h3><p>Cadastre o primeiro professor ou compartilhe o código de convite.</p></div>}
+      </section>
+      <ConfirmDialog open={confirmExcluir !== null} title="Excluir professor" message={`Tem certeza que deseja excluir "${confirmExcluir?.nome}"? Essa ação não pode ser desfeita.`} confirmLabel="Excluir" onConfirm={handleExcluir} onCancel={() => setConfirmExcluir(null)}/>
+    </div>);
 }

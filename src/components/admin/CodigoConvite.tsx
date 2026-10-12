@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { KeyRound, Pencil } from "lucide-react";
 import { atualizarCodigoConvite } from "@/actions/configuracoes";
-import { estilos } from "@/components/ui/estilos";
+import styles from "./Professores.module.css";
 
 type CodigoConviteProps = {
   codigoInicial: string;
@@ -36,64 +36,9 @@ export function CodigoConvite({ codigoInicial }: CodigoConviteProps) {
     }
   }
 
-  return (
-    <div className={`${estilos.card} flex flex-col gap-2 p-4`}>
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-        <KeyRound size={15} />
-        Código de convite
-      </h2>
-      <p className="text-xs text-muted">
-        Exigido na tela pública de cadastro (<code>/cadastro</code>). Passe pra quem for se cadastrar.
-      </p>
-
-      {erro && (
-        <p className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">
-          {erro}
-        </p>
-      )}
-
-      {editando ? (
-        <form onSubmit={handleSalvar} className="flex items-center gap-2">
-          <input
-            value={novoCodigo}
-            onChange={(e) => setNovoCodigo(e.target.value)}
-            autoFocus
-            className={`${estilos.input} min-w-0 flex-1`}
-          />
-          <button
-            type="submit"
-            disabled={salvando}
-            className={estilos.botaoPrimario}
-          >
-            {salvando ? "Salvando..." : "Salvar"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditando(false);
-              setNovoCodigo(codigo);
-              setErro(null);
-            }}
-            className={estilos.botaoFantasma}
-          >
-            Cancelar
-          </button>
-        </form>
-      ) : (
-        <div className="flex items-center gap-2">
-          <span className="rounded-control bg-surface-sunken px-3 py-1.5 font-mono text-lg tracking-widest text-brand">
-            {codigo}
-          </span>
-          <button
-            type="button"
-            onClick={() => setEditando(true)}
-            className="flex items-center gap-1 text-sm text-brand hover:underline"
-          >
-            <Pencil size={13} />
-            Trocar
-          </button>
-        </div>
-      )}
-    </div>
-  );
+    return (<section className={`${styles.card} ${styles.invite}`} aria-labelledby="convite-titulo">
+      <div className={styles.sectionTitle}><span className={styles.icon}><KeyRound size={23}/></span><div><p className={styles.eyebrow}>CONVIDE SUA EQUIPE</p><h2 id="convite-titulo">Código de convite</h2><p>Compartilhe este código para o professor se cadastrar na escola.</p></div></div>
+      {erro && <p role="alert" className={styles.error}>{erro}</p>}
+      {editando ? <form onSubmit={handleSalvar} className={styles.inviteEdit}><label>Novo código<input required value={novoCodigo} onChange={(e) => setNovoCodigo(e.target.value)} autoFocus/></label><button type="submit" disabled={salvando} className={styles.primary}>{salvando ? "Salvando..." : "Salvar"}</button><button type="button" disabled={salvando} onClick={() => { setEditando(false); setNovoCodigo(codigo); setErro(null); }} className={styles.secondary}>Cancelar</button></form> : <div className={styles.inviteEdit}><span className={styles.code}>{codigo}</span><button type="button" onClick={() => setEditando(true)} className={styles.secondary}><Pencil size={16}/>Alterar código</button></div>}
+    </section>);
 }
