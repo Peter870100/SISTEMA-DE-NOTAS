@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { MATERIAS, areaDaMateria, ehMateria, LETRAS } from "./materias";
 import { ASSUNTOS_INICIAIS } from "./assuntos-iniciais";
 import { estiloRecorte, limitarQuadro } from "./quadro";
+import { lerPaginas } from "./paginas";
 import { markdownParaBlocos } from "./markdown";
 import { urlImagemPermitida } from "./enemdev";
 import { progressoDoLote } from "./ia";
@@ -264,4 +265,14 @@ test("motivoSemClassificacao tira os avisos da classificação anterior e manté
   assert.equal(motivoSemClassificacao("Uma imagem não pôde ser copiada do enem.dev. Assunto novo proposto: Razão e proporção."), "Uma imagem não pôde ser copiada do enem.dev.");
   assert.equal(motivoSemClassificacao("Alternativa A sem conteúdo. Sem assunto. Não classificada pela IA."), "Alternativa A sem conteúdo.");
   assert.equal(motivoSemClassificacao(null), null);
+});
+
+test("lerPaginas: vazio = todas; números, faixas e erros", () => {
+  assert.deepEqual(lerPaginas("", 4), [1, 2, 3, 4]);
+  assert.deepEqual(lerPaginas("3", 73), [3]);
+  assert.deepEqual(lerPaginas(" 1-3, 5 ;7 ", 10), [1, 2, 3, 5, 7]);
+  assert.deepEqual(lerPaginas("5-3, 4", 10), [3, 4, 5]); // faixa invertida e repetida
+  assert.throws(() => lerPaginas("80", 73), /73 páginas/);
+  assert.throws(() => lerPaginas("abc", 10), /Páginas inválidas/);
+  assert.throws(() => lerPaginas("0", 10), /Páginas inválidas/);
 });

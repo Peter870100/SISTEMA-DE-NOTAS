@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { lerPaginas } from "@/lib/questoes/paginas";
 import { criarImportacao, iniciarLeitura, prepararEnvioPagina, registrarPagina } from "@/actions/importacoes";
 import { estilos } from "@/components/ui/estilos";
 import { CheckCircle2, FileCheck2, FileText, Send, UploadCloud, X } from "lucide-react";
@@ -14,17 +15,23 @@ const LARGURA_MAX = 1600;
 
 type Pagina = { blob: Blob; largura: number; altura: number };
 
-async function renderizarPdf(arquivo: File, tipo: "prova" | "gabarito", aoAvancar: (feitas: number, total: number) => void): Promise<Pagina[]> {
+async function abrirPdf(arquivo: File) {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()) }).promise;
-  if (doc.numPages > MAX_PAGINAS) {
-    throw new Error(tipo === "gabarito"
-      ? `O PDF do gabarito tem ${doc.numPages} páginas; o máximo é ${MAX_PAGINAS}. Envie só as páginas com as respostas (no Chrome: Ctrl+P → Salvar como PDF → Páginas personalizadas).`
-      : `O PDF da prova tem ${doc.numPages} páginas; o máximo é ${MAX_PAGINAS}. Divida o caderno em duas importações (ex.: "parte 1" e "parte 2").`);
+  return pdfjs.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()) }).promise;
+}
+
+/** `selecao` null = todas as páginas; senão, texto como "3" ou "1-3, 5". */
+async function renderizarPdf(arquivo: File, tipo: "prova" | "gabarito", selecao: string | null, aoAvancar: (feitas: number, total: number) => void): Promise<Pagina[]> {
+  const doc = await abrirPdf(arquivo);
+  const nome = tipo === "gabarito" ? "do gabarito" : "da prova";
+  const lista = selecao === null ? lerPaginas("", doc.numPages) : lerPaginas(selecao, doc.numPages);
+  if (lista.length === 0) throw new Error(`Escolha as páginas ${nome}.`);
+  if (lista.length > MAX_PAGINAS) {
+    throw new Error(`O PDF ${nome} tem ${lista.length} páginas selecionadas; o máximo é ${MAX_PAGINAS}. Em "Páginas", marque "Escolher páginas" e digite só as que importam${tipo === "gabarito" ? " (ex.: 3)" : ""}.`);
   }
   const paginas: Pagina[] = [];
-  for (let n = 1; n <= doc.numPages; n++) {
+  for (const [i, n] of lista.entries()) {
     const page = await doc.getPage(n);
     const base = page.getViewport({ scale: 1 });
     const escala = Math.min(150 / 72, LARGURA_MAX / base.width);
@@ -38,7 +45,7 @@ async function renderizarPdf(arquivo: File, tipo: "prova" | "gabarito", aoAvanca
     await page.render({ canvas, viewport }).promise;
     const blob = await new Promise<Blob>((ok, falha) => canvas.toBlob((b) => (b ? ok(b) : falha(new Error("Falha ao gerar imagem."))), "image/jpeg", 0.8));
     paginas.push({ blob, largura: canvas.width, altura: canvas.height });
-    aoAvancar(n, doc.numPages);
+    aoAvancar(i + 1, lista.length);
   }
   return paginas;
 }
@@ -60,6 +67,8 @@ export function ImportarProva({ escopos }: { escopos: Escopo[] }) {
   const [caderno, setCaderno] = useState("");
   const [prova, setProva] = useState<File | null>(null);
   const [gabarito, setGabarito] = useState<File | null>(null);
+  const [selProva, setSelProva] = useState<string | null>(null);
+  const [selGab, setSelGab] = useState<string | null>(null);
   const [progresso, setProgresso] = useState<string | null>(null);
   const [pct, setPct] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
@@ -71,8 +80,8 @@ export function ImportarProva({ escopos }: { escopos: Escopo[] }) {
     try {
       setProgresso("Lendo o PDF…");
       setPct(0);
-      const paginasProva = await renderizarPdf(prova, "prova", (f, t) => { setProgresso(`Preparando prova: página ${f} de ${t}`); setPct(Math.round((25 * f) / t)); });
-      const paginasGab = gabarito ? await renderizarPdf(gabarito, "gabarito", (f, t) => { setProgresso(`Preparando gabarito: página ${f} de ${t}`); setPct(25 + Math.round((10 * f) / t)); }) : [];
+      const paginasProva = await renderizarPdf(prova, "prova", selProva, (f, t) => { setProgresso(`Preparando prova: página ${f} de ${t}`); setPct(Math.round((25 * f) / t)); });
+      const paginasGab = gabarito ? await renderizarPdf(gabarito, "gabarito", selGab, (f, t) => { setProgresso(`Preparando gabarito: página ${f} de ${t}`); setPct(25 + Math.round((10 * f) / t)); }) : [];
       const custo = (paginasProva.length * (9000 * 2 + 3000 * 10)) / 1_000_000;
       if (!window.confirm(`São ${paginasProva.length} páginas. Custo estimado da leitura: ≈ US$ ${custo.toFixed(2)}. Continuar?`)) { setProgresso(null); return; }
       const id = await criarImportacao({ escopo, banca: banca === "Outra" ? outra : banca, ano: ano ? Number(ano) : null, caderno });
@@ -131,8 +140,8 @@ export function ImportarProva({ escopos }: { escopos: Escopo[] }) {
       <section className={css.passo} aria-labelledby="passo-3">
         <h2 id="passo-3" className={css.tituloPasso}><span>3</span>Arquivos</h2>
         <div className={css.arquivos}>
-          <CampoArquivo titulo="PDF da prova" etiqueta="Obrigatório" ajuda="O caderno com as questões (até 60 páginas)." arquivo={prova} aoEscolher={setProva} obrigatorio Icone={FileText} desativado={ocupado} />
-          <CampoArquivo titulo="PDF do gabarito" etiqueta="Recomendado" ajuda="As respostas. Sem ele, a resposta de cada questão fica em branco." arquivo={gabarito} aoEscolher={setGabarito} Icone={FileCheck2} desativado={ocupado} />
+          <CampoArquivo titulo="PDF da prova" etiqueta="Obrigatório" ajuda="O caderno com as questões (até 60 páginas)." arquivo={prova} aoEscolher={(f) => { setProva(f); setSelProva(null); }} paginas={selProva} aoMudarPaginas={setSelProva} obrigatorio Icone={FileText} desativado={ocupado} />
+          <CampoArquivo titulo="PDF do gabarito" etiqueta="Recomendado" ajuda="As respostas. Sem ele, a resposta de cada questão fica em branco." arquivo={gabarito} aoEscolher={(f) => { setGabarito(f); setSelGab(null); }} paginas={selGab} aoMudarPaginas={setSelGab} Icone={FileCheck2} desativado={ocupado} />
         </div>
         <p className={css.info}>Os dois arquivos vão juntos, num envio só. Se o gabarito estiver no mesmo PDF da prova, envie só a prova.</p>
       </section>
@@ -150,11 +159,25 @@ export function ImportarProva({ escopos }: { escopos: Escopo[] }) {
   );
 }
 
-function CampoArquivo({ titulo, etiqueta, ajuda, arquivo, aoEscolher, obrigatorio = false, Icone, desativado }: {
+function CampoArquivo({ titulo, etiqueta, ajuda, arquivo, aoEscolher, paginas, aoMudarPaginas, obrigatorio = false, Icone, desativado }: {
   titulo: string; etiqueta: string; ajuda: string; arquivo: File | null; aoEscolher: (f: File | null) => void;
+  paginas: string | null; aoMudarPaginas: (p: string | null) => void;
   obrigatorio?: boolean; Icone: typeof FileText; desativado: boolean;
 }) {
   const [arrastando, setArrastando] = useState(false);
+  const [total, setTotal] = useState<number | null>(null);
+  useEffect(() => {
+    let ativo = true;
+    if (!arquivo) return;
+    abrirPdf(arquivo).then((d) => { if (ativo) setTotal(d.numPages); }).catch(() => { if (ativo) setTotal(null); });
+    return () => { ativo = false; setTotal(null); };
+  }, [arquivo]);
+  let selecionadas: number | null = null;
+  let erroPaginas: string | null = null;
+  if (total !== null) {
+    try { selecionadas = lerPaginas(paginas ?? "", total).length; } catch (e) { erroPaginas = e instanceof Error ? e.message : "Páginas inválidas."; }
+  }
+  const excesso = selecionadas !== null && selecionadas > MAX_PAGINAS;
   const escolher = (f: File | undefined | null) => { if (f && f.type === "application/pdf") aoEscolher(f); };
   return (
     <div className={css.campoArquivo} data-escolhido={arquivo ? "sim" : undefined} data-arrastando={arrastando ? "sim" : undefined}
@@ -171,7 +194,21 @@ function CampoArquivo({ titulo, etiqueta, ajuda, arquivo, aoEscolher, obrigatori
           <small>{arquivo.size < 1024 * 1024 ? `${Math.max(1, Math.round(arquivo.size / 1024))} KB` : `${(arquivo.size / 1024 / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`}</small>
           {!desativado && <button type="button" onClick={() => aoEscolher(null)} aria-label={`Remover ${titulo}`}><X size={16} /></button>}
         </div>
-      ) : (
+      ) : null}
+      {arquivo && (
+        <fieldset className={css.paginas} disabled={desativado}>
+          <legend>Páginas{total !== null && <small>{total} no PDF</small>}</legend>
+          <label><input type="radio" checked={paginas === null} onChange={() => aoMudarPaginas(null)} />Todas as páginas</label>
+          <label><input type="radio" checked={paginas !== null} onChange={() => aoMudarPaginas(paginas ?? "")} />Escolher páginas</label>
+          {paginas !== null && (
+            <input type="text" inputMode="numeric" value={paginas} onChange={(e) => aoMudarPaginas(e.target.value)} placeholder="Ex.: 3 ou 1-20, 23" aria-label={`Páginas de ${titulo}`} className={css.campoPaginas} autoFocus />
+          )}
+          {erroPaginas ? <p className={css.alertaPaginas}>{erroPaginas}</p>
+            : excesso ? <p className={css.alertaPaginas}>São {selecionadas} páginas; o máximo é {MAX_PAGINAS}. Marque “Escolher páginas” e digite só as que importam.</p>
+            : selecionadas !== null && <p className={css.okPaginas}>{selecionadas === total ? `Todas as ${total} páginas serão enviadas.` : `${selecionadas} de ${total} páginas serão enviadas.`}</p>}
+        </fieldset>
+      )}
+      {!arquivo && (
         <label className={css.escolher}>
           <UploadCloud size={20} aria-hidden="true" />Escolher arquivo<em>ou arraste o PDF aqui</em>
           <input type="file" accept="application/pdf" required={obrigatorio} disabled={desativado} onChange={(e) => escolher(e.target.files?.[0])} />
