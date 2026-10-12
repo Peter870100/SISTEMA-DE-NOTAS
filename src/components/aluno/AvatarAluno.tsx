@@ -56,7 +56,7 @@ export function AvatarAluno({ alunoId, nome }: { alunoId: string; nome: string }
     } catch { setErro("Não foi possível salvar. Verifique o armazenamento do navegador."); }
   }
   return <>
-    <button type="button" className={css.avatar} aria-label={`Editar foto de perfil de ${nome}`} aria-haspopup="dialog" onClick={() => { setRascunho(avatar); setErro(""); setAberto(true); }}>
+    <button type="button" className={css.avatar} title={nome} aria-label={`Editar foto de perfil de ${nome}`} aria-haspopup="dialog" onClick={() => { setRascunho(avatar); setErro(""); setAberto(true); }}>
       {imagem(avatar)}<Camera size={12} aria-hidden="true" className={css.camera} />
     </button>
     <Modal open={aberto} onClose={() => setAberto(false)} titulo="Seu perfil" descricao="Escolha um emoji ou uma foto para ficar com a sua cara.">
