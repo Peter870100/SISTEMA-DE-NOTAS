@@ -124,3 +124,6 @@ Cartoes brancos responsivos em duas colunas, iniciais em circulo azul com borda 
 
 ## Contas de aluno (admin)
 Mesmo visual dos professores, com CSS compartilhado em ContasAdmin.module.css: busca em cartao branco, avatares com iniciais, situacao da conta em azul ou amarelo, detalhes legiveis e acoes de senha e bloqueio com tamanho uniforme. Fluxo de cadastro em lote e exportacao de credenciais preservado.
+
+## Escolas (dono)
+Lista em cartoes brancos com icone institucional azul e amarelo, nomes em Rajdhani, situacao em azul ou amarelo e contagens de professores, turmas e contas em destaque. Botao Gerenciar escola amarelo aponta para o mesmo cadastro existente. Mantem painel de indicadores e restricao ao dono.
