@@ -13,12 +13,12 @@
 ## Global Constraints
 
 - Respostas e textos em **pt-BR**; textos da Hermes curtos e diretos.
-- **Nunca** ler/expor `senha_hash`, `token_verificacao`, `token_verificacao_expira`, `codigo_convite`, `codigo_convite_professor` (em ferramentas e nas views `hermes.*`).
+- **Nunca** ler/expor `senha_hash`, `token_verificacao`, `token_verificacao_expira`, `codigo_convite`, `codigo_convite_professor` (em ferramentas e na consulta livre).
 - Sem chave geral do Supabase: tudo pelo MCP; a chave anon fica só no servidor.
 - `MCP_DONO_TOKEN` e `MCP_SECRET_TOKEN` comparados em tempo constante; senha ausente = 401 em tudo.
 - Perfil professor: **toda ferramenta nova exige `professor_telefone`**; telefone não cadastrado = erro "Telefone não cadastrado como professor."; alcance = escola do professor e, se `acesso_restrito` e não admin, só as turmas liberadas (por **nome**).
 - Etapa A **não altera dados** pelo MCP (as ferramentas antigas da planilha continuam iguais).
-- Consulta livre: só no perfil dono; no máximo **500 linhas**, **8 s**.
+- Consulta livre: só no perfil dono; estruturada (tabela, colunas e filtros de uma lista fixa), sem SQL vindo da Hermes; no máximo **500 linhas**.
 - Saídas da página valem **daqui para frente**; dados antigos aparecem como "—".
 - SQL novo vai em `db/schema.sql` **e** em `db/2026-10-12-hermes-etapa-a.sql`; o Peter cola no SQL Editor; antes de publicar código que dependa dele, conferir (só leitura) que foi aplicado.
 - Cada tarefa termina com `npx tsc --noEmit -p .`, `npm test`, `npm run lint` verdes; build ao final de cada lote publicado.
@@ -38,10 +38,11 @@
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `db/2026-10-12-hermes-etapa-a.sql` (novo) + `db/schema.sql` | colunas de saídas, schema/views `hermes`, papel `hermes_leitor`, função `hermes_consulta` |
+| `db/2026-10-12-hermes-etapa-a.sql` (novo) + `db/schema.sql` | colunas de saídas (aulas e simulados) |
 | `src/lib/hermes/presenca.ts` (novo) | regras puras de saídas (merge, limites, formatação) |
 | `src/lib/hermes/relatorios.ts` (novo) | montagem pura dos textos: resultado de simulado, desempenho de turma, perfil de aluno, progresso de curso |
 | `src/lib/hermes/hermes.test.ts` (novo) | testes das funções acima + senha |
+| `src/lib/hermes/consulta-livre.ts` (novo) | lista de tabelas/colunas permitidas e validação da consulta livre |
 | `src/lib/hermes/senha.ts` (novo) | comparação de senha em tempo constante |
 | `src/lib/mcp/escopo.ts` (novo) | tipo `Escopo` e resolução pelo telefone |
 | `src/lib/mcp/leitura.ts` (novo) | registra as ferramentas de leitura (consultas Supabase + relatórios) |
@@ -84,7 +85,7 @@ alter table aula_progresso add column if not exists tempo_fora_seg integer not n
 
 - [ ] **Step 3: Verificar tipos** — `npx tsc --noEmit -p .` → sem erros.
 
-- [ ] **Step 4: Commit** — `git add db src/lib/types.ts && git commit -m "Hermes A: SQL de saidas e consulta livre (hermes_consulta)"`.
+- [ ] **Step 4: Commit** — `git add db src/lib/types.ts && git commit -m "Hermes A: SQL das colunas de saidas"`.
 
 - [ ] **Step 5: Pedir ao Peter para colar** `db/2026-10-12-hermes-etapa-a.sql` no SQL Editor (só `alter table ... add column if not exists`). Depois conferir com script só de leitura que `select saidas, tempo_fora_seg, eventos_saida from tentativas limit 1` e `select tempo_assistido_seg, saidas, tempo_fora_seg from aula_progresso limit 1` respondem. Não publicar código das Tasks 4–7 antes disso.
 
