@@ -139,6 +139,7 @@ export type Escola = {
 export type OrigemContaAluno = "escola" | "convite";
 
 export type AlunoConta = {
+  avatar_perfil?: string | null;
   id: string;
   escola_id: string;
   nome: string;

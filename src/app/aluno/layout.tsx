@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { BookOpen, GraduationCap, KeyRound, LogOut, Timer } from "lucide-react";
 import { logout } from "@/actions/auth";
+import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual } from "@/lib/auth";
 import { LogoEscola } from "@/components/layout/EscolaContexto";
 
@@ -18,6 +19,8 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
   const aluno = await getAlunoAtual();
   if (!aluno) redirect("/login?erro=bloqueado");
   if (aluno.senha_provisoria && pathname !== "/aluno/trocar-senha") redirect("/aluno/trocar-senha");
+
+  const { data: perfil } = await supabase.from("alunos_contas").select("avatar_perfil").eq("id", aluno.id).eq("escola_id", aluno.escola_id).maybeSingle();
 
   return (
     <div className="fundo-escolar flex min-h-dvh flex-1 flex-col">
@@ -50,7 +53,7 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
                 <LogOut size={20} strokeWidth={2.2} aria-hidden="true" /> <span className={css.rotulo}>Sair</span>
               </button>
             </form>
-            <AvatarAluno alunoId={aluno.id} nome={aluno.nome} />
+            <AvatarAluno key={aluno.id} alunoId={aluno.id} nome={aluno.nome} avatarInicial={perfil?.avatar_perfil ?? ""} />
           </nav>
         </div>
       </header>
