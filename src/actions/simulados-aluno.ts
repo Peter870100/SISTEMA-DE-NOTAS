@@ -6,6 +6,7 @@ import { getAlunoAtual } from "@/lib/auth";
 import { AREAS, ehMateria, MATERIAS } from "@/lib/questoes/materias";
 import { candidatosComMateria, candidatosSorteio, entregarTentativa, fecharVencidas, salvarTempos, questoesDeProvasEmSigilo, questoesParaAluno, simuladoVisivelParaAluno, type FiltrosSorteio, type QuestaoAluno } from "@/lib/simulados/servidor";
 import { aceitaResposta, acumularTempo, correcaoLiberada, MAX_TREINO, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, sortearEquilibrado, tempoDeProvaSeg, tempoEsgotado, type TemposQuestoes } from "@/lib/simulados/regras";
+import type { Presenca } from "@/lib/hermes/presenca";
 import type { AlunoConta, Letra, PorArea, Simulado, Tentativa, TipoSimulado } from "@/lib/types";
 
 async function exigirAluno(): Promise<AlunoConta> {
@@ -128,11 +129,11 @@ export async function obterProva(simuladoId: string): Promise<ProvaAluno | null>
   };
 }
 
-export async function responder(tentativaId: string, questaoId: string, alternativa: Letra | null, tempos?: TemposQuestoes) {
+export async function responder(tentativaId: string, questaoId: string, alternativa: Letra | null, tempos?: TemposQuestoes, presenca?: Presenca) {
   const aluno = await exigirAluno();
   const { t, s } = await tentativaDoAluno(aluno, tentativaId);
   if (t.status !== "em_andamento") return { ok: false as const, erro: "Prova já entregue.", encerrada: true };
-  await salvarTempos(t, tempos);
+  await salvarTempos(t, tempos, presenca);
   if (!t.ordem.includes(questaoId)) return { ok: false as const, erro: "Questão fora do simulado." };
   if (alternativa !== null && !["A", "B", "C", "D", "E"].includes(alternativa)) return { ok: false as const, erro: "Alternativa inválida." };
   const agora = new Date();
@@ -148,7 +149,7 @@ export async function responder(tentativaId: string, questaoId: string, alternat
   return { ok: true as const };
 }
 
-export async function pulsoTreino(tentativaId: string, tempos?: TemposQuestoes) {
+export async function pulsoTreino(tentativaId: string, tempos?: TemposQuestoes, presenca?: Presenca) {
   const aluno = await exigirAluno();
   const { t, s } = await tentativaDoAluno(aluno, tentativaId);
   if (s.tipo !== "treino" || t.status !== "em_andamento") return { restanteSeg: null, usadoSeg: null, encerrada: t.status !== "em_andamento" };
@@ -156,26 +157,26 @@ export async function pulsoTreino(tentativaId: string, tempos?: TemposQuestoes) 
   const usado = acumularTempo(t.tempo_usado_seg, t.ultimo_pulso_em ? new Date(t.ultimo_pulso_em) : null, agora);
   await Promise.all([
     supabase.from("tentativas").update({ tempo_usado_seg: usado, ultimo_pulso_em: agora.toISOString() }).eq("id", t.id).eq("status", "em_andamento"),
-    salvarTempos(t, tempos),
+    salvarTempos(t, tempos, presenca),
   ]);
   if (!s.duracao_min) return { restanteSeg: null, usadoSeg: usado, encerrada: false };
   if (tempoEsgotado(usado, s.duracao_min)) { await entregarTentativa(t.id); return { restanteSeg: 0, usadoSeg: usado, encerrada: true }; }
   return { restanteSeg: s.duracao_min * 60 - usado, usadoSeg: usado, encerrada: false };
 }
 
-export async function pausarTreino(tentativaId: string, tempos?: TemposQuestoes): Promise<void> {
+export async function pausarTreino(tentativaId: string, tempos?: TemposQuestoes, presenca?: Presenca): Promise<void> {
   const aluno = await exigirAluno();
   const { t, s } = await tentativaDoAluno(aluno, tentativaId);
   if (s.tipo !== "treino" || t.status !== "em_andamento") return;
-  await salvarTempos(t, tempos);
+  await salvarTempos(t, tempos, presenca);
   const usado = acumularTempo(t.tempo_usado_seg, t.ultimo_pulso_em ? new Date(t.ultimo_pulso_em) : null, new Date());
   await supabase.from("tentativas").update({ tempo_usado_seg: usado, ultimo_pulso_em: null }).eq("id", t.id).eq("status", "em_andamento");
 }
 
-export async function entregar(tentativaId: string, tempos?: TemposQuestoes): Promise<void> {
+export async function entregar(tentativaId: string, tempos?: TemposQuestoes, presenca?: Presenca): Promise<void> {
   const aluno = await exigirAluno();
   const { t } = await tentativaDoAluno(aluno, tentativaId);
-  if (t.status === "em_andamento") await salvarTempos(t, tempos);
+  if (t.status === "em_andamento") await salvarTempos(t, tempos, presenca);
   await entregarTentativa(t.id);
 }
 

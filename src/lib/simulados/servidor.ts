@@ -6,6 +6,7 @@ import { imagensParaTela } from "@/lib/questoes/consultas";
 import { padraoExato } from "@/lib/questoes/busca";
 import type { ImagemTela } from "@/components/questoes/ImagemQuestao";
 import type { AlunoConta, Alternativa, Area, Letra, Professor, Simulado, Tentativa } from "@/lib/types";
+import { mesclarPresenca } from "@/lib/hermes/presenca";
 import { acumularTempo, correcaoLiberada, corrigir, emBlocos, LIMITE_TEMPO_QUESTAO_SEG, mesclarTempos, tempoEsgotado, TOLERANCIA_SEG, type Gabarito } from "./regras";
 
 export type QuestaoAluno = { id: string; enunciado: string; comando: string; alternativas: Alternativa[]; imagens: ImagemTela[] };
@@ -132,12 +133,19 @@ export async function corrigirTentativa(tentativaId: string): Promise<void> {
 }
 
 /** Grava o tempo por questão enviado pelo aparelho (junta com o já salvo). Falha aqui não atrapalha a prova. */
-export async function salvarTempos(t: { id: string; ordem: string[]; tempo_questoes: unknown }, tempos: unknown): Promise<void> {
-  if (!tempos) return;
+export async function salvarTempos(t: { id: string; ordem: string[]; tempo_questoes: unknown; saidas?: number; tempo_fora_seg?: number; eventos_saida?: unknown }, tempos: unknown, presenca?: unknown): Promise<void> {
+  if (!tempos && !presenca) return;
   const antes = mesclarTempos(t.tempo_questoes, null, t.ordem, LIMITE_TEMPO_QUESTAO_SEG);
   const novo = mesclarTempos(t.tempo_questoes, tempos, t.ordem, LIMITE_TEMPO_QUESTAO_SEG);
-  if (JSON.stringify(novo) === JSON.stringify(antes)) return;
-  const { error } = await supabase.from("tentativas").update({ tempo_questoes: novo }).eq("id", t.id);
+  const salva = { saidas: t.saidas, tempoForaSeg: t.tempo_fora_seg, eventos: t.eventos_saida as never };
+  const p = presenca ? mesclarPresenca(salva, presenca) : null;
+  const presencaMudou = !!p && JSON.stringify(p) !== JSON.stringify(mesclarPresenca(salva, null));
+  const temposMudaram = JSON.stringify(novo) !== JSON.stringify(antes);
+  if (!temposMudaram && !presencaMudou) return;
+  const { error } = await supabase.from("tentativas").update({
+    ...(temposMudaram ? { tempo_questoes: novo } : {}),
+    ...(p && presencaMudou ? { saidas: p.saidas, tempo_fora_seg: p.tempoForaSeg, eventos_saida: p.eventos } : {}),
+  }).eq("id", t.id);
   if (error) console.error("salvarTempos", t.id, error.message);
 }
 

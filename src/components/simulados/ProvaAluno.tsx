@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { entregar, pausarTreino, pulsoTreino, responder, type ProvaAluno as Prova } from "@/actions/simulados-aluno";
+import { mesclarPresenca, type Presenca } from "@/lib/hermes/presenca";
 import { formatarDuracao, PULSO_SEG, type TemposQuestoes } from "@/lib/simulados/regras";
 import type { Letra } from "@/lib/types";
 import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
@@ -16,6 +17,8 @@ const LETRAS: Letra[] = ["A", "B", "C", "D", "E"];
 type Pendente = { questaoId: string; alternativa: Letra | null };
 const chaveLocal = (t: string) => `prova:${t}`;
 const chaveTempo = (t: string) => `prova-tempo:${t}`;
+const chavePresenca = (t: string) => `prova-presenca:${t}`;
+const AVISO_SAIDAS = "A plataforma registra quando você sai desta página durante a prova.";
 
 /** Prova do professor: tempo desde o início, parando no prazo. */
 function decorridoProfessor(iniciadaEm: string, prazoEm: string | null, agoraMs: number) {
@@ -35,6 +38,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
     : prova.usadoSeg);
   // Segundos que cada questão ficou na tela (acumulado; também guardado no aparelho).
   const tempos = useRef<TemposQuestoes>({ ...prova.temposSeg });
+  const presenca = useRef<Presenca>({ saidas: 0, tempoForaSeg: 0, eventos: [] });
   const atualRef = useRef(0);
   const fila = useRef<Pendente[]>([]);
   const enviando = useRef(false);
@@ -65,13 +69,13 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       for (let i = 0; i < 50 && (enviando.current || fila.current.length); i++) await new Promise((ok) => setTimeout(ok, 200));
     }
     try {
-      await entregar(prova.tentativaId, { ...tempos.current });
+      await entregar(prova.tentativaId, { ...tempos.current }, { ...presenca.current });
     } catch {
       encerrando.current = false;
       setErroEntrega("Não foi possível entregar — verifique a conexão e tente de novo.");
       return;
     }
-    try { localStorage.removeItem(chaveLocal(prova.tentativaId)); localStorage.removeItem(chaveTempo(prova.tentativaId)); } catch { /* sem armazenamento local */ }
+    try { localStorage.removeItem(chaveLocal(prova.tentativaId)); localStorage.removeItem(chaveTempo(prova.tentativaId)); localStorage.removeItem(chavePresenca(prova.tentativaId)); } catch { /* sem armazenamento local */ }
     router.refresh();
   }, [prova.tentativaId, router]);
 
@@ -84,7 +88,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       const p = fila.current[0];
       const esperar = async (msg: string) => { setAviso(msg); await new Promise((ok) => setTimeout(ok, 3000)); };
       try {
-        const r = await responder(prova.tentativaId, p.questaoId, p.alternativa, { ...tempos.current });
+        const r = await responder(prova.tentativaId, p.questaoId, p.alternativa, { ...tempos.current }, { ...presenca.current });
         if (r.ok) {
           backup((b) => { if (b[p.questaoId] === p.alternativa) delete b[p.questaoId]; });
           if (fila.current[0] === p) fila.current.shift();
@@ -137,6 +141,24 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       const local: unknown = JSON.parse(localStorage.getItem(chaveTempo(prova.tentativaId)) ?? "{}");
       for (const [id, s] of Object.entries(local ?? {})) if (typeof s === "number" && s > (tempos.current[id] ?? 0)) tempos.current[id] = s;
     } catch { /* sem armazenamento local */ }
+    try { presenca.current = mesclarPresenca(presenca.current, JSON.parse(localStorage.getItem(chavePresenca(prova.tentativaId)) ?? "null")); } catch { /* sem armazenamento local */ }
+    const guardarPresenca = () => { try { localStorage.setItem(chavePresenca(prova.tentativaId), JSON.stringify(presenca.current)); } catch { /* sem armazenamento local */ } };
+    // Saídas da página: conta cada ida para outra aba/janela e o tempo fora.
+    const aoMudarVisibilidade = () => {
+      const p = presenca.current;
+      const ultimo = p.eventos[p.eventos.length - 1];
+      if (document.visibilityState === "hidden") {
+        if (encerrando.current || (ultimo && ultimo.voltou_em === null)) return; // já entregue ou "hidden" repetido
+        p.saidas += 1;
+        p.eventos = [...p.eventos, { questao: atualRef.current + 1, saiu_em: new Date().toISOString(), voltou_em: null }];
+      } else if (ultimo && ultimo.voltou_em === null) {
+        const agora = new Date();
+        p.eventos = [...p.eventos.slice(0, -1), { ...ultimo, voltou_em: agora.toISOString() }];
+        p.tempoForaSeg += Math.max(0, Math.round((agora.getTime() - Date.parse(ultimo.saiu_em)) / 1000));
+      } else return;
+      guardarPresenca();
+    };
+    document.addEventListener("visibilitychange", aoMudarVisibilidade);
     const t = setInterval(() => {
       if (document.visibilityState !== "visible" || encerrando.current) return;
       const id = prova.questoes[atualRef.current]?.id;
@@ -144,7 +166,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       tempos.current[id] = (tempos.current[id] ?? 0) + 1;
       try { localStorage.setItem(chaveTempo(prova.tentativaId), JSON.stringify(tempos.current)); } catch { /* sem armazenamento local */ }
     }, 1000);
-    return () => clearInterval(t);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", aoMudarVisibilidade); };
   }, [prova.tentativaId, prova.questoes]);
 
   // Cronômetro do professor: prazo do servidor menos o "agora" do servidor estimado.
@@ -167,14 +189,14 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
     const pulso = async () => {
       if (document.visibilityState !== "visible") return;
       try {
-        const r = await pulsoTreino(prova.tentativaId, { ...tempos.current });
+        const r = await pulsoTreino(prova.tentativaId, { ...tempos.current }, { ...presenca.current });
         setRestante(r.restanteSeg);
         if (r.usadoSeg != null) setDecorrido(r.usadoSeg);
         if (r.encerrada) await terminar();
       } catch { /* tenta no próximo */ }
     };
     pulsoRef.current = pulso;
-    const aoMudar = () => { if (document.visibilityState === "hidden") void pausarTreino(prova.tentativaId, { ...tempos.current }); else void pulso(); };
+    const aoMudar = () => { if (document.visibilityState === "hidden") void pausarTreino(prova.tentativaId, { ...tempos.current }, { ...presenca.current }); else void pulso(); };
     const tPulso = setInterval(() => void pulso(), PULSO_SEG * 1000);
     const tLocal = setInterval(() => {
       if (document.visibilityState !== "visible") return;
@@ -222,7 +244,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
         <div><p className={css.rotulo}>Caderno de questões</p><h1 className="font-display text-2xl font-semibold text-ink sm:text-3xl">{prova.simulado.titulo}</h1></div>
         <div className="flex items-center gap-2">
           {restante !== null && <span role="timer" aria-live="off" className={`rounded-control px-3 py-1 font-mono text-lg tabular-nums ${alerta ? "bg-gold/40 text-gold-ink" : "bg-surface-sunken text-ink"}`}>⏱ {formatarDuracao(restante)}</span>}
-          {prova.simulado.tipo === "treino" && <button type="button" onClick={async () => { try { await pausarTreino(prova.tentativaId, { ...tempos.current }); } catch { /* sai mesmo assim */ } router.push("/aluno/simulados"); }} className={`${estilos.botaoFantasma} ${css.acaoDiscreta}`}>Pausar</button>}
+          {prova.simulado.tipo === "treino" && <button type="button" onClick={async () => { try { await pausarTreino(prova.tentativaId, { ...tempos.current }, { ...presenca.current }); } catch { /* sai mesmo assim */ } router.push("/aluno/simulados"); }} className={`${estilos.botaoFantasma} ${css.acaoDiscreta}`}>Pausar</button>}
           <button type="button" onClick={() => setConfirmacaoAberta(true)} className={`${estilos.botaoPrimario} ${css.acaoPrincipal}`}>Entregar</button>
         </div>
       </div>
@@ -259,6 +281,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
         <p className={css.contagem}><strong>{respondidas}</strong> de {prova.questoes.length}</p>
         <p className={css.textoPainel}>questões respondidas</p>
         <progress className={css.progresso} value={respondidas} max={prova.questoes.length} aria-label="Questões respondidas" />
+        <p className={css.textoPainel}>{AVISO_SAIDAS}</p>
         <p className={css.salvamento} role="status">{salvando ? "Salvando respostas…" : aviso ? "Confira o aviso de salvamento" : "Respostas salvas"}</p>
         <p className={css.resumoQuestoes}>{prova.questoes.length} questões <span>· {emBranco} a responder</span></p>
         <nav aria-label="Ir para a questão" className={css.mapa}>

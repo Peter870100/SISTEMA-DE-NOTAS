@@ -4,6 +4,7 @@ import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { fecharVencidas, podeEditarSimulado } from "@/lib/simulados/servidor";
 import { emBlocos, formatarDuracao, situacaoSimulado, tempoDeProvaSeg } from "@/lib/simulados/regras";
+import { formatarPresenca } from "@/lib/hermes/presenca";
 import { AREAS } from "@/lib/questoes/materias";
 import type { Area } from "@/lib/types";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -126,7 +127,7 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
                 <tr>
                   <th>Aluno</th><th>Acertos</th><th>%</th>
                   {areas.map((a) => <th key={a}>{AREAS[a]}</th>)}
-                  <th>Tempo</th>
+                  <th>Saídas</th><th>Tempo</th>
                 </tr>
               </thead>
               <tbody>
@@ -140,6 +141,7 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
                       <td>{feita ? <strong>{t.acertos ?? 0}/{t.total ?? 0}</strong> : <span className={ui.andamento}>Em andamento</span>}</td>
                       <td>{pct != null ? <span className={ui.nota} data-faixa={faixa(pct)}>{fmt(pct)}%</span> : "—"}</td>
                       {areas.map((a) => { const p = t.por_area?.[a]; return <td key={a}>{feita && p ? `${p.acertos}/${p.total}` : "—"}</td>; })}
+                      <td className={ui.num}>{t.eventos_saida === null && t.saidas === 0 ? "—" : formatarPresenca(t.saidas, t.tempo_fora_seg)}</td>
                       <td className={ui.num}>{tempo != null ? formatarDuracao(tempo) : "—"}</td>
                     </tr>
                   );

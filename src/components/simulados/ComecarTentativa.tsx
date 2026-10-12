@@ -18,6 +18,7 @@ export function ComecarTentativa({ simuladoId, rotulo = "Começar" }: { simulado
 
   return (
     <div className="flex flex-col gap-1">
+      <p className="text-sm text-ink">A plataforma registra quando você sai desta página durante a prova.</p>
       {erro && <p role="alert" className="text-sm text-danger">{erro}</p>}
       <button type="button" onClick={() => void comecar()} disabled={ocupado} className={estilos.botaoPrimario}>{ocupado ? "Abrindo…" : rotulo}</button>
     </div>
