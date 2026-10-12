@@ -241,6 +241,9 @@ export type AulaProgresso = {
   duracao_seg: number | null;
   concluida_em: string | null;
   atualizado_em: string;
+  tempo_assistido_seg: number;
+  saidas: number;
+  tempo_fora_seg: number;
 };
 
 export type Escopo = "geral" | "escola";
@@ -347,6 +350,8 @@ export type Simulado = {
 export type SimuladoTurma = { simulado_id: string; escola_id: string; turma_nome: string; ano_letivo: string };
 export type SimuladoQuestao = { simulado_id: string; questao_id: string; ordem: number };
 export type PorArea = Partial<Record<Area, { acertos: number; total: number }>>;
+export type EventoSaida = { questao: number | null; saiu_em: string; voltou_em: string | null };
+
 export type Tentativa = {
   id: string;
   simulado_id: string;
@@ -363,6 +368,9 @@ export type Tentativa = {
   porcentagem: number | null;
   por_area: PorArea | null;
   tempo_questoes: Record<string, number> | null;
+  saidas: number;
+  tempo_fora_seg: number;
+  eventos_saida: EventoSaida[] | null;
   created_at: string;
 };
 export type TentativaResposta = { tentativa_id: string; questao_id: string; alternativa: Letra | null; respondida_em: string; correta: boolean | null };
