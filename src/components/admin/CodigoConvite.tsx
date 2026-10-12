@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { KeyRound, Pencil } from "lucide-react";
 import { atualizarCodigoConvite } from "@/actions/configuracoes";
-import styles from "./Professores.module.css";
+import styles from "./ContasAdmin.module.css";
 
 type CodigoConviteProps = {
   codigoInicial: string;

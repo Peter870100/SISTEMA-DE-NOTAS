@@ -121,3 +121,6 @@ Quiz das aulas: painel branco com borda azul clara, icone Lucide em fundo amarel
 
 ## Professores (admin)
 Cartoes brancos responsivos em duas colunas, iniciais em circulo azul com borda amarela, titulos Rajdhani e corpo Manrope escuro. Convite e formulario seguem a area do aluno: icones em amarelo, acao principal amarela, acoes secundarias brancas com texto azul, hover amarelo claro e foco azul. Edicoes permanecem no cartao; exclusao exige confirmacao.
+
+## Contas de aluno (admin)
+Mesmo visual dos professores, com CSS compartilhado em ContasAdmin.module.css: busca em cartao branco, avatares com iniciais, situacao da conta em azul ou amarelo, detalhes legiveis e acoes de senha e bloqueio com tamanho uniforme. Fluxo de cadastro em lote e exportacao de credenciais preservado.

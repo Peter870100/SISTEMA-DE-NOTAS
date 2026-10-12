@@ -11,7 +11,7 @@ import {
   atualizarTelefoneProfessor,
 } from "@/actions/professores";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import styles from "./Professores.module.css";
+import styles from "./ContasAdmin.module.css";
 import { ehAdmin } from "@/lib/papeis";
 
 const ONLINE_LIMITE_MS = 3 * 60 * 1000;
