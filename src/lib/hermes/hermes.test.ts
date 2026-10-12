@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fecharSaidaPendente, formatarPresenca, mesclarPresenca } from "./presenca";
+import { fecharSaidaPendente, formatarPresenca, mesclarPresenca, somarPresencaAula } from "./presenca";
 import { normalizarBusca, situacaoTurmaNoSimulado, textoProgressoAula, textoResultadoSimulado } from "./relatorios";
 
 test("mesclarPresenca: nunca diminui, limita e une eventos", () => {
@@ -53,4 +53,12 @@ test("fecharSaidaPendente fecha a saida aberta e limita a 30 min", () => {
   assert.notEqual(longa.eventos[0].voltou_em, null);
   const fechada = { ...curta };
   assert.equal(fecharSaidaPendente(fechada, new Date()), fechada);
+});
+
+test("somarPresencaAula soma deltas entre visitas, com teto e entrada tolerante", () => {
+  const base = { tempo_assistido_seg: 100, saidas: 3, tempo_fora_seg: 60 };
+  assert.deepEqual(somarPresencaAula(base, { assistidoDeltaSeg: 15, saidasDelta: 2, foraDeltaSeg: 30 }), { tempo_assistido_seg: 115, saidas: 5, tempo_fora_seg: 90 });
+  assert.deepEqual(somarPresencaAula(base, { assistidoDeltaSeg: 9999, saidasDelta: 999, foraDeltaSeg: 99999 }), { tempo_assistido_seg: 220, saidas: 23, tempo_fora_seg: 3660 });
+  assert.deepEqual(somarPresencaAula(base, { assistidoDeltaSeg: -5, saidasDelta: NaN, foraDeltaSeg: "x" }), base);
+  assert.deepEqual(somarPresencaAula(base, undefined), base);
 });

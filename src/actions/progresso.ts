@@ -3,10 +3,10 @@
 import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual } from "@/lib/auth";
 import { obterAulaParaAluno } from "@/lib/aulas/acesso";
-import { mesclarPresenca } from "@/lib/hermes/presenca";
+import { somarPresencaAula } from "@/lib/hermes/presenca";
 import { calcularProgresso, porcentagemAula } from "@/lib/aulas/progresso";
 
-type ExtraProgresso = { assistidoDeltaSeg: number; saidas: number; tempoForaSeg: number };
+type ExtraProgresso = { assistidoDeltaSeg: number; saidasDelta: number; foraDeltaSeg: number };
 
 export async function registrarProgresso(aulaId: string, posicaoSeg: number, extra?: ExtraProgresso): Promise<{ porcentagem: number; concluida: boolean }> {
   const aluno = await getAlunoAtual();
@@ -20,14 +20,11 @@ export async function registrarProgresso(aulaId: string, posicaoSeg: number, ext
     .eq("conta_id", aluno.id)
     .eq("aula_id", aulaId)
     .maybeSingle();
-  // Tempo assistido soma o delta (limitado contra envio errado); saídas e tempo fora ficam com o maior valor.
-  const delta = Number(extra?.assistidoDeltaSeg);
-  const assistido = (anterior?.tempo_assistido_seg ?? 0) + (Number.isFinite(delta) ? Math.min(Math.max(0, Math.round(delta)), 120) : 0);
-  const pres = mesclarPresenca(
-    { saidas: anterior?.saidas ?? 0, tempoForaSeg: anterior?.tempo_fora_seg ?? 0, eventos: [] },
-    { saidas: extra?.saidas, tempoForaSeg: extra?.tempoForaSeg, eventos: [] }
+  // Tudo é delta somado ao já gravado (com limite contra envio errado).
+  const presencaGravar = somarPresencaAula(
+    { tempo_assistido_seg: anterior?.tempo_assistido_seg ?? 0, saidas: anterior?.saidas ?? 0, tempo_fora_seg: anterior?.tempo_fora_seg ?? 0 },
+    extra
   );
-  const presencaGravar = { tempo_assistido_seg: assistido, saidas: pres.saidas, tempo_fora_seg: pres.tempoForaSeg };
   // Sem duração registrada pelo professor não dá para medir nem concluir: só guarda onde retomar.
   if (acesso.aula.duracao_seg == null) {
     const pos = Number.isFinite(posicaoSeg) ? Math.max(0, Math.round(posicaoSeg)) : 0;

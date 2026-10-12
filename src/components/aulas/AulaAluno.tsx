@@ -28,12 +28,13 @@ export function AulaAluno({ aulaId, video, iniciarEm, porcentagemInicial, conclu
   const [erro, setErro] = useState<string | null>(null);
 
   const aoTempo = useCallback((posicao: number, _duracao: number, extra: ExtraProgresso) => {
-    registrarProgresso(aulaId, posicao, extra)
+    return registrarProgresso(aulaId, posicao, extra)
       .then((r) => {
         setPorcentagem(r.porcentagem);
         if (r.concluida && !concluida) { setConcluida(true); router.refresh(); }
+        return true;
       })
-      .catch(() => setErro("Não conseguimos salvar seu progresso agora. Ele volta a ser salvo sozinho."));
+      .catch(() => { setErro("Não conseguimos salvar seu progresso agora. Ele volta a ser salvo sozinho."); return false; });
   }, [aulaId, concluida, router]);
 
   return (

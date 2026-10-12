@@ -51,3 +51,18 @@ export function formatarPresenca(saidas: number | null, foraSeg: number | null):
   if (saidas === 0) return "nenhuma";
   return `${saidas} ${saidas === 1 ? "saída" : "saídas"} · ${formatarDuracao(foraSeg)} fora`;
 }
+
+const delta = (v: unknown, max: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(0, Math.round(v))) : 0);
+
+/** Soma os deltas de uma visita à aula ao que já estava gravado; cada delta tem teto contra envio errado. */
+export function somarPresencaAula(
+  salvo: { tempo_assistido_seg: number; saidas: number; tempo_fora_seg: number },
+  extra: unknown
+): { tempo_assistido_seg: number; saidas: number; tempo_fora_seg: number } {
+  const e = (extra && typeof extra === "object" ? extra : {}) as Record<string, unknown>;
+  return {
+    tempo_assistido_seg: salvo.tempo_assistido_seg + delta(e.assistidoDeltaSeg, 120),
+    saidas: salvo.saidas + delta(e.saidasDelta, 20),
+    tempo_fora_seg: salvo.tempo_fora_seg + delta(e.foraDeltaSeg, 3600),
+  };
+}

@@ -35,13 +35,13 @@ function carregarApiYoutube(): Promise<YTNamespace> {
 }
 
 /** Presença medida na página: tempo realmente assistido desde o último informe e saídas desta visita. */
-export type ExtraProgresso = { assistidoDeltaSeg: number; saidas: number; tempoForaSeg: number };
+export type ExtraProgresso = { assistidoDeltaSeg: number; saidasDelta: number; foraDeltaSeg: number };
 
 type Props = {
   provedor: ProvedorVideo;
   videoId: string;
   iniciarEm: number;
-  onTempo: (posicaoSeg: number, duracaoSeg: number, extra: ExtraProgresso) => void;
+  onTempo: (posicaoSeg: number, duracaoSeg: number, extra: ExtraProgresso) => Promise<boolean> | void;
   onDuracao?: (duracaoSeg: number) => void;
 };
 
@@ -68,8 +68,8 @@ export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo, onDuracao }
     let tocando = false;
     let marca: number | null = null; // início do trecho que está sendo contado
     let assistidoSeg = 0; // acumulado ainda não informado
-    let saidas = 0;
-    let tempoForaSeg = 0;
+    let saidasPend = 0; // saídas ainda não salvas
+    let foraPendSeg = 0; // tempo fora ainda não salvo
     let foraDesde: number | null = null;
     const somarTrecho = () => {
       if (marca === null) return;
@@ -92,21 +92,30 @@ export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo, onDuracao }
       const duracao = player.getDuration();
       if (duracao <= 0) return;
       somarTrecho();
+      // Tira o que vai ser enviado do pendente; se o envio falhar, devolve para ir no próximo.
       const assistidoDeltaSeg = Math.round(assistidoSeg);
+      const saidasDelta = saidasPend;
+      const foraDeltaSeg = foraPendSeg;
       assistidoSeg -= assistidoDeltaSeg;
-      aoTempo.current(player.getCurrentTime(), duracao, { assistidoDeltaSeg, saidas, tempoForaSeg });
+      saidasPend = 0;
+      foraPendSeg = 0;
+      const devolver = () => { assistidoSeg += assistidoDeltaSeg; saidasPend += saidasDelta; foraPendSeg += foraDeltaSeg; };
+      try {
+        const r = aoTempo.current(player.getCurrentTime(), duracao, { assistidoDeltaSeg, saidasDelta, foraDeltaSeg });
+        if (r) void r.then((ok) => { if (!ok) devolver(); }, devolver);
+      } catch (e) { devolver(); throw e; }
     };
     const pararTimer = () => { if (timer) clearInterval(timer); timer = null; };
     const aoEsconder = () => {
       if (document.visibilityState === "hidden") {
         if (foraDesde !== null) return; // "hidden" repetido: não conta duas vezes
-        saidas += 1;
+        saidasPend += 1;
         foraDesde = Date.now();
         informar();
         somarTrecho();
         marca = null;
       } else if (foraDesde !== null) {
-        tempoForaSeg += Math.max(0, Math.round((Date.now() - foraDesde) / 1000));
+        foraPendSeg += Math.max(0, Math.round((Date.now() - foraDesde) / 1000));
         foraDesde = null;
         if (tocando) marca = Date.now();
       }
