@@ -14,11 +14,15 @@ const LARGURA_MAX = 1600;
 
 type Pagina = { blob: Blob; largura: number; altura: number };
 
-async function renderizarPdf(arquivo: File, aoAvancar: (feitas: number, total: number) => void): Promise<Pagina[]> {
+async function renderizarPdf(arquivo: File, tipo: "prova" | "gabarito", aoAvancar: (feitas: number, total: number) => void): Promise<Pagina[]> {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
   const doc = await pdfjs.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()) }).promise;
-  if (doc.numPages > MAX_PAGINAS) throw new Error(`O PDF tem ${doc.numPages} páginas; o máximo é ${MAX_PAGINAS}.`);
+  if (doc.numPages > MAX_PAGINAS) {
+    throw new Error(tipo === "gabarito"
+      ? `O PDF do gabarito tem ${doc.numPages} páginas; o máximo é ${MAX_PAGINAS}. Envie só as páginas com as respostas (no Chrome: Ctrl+P → Salvar como PDF → Páginas personalizadas).`
+      : `O PDF da prova tem ${doc.numPages} páginas; o máximo é ${MAX_PAGINAS}. Divida o caderno em duas importações (ex.: "parte 1" e "parte 2").`);
+  }
   const paginas: Pagina[] = [];
   for (let n = 1; n <= doc.numPages; n++) {
     const page = await doc.getPage(n);
@@ -67,8 +71,8 @@ export function ImportarProva({ escopos }: { escopos: Escopo[] }) {
     try {
       setProgresso("Lendo o PDF…");
       setPct(0);
-      const paginasProva = await renderizarPdf(prova, (f, t) => { setProgresso(`Preparando prova: página ${f} de ${t}`); setPct(Math.round((25 * f) / t)); });
-      const paginasGab = gabarito ? await renderizarPdf(gabarito, (f, t) => { setProgresso(`Preparando gabarito: página ${f} de ${t}`); setPct(25 + Math.round((10 * f) / t)); }) : [];
+      const paginasProva = await renderizarPdf(prova, "prova", (f, t) => { setProgresso(`Preparando prova: página ${f} de ${t}`); setPct(Math.round((25 * f) / t)); });
+      const paginasGab = gabarito ? await renderizarPdf(gabarito, "gabarito", (f, t) => { setProgresso(`Preparando gabarito: página ${f} de ${t}`); setPct(25 + Math.round((10 * f) / t)); }) : [];
       const custo = (paginasProva.length * (9000 * 2 + 3000 * 10)) / 1_000_000;
       if (!window.confirm(`São ${paginasProva.length} páginas. Custo estimado da leitura: ≈ US$ ${custo.toFixed(2)}. Continuar?`)) { setProgresso(null); return; }
       const id = await criarImportacao({ escopo, banca: banca === "Outra" ? outra : banca, ano: ano ? Number(ano) : null, caderno });
