@@ -127,3 +127,6 @@ Mesmo visual dos professores, com CSS compartilhado em ContasAdmin.module.css: b
 
 ## Escolas (dono)
 Lista em cartoes brancos com icone institucional azul e amarelo, nomes em Rajdhani, situacao em azul ou amarelo e contagens de professores, turmas e contas em destaque. Botao Gerenciar escola amarelo aponta para o mesmo cadastro existente. Mantem painel de indicadores e restricao ao dono.
+
+## Configuracoes
+Opcoes em cartoes brancos com icones amarelos, titulos Rajdhani azuis e descricoes Manrope escuras. Grupos Escola, Plataforma e Minha conta preservam visibilidade por perfil. Guia de acesso de teste do aluno retratil em details/summary, fechado inicialmente. Hover amarelo claro, foco azul e movimento reduzido respeitado.
