@@ -9,6 +9,9 @@ import type { Area } from "@/lib/types";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { LiberarCorrecao } from "@/components/simulados/LiberarCorrecao";
 import { estilos } from "@/components/ui/estilos";
+import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
+import { ExternalLink, Hourglass, Send, Target, TriangleAlert, Users, UsersRound, Clock3 } from "lucide-react";
+import css from "./ResultadosSimulado.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +88,19 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
   const linhas = [...todas].sort((a, b) => (nomes.get(a.conta_id) ?? "").localeCompare(nomes.get(b.conta_id) ?? "", "pt-BR"));
   const areas = Object.keys(AREAS) as Area[];
 
+  const notas = entregues.map((t) => t.porcentagem).filter((p): p is number => p != null).map(Number);
+  const mediaTurma = notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : null;
+  const tempos = entregues.map((t) => tempoDeProvaSeg("professor", t)).filter((s): s is number => s != null);
+  const tempoMedio = tempos.length ? Math.round(tempos.reduce((a, b) => a + b, 0) / tempos.length) : null;
+  const painel: ItemResumo[] = [
+    { rotulo: "Começaram", valor: String(todas.length), detalhe: "alunos que abriram a prova", Icone: Users },
+    { rotulo: "Entregaram", valor: String(entregues.length), detalhe: `${todas.length - entregues.length} ainda em andamento`, Icone: Send },
+    { rotulo: "Média da turma", valor: mediaTurma == null ? "—" : `${fmt(mediaTurma)}%`, detalhe: "de acerto nas entregas", Icone: Target },
+    { rotulo: "Tempo médio", valor: tempoMedio == null ? "—" : formatarDuracao(tempoMedio), detalhe: "para finalizar a prova", Icone: Hourglass },
+  ];
+  // Faixa da nota: verde a partir de 70%, dourado de 50% a 69%, vermelho abaixo.
+  const faixa = (pct: number) => (pct >= 70 ? "boa" : pct >= 50 ? "media" : "baixa");
+
   return (
     <PageLayout
       crumb="Simulados"
@@ -93,82 +109,95 @@ export default async function ResultadosSimuladoPage({ params }: { params: Promi
       acoes={rascunhoOuSemTentativas ? <Link href={`/simulados/${id}/editar`} className={estilos.botaoSecundario}>Editar</Link> : undefined}
       largura="max-w-6xl"
     >
+      <PainelResumo itens={painel} />
       {podeLiberar && (
-        <section className={`${estilos.card} p-4`}>
-          <p className="mb-2 text-sm text-muted">A correção só aparece para os alunos depois do prazo.</p>
+        <section className={`${css.cartao} ${css.liberar}`}>
+          <p>A correção só aparece para os alunos depois do prazo.</p>
           <LiberarCorrecao simuladoId={id} emAndamento={todas.length - entregues.length} />
         </section>
       )}
-      <section aria-labelledby="titulo-alunos" className={`${estilos.card} overflow-x-auto p-4`}>
-        <h2 id="titulo-alunos" className="mb-3 font-semibold text-ink">Alunos</h2>
-        {linhas.length === 0 ? <p className="text-sm text-muted">Ninguém começou ainda.</p> : (
-          <table className="w-full text-left text-sm">
-            <thead className="text-xs text-muted">
-              <tr>
-                <th className="py-1 pr-3">Aluno</th><th className="pr-3">Acertos</th><th className="pr-3">%</th>
-                {areas.map((a) => <th key={a} className="pr-3">{AREAS[a]}</th>)}
-                <th>Tempo</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {linhas.map((t) => {
-                const feita = t.status === "entregue";
-                const tempo = feita ? tempoDeProvaSeg("professor", t) : null;
-                return (
-                  <tr key={t.id}>
-                    <td className="py-2 pr-3 font-medium text-ink">{nomes.get(t.conta_id) ?? "—"}</td>
-                    <td className="pr-3">{feita ? `${t.acertos ?? 0}/${t.total ?? 0}` : "Em andamento"}</td>
-                    <td className="pr-3">{feita && t.porcentagem != null ? `${fmt(Number(t.porcentagem))}%` : "—"}</td>
-                    {areas.map((a) => { const p = t.por_area?.[a]; return <td key={a} className="pr-3">{feita && p ? `${p.acertos}/${p.total}` : "—"}</td>; })}
-                    <td className="tabular-nums">{tempo != null ? formatarDuracao(tempo) : "—"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      <section aria-labelledby="titulo-alunos" className={css.cartao}>
+        <h2 id="titulo-alunos" className={css.titulo}><span className={css.icone} aria-hidden="true"><UsersRound size={20} /></span>Alunos<span className={css.contador}>{linhas.length}</span></h2>
+        {linhas.length === 0 ? <p className={css.vazio}>Ninguém começou ainda.</p> : (
+          <div className={css.rolagem}>
+            <table className={css.tabela}>
+              <thead>
+                <tr>
+                  <th>Aluno</th><th>Acertos</th><th>%</th>
+                  {areas.map((a) => <th key={a}>{AREAS[a]}</th>)}
+                  <th>Tempo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linhas.map((t) => {
+                  const feita = t.status === "entregue";
+                  const tempo = feita ? tempoDeProvaSeg("professor", t) : null;
+                  const pct = feita && t.porcentagem != null ? Number(t.porcentagem) : null;
+                  return (
+                    <tr key={t.id}>
+                      <td className={css.nome}>{nomes.get(t.conta_id) ?? "—"}</td>
+                      <td>{feita ? <strong>{t.acertos ?? 0}/{t.total ?? 0}</strong> : <span className={css.andamento}>Em andamento</span>}</td>
+                      <td>{pct != null ? <span className={css.nota} data-faixa={faixa(pct)}>{fmt(pct)}%</span> : "—"}</td>
+                      {areas.map((a) => { const p = t.por_area?.[a]; return <td key={a}>{feita && p ? `${p.acertos}/${p.total}` : "—"}</td>; })}
+                      <td className={css.num}>{tempo != null ? formatarDuracao(tempo) : "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
       {comTempo.length > 0 && (
-        <section aria-labelledby="titulo-tempos" className={`${estilos.card} overflow-x-auto p-4`}>
-          <h2 id="titulo-tempos" className="font-semibold text-ink">Tempo por questão</h2>
-          <p className="mb-3 text-xs text-muted">Quanto tempo cada aluno ficou em cada questão (numeração do seu caderno). Verde = acertou, vermelho = errou.</p>
-          <table className="w-full text-left text-sm tabular-nums">
-            <thead className="text-xs text-muted">
-              <tr>
-                <th className="sticky left-0 bg-surface py-1 pr-3">Aluno</th>
-                {colunas.map((qid, i) => <th key={qid} className="px-2 text-center">{String(i + 1).padStart(2, "0")}</th>)}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {[...comTempo].sort((a, b) => (nomes.get(a.conta_id) ?? "").localeCompare(nomes.get(b.conta_id) ?? "", "pt-BR")).map((t) => (
-                <tr key={t.id}>
-                  <td className="sticky left-0 bg-surface py-2 pr-3 font-medium text-ink">{nomes.get(t.conta_id) ?? "—"}</td>
-                  {colunas.map((qid) => {
-                    const s = t.tempo_questoes?.[qid];
-                    const c = acertou.get(`${t.id}|${qid}`);
-                    return <td key={qid} className={`px-2 text-center ${c === true ? "text-ok" : c === false ? "text-danger" : "text-muted"}`}>{s != null ? formatarDuracao(s) : "—"}</td>;
-                  })}
+        <section aria-labelledby="titulo-tempos" className={css.cartao}>
+          <h2 id="titulo-tempos" className={css.titulo}><span className={css.icone} aria-hidden="true"><Clock3 size={20} /></span>Tempo por questão</h2>
+          <p className={css.legenda}>Quanto tempo cada aluno ficou em cada questão (numeração do seu caderno). <span className={css.chipOk}>verde = acertou</span> <span className={css.chipErro}>vermelho = errou</span></p>
+          <div className={css.rolagem}>
+            <table className={`${css.tabela} ${css.tempos}`}>
+              <thead>
+                <tr>
+                  <th className={css.fixa}>Aluno</th>
+                  {colunas.map((qid, i) => <th key={qid}>{String(i + 1).padStart(2, "0")}</th>)}
                 </tr>
-              ))}
-              <tr className="font-semibold text-ink">
-                <td className="sticky left-0 bg-surface py-2 pr-3">Média</td>
-                {colunas.map((qid) => <td key={qid} className="px-2 text-center">{mediaTempo.has(qid) ? formatarDuracao(mediaTempo.get(qid)!) : "—"}</td>)}
-              </tr>
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {[...comTempo].sort((a, b) => (nomes.get(a.conta_id) ?? "").localeCompare(nomes.get(b.conta_id) ?? "", "pt-BR")).map((t) => (
+                  <tr key={t.id}>
+                    <td className={`${css.fixa} ${css.nome}`}>{nomes.get(t.conta_id) ?? "—"}</td>
+                    {colunas.map((qid) => {
+                      const s = t.tempo_questoes?.[qid];
+                      const c = acertou.get(`${t.id}|${qid}`);
+                      return <td key={qid} data-resultado={c === true ? "certa" : c === false ? "errada" : undefined}>{s != null ? formatarDuracao(s) : "—"}</td>;
+                    })}
+                  </tr>
+                ))}
+                <tr className={css.media}>
+                  <td className={css.fixa}>Média</td>
+                  {colunas.map((qid) => <td key={qid}>{mediaTempo.has(qid) ? formatarDuracao(mediaTempo.get(qid)!) : "—"}</td>)}
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
-      <section aria-labelledby="titulo-erradas" className={`${estilos.card} p-4`}>
-        <h2 id="titulo-erradas" className="mb-3 font-semibold text-ink">Questões mais erradas</h2>
-        {piores.length === 0 ? <p className="text-sm text-muted">Sem entregas ainda.</p> : (
-          <ul className="divide-y divide-line">
+      <section aria-labelledby="titulo-erradas" className={css.cartao}>
+        <h2 id="titulo-erradas" className={css.titulo}><span className={css.icone} aria-hidden="true"><TriangleAlert size={20} /></span>Questões mais erradas</h2>
+        {piores.length === 0 ? <p className={css.vazio}>Sem entregas ainda.</p> : (
+          <ul className={css.erradas}>
             {piores.map((p) => {
               const q = qPorId.get(p.questaoId);
               return (
-                <li key={p.questaoId} className="flex items-center gap-3 py-2 text-sm">
-                  <span className="min-w-0 flex-1 text-ink">{q ? `${q.banca} ${q.ano ?? ""} · Nº ${q.numero ?? "—"}` : "Questão"}</span>
-                  <span className="text-muted">{fmt(p.pct)}% de acerto · mais marcada: {p.maisMarcada}{mediaTempo.has(p.questaoId) ? ` · tempo médio: ${formatarDuracao(mediaTempo.get(p.questaoId)!)}` : ""}</span>
-                  <Link href={`/banco/questoes/${p.questaoId}`} target="_blank" className={estilos.botaoFantasma}>Ver</Link>
+                <li key={p.questaoId} className="cartao-interativo">
+                  <div className={css.erradaTopo}>
+                    <span className={css.erradaNome}>{q ? `${q.banca} ${q.ano ?? ""} · Nº ${q.numero ?? "—"}` : "Questão"}</span>
+                    <span className={css.nota} data-faixa={faixa(p.pct)}>{fmt(p.pct)}%</span>
+                  </div>
+                  <span className={css.barra} role="progressbar" aria-label="Acerto" aria-valuenow={Math.round(p.pct)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${p.pct}%` }} data-faixa={faixa(p.pct)} /></span>
+                  <div className={css.erradaRodape}>
+                    <span>Mais marcada: <b className={css.selo}>{p.maisMarcada}</b></span>
+                    {mediaTempo.has(p.questaoId) && <span><Clock3 size={15} aria-hidden="true" />{formatarDuracao(mediaTempo.get(p.questaoId)!)} em média</span>}
+                    <Link href={`/banco/questoes/${p.questaoId}`} target="_blank" className={css.ver}>Ver questão<ExternalLink size={15} aria-hidden="true" /></Link>
+                  </div>
                 </li>
               );
             })}
