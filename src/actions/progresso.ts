@@ -3,9 +3,12 @@
 import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual } from "@/lib/auth";
 import { obterAulaParaAluno } from "@/lib/aulas/acesso";
+import { mesclarPresenca } from "@/lib/hermes/presenca";
 import { calcularProgresso, porcentagemAula } from "@/lib/aulas/progresso";
 
-export async function registrarProgresso(aulaId: string, posicaoSeg: number): Promise<{ porcentagem: number; concluida: boolean }> {
+type ExtraProgresso = { assistidoDeltaSeg: number; saidas: number; tempoForaSeg: number };
+
+export async function registrarProgresso(aulaId: string, posicaoSeg: number, extra?: ExtraProgresso): Promise<{ porcentagem: number; concluida: boolean }> {
   const aluno = await getAlunoAtual();
   if (!aluno) throw new Error("Faça login novamente.");
   const acesso = await obterAulaParaAluno(aluno, aulaId);
@@ -17,11 +20,19 @@ export async function registrarProgresso(aulaId: string, posicaoSeg: number): Pr
     .eq("conta_id", aluno.id)
     .eq("aula_id", aulaId)
     .maybeSingle();
+  // Tempo assistido soma o delta (limitado contra envio errado); saídas e tempo fora ficam com o maior valor.
+  const delta = Number(extra?.assistidoDeltaSeg);
+  const assistido = (anterior?.tempo_assistido_seg ?? 0) + (Number.isFinite(delta) ? Math.min(Math.max(0, Math.round(delta)), 120) : 0);
+  const pres = mesclarPresenca(
+    { saidas: anterior?.saidas ?? 0, tempoForaSeg: anterior?.tempo_fora_seg ?? 0, eventos: [] },
+    { saidas: extra?.saidas, tempoForaSeg: extra?.tempoForaSeg, eventos: [] }
+  );
+  const presencaGravar = { tempo_assistido_seg: assistido, saidas: pres.saidas, tempo_fora_seg: pres.tempoForaSeg };
   // Sem duração registrada pelo professor não dá para medir nem concluir: só guarda onde retomar.
   if (acesso.aula.duracao_seg == null) {
     const pos = Number.isFinite(posicaoSeg) ? Math.max(0, Math.round(posicaoSeg)) : 0;
     const { error: erroPos } = await supabase.from("aula_progresso").upsert(
-      { conta_id: aluno.id, aula_id: aulaId, curso_id: acesso.curso.id, posicao_seg: pos, atualizado_em: new Date().toISOString() },
+      { conta_id: aluno.id, aula_id: aulaId, curso_id: acesso.curso.id, posicao_seg: pos, ...presencaGravar, atualizado_em: new Date().toISOString() },
       { onConflict: "conta_id,aula_id" }
     );
     if (erroPos) throw new Error(erroPos.message);
@@ -40,6 +51,7 @@ export async function registrarProgresso(aulaId: string, posicaoSeg: number): Pr
       posicao_seg: novo.posicao_seg,
       maior_posicao_seg: novo.maior_posicao_seg,
       duracao_seg: novo.duracao_seg,
+      ...presencaGravar,
       ...(concluida_em ? { concluida_em } : {}),
       atualizado_em: agora,
     },

@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase/client";
 import { podeEditarCurso } from "@/lib/aulas/acesso";
 import { arvoreDoCurso } from "@/lib/aulas/consultas";
 import { porcentagemConjunto } from "@/lib/aulas/progresso";
+import { formatarDuracao } from "@/lib/simulados/regras";
+import { formatarPresenca } from "@/lib/hermes/presenca";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos } from "@/components/ui/estilos";
 import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
@@ -35,11 +37,20 @@ export default async function ProgressoTurmaPage({ params, searchParams }: Props
   const contaIds = (vinculos ?? []).map((v) => v.conta_id);
   const [{ data: contas }, { data: progressos }] = await Promise.all([
     contaIds.length ? supabase.from("alunos_contas").select("id, nome, ultimo_acesso").in("id", contaIds).order("nome") : Promise.resolve({ data: [] as { id: string; nome: string; ultimo_acesso: string | null }[] }),
-    contaIds.length ? supabase.from("aula_progresso").select("conta_id, aula_id, concluida_em").eq("curso_id", id).in("conta_id", contaIds) : Promise.resolve({ data: [] as { conta_id: string; aula_id: string; concluida_em: string | null }[] }),
+    contaIds.length ? supabase.from("aula_progresso").select("conta_id, aula_id, maior_posicao_seg, duracao_seg, tempo_assistido_seg, saidas, tempo_fora_seg, concluida_em").eq("curso_id", id).in("conta_id", contaIds) : Promise.resolve({ data: [] as { conta_id: string; aula_id: string; maior_posicao_seg: number; duracao_seg: number | null; tempo_assistido_seg: number; saidas: number; tempo_fora_seg: number; concluida_em: string | null }[] }),
   ]);
   const concluidas = new Set((progressos ?? []).filter((p) => p.concluida_em).map((p) => `${p.conta_id}|${p.aula_id}`));
   const fez = (contaId: string, lista: { id: string }[]) => lista.filter((a) => concluidas.has(`${contaId}|${a.id}`)).length;
   const porAula = aulas.map((a) => ({ aula: a, alunos: (contas ?? []).filter((c) => concluidas.has(`${c.id}|${a.id}`)).length })).sort((x, y) => x.alunos - y.alunos);
+
+  const somaAluno = new Map<string, { assistido: number; saidas: number; fora: number }>();
+  for (const p of progressos ?? []) {
+    const t = somaAluno.get(p.conta_id) ?? { assistido: 0, saidas: 0, fora: 0 };
+    t.assistido += p.tempo_assistido_seg ?? 0;
+    t.saidas += p.saidas ?? 0;
+    t.fora += p.tempo_fora_seg ?? 0;
+    somaAluno.set(p.conta_id, t);
+  }
 
   const alunos = contas ?? [];
   const pctAluno = new Map(alunos.map((c) => [c.id, porcentagemConjunto(fez(c.id, aulas), aulas.length)]));
@@ -73,16 +84,19 @@ export default async function ProgressoTurmaPage({ params, searchParams }: Props
               <div className={ui.rolagem}>
                 <table className={ui.tabela}>
                   <thead>
-                    <tr><th>Aluno</th><th>Curso</th>{comAulas.map((m) => <th key={m.id}>{m.titulo}</th>)}<th>Último acesso</th></tr>
+                    <tr><th>Aluno</th><th>Curso</th>{comAulas.map((m) => <th key={m.id}>{m.titulo}</th>)}<th>Assistido</th><th>Saídas</th><th>Último acesso</th></tr>
                   </thead>
                   <tbody>
                     {alunos.map((c) => {
                       const pct = pctAluno.get(c.id) ?? 0;
+                      const soma = somaAluno.get(c.id);
                       return (
                         <tr key={c.id}>
                           <td className={ui.nome}>{c.nome}</td>
                           <td><span className={ui.nota} data-faixa={faixa(pct)}>{pct}%</span></td>
                           {comAulas.map((m) => <td key={m.id} className={ui.num}>{porcentagemConjunto(fez(c.id, m.aulas), m.aulas.length)}%</td>)}
+                          <td className={ui.num}>{soma ? formatarDuracao(soma.assistido) : "—"}</td>
+                          <td>{formatarPresenca(soma ? soma.saidas : null, soma ? soma.fora : null)}</td>
                           <td>{c.ultimo_acesso ? new Date(c.ultimo_acesso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : <span className={ui.andamento}>Nunca</span>}</td>
                         </tr>
                       );

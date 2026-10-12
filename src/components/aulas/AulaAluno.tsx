@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { concluirAulaSemVideo, registrarProgresso } from "@/actions/progresso";
 import type { ProvedorVideo } from "@/lib/types";
-import { PlayerVideo } from "@/components/aulas/PlayerVideo";
+import { PlayerVideo, type ExtraProgresso } from "@/components/aulas/PlayerVideo";
 import { estilos } from "@/components/ui/estilos";
 import { QuizAulaAluno } from "./QuizAulaAluno";
 import type { QuizAlunoDados } from "@/lib/aulas/quiz";
@@ -27,8 +27,8 @@ export function AulaAluno({ aulaId, video, iniciarEm, porcentagemInicial, conclu
   const [concluida, setConcluida] = useState(concluidaInicial);
   const [erro, setErro] = useState<string | null>(null);
 
-  const aoTempo = useCallback((posicao: number) => {
-    registrarProgresso(aulaId, posicao)
+  const aoTempo = useCallback((posicao: number, _duracao: number, extra: ExtraProgresso) => {
+    registrarProgresso(aulaId, posicao, extra)
       .then((r) => {
         setPorcentagem(r.porcentagem);
         if (r.concluida && !concluida) { setConcluida(true); router.refresh(); }
@@ -47,6 +47,7 @@ export function AulaAluno({ aulaId, video, iniciarEm, porcentagemInicial, conclu
               <span className={css.estado}>{concluida ? <><CheckCircle2 size={17} aria-hidden="true" />Concluída</> : "Assistido"}</span>
             </div>
             <ProgressoCurso porcentagem={porcentagem} rotulo="Quanto do vídeo você assistiu" />
+            <p className={css.aviso}>A plataforma registra quanto tempo você assiste e quando sai desta página.</p>
           </div>
         </>
       ) : concluida ? (

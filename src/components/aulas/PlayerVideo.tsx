@@ -34,11 +34,14 @@ function carregarApiYoutube(): Promise<YTNamespace> {
   return carregandoApi;
 }
 
+/** Presença medida na página: tempo realmente assistido desde o último informe e saídas desta visita. */
+export type ExtraProgresso = { assistidoDeltaSeg: number; saidas: number; tempoForaSeg: number };
+
 type Props = {
   provedor: ProvedorVideo;
   videoId: string;
   iniciarEm: number;
-  onTempo: (posicaoSeg: number, duracaoSeg: number) => void;
+  onTempo: (posicaoSeg: number, duracaoSeg: number, extra: ExtraProgresso) => void;
   onDuracao?: (duracaoSeg: number) => void;
 };
 
@@ -61,6 +64,19 @@ export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo, onDuracao }
     let cancelado = false;
     let pronto = false;
     let duracaoInformada = false;
+    // Tempo assistido: só conta com a aba visível e o vídeo em reprodução.
+    let tocando = false;
+    let marca: number | null = null; // início do trecho que está sendo contado
+    let assistidoSeg = 0; // acumulado ainda não informado
+    let saidas = 0;
+    let tempoForaSeg = 0;
+    let foraDesde: number | null = null;
+    const somarTrecho = () => {
+      if (marca === null) return;
+      const agora = Date.now();
+      assistidoSeg += Math.max(0, (agora - marca) / 1000);
+      marca = agora;
+    };
 
     const informarDuracao = () => {
       if (duracaoInformada || !player) return;
@@ -74,10 +90,27 @@ export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo, onDuracao }
     const informar = () => {
       if (!player || !pronto) return;
       const duracao = player.getDuration();
-      if (duracao > 0) aoTempo.current(player.getCurrentTime(), duracao);
+      if (duracao <= 0) return;
+      somarTrecho();
+      const assistidoDeltaSeg = Math.round(assistidoSeg);
+      assistidoSeg -= assistidoDeltaSeg;
+      aoTempo.current(player.getCurrentTime(), duracao, { assistidoDeltaSeg, saidas, tempoForaSeg });
     };
     const pararTimer = () => { if (timer) clearInterval(timer); timer = null; };
-    const aoEsconder = () => { if (document.visibilityState === "hidden") informar(); };
+    const aoEsconder = () => {
+      if (document.visibilityState === "hidden") {
+        if (foraDesde !== null) return; // "hidden" repetido: não conta duas vezes
+        saidas += 1;
+        foraDesde = Date.now();
+        informar();
+        somarTrecho();
+        marca = null;
+      } else if (foraDesde !== null) {
+        tempoForaSeg += Math.max(0, Math.round((Date.now() - foraDesde) / 1000));
+        foraDesde = null;
+        if (tocando) marca = Date.now();
+      }
+    };
 
     void carregarApiYoutube().then((YT) => {
       if (cancelado || !alvo.current) return;
@@ -90,11 +123,15 @@ export function PlayerVideo({ provedor, videoId, iniciarEm, onTempo, onDuracao }
           onStateChange: (e) => {
             informarDuracao();
             if (e.data === YT.PlayerState.PLAYING) {
+              tocando = true;
+              if (document.visibilityState === "visible" && marca === null) marca = Date.now();
               pararTimer();
               timer = setInterval(informar, INTERVALO_MS);
             } else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.ENDED) {
               pararTimer();
               informar();
+              tocando = false;
+              marca = null;
             }
           },
         },

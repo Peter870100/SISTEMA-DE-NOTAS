@@ -7,6 +7,7 @@
 .estado { display: inline-flex; align-items: center; gap: .4rem; }
 .semVideo { display: flex; align-items: center; gap: .5rem; padding: 1.5rem; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1.125rem; font-weight: 700; }
 .concluir { margin: 1.25rem; background: var(--color-gold); color: var(--color-gold-ink); font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 700; }
+.aviso { margin-top: .75rem; color: var(--color-brand); font-size: .8125rem; font-weight: 600; }
 .erro { padding: 0 1.5rem 1rem; color: var(--color-brand); font-size: .875rem; font-weight: 600; }
 @media (hover: hover) { .concluir:hover { background: var(--color-brand); color: white; } }
 @media (max-width: 639px) { .resumo { padding: 1rem; } }
