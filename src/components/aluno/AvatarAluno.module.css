@@ -27,3 +27,11 @@
 .perfil:hover .dica,.perfil:focus-within .dica { visibility:visible; opacity:1; transform:translateY(0); }
 .perfil .dica[data-oculto=true] { visibility:hidden; opacity:0; }
 @media(prefers-reduced-motion:reduce) { .dica { transition:none; transform:none; } }
+
+.recorte { display:flex; flex-direction:column; gap:1rem; }
+.canvas { display:block; align-self:center; width:min(100%,256px); height:auto; aspect-ratio:1; border:3px solid var(--color-gold); border-radius:50%; background:white; }
+.ajuste { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.5rem; color:var(--color-brand); font-size:.875rem; font-weight:700; }
+.ajuste input { width:100%; min-height:32px; accent-color:var(--color-brand); cursor:pointer; }
+.ajuste input:focus-visible { outline:2px solid var(--color-gold); outline-offset:3px; border-radius:.25rem; }
+.recorte .acoes { gap:.5rem; }
+.recorte .acoes button { padding-inline:.75rem; }

@@ -62,3 +62,20 @@ test("avatar: migracao idempotente preserva conta e persiste foto/emoji entre co
     assert.equal((await db.query<{ nome: string }>("select nome from alunos_contas where id='a'")).rows[0].nome, "Aluno");
   } finally { await db.close(); }
 });
+
+
+test("recorte: centraliza fotos horizontais e verticais", async () => {
+  const { areaRecorte } = await import("./recorte-avatar");
+  assert.deepEqual(areaRecorte(1200, 600, 1, 50, 50), { x: 300, y: 0, lado: 600 });
+  assert.deepEqual(areaRecorte(600, 1200, 1, 50, 50), { x: 0, y: 300, lado: 600 });
+});
+test("recorte: zoom e posicao permanecem dentro da imagem", async () => {
+  const { areaRecorte } = await import("./recorte-avatar");
+  for (const [w, h] of [[1200, 600], [600, 1200], [256, 256]]) {
+    for (const zoom of [-1, 1, 2, 3, 100]) for (const posicao of [-100, 0, 50, 100, 200]) {
+      const area = areaRecorte(w, h, zoom, posicao, posicao);
+      assert.ok(area.x >= 0 && area.y >= 0 && area.lado > 0);
+      assert.ok(area.x + area.lado <= w && area.y + area.lado <= h);
+    }
+  }
+});
