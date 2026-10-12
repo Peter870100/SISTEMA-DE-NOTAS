@@ -17,7 +17,7 @@
   --color-line-soft: #eaeff7;
 
   --color-ink: #0e1b3d;
-  --color-muted: #5a6a8e;
+  --color-muted: #293b5b; /* azul-escuro: o Peter pediu sem texto cinza (2026-10-11) */
   --color-faint: #98a5c2;
 
   --color-brand: #0444a0;
@@ -392,3 +392,12 @@ body {
   .cartao-interativo.cartao-interativo, .cartao-interativo [data-icone] { transition: none; }
   .cartao-interativo.cartao-interativo:hover, .cartao-interativo:hover [data-icone] { transform: none; }
 }
+
+/* Quadrado dourado com o ícone da seção no título da faixa azul (PageLayout). */
+.icone-pagina {
+  display: grid; place-items: center; flex-shrink: 0;
+  width: 3rem; height: 3rem; border-radius: .85rem;
+  background: var(--color-gold); color: var(--color-gold-ink);
+  box-shadow: 0 6px 16px rgb(245 217 10 / 0.25);
+}
+@media (max-width: 639px) { .icone-pagina { width: 2.5rem; height: 2.5rem; } .icone-pagina svg { width: 22px; height: 22px; } }

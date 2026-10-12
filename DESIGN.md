@@ -21,7 +21,7 @@ flutuantes. Sem tema escuro.
 | surface-sunken | #F4F7FC | cabeçalho de tabela, coluna média, chips neutros |
 | zebra | #FAFBFE | linhas alternadas |
 | line / line-soft | #DCE3F0 / #EAEFF7 | bordas / divisórias |
-| ink / muted / faint | #0E1B3D / #5A6A8E / #98A5C2 | texto principal / secundário / apagado |
+| ink / muted / faint | #0E1B3D / #293B5B / #98A5C2 | texto principal / secundário (azul-escuro, sem cinza — pedido do Peter em 2026-10-11) / apagado (só desabilitado e placeholder) |
 | brand | #0444A0 | azul da logo: botão primário, edição, destaque numérico |
 | brand-bright | #1E6FD9 | seleção, links, foco de teclado |
 | gold / gold-ink | #F5D90A / #0A1C4A | amarelo da logo (preenchimento) / texto sobre ele |
