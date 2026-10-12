@@ -70,10 +70,22 @@ Ferramentas de leitura (todas aceitam `escola` opcional por nome ou slug; sem el
 `resultado_simulado`, `desempenho_turma`, `progresso_curso` e `perfil_aluno` também existem no **perfil
 professor**, limitados às turmas dele.
 
-**Tempo assistido:** hoje o sistema guarda o ponto mais adiantado do vídeo e se a aula foi concluída — a
-Hermes responde "assistiu até 12:40 de 18:00 (70%)". *Opcional:* gravar o **tempo real somado**
-(`aula_progresso.tempo_assistido_seg`, incrementado pelo player a cada 15 s com a aba visível) para
-responder "assistiu 23 min no total".
+**Presença na página (aulas e simulados)** — aprovado pelo Peter:
+- O navegador avisa quando a aba deixa de estar visível (trocou de aba, foi ao Google, minimizou,
+  bloqueou o celular). O sistema registra **cada saída**, **quanto tempo ficou fora** e, no simulado,
+  **em qual questão** o aluno estava.
+- Simulado: `tentativas.saidas` (int), `tentativas.tempo_fora_seg` (int), `tentativas.eventos_saida`
+  (jsonb: `[{questao, saiu_em, voltou_em}]`, no máximo 200). Enviado junto com as respostas e na
+  entrega (mesmo caminho do tempo por questão), com cópia no aparelho.
+- Aula: `aula_progresso.tempo_assistido_seg` (soma só com a aba visível e o vídeo tocando),
+  `aula_progresso.saidas`, `aula_progresso.tempo_fora_seg`.
+- Limite (dito ao professor na tela): não detecta segundo aparelho nem janela dividida com a prova
+  visível — é **indício**, não prova de cola.
+- **Aviso ao aluno** (transparência/LGPD) antes de começar a prova e no player: "A plataforma registra
+  quando você sai desta página."
+- Onde aparece: coluna **Saídas** (e tempo fora) nos resultados do simulado; tempo assistido e saídas no
+  progresso do curso; e nas respostas da Hermes (`resultado_simulado`, `desempenho_turma`, `perfil_aluno`).
+- Vale só daqui para frente (provas e aulas anteriores não têm esse dado).
 
 As ferramentas pedem só as colunas necessárias: **nunca** `senha_hash`, `token_verificacao*`,
 `codigo_convite*`.
