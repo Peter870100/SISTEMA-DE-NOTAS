@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { entregar, pausarTreino, pulsoTreino, responder, type ProvaAluno as Prova } from "@/actions/simulados-aluno";
-import { mesclarPresenca, type Presenca } from "@/lib/hermes/presenca";
+import { fecharSaidaPendente, mesclarPresenca, type Presenca } from "@/lib/hermes/presenca";
 import { formatarDuracao, PULSO_SEG, type TemposQuestoes } from "@/lib/simulados/regras";
 import type { Letra } from "@/lib/types";
 import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
@@ -141,7 +141,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       const local: unknown = JSON.parse(localStorage.getItem(chaveTempo(prova.tentativaId)) ?? "{}");
       for (const [id, s] of Object.entries(local ?? {})) if (typeof s === "number" && s > (tempos.current[id] ?? 0)) tempos.current[id] = s;
     } catch { /* sem armazenamento local */ }
-    try { presenca.current = mesclarPresenca(presenca.current, JSON.parse(localStorage.getItem(chavePresenca(prova.tentativaId)) ?? "null")); } catch { /* sem armazenamento local */ }
+    try { presenca.current = mesclarPresenca(presenca.current, JSON.parse(localStorage.getItem(chavePresenca(prova.tentativaId)) ?? "null")); presenca.current = fecharSaidaPendente(presenca.current, new Date()); } catch { /* sem armazenamento local */ }
     const guardarPresenca = () => { try { localStorage.setItem(chavePresenca(prova.tentativaId), JSON.stringify(presenca.current)); } catch { /* sem armazenamento local */ } };
     // Saídas da página: conta cada ida para outra aba/janela e o tempo fora.
     const aoMudarVisibilidade = () => {

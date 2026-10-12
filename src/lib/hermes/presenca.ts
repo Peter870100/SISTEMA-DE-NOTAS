@@ -32,6 +32,20 @@ export function mesclarPresenca(salva: Partial<Presenca> | null, nova: unknown):
   };
 }
 
+const MAX_SAIDA_PENDENTE_SEG = 30 * 60;
+
+/** Fecha a saída que ficou aberta (recarregou/fechou a aba). Acima de 30 min, não conta como tempo fora. */
+export function fecharSaidaPendente(p: Presenca, agora: Date): Presenca {
+  const ultimo = p.eventos[p.eventos.length - 1];
+  if (!ultimo || ultimo.voltou_em !== null) return p;
+  const seg = Math.max(0, Math.round((agora.getTime() - Date.parse(ultimo.saiu_em)) / 1000));
+  return {
+    ...p,
+    eventos: [...p.eventos.slice(0, -1), { ...ultimo, voltou_em: agora.toISOString() }],
+    tempoForaSeg: seg <= MAX_SAIDA_PENDENTE_SEG ? p.tempoForaSeg + seg : p.tempoForaSeg,
+  };
+}
+
 export function formatarPresenca(saidas: number | null, foraSeg: number | null): string {
   if (saidas == null || foraSeg == null) return "—";
   if (saidas === 0) return "nenhuma";

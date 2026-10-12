@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatarPresenca, mesclarPresenca } from "./presenca";
+import { fecharSaidaPendente, formatarPresenca, mesclarPresenca } from "./presenca";
 import { normalizarBusca, situacaoTurmaNoSimulado, textoProgressoAula, textoResultadoSimulado } from "./relatorios";
 
 test("mesclarPresenca: nunca diminui, limita e une eventos", () => {
@@ -41,4 +41,16 @@ test("textoProgressoAula", () => {
   assert.equal(textoProgressoAula(0, 600, 0, false, 0, 0), "não assistiu");
   assert.equal(textoProgressoAula(600, 600, 700, true, 0, 0), "concluída · 11:40 assistidos");
   assert.equal(textoProgressoAula(760, 1080, 1390, false, 2, 65), "assistiu até 12:40 de 18:00 (70%) · 23:10 assistidos · 2 saídas · 1:05 fora");
+});
+
+test("fecharSaidaPendente fecha a saida aberta e limita a 30 min", () => {
+  const base = { saidas: 1, tempoForaSeg: 10, eventos: [{ questao: 1, saiu_em: "2026-10-12T10:00:00.000Z", voltou_em: null }] };
+  const curta = fecharSaidaPendente(base, new Date("2026-10-12T10:05:00.000Z"));
+  assert.equal(curta.tempoForaSeg, 310);
+  assert.equal(curta.eventos[0].voltou_em, "2026-10-12T10:05:00.000Z");
+  const longa = fecharSaidaPendente(base, new Date("2026-10-12T11:00:00.000Z"));
+  assert.equal(longa.tempoForaSeg, 10);
+  assert.notEqual(longa.eventos[0].voltou_em, null);
+  const fechada = { ...curta };
+  assert.equal(fecharSaidaPendente(fechada, new Date()), fechada);
 });

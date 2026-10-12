@@ -141,10 +141,11 @@ export async function salvarTempos(t: { id: string; ordem: string[]; tempo_quest
   const p = presenca ? mesclarPresenca(salva, presenca) : null;
   const presencaMudou = !!p && JSON.stringify(p) !== JSON.stringify(mesclarPresenca(salva, null));
   const temposMudaram = JSON.stringify(novo) !== JSON.stringify(antes);
-  if (!temposMudaram && !presencaMudou) return;
+  const primeiraPresenca = !!p && t.eventos_saida === null; // tentativa limpa: grava zeros para mostrar "nenhuma"
+  if (!temposMudaram && !presencaMudou && !primeiraPresenca) return;
   const { error } = await supabase.from("tentativas").update({
     ...(temposMudaram ? { tempo_questoes: novo } : {}),
-    ...(p && presencaMudou ? { saidas: p.saidas, tempo_fora_seg: p.tempoForaSeg, eventos_saida: p.eventos } : {}),
+    ...(p && (presencaMudou || primeiraPresenca) ? { saidas: p.saidas, tempo_fora_seg: p.tempoForaSeg, eventos_saida: p.eventos } : {}),
   }).eq("id", t.id);
   if (error) console.error("salvarTempos", t.id, error.message);
 }
