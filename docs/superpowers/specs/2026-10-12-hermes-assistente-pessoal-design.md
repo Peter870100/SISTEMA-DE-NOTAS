@@ -68,29 +68,44 @@ Segurança no próprio banco, não em filtro de texto:
 
 Exige **SQL novo** (`db/2026-10-12-hermes.sql`), colado pelo Peter no SQL Editor antes do deploy.
 
-## Etapa B — provas, questões e simulados (ações)
+## Etapa B — banco de questões, importação e simulados (ações completas)
 
-- Importações: listar páginas com erro, **ler de novo** páginas com erro, aprovar em lote as sem aviso.
-- Questões: editar resposta, anular/desanular, trocar matéria/assunto, publicar/voltar para revisão,
-  **mandar para a Lixeira**.
-- Simulados: criar (título, turmas, duração, abre/fecha, correção, embaralhar), **sortear por filtros**
-  (banca, ano, área, matéria, quantidade), adicionar/remover questões, publicar, liberar correção,
-  **mandar para a Lixeira**.
+**Importação de provas pela própria Hermes** (`importar_prova`): recebe o PDF da prova e o do gabarito
+por **link** (o Peter manda o PDF para ela; ela repassa o link) ou em base64, banca, ano, caderno, escopo
+(banco geral ou escola) e **páginas** de cada arquivo (todas ou "3", "1-20, 23" — mesma regra da tela).
+No servidor: baixa (até 30 MB), separa as páginas escolhidas em PDFs de uma página (`pdf-lib`), guarda no
+storage como a tela faz e dispara a mesma leitura por IA. A IA recebe cada página como documento PDF
+(o Claude lê PDF diretamente), então o resultado é o mesmo da importação pela tela.
+Depois: `situacao_importacao`, `ler_de_novo` (páginas com erro), `aprovar_sem_aviso`.
 
-Reaproveita as funções do sistema (`sortear`, `corrigir`, regras de publicação) para que o resultado seja
+**Questões:** editar enunciado/alternativas/resposta, anular/desanular, trocar matéria/assunto,
+publicar/voltar para revisão, mandar para a Lixeira.
+
+**Simulados — configuração total**, com as mesmas regras da tela:
+- `criar_simulado` / `configurar_simulado`: título, turmas, duração, abre/fecha, quando sai a correção,
+  embaralhar.
+- `sortear_questoes`: banca (sem diferenciar maiúsculas), ano de/até, área, matéria, assunto, quantidade;
+  `adicionar_questao`, `trocar_questao`, `remover_questao`, `ordenar_questoes`.
+- `publicar_simulado`, `liberar_correcao`, mandar para a Lixeira.
+
+Reaproveita as funções do sistema (`sortear`, `corrigir`, regras de publicação), para o resultado ser
 idêntico ao feito pela tela.
 
-## Etapa C — contas, turmas e cursos (ações)
+## Etapa C — alunos, contas, turmas e cursos (ações)
 
-- Contas de aluno: criar, bloquear/desbloquear, **gerar senha provisória** (devolvida só para ela repassar
-  ao Peter), trocar de turma.
-- Professores: dar/tirar acesso a turmas, mudar papel.
-- Turmas da planilha em qualquer escola (as ferramentas atuais passam a aceitar `escola`).
-- Cursos: publicar/despublicar aula, ligar curso a turmas.
+**Ajudar um aluno, a pedido do Peter:**
+- `liberar_nova_tentativa` (apaga a tentativa dele num simulado — vai para a Lixeira),
+  `encerrar_tentativa` (entrega uma prova travada e corrige), `recorrigir_tentativa`.
+- Contas: criar, bloquear/desbloquear, **gerar senha provisória** (devolvida só para ela repassar ao
+  Peter), trocar ou incluir turma, corrigir nome/usuário.
+- Cursos do aluno: ver e zerar progresso de uma aula.
+
+**Escola:** professores (acesso a turmas, papel); turmas da planilha em qualquer escola (as ferramentas
+atuais passam a aceitar `escola`); cursos (publicar/despublicar aula, ligar curso a turmas).
 
 ## Lixeira
 
-Hoje a Lixeira guarda turma, aluno e atividade. Ganha os tipos **questão** e **simulado** (cópia da linha
+Hoje a Lixeira guarda turma, aluno e atividade. Ganha os tipos **questão**, **simulado** e **tentativa** (cópia da linha
 e dos filhos em JSON, restauração pela tela de Lixeira já existente), com origem "Hermes".
 
 ## Testes
