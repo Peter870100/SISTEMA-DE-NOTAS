@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fecharSaidaPendente, formatarPresenca, mesclarPresenca, somarPresencaAula } from "./presenca";
 import { normalizarBusca, situacaoTurmaNoSimulado, textoProgressoAula, textoResultadoSimulado } from "./relatorios";
+import { podeVerTurma } from "../mcp/escopo";
+import { senhaConfere } from "./senha";
+import { validarConsultaLivre } from "./consulta-livre";
 
 test("mesclarPresenca: nunca diminui, limita e une eventos", () => {
   const a = mesclarPresenca({ saidas: 3, tempoForaSeg: 100, eventos: [{ questao: 2, saiu_em: "2026-10-12T10:00:00Z", voltou_em: "2026-10-12T10:01:00Z" }] },
@@ -61,4 +64,49 @@ test("somarPresencaAula soma deltas entre visitas, com teto e entrada tolerante"
   assert.deepEqual(somarPresencaAula(base, { assistidoDeltaSeg: 9999, saidasDelta: 999, foraDeltaSeg: 99999 }), { tempo_assistido_seg: 220, saidas: 23, tempo_fora_seg: 3660 });
   assert.deepEqual(somarPresencaAula(base, { assistidoDeltaSeg: -5, saidasDelta: NaN, foraDeltaSeg: "x" }), base);
   assert.deepEqual(somarPresencaAula(base, undefined), base);
+});
+
+test("podeVerTurma respeita escola e turmas liberadas", () => {
+  assert.equal(podeVerTurma({ tipo: "dono" }, "e2", "3ª A"), true);
+  const prof = { tipo: "professor" as const, escolaId: "e1", professorId: "p", turmas: new Set(["3ª A"]) };
+  assert.equal(podeVerTurma(prof, "e1", "3ª A"), true);
+  assert.equal(podeVerTurma(prof, "e1", "3ª B"), false);
+  assert.equal(podeVerTurma(prof, "e2", "3ª A"), false);
+  assert.equal(podeVerTurma({ ...prof, turmas: null }, "e1", "qualquer"), true);
+});
+
+test("senhaConfere", () => {
+  assert.equal(senhaConfere("Bearer abc", "abc"), true);
+  assert.equal(senhaConfere("Bearer abd", "abc"), false);
+  assert.equal(senhaConfere(null, "abc"), false);
+  assert.equal(senhaConfere("Bearer ", undefined), false);
+});
+
+test("validarConsultaLivre: caso válido com padrões", () => {
+  const r = validarConsultaLivre({ tabela: "tentativas", colunas: ["id", "status", "saidas"], filtros: [{ coluna: "status", op: "eq", valor: "entregue" }, { coluna: "entregue_em", op: "not_null" }], ordem: { coluna: "entregue_em" } });
+  assert.ok(!("erro" in r));
+  assert.deepEqual(r.colunas, ["id", "status", "saidas"]);
+  assert.equal(r.limite, 100);
+  assert.deepEqual(r.ordem, { coluna: "entregue_em", asc: true });
+  const todas = validarConsultaLivre({ tabela: "professores" });
+  assert.ok(!("erro" in todas));
+  assert.ok(!todas.colunas.includes("senha_hash") && !todas.colunas.includes("token_verificacao"));
+});
+
+test("validarConsultaLivre: erros em pt-BR", () => {
+  const erro = (e: Parameters<typeof validarConsultaLivre>[0]) => {
+    const r = validarConsultaLivre(e);
+    return "erro" in r ? r.erro : "";
+  };
+  assert.match(erro({ tabela: "configuracoes" }), /Tabela "configuracoes" não pode ser consultada/);
+  assert.match(erro({ tabela: "constructor" }), /não pode ser consultada/);
+  assert.match(erro({ tabela: "professores", colunas: ["nome", "senha_hash"] }), /Coluna "senha_hash" não pode ser consultada/);
+  assert.match(erro({ tabela: "alunos_contas", filtros: [{ coluna: "token_verificacao", op: "not_null" }] }), /Coluna "token_verificacao"/);
+  assert.match(erro({ tabela: "escolas", colunas: ["codigo_convite_professor"] }), /não pode ser consultada/);
+  assert.match(erro({ tabela: "turmas", filtros: [{ coluna: "nome", op: "like", valor: "x" }] }), /Operação "like" inválida/);
+  assert.match(erro({ tabela: "turmas", filtros: [{ coluna: "nome", op: "in", valor: "x" }] }), /lista/);
+  assert.match(erro({ tabela: "turmas", filtros: [{ coluna: "nome", op: "eq" }] }), /valor/);
+  assert.match(erro({ tabela: "turmas", limite: 0 }), /Limite deve ser um número inteiro entre 1 e 500/);
+  assert.match(erro({ tabela: "turmas", limite: 501 }), /entre 1 e 500/);
+  assert.match(erro({ tabela: "turmas", ordem: { coluna: "senha_hash" } }), /não pode ser consultada/);
 });
