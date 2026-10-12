@@ -12,6 +12,12 @@ type Item = { id: string; banca: string; ano: number | null; numero: number | nu
 type Props = { simuladoId: string; questoes: Item[]; travado: boolean; assuntos: { id: string; materia: string; nome: string }[] };
 const rotuloMateria = (m: string) => MATERIAS[m as keyof typeof MATERIAS]?.rotulo ?? m;
 
+/** As actions devolvem { ok, erro } (em produção o Next esconde mensagens de erros lançados). */
+function desembrulhar<T>(r: { ok: true; valor: T } | { ok: false; erro: string }): T {
+  if (!r.ok) throw new Error(r.erro);
+  return r.valor;
+}
+
 export function MontarQuestoes({ simuladoId, questoes, travado, assuntos }: Props) {
   const router = useRouter();
   const [area, setArea] = useState(""); const [materia, setMateria] = useState(""); const [assunto, setAssunto] = useState("");
@@ -40,7 +46,7 @@ export function MontarQuestoes({ simuladoId, questoes, travado, assuntos }: Prop
           <input value={anoAte} onChange={(e) => setAnoAte(e.target.value.replace(/\D/g, ""))} placeholder="Ano até" aria-label="Ano até" inputMode="numeric" className={estilos.input} />
           <div className="flex gap-2">
             <input value={quantidade} onChange={(e) => setQuantidade(e.target.value.replace(/\D/g, ""))} aria-label="Quantidade" inputMode="numeric" className={`${estilos.input} w-16`} />
-            <button type="button" disabled={ocupado} onClick={() => void executar(async () => { const r = await sortearQuestoes(simuladoId, { ...filtros(), quantidade: Number(quantidade) }); if (r.adicionadas < r.pedidas) setAviso(`Foram adicionadas ${r.adicionadas} de ${r.pedidas} (não há mais questões com esses filtros).`); })} className={estilos.botaoPrimario}>Sortear</button>
+            <button type="button" disabled={ocupado} onClick={() => void executar(async () => { const r = desembrulhar(await sortearQuestoes(simuladoId, { ...filtros(), quantidade: Number(quantidade) })); if (r.adicionadas < r.pedidas) setAviso(`Foram adicionadas ${r.adicionadas} de ${r.pedidas} (não há mais questões com esses filtros).`); })} className={estilos.botaoPrimario}>Sortear</button>
           </div>
         </div>
       )}
@@ -51,8 +57,8 @@ export function MontarQuestoes({ simuladoId, questoes, travado, assuntos }: Prop
             <span className="min-w-0 flex-1"><span className="block text-xs text-muted">{q.banca} {q.ano ?? ""} · Nº {q.numero ?? "—"} · {rotuloMateria(q.materia)}</span><span className="line-clamp-2 text-ink">{q.trecho}</span></span>
             <Link href={`/banco/questoes/${q.id}`} target="_blank" className={estilos.botaoFantasma}>Ver</Link>
             {!travado && <>
-              <button type="button" disabled={ocupado} onClick={() => void executar(async () => { if (!(await trocarQuestao(simuladoId, q.id, filtros()))) setAviso("Não há outra questão com os filtros atuais."); })} className={estilos.botaoFantasma}>Trocar</button>
-              <button type="button" disabled={ocupado} onClick={() => void executar(() => removerQuestao(simuladoId, q.id))} className={estilos.botaoFantasma}>Remover</button>
+              <button type="button" disabled={ocupado} onClick={() => void executar(async () => { if (!desembrulhar(await trocarQuestao(simuladoId, q.id, filtros()))) setAviso("Não há outra questão com os filtros atuais."); })} className={estilos.botaoFantasma}>Trocar</button>
+              <button type="button" disabled={ocupado} onClick={() => void executar(async () => { desembrulhar(await removerQuestao(simuladoId, q.id)); })} className={estilos.botaoFantasma}>Remover</button>
             </>}
           </li>
         ))}
@@ -63,13 +69,13 @@ export function MontarQuestoes({ simuladoId, questoes, travado, assuntos }: Prop
           <summary className="cursor-pointer text-sm font-semibold text-brand">+ Adicionar do banco</summary>
           <div className="mt-2 flex gap-2">
             <input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Buscar no enunciado" aria-label="Buscar no banco" className={estilos.input} />
-            <button type="button" disabled={ocupado} onClick={() => void executar(async () => setAchadas(await buscarQuestoesBanco(simuladoId, texto, filtros())))} className={estilos.botaoSecundario}>Buscar</button>
+            <button type="button" disabled={ocupado} onClick={() => void executar(async () => setAchadas(desembrulhar(await buscarQuestoesBanco(simuladoId, texto, filtros()))))} className={estilos.botaoSecundario}>Buscar</button>
           </div>
           <ul className="mt-2 divide-y divide-line">
             {achadas.map((q) => (
               <li key={q.id} className="flex items-start gap-2 py-2 text-sm">
                 <span className="min-w-0 flex-1"><span className="block text-xs text-muted">{q.banca} {q.ano ?? ""} · {rotuloMateria(q.materia)}</span><span className="line-clamp-2">{q.trecho}</span></span>
-                <button type="button" disabled={ocupado || questoes.some((x) => x.id === q.id)} onClick={() => void executar(() => adicionarQuestao(simuladoId, q.id))} className={estilos.botaoFantasma}>{questoes.some((x) => x.id === q.id) ? "Já está" : "Adicionar"}</button>
+                <button type="button" disabled={ocupado || questoes.some((x) => x.id === q.id)} onClick={() => void executar(async () => { desembrulhar(await adicionarQuestao(simuladoId, q.id)); })} className={estilos.botaoFantasma}>{questoes.some((x) => x.id === q.id) ? "Já está" : "Adicionar"}</button>
               </li>
             ))}
           </ul>

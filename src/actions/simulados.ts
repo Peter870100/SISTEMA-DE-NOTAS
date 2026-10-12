@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase/client";
 import { exigirNaoAluno, getProfessorAtual } from "@/lib/auth";
 import { listarTurmasAcessiveis } from "@/actions/turmas";
 import { candidatosSorteio, exigirSimuladoEditavel, filtroVisivel, type FiltrosSorteio } from "@/lib/simulados/servidor";
+import { padraoExato } from "@/lib/questoes/busca";
 import { sortear } from "@/lib/simulados/regras";
 import { AREAS } from "@/lib/questoes/materias";
 import type { Area } from "@/lib/types";
@@ -102,6 +103,25 @@ export async function salvarSimulado(id: string, d: DadosSimulado): Promise<Resu
   return comErro(() => gravarSimulado(id, d), "Não foi possível salvar o simulado.");
 }
 
+export async function sortearQuestoes(id: string, f: FiltrosSorteio & { quantidade: number }) {
+  return comErro(() => sortearQuestoesInterno(id, f), "Não foi possível sortear.");
+}
+export async function trocarQuestao(id: string, questaoId: string, f: FiltrosSorteio) {
+  return comErro(() => trocarQuestaoInterno(id, questaoId, f), "Não foi possível trocar a questão.");
+}
+export async function removerQuestao(id: string, questaoId: string) {
+  return comErro(() => removerQuestaoInterno(id, questaoId), "Não foi possível remover a questão.");
+}
+export async function adicionarQuestao(id: string, questaoId: string) {
+  return comErro(() => adicionarQuestaoInterno(id, questaoId), "Não foi possível adicionar a questão.");
+}
+export async function buscarQuestoesBanco(id: string, texto: string, f: FiltrosSorteio) {
+  return comErro(() => buscarQuestoesBancoInterno(id, texto, f), "Não foi possível buscar.");
+}
+export async function publicarSimulado(id: string) {
+  return comErro(() => publicarSimuladoInterno(id), "Não foi possível publicar.");
+}
+
 async function gravarNovoSimulado(d: DadosSimulado): Promise<string> {
   await exigirNaoAluno();
   const professor = await getProfessorAtual();
@@ -135,7 +155,7 @@ async function gravarSimulado(id: string, d: DadosSimulado): Promise<void> {
   }
 }
 
-export async function sortearQuestoes(id: string, f: FiltrosSorteio & { quantidade: number }) {
+async function sortearQuestoesInterno(id: string, f: FiltrosSorteio & { quantidade: number }) {
   const { simulado } = await exigirQuestoesEditaveis(id);
   const pedidas = Math.round(f.quantidade);
   if (!Number.isFinite(pedidas) || pedidas < 1 || pedidas > 200) throw new Error("Quantidade de 1 a 200.");
@@ -151,7 +171,7 @@ export async function sortearQuestoes(id: string, f: FiltrosSorteio & { quantida
   return { adicionadas: novas.length, pedidas };
 }
 
-export async function trocarQuestao(id: string, questaoId: string, f: FiltrosSorteio): Promise<boolean> {
+async function trocarQuestaoInterno(id: string, questaoId: string, f: FiltrosSorteio): Promise<boolean> {
   const { simulado } = await exigirQuestoesEditaveis(id);
   const filtros = limparFiltros(f);
   const { ids: atuais } = await idsDoSimulado(id);
@@ -163,13 +183,13 @@ export async function trocarQuestao(id: string, questaoId: string, f: FiltrosSor
   return true;
 }
 
-export async function removerQuestao(id: string, questaoId: string): Promise<void> {
+async function removerQuestaoInterno(id: string, questaoId: string): Promise<void> {
   await exigirQuestoesEditaveis(id);
   const { error } = await supabase.from("simulado_questoes").delete().eq("simulado_id", id).eq("questao_id", questaoId);
   if (error) throw new Error(error.message);
 }
 
-export async function adicionarQuestao(id: string, questaoId: string): Promise<void> {
+async function adicionarQuestaoInterno(id: string, questaoId: string): Promise<void> {
   const { simulado } = await exigirQuestoesEditaveis(id);
   const { data: q } = await supabase.from("questoes").select("id").eq("id", questaoId).eq("status", "publicada").or(filtroVisivel(simulado.escola_id)).maybeSingle();
   if (!q) throw new Error("Questão não disponível.");
@@ -180,7 +200,7 @@ export async function adicionarQuestao(id: string, questaoId: string): Promise<v
   if (error) throw new Error(error.message);
 }
 
-export async function buscarQuestoesBanco(id: string, texto: string, f: FiltrosSorteio) {
+async function buscarQuestoesBancoInterno(id: string, texto: string, f: FiltrosSorteio) {
   const { simulado } = await exigirSimuladoEditavel(id);
   const filtros = limparFiltros(f);
   let c = supabase.from("questoes").select("id, banca, ano, numero, materia, enunciado").eq("status", "publicada").or(filtroVisivel(simulado.escola_id));
@@ -188,14 +208,14 @@ export async function buscarQuestoesBanco(id: string, texto: string, f: FiltrosS
   if (t) c = c.ilike("enunciado", `%${t}%`);
   if (filtros.area) c = c.eq("area", filtros.area);
   if (filtros.materia) c = c.eq("materia", filtros.materia);
-  if (filtros.banca) c = c.eq("banca", filtros.banca);
+  if (filtros.banca) c = c.ilike("banca", padraoExato(filtros.banca));
   if (filtros.anoDe) c = c.gte("ano", filtros.anoDe);
   if (filtros.anoAte) c = c.lte("ano", filtros.anoAte);
   const { data } = await c.limit(30);
   return (data ?? []).map((q) => ({ id: q.id, banca: q.banca, ano: q.ano, numero: q.numero, materia: q.materia, trecho: q.enunciado.replace(/[*]/g, "").slice(0, 160) }));
 }
 
-export async function publicarSimulado(id: string): Promise<void> {
+async function publicarSimuladoInterno(id: string): Promise<void> {
   const { simulado } = await exigirSimuladoEditavel(id);
   const [{ ids }, { count }] = await Promise.all([idsDoSimulado(id), supabase.from("simulado_turmas").select("simulado_id", { count: "exact", head: true }).eq("simulado_id", id)]);
   if (ids.length === 0) throw new Error("Adicione questões antes de publicar.");

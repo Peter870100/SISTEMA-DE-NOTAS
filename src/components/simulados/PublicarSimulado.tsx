@@ -12,8 +12,11 @@ export function PublicarSimulado({ simuladoId }: { simuladoId: string }) {
 
   async function publicar() {
     setOcupado(true); setErro(null);
-    try { await publicarSimulado(simuladoId); router.push(`/simulados/${simuladoId}`); }
-    catch (e) { setErro(e instanceof Error ? e.message : "Não foi possível publicar."); setOcupado(false); }
+    try {
+      const r = await publicarSimulado(simuladoId);
+      if (!r.ok) { setErro(r.erro); setOcupado(false); return; }
+      router.push(`/simulados/${simuladoId}`);
+    } catch { setErro("Não foi possível publicar. Verifique a conexão e tente de novo."); setOcupado(false); }
   }
 
   return (

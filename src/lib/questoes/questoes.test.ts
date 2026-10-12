@@ -4,6 +4,7 @@ import { MATERIAS, areaDaMateria, ehMateria, LETRAS } from "./materias";
 import { ASSUNTOS_INICIAIS } from "./assuntos-iniciais";
 import { estiloRecorte, limitarQuadro } from "./quadro";
 import { lerPaginas } from "./paginas";
+import { padraoExato } from "./busca";
 import { markdownParaBlocos } from "./markdown";
 import { urlImagemPermitida } from "./enemdev";
 import { progressoDoLote } from "./ia";
@@ -275,4 +276,9 @@ test("lerPaginas: vazio = todas; números, faixas e erros", () => {
   assert.throws(() => lerPaginas("80", 73), /73 páginas/);
   assert.throws(() => lerPaginas("abc", 10), /Páginas inválidas/);
   assert.throws(() => lerPaginas("0", 10), /Páginas inválidas/);
+});
+
+test("padraoExato: escapa curingas e apara espaços", () => {
+  assert.equal(padraoExato(" ufms "), "ufms");
+  assert.equal(padraoExato("50%_x"), String.raw`50\%\_x`);
 });

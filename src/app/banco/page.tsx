@@ -5,6 +5,7 @@ import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { podeImportar } from "@/lib/questoes/acesso";
 import { AREAS, MATERIAS } from "@/lib/questoes/materias";
+import { padraoExato } from "@/lib/questoes/busca";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos } from "@/components/ui/estilos";
 import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
@@ -36,7 +37,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
     return visibilidade ? q.or(visibilidade) : q;
   };
   if (f.texto) c = c.ilike("enunciado", `%${f.texto.replace(/[%_,()*\\]/g, " ")}%`);
-  if (f.banca) c = c.eq("banca", f.banca);
+  if (f.banca) c = c.ilike("banca", padraoExato(f.banca));
   if (f.ano && Number(f.ano)) c = c.eq("ano", Number(f.ano));
   if (f.area && Object.hasOwn(AREAS, f.area)) c = c.eq("area", f.area as keyof typeof AREAS);
   if (f.materia) c = c.eq("materia", f.materia);

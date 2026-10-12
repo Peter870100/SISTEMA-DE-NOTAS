@@ -3,6 +3,7 @@ import { exigirNaoAluno, getProfessorAtual } from "@/lib/auth";
 import { ehAdmin } from "@/lib/papeis";
 import { turmasDoAluno } from "@/lib/aulas/acesso";
 import { imagensParaTela } from "@/lib/questoes/consultas";
+import { padraoExato } from "@/lib/questoes/busca";
 import type { ImagemTela } from "@/components/questoes/ImagemQuestao";
 import type { AlunoConta, Alternativa, Area, Letra, Professor, Simulado, Tentativa } from "@/lib/types";
 import { acumularTempo, correcaoLiberada, corrigir, emBlocos, LIMITE_TEMPO_QUESTAO_SEG, mesclarTempos, tempoEsgotado, TOLERANCIA_SEG, type Gabarito } from "./regras";
@@ -64,7 +65,7 @@ export async function candidatosComMateria(escolaId: string, f: FiltrosSorteio, 
   if (f.materia) c = c.eq("materia", f.materia);
   if (f.materias?.length) c = c.in("materia", f.materias);
   if (f.assunto_id) c = c.eq("assunto_id", f.assunto_id);
-  if (f.banca) c = c.eq("banca", f.banca);
+  if (f.banca) c = c.ilike("banca", padraoExato(f.banca));
   if (f.anoDe) c = c.gte("ano", f.anoDe);
   if (f.anoAte) c = c.lte("ano", f.anoAte);
   // O PostgREST limita cada resposta a 1000 linhas: lê por páginas ordenadas até acabar.
