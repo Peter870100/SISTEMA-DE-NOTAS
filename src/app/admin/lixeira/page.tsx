@@ -18,7 +18,7 @@ export default async function LixeiraPage() {
       crumb="Administração"
       titulo="Lixeira"
       subtitulo="Tudo que foi excluído — pela tela ou pelo Hermes — fica aqui até você restaurar ou apagar de vez."
-      largura="max-w-4xl"
+      largura="max-w-6xl"
     >
       <LixeiraLista itensIniciais={itens} />
     </PageLayout>

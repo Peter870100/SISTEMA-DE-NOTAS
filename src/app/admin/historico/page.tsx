@@ -27,7 +27,7 @@ export default async function HistoricoPage() {
       crumb="Administração"
       titulo="Histórico de alterações"
       subtitulo="Toda alteração de nota feita por professores (não-admin), mais recente primeiro."
-      largura="max-w-4xl"
+      largura="max-w-6xl"
       acoes={
         <Link href="/admin/professores" className="inline-flex items-center gap-1.5 rounded-control border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20">
           <ArrowLeft size={14} />
