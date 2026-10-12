@@ -5,7 +5,8 @@ import { podeImportar } from "@/lib/questoes/acesso";
 import { supabase } from "@/lib/supabase/client";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { ImportarProva } from "@/components/questoes/ImportarProva";
-import { estilos } from "@/components/ui/estilos";
+import ui from "@/components/ui/SecaoPainel.module.css";
+import { History } from "lucide-react";
 import type { Escopo } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -20,21 +21,26 @@ export default async function ImportarPage() {
   const { data: recentes } = await consulta;
 
   return (
-    <PageLayout crumb="Banco de questões" titulo="Importar prova" subtitulo="A IA lê o PDF em segundo plano; depois você revisa." largura="max-w-4xl">
-      <ImportarProva escopos={escopos} />
-      {(recentes ?? []).length > 0 && (
-        <section className={`${estilos.card} p-4`} aria-labelledby="t-recentes">
-          <h2 id="t-recentes" className="mb-2 font-semibold text-ink">Importações recentes</h2>
-          <ul className="divide-y divide-line text-sm">
-            {(recentes ?? []).map((i) => (
-              <li key={i.id}><Link href={`/banco/importacoes/${i.id}`} className="flex justify-between gap-2 py-2 hover:text-brand">
-                <span>{i.banca} {i.ano ?? ""} {i.caderno}</span>
-                <span className="text-muted">{{ enviando: "Enviando", lendo: "Lendo", revisao: "Em revisão", concluida: "Concluída", erro: "Erro" }[i.status]}</span>
-              </Link></li>
-            ))}
-          </ul>
-        </section>
-      )}
+    <PageLayout crumb="Banco de questões" titulo="Importar prova" subtitulo="A IA lê o PDF em segundo plano; depois você revisa." largura="max-w-6xl">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <ImportarProva escopos={escopos} />
+        {(recentes ?? []).length > 0 && (
+          <section className={ui.cartao} aria-labelledby="t-recentes">
+            <h2 id="t-recentes" className={ui.titulo}><span className={ui.icone} aria-hidden="true"><History size={20} /></span>Importações recentes</h2>
+            <ul className="flex flex-col gap-2">
+              {(recentes ?? []).map((i) => {
+                const faixa = i.status === "concluida" ? "boa" : i.status === "erro" ? "baixa" : "media";
+                return (
+                  <li key={i.id}><Link href={`/banco/importacoes/${i.id}`} className="cartao-interativo flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-3">
+                    <span className="min-w-0 font-heading text-base font-bold uppercase text-brand">{i.banca} {i.ano ?? ""}{i.caderno ? <span className="block truncate font-sans text-xs font-semibold normal-case text-ink">{i.caderno}</span> : null}</span>
+                    <span className={ui.nota} data-faixa={faixa}>{{ enviando: "Enviando", lendo: "Lendo", revisao: "Em revisão", concluida: "Concluída", erro: "Erro" }[i.status]}</span>
+                  </Link></li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+      </div>
     </PageLayout>
   );
 }
