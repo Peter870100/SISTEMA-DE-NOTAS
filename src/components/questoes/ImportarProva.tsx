@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { lerPaginas } from "@/lib/questoes/paginas";
 import { criarImportacao, iniciarLeitura, prepararEnvioPagina, registrarPagina } from "@/actions/importacoes";
 import { estilos } from "@/components/ui/estilos";
 import { CheckCircle2, FileCheck2, FileText, Send, UploadCloud, X } from "lucide-react";
 import css from "./ImportarProva.module.css";
+import { ConfirmarImportacao } from "./ConfirmarImportacao";
 import type { Escopo } from "@/lib/types";
 
 const BANCAS = ["ENEM", "UFMS", "UEMS", "UFGD", "Fuvest"];
@@ -73,9 +74,23 @@ export function ImportarProva({ escopos }: { escopos: Escopo[] }) {
   const [pct, setPct] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
 
+  const [confirmacao, setConfirmacao] = useState<{ paginas: number; gabarito: number; custo: number } | null>(null);
+  const respostaRef = useRef<((continuar: boolean) => void) | null>(null);
+  const importandoRef = useRef(false);
+
+  useEffect(() => () => { respostaRef.current?.(false); }, []);
+
+  function responderConfirmacao(continuar: boolean) {
+    const responder = respostaRef.current;
+    respostaRef.current = null;
+    setConfirmacao(null);
+    responder?.(continuar);
+  }
+
   async function importar(e: React.FormEvent) {
     e.preventDefault();
-    if (!prova) return;
+    if (!prova || importandoRef.current) return;
+    importandoRef.current = true;
     setErro(null);
     try {
       setProgresso("Lendo o PDF…");
@@ -83,7 +98,12 @@ export function ImportarProva({ escopos }: { escopos: Escopo[] }) {
       const paginasProva = await renderizarPdf(prova, "prova", selProva, (f, t) => { setProgresso(`Preparando prova: página ${f} de ${t}`); setPct(Math.round((25 * f) / t)); });
       const paginasGab = gabarito ? await renderizarPdf(gabarito, "gabarito", selGab, (f, t) => { setProgresso(`Preparando gabarito: página ${f} de ${t}`); setPct(25 + Math.round((10 * f) / t)); }) : [];
       const custo = (paginasProva.length * (9000 * 2 + 3000 * 10)) / 1_000_000;
-      if (!window.confirm(`São ${paginasProva.length} páginas. Custo estimado da leitura: ≈ US$ ${custo.toFixed(2)}. Continuar?`)) { setProgresso(null); return; }
+      setProgresso("Aguardando confirma\u00e7\u00e3o...");
+      const continuar = await new Promise<boolean>((resolve) => {
+        respostaRef.current = resolve;
+        setConfirmacao({ paginas: paginasProva.length, gabarito: paginasGab.length, custo });
+      });
+      if (!continuar) { setProgresso(null); setPct(0); return; }
       const id = await criarImportacao({ escopo, banca: banca === "Outra" ? outra : banca, ano: ano ? Number(ano) : null, caderno });
       const todas = [...paginasProva.map((p, i) => ({ ...p, tipo: "prova" as const, numero: i + 1 })), ...paginasGab.map((p, i) => ({ ...p, tipo: "gabarito" as const, numero: i + 1 }))];
       for (const [i, p] of todas.entries()) {
@@ -100,12 +120,15 @@ export function ImportarProva({ escopos }: { escopos: Escopo[] }) {
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Não foi possível importar.");
       setProgresso(null);
+    } finally {
+      importandoRef.current = false;
     }
   }
 
   const ocupado = progresso !== null;
   const rotuloEnvio = !prova ? "Escolha o PDF da prova" : gabarito ? "Enviar prova e gabarito" : "Enviar só a prova";
   return (
+    <>
     <form onSubmit={importar} className={css.formulario}>
       {erro && <p role="alert" className={css.erro}>{erro}</p>}
 
@@ -156,6 +179,8 @@ export function ImportarProva({ escopos }: { escopos: Escopo[] }) {
         <Send size={20} aria-hidden="true" />{ocupado ? "Enviando…" : rotuloEnvio}
       </button>
     </form>
+    <ConfirmarImportacao open={confirmacao !== null} paginas={confirmacao?.paginas ?? 0} paginasGabarito={confirmacao?.gabarito ?? 0} custo={confirmacao?.custo ?? 0} onConfirm={() => responderConfirmacao(true)} onCancel={() => responderConfirmacao(false)} />
+    </>
   );
 }
 

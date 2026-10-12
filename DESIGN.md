@@ -130,3 +130,6 @@ Lista em cartoes brancos com icone institucional azul e amarelo, nomes em Rajdha
 
 ## Configuracoes
 Opcoes em cartoes brancos com icones amarelos, titulos Rajdhani azuis e descricoes Manrope escuras. Grupos Escola, Plataforma e Minha conta preservam visibilidade por perfil. Guia de acesso de teste do aluno retratil em details/summary, fechado inicialmente. Hover amarelo claro, foco azul e movimento reduzido respeitado.
+
+## Confirmacao de importacao
+ImportarProva usa ConfirmarImportacao no Modal da plataforma, com fundo branco, titulo Rajdhani azul, icone e custo em amarelo, confirmacao amarela e cancelamento branco com texto azul. Mantem a estimativa existente e aguarda confirmacao antes de criar a importacao ou enviar arquivos. Cancelar, fechar e Esc interrompem o fluxo.
