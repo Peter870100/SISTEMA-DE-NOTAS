@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Camera, Check, Smile, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import css from "./AvatarAluno.module.css";
@@ -9,6 +9,8 @@ const EMOJIS = ["😊", "😎", "🤓", "🚀", "🌟", "🦁", "🐱", "🐼"];
 const fotoValida = (valor: string) => /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(valor) && valor.length < 400000;
 
 export function AvatarAluno({ alunoId, nome }: { alunoId: string; nome: string }) {
+  const nomeId = useId();
+  const [ocultarNome, setOcultarNome] = useState(false);
   const chave = `status:avatar:${alunoId}`;
   const [avatar, setAvatar] = useState("");
   const [rascunho, setRascunho] = useState("");
@@ -56,9 +58,12 @@ export function AvatarAluno({ alunoId, nome }: { alunoId: string; nome: string }
     } catch { setErro("Não foi possível salvar. Verifique o armazenamento do navegador."); }
   }
   return <>
-    <button type="button" className={css.avatar} title={nome} aria-label={`Editar foto de perfil de ${nome}`} aria-haspopup="dialog" onClick={() => { setRascunho(avatar); setErro(""); setAberto(true); }}>
+    <div className={css.perfil} onMouseEnter={() => setOcultarNome(false)} onFocus={() => setOcultarNome(false)} onKeyDown={event => { if (event.key === "Escape") setOcultarNome(true); }}>
+    <button type="button" className={css.avatar} aria-describedby={nomeId} aria-label={`Editar foto de perfil de ${nome}`} aria-haspopup="dialog" onClick={() => { setRascunho(avatar); setErro(""); setAberto(true); }}>
       {imagem(avatar)}<Camera size={12} aria-hidden="true" className={css.camera} />
     </button>
+      <div id={nomeId} role="tooltip" className={css.dica} data-oculto={ocultarNome || aberto}>{nome}</div>
+    </div>
     <Modal open={aberto} onClose={() => setAberto(false)} titulo="Seu perfil" descricao="Escolha um emoji ou uma foto para ficar com a sua cara.">
       <div className={css.painel}>
         <div className={css.previa}>{imagem(rascunho)}</div>
