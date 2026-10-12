@@ -4,7 +4,7 @@
 
 **Goal:** A Hermes passa a enxergar o sistema inteiro — pelo MCP do dono (todas as escolas + consulta livre só de leitura) e pelo MCP dos professores (só a escola/turmas do professor) — e o sistema passa a registrar saídas da página em simulados e aulas.
 
-**Architecture:** Ferramentas de leitura num módulo único (`src/lib/mcp/leitura.ts`) que recebe um **escopo** (`dono` ou `professor` com escola e turmas liberadas) e é registrado em dois endpoints: o novo `/api/mcp/dono` (senha `MCP_DONO_TOKEN`) e o atual `/api/mcp`. Montagem de textos e contas em funções puras testadas (`src/lib/hermes/*.ts`). Consulta livre via função SQL `hermes_consulta` que roda como papel `hermes_leitor` (só views sem colunas sensíveis, transação só leitura). Saídas da página contadas no navegador (Page Visibility API) e enviadas pelos mesmos caminhos que já levam o tempo por questão e o progresso da aula.
+**Architecture:** Ferramentas de leitura num módulo único (`src/lib/mcp/leitura.ts`) que recebe um **escopo** (`dono` ou `professor` com escola e turmas liberadas) e é registrado em dois endpoints: o novo `/api/mcp/dono` (senha `MCP_DONO_TOKEN`) e o atual `/api/mcp`. Montagem de textos e contas em funções puras testadas (`src/lib/hermes/*.ts`). Consulta livre via ferramenta estruturada (`consultar_dados`: tabela + colunas + filtros de uma lista fixa, sem colunas sensíveis), executada no servidor — sem SQL livre no banco. Saídas da página contadas no navegador (Page Visibility API) e enviadas pelos mesmos caminhos que já levam o tempo por questão e o progresso da aula.
 
 **Tech Stack:** Next.js 16.2 (App Router, server actions), React 19, Supabase (PostgREST, chave anon só no servidor), `@modelcontextprotocol/sdk` (`McpServer`, `WebStandardStreamableHTTPServerTransport`), `zod`, testes `tsx --test`.
 
@@ -65,7 +65,7 @@
 - Modify: `src/lib/types.ts` (campos em `Tentativa` e `AulaProgresso`)
 
 **Interfaces:**
-- Produces: colunas `tentativas.saidas int`, `tentativas.tempo_fora_seg int`, `tentativas.eventos_saida jsonb`; `aula_progresso.tempo_assistido_seg int`, `aula_progresso.saidas int`, `aula_progresso.tempo_fora_seg int`; função `public.hermes_consulta(consulta text) returns jsonb`.
+- Produces: colunas `tentativas.saidas int`, `tentativas.tempo_fora_seg int`, `tentativas.eventos_saida jsonb`; `aula_progresso.tempo_assistido_seg int`, `aula_progresso.saidas int`, `aula_progresso.tempo_fora_seg int`. (Revisão de segurança: **sem** função de SQL livre no banco — ver Task 6, `consultar_dados` estruturado.)
 
 - [ ] **Step 1: Escrever o SQL**
 
@@ -78,52 +78,6 @@ alter table aula_progresso add column if not exists tempo_assistido_seg integer 
 alter table aula_progresso add column if not exists saidas integer not null default 0;
 alter table aula_progresso add column if not exists tempo_fora_seg integer not null default 0;
 
--- Consulta livre da Hermes: só views sem colunas sensíveis, papel sem acesso a public, transação só leitura.
-create schema if not exists hermes;
-do $$ begin
-  if not exists (select 1 from pg_roles where rolname = 'hermes_leitor') then create role hermes_leitor nologin; end if;
-end $$;
-grant hermes_leitor to anon;
-revoke all on schema public from hermes_leitor;
-grant usage on schema hermes to hermes_leitor;
-
-create or replace view hermes.escolas as select id, nome, slug, ativa, created_at from escolas;
-create or replace view hermes.professores as select id, nome, email, role, escola_id, email_verificado, senha_provisoria, acesso_restrito, telefone, ultimo_acesso, created_at from professores;
-create or replace view hermes.professor_turma_acesso as select * from professor_turma_acesso;
-create or replace view hermes.turmas as select * from turmas;
-create or replace view hermes.alunos as select * from alunos;
-create or replace view hermes.atividades_colunas as select * from atividades_colunas;
-create or replace view hermes.notas_celulas as select * from notas_celulas;
-create or replace view hermes.notas_historico as select * from notas_historico;
-create or replace view hermes.alunos_contas as select id, escola_id, nome, email, usuario, senha_provisoria, email_verificado, ativo, criado_via, ultimo_acesso, created_at from alunos_contas;
-create or replace view hermes.aluno_turmas as select * from aluno_turmas;
-create or replace view hermes.cursos as select * from cursos;
-create or replace view hermes.curso_turmas as select * from curso_turmas;
-create or replace view hermes.modulos as select * from modulos;
-create or replace view hermes.aulas as select * from aulas;
-create or replace view hermes.aula_progresso as select * from aula_progresso;
-create or replace view hermes.assuntos as select * from assuntos;
-create or replace view hermes.importacoes as select * from importacoes;
-create or replace view hermes.questoes as select * from questoes;
-create or replace view hermes.simulados as select * from simulados;
-create or replace view hermes.simulado_turmas as select * from simulado_turmas;
-create or replace view hermes.simulado_questoes as select * from simulado_questoes;
-create or replace view hermes.tentativas as select * from tentativas;
-create or replace view hermes.tentativa_respostas as select * from tentativa_respostas;
-grant select on all tables in schema hermes to hermes_leitor;
-
-create or replace function public.hermes_consulta(consulta text) returns jsonb
-language plpgsql security invoker set search_path = hermes, pg_catalog as $$
-declare resultado jsonb;
-begin
-  if consulta ~ ';\s*\S' then raise exception 'Envie uma única consulta (sem ; no meio).'; end if;
-  set local role hermes_leitor;
-  set local transaction read only;
-  set local statement_timeout = '8s';
-  execute format('select coalesce(jsonb_agg(t), ''[]''::jsonb) from (select * from (%s) q limit 500) t', rtrim(consulta, '; ')) into resultado;
-  return resultado;
-end $$;
-grant execute on function public.hermes_consulta(text) to anon;
 ```
 
 - [ ] **Step 2: Tipos** — em `src/lib/types.ts`, `Tentativa` ganha `saidas: number; tempo_fora_seg: number; eventos_saida: EventoSaida[] | null;` e exporta `export type EventoSaida = { questao: number | null; saiu_em: string; voltou_em: string | null };`. `AulaProgresso` ganha `tempo_assistido_seg: number; saidas: number; tempo_fora_seg: number;`.
@@ -132,11 +86,7 @@ grant execute on function public.hermes_consulta(text) to anon;
 
 - [ ] **Step 4: Commit** — `git add db src/lib/types.ts && git commit -m "Hermes A: SQL de saidas e consulta livre (hermes_consulta)"`.
 
-- [ ] **Step 5: Pedir ao Peter para colar** `db/2026-10-12-hermes-etapa-a.sql` no SQL Editor. Depois conferir com script só de leitura (chave anon do `.env.local`):
-  - `POST /rest/v1/rpc/hermes_consulta {"consulta":"select count(*) from questoes"}` → número;
-  - `{"consulta":"select senha_hash from public.alunos_contas"}` → erro de permissão;
-  - `{"consulta":"update questoes set ano = ano"}` → erro (read-only).
-  Não publicar código das Tasks 4–7 antes disso.
+- [ ] **Step 5: Pedir ao Peter para colar** `db/2026-10-12-hermes-etapa-a.sql` no SQL Editor (só `alter table ... add column if not exists`). Depois conferir com script só de leitura que `select saidas, tempo_fora_seg, eventos_saida from tentativas limit 1` e `select tempo_assistido_seg, saidas, tempo_fora_seg from aula_progresso limit 1` respondem. Não publicar código das Tasks 4–7 antes disso.
 
 ---
 
@@ -427,7 +377,11 @@ export function senhaConfere(cabecalho: string | null, esperada: string | undefi
   - `estatisticas_banco {escola?}` e `listar_importacoes {escola?}`.
   - `listar_contas_aluno {escola?, turma?}` e `listar_professores {escola?}` (sem colunas sensíveis — `select` explícito).
   - `perfil_aluno {nome}` — contas visíveis com nome parecido (se >1, listar e pedir para escolher); turmas, notas da planilha da turma correspondente (por nome), tentativas (simulados e treinos com nota/tempo/saídas), progresso nos cursos (`textoProgressoAula` por aula), último acesso.
-  - Se `opcoes.consultaLivre`: `consultar_dados {sql}` → `supabase.rpc("hermes_consulta", { consulta: sql })`; erro do banco devolvido como texto `Consulta recusada: <mensagem>`; resultado como JSON indentado truncado a 60 000 caracteres com aviso. Descrição explica o schema `hermes` e lista as views.
+  - Se `opcoes.consultaLivre`: `consultar_dados {tabela, colunas?, filtros?, ordem?, limite?}` — consulta **estruturada**, só leitura, executada no servidor com supabase-js (sem SQL vindo da Hermes):
+    - `TABELAS_LIVRES` (constante em `src/lib/hermes/consulta-livre.ts`): mapa tabela → colunas permitidas, cobrindo escolas (sem `codigo_convite_professor`), professores (sem `senha_hash`, `token_verificacao`, `token_verificacao_expira`), professor_turma_acesso, turmas, alunos, atividades_colunas, notas_celulas, notas_historico, alunos_contas (sem `senha_hash`, tokens), aluno_turmas, cursos, curso_turmas, modulos, aulas, aula_progresso, assuntos, importacoes, questoes, simulados, simulado_turmas, simulado_questoes, tentativas, tentativa_respostas. `configuracoes` e `convites_turma` ficam de fora.
+    - `filtros`: lista de `{coluna, op, valor}` com `op` em `eq, neq, gt, gte, lt, lte, ilike, in, is_null, not_null`; coluna precisa estar na lista da tabela. `ordem`: `{coluna, asc}`. `limite` 1–500 (padrão 100). `colunas` omitido = todas as permitidas.
+    - Função pura `validarConsultaLivre(entrada): { tabela; colunas: string[]; filtros; ordem; limite } | { erro: string }` com testes: tabela fora da lista, coluna sensível pedida (`senha_hash`), op inválida, limite fora da faixa → erro em pt-BR.
+    - Resultado em JSON indentado truncado a 60 000 caracteres com aviso; conta total via `count: "exact"`.
 - [ ] **Step 5: Verificar** (tsc, lint, test) e **Commit** — `"Hermes A: ferramentas de leitura com escopo dono/professor"`.
 
 ---
@@ -453,7 +407,7 @@ import { senhaConfere } from "@/lib/hermes/senha";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const INSTRUCOES = `Você é a Hermes, assistente pessoal do Peter, dono da plataforma Status Avalia (escolas, turmas com notas por bimestre, simulados com cronômetro, treinos dos alunos, cursos com videoaulas, banco de questões e importação de provas por IA). Responda sempre em português, de forma curta. Enxergue todas as escolas. Para perguntas que as ferramentas não cobrem, use consultar_dados (SQL só de leitura no schema hermes). Nesta etapa você só consulta: não altera nada.`;
+const INSTRUCOES = `Você é a Hermes, assistente pessoal do Peter, dono da plataforma Status Avalia (escolas, turmas com notas por bimestre, simulados com cronômetro, treinos dos alunos, cursos com videoaulas, banco de questões e importação de provas por IA). Responda sempre em português, de forma curta. Enxergue todas as escolas. Para perguntas que as ferramentas não cobrem, use consultar_dados (consulta só de leitura por tabela, colunas e filtros). Nesta etapa você só consulta: não altera nada.`;
 
 async function handle(req: Request): Promise<Response> {
   if (!senhaConfere(req.headers.get("authorization"), process.env.MCP_DONO_TOKEN)) return new Response("Unauthorized", { status: 401 });
@@ -471,7 +425,7 @@ export { handle as GET, handle as POST, handle as DELETE };
 - [ ] **Step 3: Verificar** — tsc, lint, test, build.
 - [ ] **Step 4: Commit + publicar** — rebase em `origin/master`, push, acompanhar deploy (status do commit no GitHub, com consulta espaçada ≥ 45 s).
 - [ ] **Step 5: Peter configura** `MCP_DONO_TOKEN` na Vercel (senha longa aleatória) + Redeploy, e adiciona na Hermes o servidor `https://www.statusavalia.com.br/api/mcp/dono` com `Authorization: Bearer <MCP_DONO_TOKEN>`.
-- [ ] **Step 6: Teste ponta a ponta** — com o token (o Peter roda, ou fornece só para o teste local via `.env.local`, nunca no chat): `tools/list` traz as 13 ferramentas; `resultado_simulado {"simulado":"Ufms 24"}` devolve texto coerente; `consultar_dados {"sql":"select count(*) from questoes where banca ilike 'ufms'"}` → 60; `consultar_dados {"sql":"delete from questoes"}` → "Consulta recusada"; no `/api/mcp`, ferramenta nova sem telefone → erro de telefone.
+- [ ] **Step 6: Teste ponta a ponta** — com o token (o Peter roda, ou fornece só para o teste local via `.env.local`, nunca no chat): `tools/list` traz as 13 ferramentas; `resultado_simulado {"simulado":"Ufms 24"}` devolve texto coerente; `consultar_dados {"tabela":"questoes","filtros":[{"coluna":"banca","op":"ilike","valor":"ufms"}]}` → total 60; `consultar_dados {"tabela":"alunos_contas","colunas":["senha_hash"]}` → recusada; no `/api/mcp`, ferramenta nova sem telefone → erro de telefone.
 
 ---
 
