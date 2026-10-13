@@ -106,6 +106,10 @@ test("validarConsultaLivre: erros em pt-BR", () => {
   assert.match(erro({ tabela: "turmas", filtros: [{ coluna: "nome", op: "like", valor: "x" }] }), /Operação "like" inválida/);
   assert.match(erro({ tabela: "turmas", filtros: [{ coluna: "nome", op: "in", valor: "x" }] }), /lista/);
   assert.match(erro({ tabela: "turmas", filtros: [{ coluna: "nome", op: "eq" }] }), /valor/);
+  assert.match(erro({ tabela: "turmas", filtros: [{ coluna: "nome", op: "in", valor: ["3ª A", 'x"),nome.eq.(y'] }] }), /não podem conter aspas/);
+  assert.match(erro({ tabela: "turmas", filtros: [{ coluna: "nome", op: "in", valor: ["a\\b"] }] }), /barra invertida/);
+  const comVirgula = validarConsultaLivre({ tabela: "turmas", filtros: [{ coluna: "nome", op: "in", valor: ["3ª A, tarde", "(x)"] }] });
+  assert.ok(!("erro" in comVirgula));
   assert.match(erro({ tabela: "turmas", limite: 0 }), /Limite deve ser um número inteiro entre 1 e 500/);
   assert.match(erro({ tabela: "turmas", limite: 501 }), /entre 1 e 500/);
   assert.match(erro({ tabela: "turmas", ordem: { coluna: "senha_hash" } }), /não pode ser consultada/);

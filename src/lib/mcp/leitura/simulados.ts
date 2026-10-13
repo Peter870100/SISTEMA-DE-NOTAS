@@ -17,7 +17,7 @@ type SimuladoLido = Pick<Simulado, "id" | "escola_id" | "tipo" | "professor_id" 
 export type SimuladoVisivel = { sim: SimuladoLido; turmas: TurmaAno[]; situacao: Situacao };
 
 /** Contas que um professor restrito pode ver (alunos das turmas liberadas); null = sem restrição. */
-async function contasPermitidas(ctx: Ctx): Promise<Set<string> | null> {
+export async function contasPermitidas(ctx: Ctx): Promise<Set<string> | null> {
   const e = ctx.escopo;
   if (e.tipo === "dono" || e.turmas === null) return null;
   const nomes = [...e.turmas];
@@ -127,7 +127,10 @@ export const registrarSimulados: Registrar = (server, obter) => {
       const tents = await lerPorIds<{ simulado_id: string; conta_id: string; status: string; porcentagem: number | null }>(lista.map((v) => v.sim.id), (bloco, de, ate) =>
         ctx.supabase.from("tentativas").select("simulado_id, conta_id, status, porcentagem").in("simulado_id", bloco).order("id").range(de, ate));
       const cont = new Map<string, { comecaram: number; entregaram: number; porcentagem: number | null }>();
+      // Professor restrito: só conta alunos das turmas liberadas.
+      const alcance = await contasPermitidas(ctx);
       for (const t of tents) {
+        if (alcance && !alcance.has(t.conta_id)) continue;
         const c = cont.get(t.simulado_id) ?? { comecaram: 0, entregaram: 0, porcentagem: null };
         c.comecaram++;
         if (t.status === "entregue") { c.entregaram++; c.porcentagem = t.porcentagem; }
@@ -167,7 +170,7 @@ export const registrarSimulados: Registrar = (server, obter) => {
       const candidatos = acharPorNome(await simuladosVisiveis(ctx, escolas, "professor"), (v) => v.sim.titulo, args.simulado);
       if (candidatos.length === 0) throw new Error(`Simulado "${args.simulado}" não encontrado.`);
       if (candidatos.length > 1) {
-        const opcoes = limitarLinhas(candidatos.map((v) => `- ${rotuloEscola(escolas, v.sim.escola_id)}"${v.sim.titulo}" (${ROTULO_SITUACAO[v.situacao]}, ${nomesTurmas(v.turmas)})`), 20, "Use um título mais completo.");
+        const opcoes = limitarLinhas(candidatos.map((v) => `- ${rotuloEscola(escolas, v.sim.escola_id)}"${v.sim.titulo}" (${ROTULO_SITUACAO[v.situacao]}, ${nomesTurmas(v.turmas.filter((t) => podeVerTurma(ctx.escopo, t.escola_id, t.turma_nome)))})`), 20, "Use um título mais completo.");
         return texto(`Mais de um simulado com "${args.simulado}". Qual deles?\n${opcoes.join("\n")}`);
       }
       return texto(await resultado(ctx, candidatos[0]));

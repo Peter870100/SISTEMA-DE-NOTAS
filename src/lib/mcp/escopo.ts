@@ -9,7 +9,8 @@ import type { ProfessorRole } from "@/lib/types";
  */
 export type Escopo =
   | { tipo: "dono" }
-  | { tipo: "professor"; escolaId: string; professorId: string; turmas: Set<string> | null };
+  | { tipo: "professor"; escolaId: string; professorId: string; turmas: Set<string> | null; papel?: ProfessorRole };
+// `papel` ausente conta como professor comum (regra mais estrita).
 
 /** True se quem pergunta pode ver a turma `turmaNome` da escola `escolaId`. */
 export function podeVerTurma(e: Escopo, escolaId: string, turmaNome: string): boolean {
@@ -41,5 +42,5 @@ export async function escopoDoTelefone(supabase: SupabaseClient, telefone: strin
     if (e2) throw new Error(e2.message);
     turmas = new Set((liberadas ?? []).map((r: { turma_nome: string }) => r.turma_nome));
   }
-  return { tipo: "professor", escolaId: p.escola_id, professorId: p.id, turmas };
+  return { tipo: "professor", escolaId: p.escola_id, professorId: p.id, turmas, papel: p.role };
 }

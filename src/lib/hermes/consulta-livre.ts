@@ -98,6 +98,10 @@ export function validarConsultaLivre(entrada: EntradaConsultaLivre): ConsultaLiv
       if (!Array.isArray(v) || v.length === 0 || v.length > MAX_ITENS_IN || !v.every(ehPrimitivo)) {
         return { erro: `O filtro "in" em "${f.coluna}" precisa de uma lista com 1 a ${MAX_ITENS_IN} valores simples (texto, número ou verdadeiro/falso).` };
       }
+      // O supabase-js põe aspas em valores com vírgula/parênteses, mas não escapa aspas nem barra invertida.
+      if (v.some((x) => typeof x === "string" && /["\\]/.test(x))) {
+        return { erro: `Valores do filtro "in" em "${f.coluna}" não podem conter aspas (") nem barra invertida (\\).` };
+      }
       filtros.push({ coluna: f.coluna, op, valor: v });
       continue;
     }

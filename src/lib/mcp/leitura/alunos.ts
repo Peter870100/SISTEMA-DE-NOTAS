@@ -9,7 +9,7 @@ import {
   acharPorNome, campoEscola, campoTelefone, dataBR, dataHoraBR, escolasDoPedido, lerPorIds, lerTodas, limitarLinhas,
   nota10, pct, rotuloEscola, texto, type Ctx, type Registrar, type TurmaAno,
 } from "./comum";
-import { aulasPublicadas, progressoAula, progressoDasContas, resumoAlunoNoCurso } from "./cursos";
+import { aulasPublicadas, cursosVisiveis, progressoAula, progressoDasContas, resumoAlunoNoCurso } from "./cursos";
 import { COLUNAS_TURMA, lerPlanilha, type TurmaLida } from "./turmas";
 
 type ContaLida = { id: string; escola_id: string; nome: string; email: string | null; usuario: string | null; ativo: boolean; ultimo_acesso: string | null; created_at: string };
@@ -36,6 +36,7 @@ async function contasVisiveis(ctx: Ctx, escolaIds: string[], nomeBusca?: string)
     });
 }
 
+const restrito = (ctx: Ctx) => ctx.escopo.tipo === "professor" && ctx.escopo.turmas !== null;
 const login = (c: ContaLida) => [c.usuario ? `usuário ${c.usuario}` : null, c.email].filter(Boolean).join(" · ") || "sem login";
 const turmasTxt = (ts: TurmaAno[]) => (ts.length ? ts.map((t) => `${t.turma_nome} · ${t.ano_letivo}`).join(", ") : "sem turma");
 
@@ -76,9 +77,17 @@ async function perfil(ctx: Ctx, conta: ContaLida, todosVinculos: Vinculo[]): Pro
   const sims = await lerPorIds<{ id: string; titulo: string; tipo: "professor" | "treino" }>(tents.map((t) => t.simulado_id), (bloco, de, ate) =>
     ctx.supabase.from("simulados").select("id, titulo, tipo").in("id", bloco).order("id").range(de, ate));
   const sim = new Map(sims.map((s) => [s.id, s]));
-  saida.push("", `Simulados e treinos (${tents.length}):`);
-  if (tents.length === 0) saida.push("- nenhum");
-  saida.push(...limitarLinhas(tents.map((t) => {
+  // Professor restrito: só provas com turma-alvo liberada (treinos são do próprio aluno, que ele já vê).
+  let tentsVis = tents;
+  if (restrito(ctx)) {
+    const alvos = await lerPorIds<{ simulado_id: string; escola_id: string; turma_nome: string }>(sims.filter((s) => s.tipo === "professor").map((s) => s.id), (bloco, de, ate) =>
+      ctx.supabase.from("simulado_turmas").select("simulado_id, escola_id, turma_nome").in("simulado_id", bloco).order("simulado_id").order("turma_nome").range(de, ate));
+    const liberados = new Set(alvos.filter((a) => podeVerTurma(ctx.escopo, a.escola_id, a.turma_nome)).map((a) => a.simulado_id));
+    tentsVis = tents.filter((t) => sim.get(t.simulado_id)?.tipo === "treino" || liberados.has(t.simulado_id));
+  }
+  saida.push("", `Simulados e treinos (${tentsVis.length}):`);
+  if (tentsVis.length === 0) saida.push("- nenhum");
+  saida.push(...limitarLinhas(tentsVis.map((t) => {
     const s = sim.get(t.simulado_id);
     const tipo = s?.tipo ?? "professor";
     const nome = `${s?.titulo ?? "?"} (${tipo === "treino" ? "treino" : "prova"})`;
@@ -94,7 +103,12 @@ async function perfil(ctx: Ctx, conta: ContaLida, todosVinculos: Vinculo[]): Pro
   const minhasTurmas = new Set(vinculos.map((v) => `${v.turma_nome}|${v.ano_letivo}`));
   const progressoTodos = await lerTodas<{ curso_id: string }>((de, ate) =>
     ctx.supabase.from("aula_progresso").select("curso_id").eq("conta_id", conta.id).order("aula_id").range(de, ate));
-  const cursoIds = [...new Set([...ligados.filter((l) => minhasTurmas.has(`${l.turma_nome}|${l.ano_letivo}`)).map((l) => l.curso_id), ...progressoTodos.map((p) => p.curso_id)])];
+  let cursoIds = [...new Set([...ligados.filter((l) => minhasTurmas.has(`${l.turma_nome}|${l.ano_letivo}`)).map((l) => l.curso_id), ...progressoTodos.map((p) => p.curso_id)])];
+  if (restrito(ctx)) {
+    // Professor restrito: só cursos dele ou ligados a turmas liberadas.
+    const visiveis = new Set((await cursosVisiveis(ctx, [{ id: conta.escola_id, nome: "", slug: "" }])).map((c) => c.curso.id));
+    cursoIds = cursoIds.filter((id) => visiveis.has(id));
+  }
   const cursos = await lerPorIds<{ id: string; titulo: string }>(cursoIds, (bloco, de, ate) =>
     ctx.supabase.from("cursos").select("id, titulo").in("id", bloco).order("titulo").range(de, ate));
   const prog = await progressoDasContas(ctx, cursoIds, [conta.id]);
@@ -124,7 +138,7 @@ export const registrarAlunos: Registrar = (server, obter) => {
       let lista = await contasVisiveis(ctx, escolas.map((e) => e.id));
       if (args.turma) {
         const alvo = normalizarBusca(args.turma);
-        lista = lista.filter(({ turmas }) => turmas.some((t) => normalizarBusca(t.turma_nome).includes(alvo)));
+        lista = lista.filter(({ turmas }) => turmas.some((t) => podeVerTurma(ctx.escopo, t.escola_id, t.turma_nome) && normalizarBusca(t.turma_nome).includes(alvo)));
       }
       if (lista.length === 0) return texto("Nenhuma conta de aluno encontrada.");
       const nunca = lista.filter(({ conta }) => !conta.ultimo_acesso).length;

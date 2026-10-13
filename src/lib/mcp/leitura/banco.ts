@@ -10,12 +10,18 @@ const ROTULO_MATERIA = MATERIAS as Record<string, { rotulo: string }>;
 const rotuloMateria = (m: string) => ROTULO_MATERIA[m]?.rotulo ?? m;
 
 /**
- * Filtro .or() das questões visíveis. Os valores são ids de escola vindos do banco (uuid), nunca texto da Hermes.
- * - professor: banco geral publicado + questões da escola dele;
- * - dono: tudo, ou o geral + as escolas pedidas.
+ * Filtro .or() das questões visíveis, igual à tela /banco. Os valores são ids vindos do banco (uuid), nunca texto da Hermes.
+ * - professor: geral publicado + da escola (admin/dono da conta: todas da escola; professor comum: publicadas ou as próprias);
+ * - dono (servidor do dono): tudo, ou o geral + as escolas pedidas.
  */
 function filtroVisiveis(ctx: Ctx, escolas: EscolaInfo[], pediuEscola: boolean): string | null {
-  if (ctx.escopo.tipo === "professor") return `and(escopo.eq.geral,status.eq.publicada),escola_id.eq.${ctx.escopo.escolaId}`;
+  const e = ctx.escopo;
+  if (e.tipo === "professor") {
+    const admin = e.papel === "admin" || e.papel === "dono";
+    return `and(escopo.eq.geral,status.eq.publicada),${admin
+      ? `and(escopo.eq.escola,escola_id.eq.${e.escolaId})`
+      : `and(escopo.eq.escola,escola_id.eq.${e.escolaId},or(status.eq.publicada,criado_por.eq.${e.professorId}))`}`;
+  }
   if (!pediuEscola) return null;
   return `escopo.eq.geral,escola_id.in.(${escolas.map((e) => e.id).join(",")})`;
 }
@@ -55,7 +61,7 @@ export const registrarBanco: Registrar = (server, obter) => {
       const ctx = await obter(args);
       const escolas = await escolasDoPedido(ctx, args.escola);
       const vis = filtroVisiveis(ctx, escolas, !!args.escola?.trim());
-      let q = ctx.supabase.from("questoes").select("id, banca, ano, numero, caderno, area, materia, status, escopo, enunciado", { count: "exact" });
+      let q = ctx.supabase.from("questoes").select("id, escola_id, banca, ano, numero, caderno, area, materia, status, escopo, enunciado", { count: "exact" });
       if (vis) q = q.or(vis);
       if (args.banca?.trim()) q = q.ilike("banca", padraoExato(args.banca));
       if (args.ano) q = q.eq("ano", args.ano);
@@ -65,12 +71,13 @@ export const registrarBanco: Registrar = (server, obter) => {
       if (args.texto?.trim()) q = q.ilike("enunciado", `%${padraoExato(args.texto)}%`);
       const { data, count, error } = await q.order("banca").order("ano", { ascending: false }).order("numero").limit(args.limite ?? 20);
       if (error) throw new Error(error.message);
-      const linhas = (data ?? []) as { id: string; banca: string; ano: number | null; numero: number | null; caderno: string; area: string; materia: string; status: string; escopo: string; enunciado: string }[];
+      const linhas = (data ?? []) as { id: string; escola_id: string | null; banca: string; ano: number | null; numero: number | null; caderno: string; area: string; materia: string; status: string; escopo: string; enunciado: string }[];
       if (linhas.length === 0) return texto("Nenhuma questão encontrada com esses filtros.");
+      const nomeEscola = new Map(escolas.map((e) => [e.id, e.nome]));
       const resumo = (s: string) => { const t = s.replace(/\s+/g, " ").trim(); return t.length > 120 ? `${t.slice(0, 120)}…` : t; };
       return texto([
         `${count ?? linhas.length} questões encontradas (mostrando ${linhas.length}):`,
-        ...linhas.map((x) => `- ${x.id} · ${x.banca}${x.ano ? ` ${x.ano}` : ""}${x.numero ? ` nº ${x.numero}` : ""}${x.caderno ? ` (${x.caderno})` : ""} · ${rotuloMateria(x.materia)} · ${x.status === "publicada" ? "publicada" : "em revisão"}${x.escopo === "escola" ? " · da escola" : ""} — ${resumo(x.enunciado) || "(sem enunciado)"}`),
+        ...linhas.map((x) => `- ${x.id} · ${x.banca}${x.ano ? ` ${x.ano}` : ""}${x.numero ? ` nº ${x.numero}` : ""}${x.caderno ? ` (${x.caderno})` : ""} · ${rotuloMateria(x.materia)} · ${x.status === "publicada" ? "publicada" : "em revisão"}${x.escopo === "escola" ? ` · da escola${ctx.escopo.tipo === "dono" ? ` ${nomeEscola.get(x.escola_id ?? "") ?? "?"}` : ""}` : ""} — ${resumo(x.enunciado) || "(sem enunciado)"}`),
       ].join("\n"));
     }
   );
