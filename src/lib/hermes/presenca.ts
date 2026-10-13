@@ -25,10 +25,11 @@ export function mesclarPresenca(salva: Partial<Presenca> | null, nova: unknown):
     const atual = porSaida.get(e.saiu_em);
     porSaida.set(e.saiu_em, atual && atual.voltou_em ? atual : e);
   }
+  const mesclados = [...porSaida.values()].sort((a, b) => a.saiu_em.localeCompare(b.saiu_em));
   return {
-    saidas: Math.max(inteiro(salva?.saidas, 1e6), inteiro(n.saidas, 1e6)),
+    saidas: Math.max(inteiro(salva?.saidas, 1e6), inteiro(n.saidas, 1e6), mesclados.length),
     tempoForaSeg: Math.max(inteiro(salva?.tempoForaSeg, MAX_FORA), inteiro(n.tempoForaSeg, MAX_FORA)),
-    eventos: [...porSaida.values()].sort((a, b) => a.saiu_em.localeCompare(b.saiu_em)).slice(-MAX_EVENTOS),
+    eventos: mesclados.slice(-MAX_EVENTOS),
   };
 }
 
@@ -50,6 +51,17 @@ export function formatarPresenca(saidas: number | null, foraSeg: number | null):
   if (saidas == null || foraSeg == null) return "—";
   if (saidas === 0) return "nenhuma";
   return `${saidas} ${saidas === 1 ? "saída" : "saídas"} · ${formatarDuracao(foraSeg)} fora`;
+}
+
+/** Tentativa sem medição de presença (anterior ao recurso): nenhuma saída registrada e nenhum evento guardado. */
+export function semMedicaoDePresenca(t: { saidas: number | null; eventos_saida?: unknown[] | null }): boolean {
+  return t.eventos_saida === null && (t.saidas ?? 0) === 0;
+}
+
+/** Texto de presença de uma tentativa: "—" quando não houve medição. */
+export function presencaTentativa(t: { saidas: number | null; tempo_fora_seg: number | null; eventos_saida?: unknown[] | null }): string {
+  if (semMedicaoDePresenca(t)) return "—";
+  return formatarPresenca(t.saidas ?? null, t.tempo_fora_seg ?? null);
 }
 
 const delta = (v: unknown, max: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(0, Math.round(v))) : 0);

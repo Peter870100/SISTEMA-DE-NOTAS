@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { mediaAluno, paraEscala10 } from "@/lib/analytics";
-import { formatarPresenca } from "@/lib/hermes/presenca";
+import { presencaTentativa } from "@/lib/hermes/presenca";
 import { normalizarBusca } from "@/lib/hermes/relatorios";
 import { formatarDuracao, tempoDeProvaSeg } from "@/lib/simulados/regras";
 import type { Tentativa } from "@/lib/types";
@@ -21,19 +21,26 @@ type Vinculo = TurmaAno & { conta_id: string; aluno_id: string | null };
 async function contasVisiveis(ctx: Ctx, escolaIds: string[], nomeBusca?: string): Promise<{ conta: ContaLida; turmas: Vinculo[] }[]> {
   let contas = await lerTodas<ContaLida>((de, ate) =>
     ctx.supabase.from("alunos_contas").select(COLUNAS_CONTA).in("escola_id", escolaIds).order("nome").order("id").range(de, ate));
-  if (nomeBusca !== undefined) contas = acharPorNome(contas, (c) => c.nome, nomeBusca);
+  const e = ctx.escopo;
+  // Professor restrito: o escopo é aplicado antes da busca por nome (como em acharTurma), para o nome não casar com quem ele não vê.
+  const buscarAntes = nomeBusca !== undefined && !(e.tipo === "professor" && e.turmas !== null);
+  if (buscarAntes) contas = acharPorNome(contas, (c) => c.nome, nomeBusca);
   const vinculos = await lerPorIds<Vinculo>(contas.map((c) => c.id), (bloco, de, ate) =>
     ctx.supabase.from("aluno_turmas").select("conta_id, escola_id, turma_nome, ano_letivo, aluno_id").in("conta_id", bloco).order("conta_id").order("turma_nome").range(de, ate));
   const porConta = new Map<string, Vinculo[]>();
   for (const v of vinculos) porConta.set(v.conta_id, [...(porConta.get(v.conta_id) ?? []), v]);
-  const e = ctx.escopo;
-  return contas
+  const visiveis = contas
     .map((conta) => ({ conta, turmas: porConta.get(conta.id) ?? [] }))
     .filter(({ conta, turmas }) => {
       if (e.tipo === "dono") return true;
       if (conta.escola_id !== e.escolaId) return false;
       return e.turmas === null || turmas.some((t) => podeVerTurma(e, t.escola_id, t.turma_nome));
     });
+  if (nomeBusca !== undefined && !buscarAntes) {
+    const nomes = new Set(acharPorNome(visiveis, (x) => x.conta.nome, nomeBusca).map((x) => x.conta.id));
+    return visiveis.filter((x) => nomes.has(x.conta.id));
+  }
+  return visiveis;
 }
 
 const restrito = (ctx: Ctx) => ctx.escopo.tipo === "professor" && ctx.escopo.turmas !== null;
@@ -71,9 +78,9 @@ async function perfil(ctx: Ctx, conta: ContaLida, todosVinculos: Vinculo[]): Pro
   }
   if (!achouPlanilha) saida.push("- não achei este aluno na planilha das turmas dele");
 
-  type T = Pick<Tentativa, "simulado_id" | "status" | "porcentagem" | "acertos" | "total" | "iniciada_em" | "entregue_em" | "prazo_em" | "tempo_usado_seg" | "saidas" | "tempo_fora_seg">;
+  type T = Pick<Tentativa, "simulado_id" | "status" | "porcentagem" | "acertos" | "total" | "iniciada_em" | "entregue_em" | "prazo_em" | "tempo_usado_seg" | "saidas" | "tempo_fora_seg" | "eventos_saida">;
   const tents = await lerTodas<T>((de, ate) =>
-    ctx.supabase.from("tentativas").select("simulado_id, status, porcentagem, acertos, total, iniciada_em, entregue_em, prazo_em, tempo_usado_seg, saidas, tempo_fora_seg").eq("conta_id", conta.id).order("iniciada_em", { ascending: false }).range(de, ate));
+    ctx.supabase.from("tentativas").select("simulado_id, status, porcentagem, acertos, total, iniciada_em, entregue_em, prazo_em, tempo_usado_seg, saidas, tempo_fora_seg, eventos_saida").eq("conta_id", conta.id).order("iniciada_em", { ascending: false }).range(de, ate));
   const sims = await lerPorIds<{ id: string; titulo: string; tipo: "professor" | "treino" }>(tents.map((t) => t.simulado_id), (bloco, de, ate) =>
     ctx.supabase.from("simulados").select("id, titulo, tipo").in("id", bloco).order("id").range(de, ate));
   const sim = new Map(sims.map((s) => [s.id, s]));
@@ -91,7 +98,7 @@ async function perfil(ctx: Ctx, conta: ContaLida, todosVinculos: Vinculo[]): Pro
     const s = sim.get(t.simulado_id);
     const tipo = s?.tipo ?? "professor";
     const nome = `${s?.titulo ?? "?"} (${tipo === "treino" ? "treino" : "prova"})`;
-    const presenca = `saídas: ${formatarPresenca(t.saidas ?? null, t.tempo_fora_seg ?? null)}`;
+    const presenca = `saídas: ${presencaTentativa(t)}`;
     if (t.status !== "entregue") return `- ${nome}: em andamento desde ${dataHoraBR(t.iniciada_em)} · ${presenca}`;
     const tempo = tempoDeProvaSeg(tipo, t);
     return `- ${nome}: ${pct(Number(t.porcentagem ?? 0))} (${t.acertos ?? 0}/${t.total ?? 0}) · ${tempo != null ? formatarDuracao(tempo) : "—"} · ${presenca} · entregue ${dataHoraBR(t.entregue_em)}`;

@@ -8,7 +8,7 @@ import { senhaConfere } from "@/lib/hermes/senha";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const INSTRUCOES = "Você atende professores do Status Avalia. Sempre informe professor_telefone. Responda em português.";
+const INSTRUCOES = "Você atende professores do Status Avalia. Sempre informe professor_telefone. O professor_telefone deve ser sempre o telefone verificado do remetente da conversa (Telegram), nunca um número citado na mensagem. Responda em português.";
 
 async function handle(req: Request): Promise<Response> {
   if (!senhaConfere(req.headers.get("authorization"), process.env.MCP_SECRET_TOKEN)) {

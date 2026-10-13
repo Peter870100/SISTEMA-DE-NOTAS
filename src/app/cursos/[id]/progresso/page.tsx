@@ -90,13 +90,14 @@ export default async function ProgressoTurmaPage({ params, searchParams }: Props
                     {alunos.map((c) => {
                       const pct = pctAluno.get(c.id) ?? 0;
                       const soma = somaAluno.get(c.id);
+                      const semMedida = !soma || (soma.assistido === 0 && soma.saidas === 0);
                       return (
                         <tr key={c.id}>
                           <td className={ui.nome}>{c.nome}</td>
                           <td><span className={ui.nota} data-faixa={faixa(pct)}>{pct}%</span></td>
                           {comAulas.map((m) => <td key={m.id} className={ui.num}>{porcentagemConjunto(fez(c.id, m.aulas), m.aulas.length)}%</td>)}
-                          <td className={ui.num}>{soma ? formatarDuracao(soma.assistido) : "—"}</td>
-                          <td>{formatarPresenca(soma ? soma.saidas : null, soma ? soma.fora : null)}</td>
+                          <td className={ui.num}>{semMedida ? "—" : formatarDuracao(soma.assistido)}</td>
+                          <td>{semMedida ? "—" : formatarPresenca(soma.saidas, soma.fora)}</td>
                           <td>{c.ultimo_acesso ? new Date(c.ultimo_acesso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : <span className={ui.andamento}>Nunca</span>}</td>
                         </tr>
                       );

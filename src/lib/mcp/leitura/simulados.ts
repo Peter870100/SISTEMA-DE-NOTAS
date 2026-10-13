@@ -53,8 +53,8 @@ export async function simuladosVisiveis(ctx: Ctx, escolas: EscolaInfo[], tipo: "
 
 const nomesTurmas = (ts: TurmaAno[]) => (ts.length ? ts.map((t) => `${t.turma_nome} · ${t.ano_letivo}`).join(", ") : "sem turma");
 
-type TentLida = Pick<Tentativa, "id" | "conta_id" | "status" | "porcentagem" | "acertos" | "total" | "iniciada_em" | "entregue_em" | "prazo_em" | "tempo_usado_seg" | "saidas" | "tempo_fora_seg" | "tempo_questoes">;
-const COLUNAS_TENTATIVA = "id, conta_id, status, porcentagem, acertos, total, iniciada_em, entregue_em, prazo_em, tempo_usado_seg, saidas, tempo_fora_seg, tempo_questoes";
+type TentLida = Pick<Tentativa, "id" | "conta_id" | "status" | "porcentagem" | "acertos" | "total" | "iniciada_em" | "entregue_em" | "prazo_em" | "tempo_usado_seg" | "saidas" | "tempo_fora_seg" | "tempo_questoes" | "eventos_saida">;
+const COLUNAS_TENTATIVA = "id, conta_id, status, porcentagem, acertos, total, iniciada_em, entregue_em, prazo_em, tempo_usado_seg, saidas, tempo_fora_seg, tempo_questoes, eventos_saida";
 
 async function resultado(ctx: Ctx, v: SimuladoVisivel): Promise<string> {
   const { sim } = v;

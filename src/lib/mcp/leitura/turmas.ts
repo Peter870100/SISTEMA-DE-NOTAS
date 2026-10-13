@@ -95,9 +95,9 @@ export const registrarTurmas: Registrar = (server, obter) => {
       saida.push("", `Simulados (${sims.length}; ${contaIds.length} contas de aluno na turma):`);
       if (sims.length === 0) saida.push("- nenhum simulado para esta turma");
       if (sims.length) {
-        type T = Pick<Tentativa, "simulado_id" | "conta_id" | "status" | "porcentagem" | "acertos" | "total" | "iniciada_em" | "entregue_em" | "prazo_em" | "tempo_usado_seg" | "saidas" | "tempo_fora_seg">;
+        type T = Pick<Tentativa, "simulado_id" | "conta_id" | "status" | "porcentagem" | "acertos" | "total" | "iniciada_em" | "entregue_em" | "prazo_em" | "tempo_usado_seg" | "saidas" | "tempo_fora_seg" | "eventos_saida">;
         const tents = await lerPorIds<T>(sims.map((s) => s.id), (bloco, de, ate) =>
-          ctx.supabase.from("tentativas").select("simulado_id, conta_id, status, porcentagem, acertos, total, iniciada_em, entregue_em, prazo_em, tempo_usado_seg, saidas, tempo_fora_seg").in("simulado_id", bloco).order("id").range(de, ate));
+          ctx.supabase.from("tentativas").select("simulado_id, conta_id, status, porcentagem, acertos, total, iniciada_em, entregue_em, prazo_em, tempo_usado_seg, saidas, tempo_fora_seg, eventos_saida").in("simulado_id", bloco).order("id").range(de, ate));
         const agora = new Date();
         for (const s of sims) {
           const mapa = new Map(tents.filter((t) => t.simulado_id === s.id && contas.has(t.conta_id)).map((t) => [t.conta_id, t]));

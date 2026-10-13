@@ -29,10 +29,11 @@ export async function escopoDoTelefone(supabase: SupabaseClient, telefone: strin
     .from("professores")
     .select("id, role, acesso_restrito, escola_id")
     .eq("telefone", tel)
-    .maybeSingle();
+    .limit(2);
   if (error) throw new Error(error.message);
-  if (!data) throw new Error(ERRO_TELEFONE);
-  const p = data as { id: string; role: ProfessorRole; acesso_restrito: boolean; escola_id: string };
+  if (!data || data.length === 0) throw new Error(ERRO_TELEFONE);
+  if (data.length > 1) throw new Error("Este telefone está cadastrado em mais de uma escola; peça ao dono para corrigir.");
+  const p = data[0] as { id: string; role: ProfessorRole; acesso_restrito: boolean; escola_id: string };
   let turmas: Set<string> | null = null;
   if (!ehAdmin(p.role) && p.acesso_restrito) {
     const { data: liberadas, error: e2 } = await supabase

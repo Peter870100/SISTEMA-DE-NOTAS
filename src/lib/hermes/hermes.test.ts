@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fecharSaidaPendente, formatarPresenca, mesclarPresenca, somarPresencaAula } from "./presenca";
+import { fecharSaidaPendente, formatarPresenca, mesclarPresenca, presencaTentativa, somarPresencaAula } from "./presenca";
 import { normalizarBusca, situacaoTurmaNoSimulado, textoProgressoAula, textoResultadoSimulado } from "./relatorios";
 import { podeVerTurma } from "../mcp/escopo";
 import { senhaConfere } from "./senha";
@@ -113,4 +113,17 @@ test("validarConsultaLivre: erros em pt-BR", () => {
   assert.match(erro({ tabela: "turmas", limite: 0 }), /Limite deve ser um número inteiro entre 1 e 500/);
   assert.match(erro({ tabela: "turmas", limite: 501 }), /entre 1 e 500/);
   assert.match(erro({ tabela: "turmas", ordem: { coluna: "senha_hash" } }), /não pode ser consultada/);
+});
+
+test("mesclarPresenca: saidas nunca fica abaixo do número de eventos", () => {
+  const ev = (m: number) => ({ questao: null, saiu_em: `2026-10-12T10:0${m}:00Z`, voltou_em: `2026-10-12T10:0${m}:30Z` });
+  const r = mesclarPresenca({ saidas: 1, tempoForaSeg: 10, eventos: [ev(1)] }, { saidas: 1, tempoForaSeg: 20, eventos: [ev(2), ev(3)] });
+  assert.equal(r.eventos.length, 3);
+  assert.equal(r.saidas, 3);
+});
+
+test("presencaTentativa: sem medição vira —", () => {
+  assert.equal(presencaTentativa({ saidas: 0, tempo_fora_seg: 0, eventos_saida: null }), "—");
+  assert.equal(presencaTentativa({ saidas: 0, tempo_fora_seg: 0, eventos_saida: [] }), "nenhuma");
+  assert.equal(presencaTentativa({ saidas: 2, tempo_fora_seg: 60, eventos_saida: null }), formatarPresenca(2, 60));
 });

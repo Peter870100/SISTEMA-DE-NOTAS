@@ -21,9 +21,17 @@ export async function registrarProgresso(aulaId: string, posicaoSeg: number, ext
     .eq("aula_id", aulaId)
     .maybeSingle();
   // Tudo é delta somado ao já gravado (com limite contra envio errado).
+  // O tempo assistido de uma chamada também não passa do tempo real desde a anterior (+5 s de folga).
+  let extraLimitado = extra;
+  if (extra && anterior?.atualizado_em) {
+    const decorrido = Math.max(0, (Date.now() - Date.parse(anterior.atualizado_em)) / 1000);
+    if (Number.isFinite(decorrido) && typeof extra.assistidoDeltaSeg === "number") {
+      extraLimitado = { ...extra, assistidoDeltaSeg: Math.min(extra.assistidoDeltaSeg, Math.round(decorrido + 5)) };
+    }
+  }
   const presencaGravar = somarPresencaAula(
     { tempo_assistido_seg: anterior?.tempo_assistido_seg ?? 0, saidas: anterior?.saidas ?? 0, tempo_fora_seg: anterior?.tempo_fora_seg ?? 0 },
-    extra
+    extraLimitado
   );
   // Sem duração registrada pelo professor não dá para medir nem concluir: só guarda onde retomar.
   if (acesso.aula.duracao_seg == null) {

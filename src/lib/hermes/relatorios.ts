@@ -1,12 +1,12 @@
 import { formatarDuracao, tempoDeProvaSeg } from "@/lib/simulados/regras";
 import type { Tentativa } from "@/lib/types";
-import { formatarPresenca } from "./presenca";
+import { formatarPresenca, semMedicaoDePresenca } from "./presenca";
 
 export function normalizarBusca(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ª|º/g, (c) => (c === "ª" ? "a" : "o")).toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-type TentResumo = Pick<Tentativa, "status" | "porcentagem" | "acertos" | "total" | "iniciada_em" | "entregue_em" | "prazo_em" | "tempo_usado_seg" | "saidas" | "tempo_fora_seg">;
+type TentResumo = Pick<Tentativa, "status" | "porcentagem" | "acertos" | "total" | "iniciada_em" | "entregue_em" | "prazo_em" | "tempo_usado_seg" | "saidas" | "tempo_fora_seg"> & { eventos_saida?: Tentativa["eventos_saida"] };
 export type LinhaAluno = { nome: string; status: "entregue" | "em_andamento" | "nao_comecou"; porcentagem: number | null; acertos: number | null; total: number | null; tempoSeg: number | null; saidas: number | null; tempoForaSeg: number | null };
 
 export function situacaoTurmaNoSimulado(alunos: { contaId: string; nome: string }[], tentativas: Map<string, TentResumo>, tipo: "professor" | "treino"): LinhaAluno[] {
@@ -16,7 +16,7 @@ export function situacaoTurmaNoSimulado(alunos: { contaId: string; nome: string 
     const entregue = t.status === "entregue";
     return { nome, status: entregue ? "entregue" : "em_andamento",
       porcentagem: entregue && t.porcentagem != null ? Number(t.porcentagem) : null, acertos: entregue ? t.acertos : null, total: entregue ? t.total : null,
-      tempoSeg: entregue ? tempoDeProvaSeg(tipo, t) : null, saidas: t.saidas ?? null, tempoForaSeg: t.tempo_fora_seg ?? null };
+      tempoSeg: entregue ? tempoDeProvaSeg(tipo, t) : null, saidas: semMedicaoDePresenca(t) ? null : t.saidas ?? null, tempoForaSeg: semMedicaoDePresenca(t) ? null : t.tempo_fora_seg ?? null };
   }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
