@@ -2,13 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ImagePlus, Trash2, Upload } from "lucide-react";
+import { ImagePlus, Trash2, Upload, Tags, FileText, ListChecks, Save, CheckCircle2 } from "lucide-react";
 import { criarQuestao, excluirQuestao, prepararEnvioImagem, publicarQuestao, registrarImagem, removerImagem, salvarQuestao, type DadosQuestao } from "@/actions/questoes";
 import { LETRAS, MATERIAS } from "@/lib/questoes/materias";
 import type { AlvoImagem, Assunto, Letra, Questao } from "@/lib/types";
 import { estilos } from "@/components/ui/estilos";
 import { ImagemQuestao, type ImagemTela } from "./ImagemQuestao";
 import { TextoQuestao } from "./TextoQuestao";
+
+import styles from "./EditorQuestao.module.css";
 
 type Props = {
   questao: Questao | null;
@@ -91,7 +93,7 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
           </div>
         ))}
         {questao && (
-          <label htmlFor={idInput} className={`${estilos.botaoFantasma} w-fit cursor-pointer px-2 text-xs`}><ImagePlus size={13} aria-hidden="true" /> {lista.length ? "+ Imagem" : "Adicionar imagem"}
+          <label htmlFor={idInput} className={styles.imageAction}><ImagePlus size={13} aria-hidden="true" /> {lista.length ? "+ Imagem" : "Adicionar imagem"}
             <input id={idInput} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void executar(() => enviarPara(alvo, f, null)); }} />
           </label>
         )}
@@ -100,18 +102,21 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={styles.workspace}>
+    <div className={styles.editor}>
       {erro && <p role="alert" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{erro}</p>}
       {aviso && <p role="status" className="rounded-control bg-ok/15 px-3 py-2 text-sm text-ink">{aviso}</p>}
       {questao?.precisa_revisao && questao.motivo_revisao && <p className="rounded-control bg-gold/25 px-3 py-2 text-sm text-ink">⚠ {questao.motivo_revisao}</p>}
 
-      <div className="grid gap-2 sm:grid-cols-4">
+      <section className={`${styles.card} ${styles.metadata}`} aria-label="Identificação da questão">
+      <div className={styles.heading}><span className={styles.icon}><Tags size={22} aria-hidden="true" /></span><div><h2>Identificação da questão</h2><p>Organize a origem, a matéria e o assunto.</p></div></div>
+      <div className={styles.metadataFields}>
         <label className="flex flex-col gap-1 text-xs text-muted">Banca<input value={d.banca} onChange={(e) => set("banca", e.target.value)} className={estilos.input} /></label>
         <label className="flex flex-col gap-1 text-xs text-muted">Ano<input value={d.ano ?? ""} onChange={(e) => set("ano", e.target.value ? Number(e.target.value.replace(/\D/g, "")) : null)} inputMode="numeric" className={estilos.input} /></label>
         <label className="flex flex-col gap-1 text-xs text-muted">Caderno<input value={d.caderno} onChange={(e) => set("caderno", e.target.value)} className={estilos.input} /></label>
         <label className="flex flex-col gap-1 text-xs text-muted">Nº<input value={d.numero ?? ""} onChange={(e) => set("numero", e.target.value ? Number(e.target.value.replace(/\D/g, "")) : null)} inputMode="numeric" className={estilos.input} /></label>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className={styles.subjectFields}>
         <label className="flex flex-col gap-1 text-xs text-muted">Matéria
           <select value={d.materia} onChange={(e) => { set("materia", e.target.value); set("assunto_id", null); }} className={estilos.input}>
             {Object.entries(MATERIAS).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}
@@ -133,18 +138,23 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
         </label>
       )}
 
-      <div className="flex items-center justify-between"><span className={estilos.rotulo}>Enunciado</span><button type="button" onClick={() => setPrevia(!previa)} className={`${estilos.botaoFantasma} px-2 text-xs`}>{previa ? "Editar texto" : "Ver como fica"}</button></div>
-      {previa ? <TextoQuestao texto={d.enunciado} /> : <textarea value={d.enunciado} onChange={(e) => set("enunciado", e.target.value)} rows={8} className={estilos.input} aria-label="Enunciado" />}
+      </section>
+      <section className={`${styles.card} ${styles.statement}`} aria-label="Enunciado e comando">
+      <div className={styles.heading}><span className={styles.icon}><FileText size={22} aria-hidden="true" /></span><div><h2>Enunciado e comando</h2><p>Prepare o texto que será apresentado ao aluno.</p></div></div>
+      <div className="flex items-center justify-between"><span className={estilos.rotulo}>Enunciado</span><button type="button" aria-pressed={previa} onClick={() => setPrevia(!previa)} className={styles.previewToggle}>{previa ? "Editar texto" : "Ver como fica"}</button></div>
+      {previa ? <div className={styles.preview}><TextoQuestao texto={d.enunciado} /></div> : <textarea value={d.enunciado} onChange={(e) => set("enunciado", e.target.value)} rows={10} className={estilos.input} aria-label="Enunciado" />}
       <p className="text-xs text-muted">Use **negrito** e *itálico*. Quebre linhas normalmente.</p>
       {blocoImagens("enunciado")}
       <label className="flex flex-col gap-1 text-xs text-muted">Comando<input value={d.comando} onChange={(e) => set("comando", e.target.value)} className={estilos.input} /></label>
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className={`${estilos.rotulo} mb-1`}>Alternativas e resposta</legend>
+      </section>
+      <fieldset className={`${styles.card} ${styles.answers}`}>
+        <legend className="sr-only">Alternativas e resposta</legend>
+        <div className={styles.heading}><span className={styles.icon}><ListChecks size={22} aria-hidden="true" /></span><div><h2>Alternativas e resposta</h2><p>Marque a letra que corresponde ao gabarito.</p></div>{d.resposta && <span className={styles.badge}><CheckCircle2 size={16} aria-hidden="true" /> Gabarito {d.resposta}</span>}</div>
         {LETRAS.map((letra) => (
-          <div key={letra} className="flex flex-col gap-1 rounded-control border border-line p-2">
-            <div className="flex items-start gap-2">
-              <label className="flex items-center gap-1 pt-2 text-sm font-semibold text-ink"><input type="radio" name="resposta" checked={d.resposta === letra} onChange={() => set("resposta", letra as Letra)} aria-label={`Resposta ${letra}`} /> {letra})</label>
+          <div key={letra} className={styles.answer} data-selected={d.resposta === letra}>
+            <div className={styles.answerRow}>
+              <label className={styles.letter}><input type="radio" name="resposta" checked={d.resposta === letra} onChange={() => set("resposta", letra as Letra)} aria-label={`Resposta ${letra}`} /><span>{letra}</span></label>
               <textarea value={d.alternativas.find((a) => a.letra === letra)!.texto} onChange={(e) => set("alternativas", d.alternativas.map((a) => (a.letra === letra ? { ...a, texto: e.target.value } : a)))} rows={2} className={estilos.input} aria-label={`Alternativa ${letra}`} />
             </div>
             {blocoImagens(letra)}
@@ -153,13 +163,14 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
         <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={d.anulada} onChange={(e) => set("anulada", e.target.checked)} /> Questão anulada</label>
       </fieldset>
 
-      <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); }, "Salvo.")} className={estilos.botaoSecundario}>{questao ? "Salvar" : "Criar questão"}</button>
+      <div className={styles.actions} aria-busy={ocupado}>
+        <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); }, "Salvo.")} className={styles.primary}><Save size={18} aria-hidden="true" />{ocupado ? "Aguarde…" : questao ? "Salvar questão" : "Criar questão"}</button>
         {questao && (questao.status === "publicada"
           ? <button type="button" disabled={ocupado} onClick={() => void executar(() => publicarQuestao(questao.id, false), "Voltou para revisão.")} className={estilos.botaoFantasma}>Voltar para revisão</button>
-          : <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); await publicarQuestao(questao.id, true); if (modoRevisao && proximaHref) router.push(proximaHref); }, "Publicada.")} className={estilos.botaoPrimario}>{modoRevisao ? "Aprovar e próxima" : "Publicar"}</button>)}
+          : <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); await publicarQuestao(questao.id, true); if (modoRevisao && proximaHref) router.push(proximaHref); }, "Publicada.")} className={styles.publish}><CheckCircle2 size={18} aria-hidden="true" />{modoRevisao ? "Aprovar e próxima" : "Publicar"}</button>)}
         {questao && <button type="button" disabled={ocupado} onClick={() => { if (window.confirm("Excluir esta questão?")) void executar(async () => { await excluirQuestao(questao.id); router.push(proximaHref ?? "/banco"); }); }} className={`${estilos.botaoFantasma} text-danger`}>Excluir</button>}
       </div>
+    </div>
     </div>
   );
 }

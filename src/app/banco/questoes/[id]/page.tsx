@@ -26,12 +26,12 @@ export default async function QuestaoPage({ params }: { params: Promise<{ id: st
   const edita = podeEditarQuestao(professor, q);
 
   return (
-    <PageLayout crumb="Banco de questões" titulo={`${q.banca} ${q.ano ?? ""} · Nº ${q.numero ?? "—"}`} largura="max-w-3xl"
+    <PageLayout crumb="Banco de questões" titulo={`${q.banca} ${q.ano ?? ""} · Nº ${q.numero ?? "—"}`} largura="max-w-6xl"
       acoes={<>
         <Link href="/banco" className={estilos.botaoSecundario}>← Banco</Link>
         {professor.role === "dono" && q.escopo === "escola" && <PromoverQuestao questaoId={id} />}
       </>}>
-      <section className={`${estilos.card} p-4`}>
+      <section className={edita ? undefined : `${estilos.card} p-4`}>
         {edita ? <EditorQuestao questao={q} imagens={imgs} assuntos={assuntos ?? []} podeEscolherGeral={false} /> : (
           <div className="flex flex-col gap-3">
             <TextoQuestao texto={q.enunciado} />
