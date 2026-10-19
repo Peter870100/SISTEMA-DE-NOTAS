@@ -8,6 +8,7 @@ import { ehMateria, areaDaMateria, LETRAS } from "@/lib/questoes/materias";
 import { limitarQuadro, type Quadro } from "@/lib/questoes/quadro";
 import { BUCKET } from "@/lib/questoes/storage";
 import { camposConferida, camposFaltaImagem } from "@/lib/questoes/conferencia";
+import { limparConteudo, textoDoConteudo } from "@/lib/questoes/conteudo";
 import type { Alinhamento, AlvoImagem, Escopo, Letra } from "@/lib/types";
 
 export type DadosQuestao = {
@@ -19,10 +20,12 @@ export type DadosQuestao = {
   assunto_id: string | null;
   enunciado: string;
   comando: string;
-  alternativas: { letra: Letra; texto: string }[];
+  alternativas: { letra: Letra; texto: string; conteudo?: unknown }[];
   resposta: Letra | null;
   anulada: boolean;
   escopo?: Escopo;
+  /** Documento formatado do enunciado (entrada não confiável). Ausente: mantém o comportamento de texto puro. */
+  conteudo?: unknown;
 };
 
 const MIME: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
@@ -32,7 +35,14 @@ function limpar(d: DadosQuestao) {
   const banca = d.banca.trim();
   if (!banca) throw new Error("Informe a banca.");
   if (!ehMateria(d.materia)) throw new Error("Escolha a matéria.");
-  const alternativas = LETRAS.map((letra) => ({ letra, texto: (d.alternativas.find((a) => a.letra === letra)?.texto ?? "").trim() }));
+  const alternativas = LETRAS.map((letra) => {
+    const alt = d.alternativas.find((a) => a.letra === letra);
+    if (alt?.conteudo !== undefined) {
+      const doc = limparConteudo(alt.conteudo, { modo: "alternativa" });
+      if (doc) return { letra, texto: textoDoConteudo(doc).trim(), conteudo: doc };
+    }
+    return { letra, texto: (alt?.texto ?? "").trim() };
+  });
   if (d.resposta && !LETRAS.includes(d.resposta)) throw new Error("Resposta inválida.");
   return {
     banca,
@@ -50,6 +60,13 @@ function limpar(d: DadosQuestao) {
   };
 }
 
+/** Campos do enunciado: se veio `conteudo`, limpa o documento e deriva o texto puro dele. */
+function camposEnunciado(d: DadosQuestao, imagensValidas: Set<string>) {
+  if (d.conteudo === undefined) return {};
+  const doc = limparConteudo(d.conteudo, { modo: "enunciado", imagensValidas });
+  return doc ? { conteudo: doc, enunciado: textoDoConteudo(doc).trim() } : { conteudo: null };
+}
+
 function traduzirErro(message: string): string {
   return message.includes("uq_questoes") ? "Já existe uma questão com essa banca, ano, caderno e número." : message;
 }
@@ -59,7 +76,7 @@ export async function criarQuestao(dados: DadosQuestao): Promise<string> {
   const escopo: Escopo = dados.escopo === "geral" && professor.role === "dono" ? "geral" : "escola";
   const { data, error } = await supabase
     .from("questoes")
-    .insert({ ...limpar(dados), escopo, escola_id: escopo === "geral" ? null : professor.escola_id, origem: "manual", status: "revisao", criado_por: professor.id })
+    .insert({ ...limpar(dados), ...camposEnunciado(dados, new Set()), escopo, escola_id: escopo === "geral" ? null : professor.escola_id, origem: "manual", status: "revisao", criado_por: professor.id })
     .select("id")
     .single();
   if (error || !data) throw new Error(traduzirErro(error?.message ?? "Falha ao criar questão."));
@@ -70,7 +87,13 @@ export async function salvarQuestao(id: string, dados: DadosQuestao): Promise<vo
   const { questao } = await exigirEditorQuestao(id);
   const limpo = limpar(dados);
   if (questao.status === "publicada" && !limpo.anulada && !limpo.resposta) throw new Error("Questão publicada precisa de resposta (ou ser anulada).");
-  const { error } = await supabase.from("questoes").update({ ...limpo, updated_at: new Date().toISOString() }).eq("id", id);
+  let imagensValidas = new Set<string>();
+  if (dados.conteudo !== undefined) {
+    const { data: imagens, error: erroImagens } = await supabase.from("questao_imagens").select("id").eq("questao_id", id).eq("alvo", "enunciado");
+    if (erroImagens) throw new Error(erroImagens.message);
+    imagensValidas = new Set((imagens ?? []).map((i) => i.id));
+  }
+  const { error } = await supabase.from("questoes").update({ ...limpo, ...camposEnunciado(dados, imagensValidas), updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw new Error(traduzirErro(error.message));
 }
 
