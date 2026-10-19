@@ -23,18 +23,20 @@ export default async function RevisarPage({ params, searchParams }: Props) {
   if (!imp || !podeImportar(professor, imp.escopo) || (imp.escopo === "escola" && imp.escola_id !== professor.escola_id && professor.role !== "dono")) notFound();
 
   // Sem filtro na URL a tela abre em "a conferir".
-  const filtro = filtroParam ?? "a-conferir";
+  const validos = ["a-conferir", "falta-imagem", "conferidas", "todas", "aviso", "sem-resposta", "aprovadas"];
+  const filtro = filtroParam && validos.includes(filtroParam) ? filtroParam : "a-conferir";
   const [{ data: todas }, { data: paginasProva }] = await Promise.all([
     supabase.from("questoes").select("*").eq("importacao_id", id).order("numero"),
     supabase.from("importacao_paginas").select("*").eq("importacao_id", id).eq("tipo", "prova").order("numero"),
   ]);
-  const lista = (todas ?? []).filter((x) =>
+  // A questão pedida em ?q= fica na lista mesmo que, depois de marcada, já não combine com o filtro.
+  const lista = (todas ?? []).filter((x) => x.id === q ||
     filtro === "a-conferir" ? estadoConferencia(x) === "a_conferir"
       : filtro === "falta-imagem" ? estadoConferencia(x) === "falta_imagem"
       : filtro === "conferidas" ? estadoConferencia(x) === "conferida"
       : filtro === "aviso" ? x.precisa_revisao : filtro === "sem-resposta" ? !x.resposta && !x.anulada : filtro === "aprovadas" ? x.status === "publicada" : true);
   const ordenada = [...lista].sort((a, b) => Number(b.precisa_revisao) - Number(a.precisa_revisao) || (a.numero ?? 0) - (b.numero ?? 0));
-  const atual = ordenada.find((x) => x.id === q) ?? ordenada.find((x) => x.status === "revisao") ?? ordenada[0];
+  const atual = ordenada.find((x) => x.id === q) ?? ordenada.find((x) => estadoConferencia(x) === "a_conferir") ?? ordenada[0];
   // Próxima a conferir na lista atual (depois da atual); sem nenhuma, volta para a importação.
   const proxima = atual ? ordenada.slice(ordenada.indexOf(atual) + 1).find((x) => estadoConferencia(x) === "a_conferir") : undefined;
 
@@ -48,8 +50,8 @@ export default async function RevisarPage({ params, searchParams }: Props) {
   const urlPagina = pagina ? await linkExibicao(pagina.storage_path) : null;
   const imgsAtual = atual ? imagens.get(atual.id) ?? [] : [];
   const base = `/banco/importacoes/${id}/revisar`;
-  const sufixoFiltro = filtroParam ? `&filtro=${filtroParam}` : "";
-  const hrefPagina = (pid: string | null) => (pid && atual ? `${base}?q=${atual.id}&pagina=${pid}${sufixoFiltro}` : null);
+  const sufixoFiltro = filtroParam ? `&filtro=${encodeURIComponent(filtro)}` : "";
+  const hrefPagina = (pid: string | null) => (pid && atual ? `${base}?q=${encodeURIComponent(atual.id)}&pagina=${encodeURIComponent(pid)}${sufixoFiltro}` : null);
   const anteriorHref = pagina ? hrefPagina(paginaVizinha(paginasProva ?? [], pagina.id, -1)) : null;
   const seguinteHref = pagina ? hrefPagina(paginaVizinha(paginasProva ?? [], pagina.id, 1)) : null;
   const icones = { a_conferir: ["○", "a conferir"], conferida: ["✓", "conferida"], falta_imagem: ["⚠", "falta imagem"] } as const;
@@ -58,18 +60,18 @@ export default async function RevisarPage({ params, searchParams }: Props) {
   return (
     <PageLayout crumb={`Revisão · ${imp.banca} ${imp.ano ?? ""} ${imp.caderno}`} titulo="Revisar questões" acoes={<Link href={`/banco/importacoes/${id}`} className={estilos.botaoSecundario}>← Importação</Link>} largura="max-w-7xl">
       <nav aria-label="Filtros" className="flex flex-wrap gap-2">
-        {filtros.map(([v, rotulo]) => <Link key={v} href={`${base}?filtro=${v}`} className={filtro === v ? estilos.botaoPrimario : estilos.botaoSecundario}>{rotulo}</Link>)}
+        {filtros.map(([v, rotulo]) => <Link key={v} href={`${base}?filtro=${encodeURIComponent(v)}`} className={filtro === v ? estilos.botaoPrimario : estilos.botaoSecundario}>{rotulo}</Link>)}
       </nav>
       <div className="grid gap-4 lg:grid-cols-[14rem_1fr_1fr]">
         <ol className={`${estilos.card} max-h-[75vh] overflow-y-auto p-2 text-sm`}>
           {ordenada.map((x) => (
-            <li key={x.id}><Link href={`${base}?q=${x.id}${sufixoFiltro}`} aria-current={x.id === atual?.id ? "page" : undefined}
+            <li key={x.id}><Link href={`${base}?q=${encodeURIComponent(x.id)}${sufixoFiltro}`} aria-current={x.id === atual?.id ? "page" : undefined}
               className={`flex justify-between gap-2 rounded px-2 py-1 ${x.id === atual?.id ? "bg-brand/10 font-semibold" : "hover:bg-surface-sunken"}`}>
               <span>Nº {x.numero ?? "—"}</span>
               <span className="text-xs" role="img" aria-label={icones[estadoConferencia(x)][1]} title={icones[estadoConferencia(x)][1]}>{icones[estadoConferencia(x)][0]}</span>
             </Link></li>
           ))}
-          {ordenada.length === 0 && <li className="p-2 text-muted">Nada neste filtro.</li>}
+          {ordenada.length === 0 && <li className="p-2 text-muted">{filtro === "a-conferir" ? "Tudo conferido!" : "Nada neste filtro."}</li>}
         </ol>
         <section aria-label="Página original" className={`${estilos.card} p-3`}>
           {pagina && urlPagina
@@ -78,8 +80,10 @@ export default async function RevisarPage({ params, searchParams }: Props) {
         </section>
         <section aria-label="Questão copiada" className={`${estilos.card} p-3`}>
           {atual
-            ? <EditorQuestao key={atual.id} questao={atual} imagens={imgsAtual} assuntos={assuntos ?? []} podeEscolherGeral={false} modoRevisao proximaHref={proxima ? `${base}?q=${proxima.id}${sufixoFiltro}` : `/banco/importacoes/${id}`} />
-            : <p className="text-sm text-muted">Nenhuma questão.</p>}
+            ? <EditorQuestao key={atual.id} questao={atual} imagens={imgsAtual} assuntos={assuntos ?? []} podeEscolherGeral={false} modoRevisao proximaHref={proxima ? `${base}?q=${encodeURIComponent(proxima.id)}${sufixoFiltro}` : `/banco/importacoes/${id}`} />
+            : filtro === "a-conferir"
+              ? <div className="flex flex-col items-start gap-3"><p className="font-semibold text-ink">Tudo conferido! Nenhuma questão a conferir nesta prova.</p><Link href={`/banco/importacoes/${id}`} className={estilos.botaoSecundario}>← Voltar para a importação</Link></div>
+              : <p className="text-sm text-muted">Nenhuma questão.</p>}
         </section>
       </div>
     </PageLayout>

@@ -220,7 +220,7 @@ Adicione as imagens novamente nesta página.`);
         <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); }, "Salvo.")} className={styles.primary}><Save size={18} aria-hidden="true" />{ocupado ? "Aguarde…" : questao ? "Salvar questão" : "Criar questão"}</button>
         {questao && modoRevisao && (
           <>
-            <button type="button" disabled={ocupado} onClick={() => void executar(() => marcarFaltaImagem(questao.id), "Marcada como falta imagem.")} className={`${estilos.botaoSecundario} border-danger text-danger`}>⚠ Falta imagem</button>
+            <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); await marcarFaltaImagem(questao.id); }, "Marcada como falta imagem.")} className={`${estilos.botaoSecundario} border-danger text-danger`}>⚠ Falta imagem</button>
             <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); await marcarConferida(questao.id); if (proximaHref) router.push(proximaHref); }, "Conferida.")} className={styles.primary}><CheckCircle2 size={18} aria-hidden="true" />✓ Conferida — próxima</button>
           </>
         )}
