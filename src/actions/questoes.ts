@@ -7,7 +7,8 @@ import { exigirEditorQuestao, exigirProfessor } from "@/lib/questoes/acesso";
 import { ehMateria, areaDaMateria, LETRAS } from "@/lib/questoes/materias";
 import { limitarQuadro, type Quadro } from "@/lib/questoes/quadro";
 import { BUCKET } from "@/lib/questoes/storage";
-import type { AlvoImagem, Escopo, Letra } from "@/lib/types";
+import { camposConferida, camposFaltaImagem } from "@/lib/questoes/conferencia";
+import type { Alinhamento, AlvoImagem, Escopo, Letra } from "@/lib/types";
 
 export type DadosQuestao = {
   banca: string;
@@ -81,11 +82,55 @@ export async function publicarQuestao(id: string, publicar: boolean): Promise<vo
     .update({ status: publicar ? "publicada" : "revisao", precisa_revisao: publicar ? false : questao.precisa_revisao, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
-  if (publicar && questao.importacao_id) {
-    const { count } = await supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", questao.importacao_id).eq("status", "revisao");
-    if (count === 0) await supabase.from("importacoes").update({ status: "concluida" }).eq("id", questao.importacao_id).eq("status", "revisao");
-  }
+  if (publicar) await concluirImportacaoSeVazia(questao.importacao_id);
   // Listas do banco e das importações mudam de situação: não mostrar a versão guardada no navegador.
+  revalidatePath("/banco", "layout");
+}
+
+/** Marca a importação como concluída quando nenhuma questão dela sobra em revisão. */
+async function concluirImportacaoSeVazia(importacaoId: string | null) {
+  if (!importacaoId) return;
+  const { count } = await supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", importacaoId).eq("status", "revisao");
+  if (count === 0) await supabase.from("importacoes").update({ status: "concluida" }).eq("id", importacaoId).eq("status", "revisao");
+}
+
+export async function marcarFaltaImagem(questaoId: string): Promise<void> {
+  await exigirEditorQuestao(questaoId);
+  const { error } = await supabase.from("questoes").update({ ...camposFaltaImagem(), updated_at: new Date().toISOString() }).eq("id", questaoId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/banco", "layout");
+}
+
+export async function marcarConferida(questaoId: string): Promise<void> {
+  const { questao } = await exigirEditorQuestao(questaoId);
+  if (!questao.anulada && !questao.resposta) throw new Error("Marque a resposta certa (ou anulada) antes de publicar.");
+  const agora = new Date();
+  const { error } = await supabase.from("questoes").update({ ...camposConferida(agora), updated_at: agora.toISOString() }).eq("id", questaoId);
+  if (error) throw new Error(error.message);
+  await concluirImportacaoSeVazia(questao.importacao_id);
+  revalidatePath("/banco", "layout");
+}
+
+export async function criarRecorte(questaoId: string, paginaId: string, alvo: AlvoImagem, quadro: Quadro): Promise<void> {
+  const { questao } = await exigirEditorQuestao(questaoId);
+  if (!["enunciado", ...LETRAS].includes(alvo)) throw new Error("Destino da imagem inválido.");
+  const { data: pagina } = await supabase.from("importacao_paginas").select("id, importacao_id, tipo").eq("id", paginaId).maybeSingle();
+  if (!pagina || pagina.tipo !== "prova" || !questao.importacao_id || pagina.importacao_id !== questao.importacao_id) throw new Error("Página de outra prova.");
+  const { count } = await supabase.from("questao_imagens").select("id", { count: "exact", head: true }).eq("questao_id", questaoId).eq("alvo", alvo);
+  const { error } = await supabase
+    .from("questao_imagens")
+    .insert({ questao_id: questaoId, alvo, tipo: "recorte", pagina_id: paginaId, ordem: count ?? 0, ...limitarQuadro(quadro) });
+  if (error) throw new Error(error.message);
+  revalidatePath("/banco", "layout");
+}
+
+export async function definirAlinhamento(imagemId: string, alinhamento: Alinhamento): Promise<void> {
+  if (!["esquerda", "centro", "direita"].includes(alinhamento)) throw new Error("Posição inválida.");
+  const { data: img } = await supabase.from("questao_imagens").select("questao_id").eq("id", imagemId).maybeSingle();
+  if (!img) throw new Error("Imagem não encontrada.");
+  await exigirEditorQuestao(img.questao_id);
+  const { error } = await supabase.from("questao_imagens").update({ alinhamento }).eq("id", imagemId);
+  if (error) throw new Error(error.message);
   revalidatePath("/banco", "layout");
 }
 
