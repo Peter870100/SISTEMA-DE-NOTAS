@@ -33,10 +33,25 @@ function inline(nos: NoConteudo[] | undefined): ReactNode[] {
 }
 
 function Paragrafo({ no }: { no: NoConteudo }) {
-  const ta = typeof no.attrs?.textAlign === "string" ? ALINHAMENTOS_TEXTO[no.attrs.textAlign] : undefined;
+  const ta = typeof no.attrs?.textAlign === "string" && Object.hasOwn(ALINHAMENTOS_TEXTO, no.attrs.textAlign) ? ALINHAMENTOS_TEXTO[no.attrs.textAlign] : undefined;
   const r = no.attrs?.recuo;
   const recuo = typeof r === "number" && Number.isFinite(r) ? RECUOS[Math.min(3, Math.max(0, Math.floor(r)))] : undefined;
   return <p className={[css.paragrafo, ta, recuo].filter(Boolean).join(" ")}>{inline(no.content)}</p>;
+}
+
+function FiguraInline({ no, doEnunciado, classeFigura }: { no: NoConteudo; doEnunciado: ImagemTela[]; classeFigura?: string }) {
+  const id = no.attrs?.imagemId;
+  const img = typeof id === "string" ? doEnunciado.find((i) => i.id === id) : undefined;
+  if (!img) return null;
+  const al = typeof no.attrs?.alinhamento === "string" && ALINHAMENTOS_FIGURA.includes(no.attrs.alinhamento) ? (no.attrs.alinhamento as Alinhamento) : img.alinhamento;
+  const legenda = typeof no.attrs?.legenda === "string" ? no.attrs.legenda.trim() : "";
+  const corpo = (
+    <figure className={css.figura} style={{ margin: 0 }}>
+      <ImagemQuestao imagem={{ ...img, alinhamento: al }} />
+      {legenda && <figcaption className={`${css.legenda} ${Object.hasOwn(TEXTO_FIGURA, al) ? TEXTO_FIGURA[al] : ""}`}>{legenda}</figcaption>}
+    </figure>
+  );
+  return classeFigura ? <div className={classeFigura}>{corpo}</div> : corpo;
 }
 
 export function ConteudoQuestao({
@@ -65,21 +80,6 @@ export function ConteudoQuestao({
     );
   }
 
-  function Figura({ no }: { no: NoConteudo }) {
-    const id = no.attrs?.imagemId;
-    const img = typeof id === "string" ? doEnunciado.find((i) => i.id === id) ?? imagens.find((i) => i.id === id) : undefined;
-    if (!img) return null;
-    const al = typeof no.attrs?.alinhamento === "string" && ALINHAMENTOS_FIGURA.includes(no.attrs.alinhamento) ? (no.attrs.alinhamento as Alinhamento) : img.alinhamento;
-    const legenda = typeof no.attrs?.legenda === "string" ? no.attrs.legenda.trim() : "";
-    const corpo = (
-      <figure className={css.figura} style={{ margin: 0 }}>
-        <ImagemQuestao imagem={{ ...img, alinhamento: al }} />
-        {legenda && <figcaption className={`${css.legenda} ${TEXTO_FIGURA[al] ?? ""}`}>{legenda}</figcaption>}
-      </figure>
-    );
-    return classeFigura ? <div className={classeFigura}>{corpo}</div> : corpo;
-  }
-
   const usadas = new Set(imagensDoConteudo(doc));
   return (
     <>
@@ -89,7 +89,7 @@ export function ConteudoQuestao({
             if (n.type === "paragraph") return <Paragrafo key={i} no={n} />;
             if (n.type === "horizontalRule") return <hr key={i} className={css.linha} />;
             if (n.type === "caixa") return <div key={i} className={css.caixa}>{(n.content ?? []).filter((p) => p.type === "paragraph").map((p, j) => <Paragrafo key={j} no={p} />)}</div>;
-            if (n.type === "figura") return <Figura key={i} no={n} />;
+            if (n.type === "figura") return <FiguraInline key={i} no={n} doEnunciado={doEnunciado} classeFigura={classeFigura} />;
             return null;
           })}
         </div>
