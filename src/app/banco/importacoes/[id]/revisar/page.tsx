@@ -30,11 +30,15 @@ export default async function RevisarPage({ params, searchParams }: Props) {
     supabase.from("importacao_paginas").select("*").eq("importacao_id", id).eq("tipo", "prova").order("numero"),
   ]);
   // A questão pedida em ?q= fica na lista mesmo que, depois de marcada, já não combine com o filtro.
-  const lista = (todas ?? []).filter((x) => x.id === q ||
+  const casaFiltro = (x: NonNullable<typeof todas>[number]) =>
     filtro === "a-conferir" ? estadoConferencia(x) === "a_conferir"
       : filtro === "falta-imagem" ? estadoConferencia(x) === "falta_imagem"
       : filtro === "conferidas" ? estadoConferencia(x) === "conferida"
-      : filtro === "aviso" ? x.precisa_revisao : filtro === "sem-resposta" ? !x.resposta && !x.anulada : filtro === "aprovadas" ? x.status === "publicada" : true);
+      : filtro === "aviso" ? x.precisa_revisao
+      : filtro === "sem-resposta" ? !x.resposta && !x.anulada
+      : filtro === "aprovadas" ? x.status === "publicada"
+      : true;
+  const lista = (todas ?? []).filter((x) => x.id === q || casaFiltro(x));
   const ordenada = [...lista].sort((a, b) => Number(b.precisa_revisao) - Number(a.precisa_revisao) || (a.numero ?? 0) - (b.numero ?? 0));
   const atual = ordenada.find((x) => x.id === q) ?? ordenada.find((x) => estadoConferencia(x) === "a_conferir") ?? ordenada[0];
   // Próxima a conferir na lista atual (depois da atual); sem nenhuma, volta para a importação.
