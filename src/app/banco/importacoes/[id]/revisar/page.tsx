@@ -4,7 +4,7 @@ import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { podeImportar } from "@/lib/questoes/acesso";
 import { imagensParaTela } from "@/lib/questoes/consultas";
-import { estadoConferencia, paginaVizinha } from "@/lib/questoes/conferencia";
+import { casaFiltro, estadoConferencia, ordenarParaConferencia, paginaVizinha, proximaQuestao, type FiltroConferencia } from "@/lib/questoes/conferencia";
 import { linkExibicao } from "@/lib/questoes/storage";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { EditorQuestao } from "@/components/questoes/EditorQuestao";
@@ -24,25 +24,22 @@ export default async function RevisarPage({ params, searchParams }: Props) {
 
   // Sem filtro na URL a tela abre em "a conferir".
   const validos = ["a-conferir", "falta-imagem", "conferidas", "todas", "aviso", "sem-resposta", "aprovadas"];
-  const filtro = filtroParam && validos.includes(filtroParam) ? filtroParam : "a-conferir";
+  const filtro: FiltroConferencia = filtroParam && validos.includes(filtroParam) ? (filtroParam as FiltroConferencia) : "a-conferir";
   const [{ data: todas }, { data: paginasProva }] = await Promise.all([
     supabase.from("questoes").select("*").eq("importacao_id", id).order("numero"),
     supabase.from("importacao_paginas").select("*").eq("importacao_id", id).eq("tipo", "prova").order("numero"),
   ]);
   // A questão pedida em ?q= fica na lista mesmo que, depois de marcada, já não combine com o filtro.
-  const casaFiltro = (x: NonNullable<typeof todas>[number]) =>
-    filtro === "a-conferir" ? estadoConferencia(x) === "a_conferir"
-      : filtro === "falta-imagem" ? estadoConferencia(x) === "falta_imagem"
-      : filtro === "conferidas" ? estadoConferencia(x) === "conferida"
-      : filtro === "aviso" ? x.precisa_revisao
-      : filtro === "sem-resposta" ? !x.resposta && !x.anulada
-      : filtro === "aprovadas" ? x.status === "publicada"
-      : true;
-  const lista = (todas ?? []).filter((x) => x.id === q || casaFiltro(x));
-  const ordenada = [...lista].sort((a, b) => Number(b.precisa_revisao) - Number(a.precisa_revisao) || (a.numero ?? 0) - (b.numero ?? 0));
+  const lista = (todas ?? []).filter((x) => x.id === q || casaFiltro(x, filtro));
+  const ordenada = ordenarParaConferencia(lista);
   const atual = ordenada.find((x) => x.id === q) ?? ordenada.find((x) => estadoConferencia(x) === "a_conferir") ?? ordenada[0];
-  // Próxima a conferir na lista atual (depois da atual); sem nenhuma, volta para a importação.
-  const proxima = atual ? ordenada.slice(ordenada.indexOf(atual) + 1).find((x) => estadoConferencia(x) === "a_conferir") : undefined;
+  // Sem ?q= válido, fixa a questão na URL: marcar "falta imagem" não pode tirá-la da lista nem pular para outra.
+  if (atual && atual.id !== q) {
+    const extra = (filtroParam ? `&filtro=${encodeURIComponent(filtro)}` : "") + (paginaParam ? `&pagina=${encodeURIComponent(paginaParam)}` : "");
+    redirect(`/banco/importacoes/${id}/revisar?q=${encodeURIComponent(atual.id)}${extra}`);
+  }
+  // Próxima no filtro atual (depois da atual, dando a volta); sem nenhuma, volta para a importação.
+  const proxima = atual ? proximaQuestao(ordenada, atual.id, filtro) : null;
 
   // ?pagina= só vale se for página de prova desta importação; senão, a página da questão.
   const paginaId = (paginasProva ?? []).some((p) => p.id === paginaParam) ? paginaParam! : atual?.pagina_id ?? null;

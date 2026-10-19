@@ -8,6 +8,9 @@ import {
   paginaVizinha,
   quadroDoArraste,
   pixelsDoQuadro,
+  casaFiltro,
+  ordenarParaConferencia,
+  proximaQuestao,
 } from "./conferencia";
 
 test("justificarAlinhamento", () => {
@@ -54,4 +57,56 @@ test("pixelsDoQuadro", () => {
   const p = pixelsDoQuadro({ x: 0, y: 0, w: 0.0001, h: 0.0001 }, 100, 100);
   assert.equal(p.sw, 1);
   assert.equal(p.sh, 1);
+});
+
+const q = (id: string, o: Partial<Parameters<typeof casaFiltro>[0]> = {}) => ({
+  id, numero: Number(id), precisa_revisao: false, falta_imagem: false, conferida_em: null,
+  resposta: "A" as const, anulada: false, status: "revisao" as const, ...o,
+});
+
+test("casaFiltro", () => {
+  const conf = q("1", { conferida_em: "2026-01-01", status: "publicada" });
+  const falta = q("2", { falta_imagem: true });
+  assert.equal(casaFiltro(q("3"), "a-conferir"), true);
+  assert.equal(casaFiltro(conf, "a-conferir"), false);
+  assert.equal(casaFiltro(falta, "falta-imagem"), true);
+  assert.equal(casaFiltro(conf, "conferidas"), true);
+  assert.equal(casaFiltro(q("4", { precisa_revisao: true }), "aviso"), true);
+  assert.equal(casaFiltro(q("5", { resposta: null }), "sem-resposta"), true);
+  assert.equal(casaFiltro(q("6", { resposta: null, anulada: true }), "sem-resposta"), false);
+  assert.equal(casaFiltro(conf, "aprovadas"), true);
+  assert.equal(casaFiltro(falta, "aprovadas"), false);
+  assert.equal(casaFiltro(falta, "todas"), true);
+});
+
+test("ordenarParaConferencia: com aviso primeiro, depois por numero", () => {
+  const r = ordenarParaConferencia([q("3"), q("1"), q("2", { precisa_revisao: true })]);
+  assert.deepEqual(r.map((x) => x.id), ["2", "1", "3"]);
+});
+
+test("proximaQuestao: segue a lista e ignora a atual", () => {
+  const l = [q("1"), q("2"), q("3")];
+  assert.equal(proximaQuestao(l, "1", "a-conferir")?.id, "2");
+});
+
+test("proximaQuestao: pula quem nao casa com o filtro e a atual ja conferida", () => {
+  const l = [q("1"), q("2", { conferida_em: "x" }), q("3"), q("4")];
+  assert.equal(proximaQuestao(l, "1", "a-conferir")?.id, "3");
+  // atual (2) nao casa mais com a-conferir, mas a proxima vem depois dela
+  assert.equal(proximaQuestao(l, "2", "a-conferir")?.id, "3");
+});
+
+test("proximaQuestao: filtros falta-imagem e conferidas continuam na lista", () => {
+  const f = [q("1", { falta_imagem: true }), q("2"), q("3", { falta_imagem: true })];
+  assert.equal(proximaQuestao(f, "1", "falta-imagem")?.id, "3");
+  const c = [q("1", { conferida_em: "x" }), q("2", { conferida_em: "x" })];
+  assert.equal(proximaQuestao(c, "1", "conferidas")?.id, "2");
+});
+
+test("proximaQuestao: volta ao comeco e devolve null sem outra", () => {
+  const l = [q("1"), q("2"), q("3", { conferida_em: "x" })];
+  assert.equal(proximaQuestao(l, "2", "a-conferir")?.id, "1");
+  assert.equal(proximaQuestao([q("1")], "1", "a-conferir"), null);
+  assert.equal(proximaQuestao([q("1"), q("2", { conferida_em: "x" })], "1", "a-conferir"), null);
+  assert.equal(proximaQuestao(l, "9", "todas")?.id, "1");
 });

@@ -9,7 +9,7 @@ export function justificarAlinhamento(a: Alinhamento): "flex-start" | "center" |
 }
 
 export type EstadoConferencia = "a_conferir" | "conferida" | "falta_imagem";
-export type FiltroConferencia = "a-conferir" | "falta-imagem" | "conferidas";
+export type FiltroConferencia = "a-conferir" | "falta-imagem" | "conferidas" | "todas" | "aviso" | "sem-resposta" | "aprovadas";
 
 /** Estado da questão na conferência: "falta imagem" vence a data de conferência. */
 export function estadoConferencia(q: Pick<Questao, "falta_imagem" | "conferida_em">): EstadoConferencia {
@@ -63,4 +63,35 @@ export function pixelsDoQuadro(
   const sw = Math.max(1, Math.min(Math.round(q.w * largura), largura - sx));
   const sh = Math.max(1, Math.min(Math.round(q.h * altura), altura - sy));
   return { sx, sy, sw, sh };
+}
+
+type QuestaoLista = Pick<Questao, "id" | "numero" | "precisa_revisao" | "falta_imagem" | "conferida_em" | "resposta" | "anulada" | "status">;
+
+/** A questão pertence ao filtro da tela de conferência? */
+export function casaFiltro(x: QuestaoLista, filtro: FiltroConferencia): boolean {
+  switch (filtro) {
+    case "a-conferir": return estadoConferencia(x) === "a_conferir";
+    case "falta-imagem": return estadoConferencia(x) === "falta_imagem";
+    case "conferidas": return estadoConferencia(x) === "conferida";
+    case "aviso": return x.precisa_revisao;
+    case "sem-resposta": return !x.resposta && !x.anulada;
+    case "aprovadas": return x.status === "publicada";
+    default: return true;
+  }
+}
+
+/** Ordem da lista de conferência: com aviso primeiro, depois por número. */
+export function ordenarParaConferencia<T extends Pick<Questao, "precisa_revisao" | "numero">>(lista: T[]): T[] {
+  return [...lista].sort((a, b) => Number(b.precisa_revisao) - Number(a.precisa_revisao) || (a.numero ?? 0) - (b.numero ?? 0));
+}
+
+/**
+ * Próxima questão depois da atual, na lista já ordenada como exibida, que ainda casa com o filtro
+ * (a atual nunca volta). Dá a volta ao fim da lista; null se não houver outra.
+ */
+export function proximaQuestao<T extends QuestaoLista>(ordenada: T[], atualId: string, filtro: FiltroConferencia): T | null {
+  const i = ordenada.findIndex((x) => x.id === atualId);
+  const depois = ordenada.slice(i + 1);
+  const antes = i < 0 ? [] : ordenada.slice(0, i);
+  return [...depois, ...antes].find((x) => x.id !== atualId && casaFiltro(x, filtro)) ?? null;
 }
