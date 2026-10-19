@@ -14,13 +14,16 @@ export type QuestaoAluno = { id: string; enunciado: string; comando: string; alt
 /** Questões para mostrar ao aluno — a coluna `resposta` nunca é lida aqui. */
 export async function questoesParaAluno(ids: string[], validadeSeg: number): Promise<QuestaoAluno[]> {
   if (ids.length === 0) return [];
-  const { data, error } = await supabase.from("questoes").select("id, enunciado, comando, alternativas, falta_imagem").in("id", ids);
+  const { data, error } = await supabase.from("questoes").select("id, enunciado, comando, alternativas").in("id", ids);
   if (error) throw new Error(error.message);
+  // Melhor esforço: se a coluna ainda não existir no banco, a prova segue sem o aviso de figura.
+  const { data: marcas } = await supabase.from("questoes").select("id, falta_imagem").in("id", ids);
+  const faltam = new Set((marcas ?? []).filter((m) => m.falta_imagem === true).map((m) => m.id));
   const imagens = await imagensParaTela(ids, validadeSeg);
   const porId = new Map((data ?? []).map((q) => [q.id, q]));
   return ids.flatMap((id) => {
     const q = porId.get(id);
-    return q ? [{ id, enunciado: q.enunciado, comando: q.comando, alternativas: q.alternativas, imagens: imagens.get(id) ?? [], faltaImagem: q.falta_imagem === true }] : [];
+    return q ? [{ id, enunciado: q.enunciado, comando: q.comando, alternativas: q.alternativas, imagens: imagens.get(id) ?? [], faltaImagem: faltam.has(id) }] : [];
   });
 }
 

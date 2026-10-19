@@ -272,6 +272,7 @@ export async function aprovarTodasSemAviso(importacaoId: string): Promise<number
     .eq("importacao_id", importacaoId)
     .eq("status", "revisao")
     .eq("precisa_revisao", false)
+    .eq("falta_imagem", false)
     .or("resposta.not.is.null,anulada.eq.true");
   if (importacao.origem === "enemdev") consulta = consulta.not("assunto_id", "is", null);
   const { data, error } = await consulta.select("id");

@@ -2,6 +2,7 @@
 
 import { Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { pixelsDoQuadro, quadroDoArraste } from "@/lib/questoes/conferencia";
 import { limitarQuadro, type Quadro } from "@/lib/questoes/quadro";
 import estilos from "./EntradaImagem.module.css";
@@ -120,6 +121,10 @@ export function CortarImagem({
       let ext = "png";
       let tipo = "image/png";
       if (blob && blob.size > TAMANHO_MAXIMO) {
+        // JPEG não tem transparência: fundo branco (por baixo da figura) para PNG transparente não ficar preto.
+        ctx.globalCompositeOperation = "destination-over";
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, sw, sh);
         blob = await paraBlob(canvas, "image/jpeg", 0.9);
         ext = "jpg";
         tipo = "image/jpeg";
@@ -138,7 +143,10 @@ export function CortarImagem({
     }
   }
 
-  return (
+  // Fora de qualquer container (o editor usa container-type, que prende o position: fixed): direto no body.
+  // Só é montado após uma ação do usuário (nunca no SSR); a guarda é por segurança.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div className={estilos.fundo}>
       <div
         ref={dialogo}
@@ -181,6 +189,7 @@ export function CortarImagem({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

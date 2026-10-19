@@ -79,7 +79,7 @@ export async function publicarQuestao(id: string, publicar: boolean): Promise<vo
   if (publicar && !questao.anulada && !questao.resposta) throw new Error("Marque a resposta certa (ou anulada) antes de publicar.");
   const { error } = await supabase
     .from("questoes")
-    .update({ status: publicar ? "publicada" : "revisao", precisa_revisao: publicar ? false : questao.precisa_revisao, updated_at: new Date().toISOString() })
+    .update({ status: publicar ? "publicada" : "revisao", precisa_revisao: publicar ? false : questao.precisa_revisao, ...(publicar ? { falta_imagem: false } : {}), updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
   if (publicar) await concluirImportacaoSeVazia(questao.importacao_id);
