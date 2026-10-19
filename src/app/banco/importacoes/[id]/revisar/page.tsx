@@ -56,7 +56,7 @@ export default async function RevisarPage({ params, searchParams }: Props) {
         </ol>
         <section aria-label="Página original" className={`${estilos.card} p-3`}>
           {pagina && urlPagina
-            ? <PaginaComQuadros key={atual!.id} url={urlPagina} largura={pagina.largura} altura={pagina.altura} quadros={imgsAtual.filter((i) => i.tipo === "recorte" && i.quadro).map((i) => ({ id: i.id, alvo: i.alvo, quadro: i.quadro! }))} />
+            ? <PaginaComQuadros key={atual!.id} url={urlPagina} largura={pagina.largura} altura={pagina.altura} questaoId={atual!.id} paginaId={pagina.id} anteriorHref={null} seguinteHref={null} quadros={imgsAtual.filter((i) => i.tipo === "recorte" && i.quadro).map((i) => ({ id: i.id, alvo: i.alvo, quadro: i.quadro! }))} />
             : <p className="text-sm text-muted">Sem página original.</p>}
         </section>
         <section aria-label="Questão copiada" className={`${estilos.card} p-3`}>
