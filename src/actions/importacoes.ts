@@ -134,6 +134,8 @@ export type SituacaoImportacao = {
   custoEstimado: number | null;
   custoReal: number | null;
   questoes: number;
+  /** Questões ainda não conferidas (nem marcadas como "falta imagem"). */
+  aConferir: number;
 };
 
 /** Consulta o lote; quando terminou, grava as questões (só um chamador processa). */
@@ -231,10 +233,11 @@ async function gravarResultados(importacaoId: string, batchId: string): Promise<
 }
 
 async function situacao(importacaoId: string, avisosNovos: string[]): Promise<SituacaoImportacao> {
-  const [{ data: imp }, { data: paginas }, { count }] = await Promise.all([
+  const [{ data: imp }, { data: paginas }, { count }, { count: aConferir }] = await Promise.all([
     supabase.from("importacoes").select("*").eq("id", importacaoId).single(),
     supabase.from("importacao_paginas").select("numero, status, erro, tipo").eq("importacao_id", importacaoId),
     supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", importacaoId),
+    supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", importacaoId).eq("falta_imagem", false).is("conferida_em", null),
   ]);
   const avisos = avisosNovos.length ? avisosNovos : (imp?.erro ?? "").split("\n").filter(Boolean);
   return {
@@ -246,6 +249,7 @@ async function situacao(importacaoId: string, avisosNovos: string[]): Promise<Si
     custoEstimado: imp!.custo_estimado_usd,
     custoReal: imp!.custo_real_usd,
     questoes: count ?? 0,
+    aConferir: aConferir ?? 0,
   };
 }
 

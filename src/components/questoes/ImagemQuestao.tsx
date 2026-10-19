@@ -6,7 +6,7 @@ import { estiloRecorte, type Quadro } from "@/lib/questoes/quadro";
 import { justificarAlinhamento } from "@/lib/questoes/conferencia";
 import type { Alinhamento, AlvoImagem } from "@/lib/types";
 
-export type ImagemTela = { id: string; alvo: AlvoImagem; tipo: "recorte" | "arquivo"; url: string; quadro: Quadro | null; largura: number | null; altura: number | null; alinhamento: Alinhamento };
+export type ImagemTela = { id: string; alvo: AlvoImagem; tipo: "recorte" | "arquivo"; url: string; quadro: Quadro | null; largura: number | null; altura: number | null; alinhamento: Alinhamento; paginaId: string | null };
 
 /** Sem link (url vazia) ou erro ao carregar: mostra o aviso em vez de sumir com a figura. */
 export function ImagemIndisponivel() {

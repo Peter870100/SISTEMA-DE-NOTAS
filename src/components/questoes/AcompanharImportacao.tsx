@@ -51,6 +51,7 @@ export function AcompanharImportacao({ importacaoId, inicial }: { importacaoId: 
       {(s.status === "revisao" || s.status === "concluida") && (
         <div className="flex flex-wrap gap-2">
           <Link href={`/banco/importacoes/${importacaoId}/revisar`} className={estilos.botaoPrimario}>Revisar</Link>
+          <Link href={`/banco/importacoes/${importacaoId}/revisar?filtro=a-conferir`} className={estilos.botaoSecundario}>Conferir imagens ({s.aConferir} a conferir)</Link>
           {s.status === "revisao" && <button type="button" onClick={async () => { try { const n = await aprovarTodasSemAviso(importacaoId); setAviso(`${n} questão(ões) publicada(s).`); await atualizar(); } catch (e) { setErro(e instanceof Error ? e.message : "Falha."); } }} className={estilos.botaoSecundario}>Aprovar todas sem aviso</button>}
         </div>
       )}

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Trash2, Upload, Tags, FileText, ListChecks, Save, CheckCircle2 } from "lucide-react";
-import { criarQuestao, definirAlinhamento, excluirQuestao, prepararEnvioImagem, publicarQuestao, registrarImagem, removerImagem, salvarQuestao, type DadosQuestao } from "@/actions/questoes";
+import { criarQuestao, definirAlinhamento, excluirQuestao, marcarConferida, marcarFaltaImagem, prepararEnvioImagem, publicarQuestao, registrarImagem, removerImagem, salvarQuestao, type DadosQuestao } from "@/actions/questoes";
 import { LETRAS, MATERIAS } from "@/lib/questoes/materias";
 import type { Alinhamento, AlvoImagem, Assunto, Letra, Questao } from "@/lib/types";
 import { estilos } from "@/components/ui/estilos";
@@ -218,9 +218,15 @@ Adicione as imagens novamente nesta página.`);
 
       <div className={styles.actions} aria-busy={ocupado}>
         <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); }, "Salvo.")} className={styles.primary}><Save size={18} aria-hidden="true" />{ocupado ? "Aguarde…" : questao ? "Salvar questão" : "Criar questão"}</button>
-        {questao && (questao.status === "publicada"
+        {questao && modoRevisao && (
+          <>
+            <button type="button" disabled={ocupado} onClick={() => void executar(() => marcarFaltaImagem(questao.id), "Marcada como falta imagem.")} className={`${estilos.botaoSecundario} border-danger text-danger`}>⚠ Falta imagem</button>
+            <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); await marcarConferida(questao.id); if (proximaHref) router.push(proximaHref); }, "Conferida.")} className={styles.primary}><CheckCircle2 size={18} aria-hidden="true" />✓ Conferida — próxima</button>
+          </>
+        )}
+        {questao && !modoRevisao && (questao.status === "publicada"
           ? <button type="button" disabled={ocupado} onClick={() => void executar(() => publicarQuestao(questao.id, false), "Voltou para revisão.")} className={estilos.botaoFantasma}>Voltar para revisão</button>
-          : <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); await publicarQuestao(questao.id, true); if (modoRevisao && proximaHref) router.push(proximaHref); }, "Publicada.")} className={styles.publish}><CheckCircle2 size={18} aria-hidden="true" />{modoRevisao ? "Aprovar e próxima" : "Publicar"}</button>)}
+          : <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); await publicarQuestao(questao.id, true); }, "Publicada.")} className={styles.publish}><CheckCircle2 size={18} aria-hidden="true" />Publicar</button>)}
         {questao && <button type="button" disabled={ocupado} onClick={() => { if (window.confirm("Excluir esta questão?")) void executar(async () => { await excluirQuestao(questao.id); router.push(proximaHref ?? "/banco"); }); }} className={`${estilos.botaoFantasma} text-danger`}>Excluir</button>}
       </div>
     </div>
