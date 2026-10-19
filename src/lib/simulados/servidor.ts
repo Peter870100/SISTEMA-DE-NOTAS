@@ -9,18 +9,18 @@ import type { AlunoConta, Alternativa, Area, Letra, Professor, Simulado, Tentati
 import { mesclarPresenca } from "@/lib/hermes/presenca";
 import { acumularTempo, correcaoLiberada, corrigir, emBlocos, LIMITE_TEMPO_QUESTAO_SEG, mesclarTempos, tempoEsgotado, TOLERANCIA_SEG, type Gabarito } from "./regras";
 
-export type QuestaoAluno = { id: string; enunciado: string; comando: string; alternativas: Alternativa[]; imagens: ImagemTela[] };
+export type QuestaoAluno = { id: string; enunciado: string; comando: string; alternativas: Alternativa[]; imagens: ImagemTela[]; faltaImagem: boolean };
 
 /** Questões para mostrar ao aluno — a coluna `resposta` nunca é lida aqui. */
 export async function questoesParaAluno(ids: string[], validadeSeg: number): Promise<QuestaoAluno[]> {
   if (ids.length === 0) return [];
-  const { data, error } = await supabase.from("questoes").select("id, enunciado, comando, alternativas").in("id", ids);
+  const { data, error } = await supabase.from("questoes").select("id, enunciado, comando, alternativas, falta_imagem").in("id", ids);
   if (error) throw new Error(error.message);
   const imagens = await imagensParaTela(ids, validadeSeg);
   const porId = new Map((data ?? []).map((q) => [q.id, q]));
   return ids.flatMap((id) => {
     const q = porId.get(id);
-    return q ? [{ id, enunciado: q.enunciado, comando: q.comando, alternativas: q.alternativas, imagens: imagens.get(id) ?? [] }] : [];
+    return q ? [{ id, enunciado: q.enunciado, comando: q.comando, alternativas: q.alternativas, imagens: imagens.get(id) ?? [], faltaImagem: q.falta_imagem === true }] : [];
   });
 }
 

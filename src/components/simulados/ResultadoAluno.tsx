@@ -6,7 +6,7 @@ import type { QuestaoAluno } from "@/lib/simulados/servidor";
 import { AREAS } from "@/lib/questoes/materias";
 import { formatarDuracao } from "@/lib/simulados/regras";
 import type { Area } from "@/lib/types";
-import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
+import { ImagemIndisponivel, ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { TextoQuestao } from "@/components/questoes/TextoQuestao";
 import { TreinarAssunto } from "@/components/simulados/TreinarAssunto";
 import { estilos } from "@/components/ui/estilos";
@@ -130,6 +130,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
                     <summary>Ver questão</summary>
                     <div className={css.corpo}>
                       <TextoQuestao texto={q.enunciado} />
+                      {q.faltaImagem && <ImagemIndisponivel />}
                       {q.imagens.filter((im) => im.alvo === "enunciado").map((im) => <ImagemQuestao key={im.id} imagem={im} />)}
                       {q.comando && <p className={css.comando}>{q.comando}</p>}
                       <ul className={css.alternativas}>

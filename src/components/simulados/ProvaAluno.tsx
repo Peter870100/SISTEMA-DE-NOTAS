@@ -6,7 +6,7 @@ import { entregar, pausarTreino, pulsoTreino, responder, type ProvaAluno as Prov
 import { fecharSaidaPendente, mesclarPresenca, type Presenca } from "@/lib/hermes/presenca";
 import { formatarDuracao, PULSO_SEG, type TemposQuestoes } from "@/lib/simulados/regras";
 import type { Letra } from "@/lib/types";
-import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
+import { ImagemIndisponivel, ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { TextoQuestao } from "@/components/questoes/TextoQuestao";
 import { estilos } from "@/components/ui/estilos";
 import { Modal } from "@/components/ui/Modal";
@@ -254,6 +254,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       <div className={css.layout}><div className="min-w-0"><section id="caderno-questao" className={css.caderno} aria-label={`Questão ${atual + 1}`}>
         <div className={css.cabecalho}><span>Simulado · questões objetivas</span><span>{atual + 1} / {prova.questoes.length}</span></div><div className={css.titulo}><h2>QUESTÃO {String(atual + 1).padStart(2, "0")}</h2><span aria-hidden="true" /></div>
         <div className={css.texto}><TextoQuestao texto={q.enunciado} /></div>
+        {q.faltaImagem && <div className={css.figura}><ImagemIndisponivel /></div>}
         {q.imagens.filter((i) => i.alvo === "enunciado").map((i) => <div key={i.id} className={css.figura}><ImagemQuestao imagem={i} /></div>)}
         {q.comando && <p className={css.comando}>{q.comando}</p>}
         <fieldset className={css.alternativas}>
