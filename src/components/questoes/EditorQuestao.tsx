@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { ImagePlus, Trash2, Upload, Tags, FileText, ListChecks, Save, CheckCircle2 } from "lucide-react";
-import { criarQuestao, excluirQuestao, prepararEnvioImagem, publicarQuestao, registrarImagem, removerImagem, salvarQuestao, type DadosQuestao } from "@/actions/questoes";
+import { useEffect, useRef, useState } from "react";
+import { Trash2, Upload, Tags, FileText, ListChecks, Save, CheckCircle2 } from "lucide-react";
+import { criarQuestao, definirAlinhamento, excluirQuestao, prepararEnvioImagem, publicarQuestao, registrarImagem, removerImagem, salvarQuestao, type DadosQuestao } from "@/actions/questoes";
 import { LETRAS, MATERIAS } from "@/lib/questoes/materias";
-import type { AlvoImagem, Assunto, Letra, Questao } from "@/lib/types";
+import type { Alinhamento, AlvoImagem, Assunto, Letra, Questao } from "@/lib/types";
 import { estilos } from "@/components/ui/estilos";
+import { EntradaImagem } from "./EntradaImagem";
 import { ImagemQuestao, type ImagemTela } from "./ImagemQuestao";
 import { TextoQuestao } from "./TextoQuestao";
 
@@ -30,6 +31,26 @@ async function enviarImagem(url: string, arquivo: File) {
   if (!r.ok) throw new Error("Falha ao enviar imagem.");
 }
 
+type Pendente = { id: string; alvo: AlvoImagem; arquivo: File };
+
+const POSICOES: { valor: Alinhamento; simbolo: string; rotulo: string }[] = [
+  { valor: "esquerda", simbolo: "◧", rotulo: "Figura à esquerda" },
+  { valor: "centro", simbolo: "▣", rotulo: "Figura no centro" },
+  { valor: "direita", simbolo: "◨", rotulo: "Figura à direita" },
+];
+
+// A URL é criada e revogada no próprio efeito: seguro no StrictMode (o remonte cria outra).
+function MiniaturaPendente({ arquivo }: { arquivo: File }) {
+  const img = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const u = URL.createObjectURL(arquivo);
+    if (img.current) img.current.src = u;
+    return () => URL.revokeObjectURL(u);
+  }, [arquivo]);
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img ref={img} alt="Imagem a enviar ao criar a questão" className="max-h-40 max-w-full rounded-control border border-line object-contain" />;
+}
+
 export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, aoSalvar, modoRevisao = false, proximaHref = null }: Props) {
   const router = useRouter();
   const [d, setD] = useState<DadosQuestao>(() => ({
@@ -50,6 +71,7 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [previa, setPrevia] = useState(false);
+  const [pendentes, setPendentes] = useState<Pendente[]>([]);
 
   const assuntosMateria = assuntos.filter((a) => a.materia === d.materia);
   const set = <K extends keyof DadosQuestao>(k: K, v: DadosQuestao[K]) => setD((x) => ({ ...x, [k]: v }));
@@ -65,6 +87,20 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
     if (questao) { await salvarQuestao(questao.id, d); aoSalvar?.(questao.id); return questao.id; }
     const id = await criarQuestao(d);
     aoSalvar?.(id);
+    let falha: string | null = null;
+    for (const p of pendentes) {
+      try {
+        const { signedUrl, storagePath } = await prepararEnvioImagem(id, p.arquivo.name, p.arquivo.size, p.arquivo.type);
+        await enviarImagem(signedUrl, p.arquivo);
+        await registrarImagem(id, p.alvo, storagePath, null);
+      } catch (e) {
+        falha = e instanceof Error ? e.message : "Falha ao enviar imagem.";
+        break;
+      }
+    }
+    // A questão já existe: sempre vai para a página dela (evita criar duplicada).
+    if (falha) window.alert(`A questão foi criada, mas uma imagem não foi enviada: ${falha}
+Adicione as imagens novamente nesta página.`);
     router.push(`/banco/questoes/${id}`);
     return id;
   }
@@ -78,13 +114,20 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
 
   function blocoImagens(alvo: AlvoImagem) {
     const lista = imagens.filter((i) => i.alvo === alvo);
-    const idInput = `img-${alvo}`;
+    const fila = pendentes.filter((p) => p.alvo === alvo);
     return (
       <div className="flex flex-col gap-2">
         {lista.map((img) => (
           <div key={img.id} className="flex flex-col gap-1">
             <ImagemQuestao imagem={img} />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div role="group" aria-label="Posição da figura" className="flex gap-1">
+                {POSICOES.map((p) => (
+                  <button key={p.valor} type="button" aria-label={p.rotulo} title={p.rotulo} aria-pressed={img.alinhamento === p.valor} disabled={ocupado}
+                    onClick={() => void executar(() => definirAlinhamento(img.id, p.valor))}
+                    className={`${estilos.botaoFantasma} px-2 text-xs ${img.alinhamento === p.valor ? "bg-gold/25 text-brand" : ""}`}>{p.simbolo}</button>
+                ))}
+              </div>
               <label className={`${estilos.botaoFantasma} cursor-pointer px-2 text-xs`}><Upload size={13} aria-hidden="true" /> Trocar imagem
                 <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void executar(() => enviarPara(alvo, f, img.id)); }} />
               </label>
@@ -92,11 +135,20 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
             </div>
           </div>
         ))}
-        {questao && (
-          <label htmlFor={idInput} className={styles.imageAction}><ImagePlus size={13} aria-hidden="true" /> {lista.length ? "+ Imagem" : "Adicionar imagem"}
-            <input id={idInput} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void executar(() => enviarPara(alvo, f, null)); }} />
-          </label>
-        )}
+        {fila.map((p) => (
+          <div key={p.id} className="flex flex-col items-start gap-1">
+            <MiniaturaPendente arquivo={p.arquivo} />
+            <button type="button" onClick={() => setPendentes((x) => x.filter((y) => y.id !== p.id))} className={`${estilos.botaoFantasma} px-2 text-xs`}><Trash2 size={13} aria-hidden="true" /> Remover</button>
+          </div>
+        ))}
+        <EntradaImagem
+          rotulo={lista.length + fila.length ? "Adicionar outra imagem" : "Adicionar imagem"}
+          desabilitado={ocupado}
+          aoEscolher={async (arquivo) => {
+            if (questao) { await enviarPara(alvo, arquivo, null); router.refresh(); }
+            else setPendentes((x) => [...x, { id: crypto.randomUUID(), alvo, arquivo }]);
+          }}
+        />
       </div>
     );
   }
@@ -106,6 +158,7 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
     <div className={styles.editor}>
       {erro && <p role="alert" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{erro}</p>}
       {aviso && <p role="status" className="rounded-control bg-ok/15 px-3 py-2 text-sm text-ink">{aviso}</p>}
+      {questao?.falta_imagem && <p role="status" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">⚠ Esta questão está marcada como “falta imagem” e não entra em simulados novos.</p>}
       {questao?.precisa_revisao && questao.motivo_revisao && <p className="rounded-control bg-gold/25 px-3 py-2 text-sm text-ink">⚠ {questao.motivo_revisao}</p>}
 
       <section className={`${styles.card} ${styles.metadata}`} aria-label="Identificação da questão">
