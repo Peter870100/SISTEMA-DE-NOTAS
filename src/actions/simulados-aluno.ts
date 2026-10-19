@@ -6,6 +6,8 @@ import { getAlunoAtual } from "@/lib/auth";
 import { AREAS, ehMateria, MATERIAS } from "@/lib/questoes/materias";
 import { candidatosComMateria, candidatosSorteio, entregarTentativa, fecharVencidas, salvarTempos, questoesDeProvasEmSigilo, questoesParaAluno, simuladoVisivelParaAluno, type FiltrosSorteio, type QuestaoAluno } from "@/lib/simulados/servidor";
 import { aceitaResposta, acumularTempo, correcaoLiberada, MAX_TREINO, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, sortearEquilibrado, tempoDeProvaSeg, tempoEsgotado, type TemposQuestoes } from "@/lib/simulados/regras";
+import { assuntosParaRevisar, aulasDoTema, type InfoQuestao, type ItemRevisar } from "@/lib/simulados/revisao";
+import { cursosDoAluno } from "@/lib/aulas/acesso";
 import type { Presenca } from "@/lib/hermes/presenca";
 import type { AlunoConta, Letra, PorArea, Simulado, Tentativa, TipoSimulado } from "@/lib/types";
 
@@ -182,7 +184,33 @@ export async function entregar(tentativaId: string, tempos?: TemposQuestoes, pre
 
 export type ResultadoAluno =
   | { liberado: false; liberaEm: string | null; tempoSeg: number | null }
-  | { liberado: true; tempoSeg: number | null; acertos: number; total: number; porcentagem: number; porArea: PorArea; itens: { questaoId: string; marcada: Letra | null; certa: Letra | null; anulada: boolean; correta: boolean; tempoSeg: number | null }[] };
+  | { liberado: true; tempoSeg: number | null; acertos: number; total: number; porcentagem: number; porArea: PorArea; itens: { questaoId: string; marcada: Letra | null; certa: Letra | null; anulada: boolean; correta: boolean; tempoSeg: number | null }[]; revisar: Revisar[] };
+
+export type Revisar = ItemRevisar & { materiaRotulo: string | null; aulas: { id: string; titulo: string }[] };
+
+/** Assuntos errados com as aulas do aluno que tratam deles (pelo título). Falha aqui não derruba o resultado. */
+async function montarRevisao(aluno: AlunoConta, itens: { questaoId: string; correta: boolean; anulada: boolean }[], qs: { id: string; materia: string | null; assunto_id: string | null }[]): Promise<Revisar[]> {
+  try {
+    const assuntoIds = [...new Set(qs.map((q) => q.assunto_id).filter((a): a is string => !!a))];
+    const { data: assuntos } = assuntoIds.length ? await supabase.from("assuntos").select("id, nome").in("id", assuntoIds) : { data: [] };
+    const nomes = new Map((assuntos ?? []).map((a) => [a.id, a.nome]));
+    const info = new Map<string, InfoQuestao>(qs.map((q) => [q.id, { materia: q.materia, assuntoId: q.assunto_id, assuntoNome: q.assunto_id ? nomes.get(q.assunto_id) ?? null : null }]));
+    const lista = assuntosParaRevisar(itens, info);
+    if (lista.length === 0) return [];
+    const cursos = await cursosDoAluno(aluno);
+    const { data: aulas } = cursos.length
+      ? await supabase.from("aulas").select("id, titulo").in("curso_id", cursos.map((c) => c.id)).eq("publicada", true).order("ordem")
+      : { data: [] };
+    return lista.map((r) => ({
+      ...r,
+      materiaRotulo: r.materia && ehMateria(r.materia) ? MATERIAS[r.materia].rotulo : r.materia,
+      aulas: aulasDoTema(r.assuntoNome, aulas ?? []),
+    }));
+  } catch (e) {
+    console.error("montarRevisao:", e);
+    return [];
+  }
+}
 
 export async function resultadoAluno(simuladoId: string): Promise<ResultadoAluno | null> {
   const aluno = await exigirAluno();
@@ -194,11 +222,13 @@ export async function resultadoAluno(simuladoId: string): Promise<ResultadoAluno
   if (!correcaoLiberada(s, new Date())) return { liberado: false, liberaEm: s.fecha_em, tempoSeg };
   const [{ data: resp }, { data: qs }] = await Promise.all([
     supabase.from("tentativa_respostas").select("questao_id, alternativa, correta").eq("tentativa_id", t.id),
-    supabase.from("questoes").select("id, resposta, anulada").in("id", t.ordem),
+    supabase.from("questoes").select("id, resposta, anulada, materia, assunto_id").in("id", t.ordem),
   ]);
   const r = new Map((resp ?? []).map((x) => [x.questao_id, x]));
   const q = new Map((qs ?? []).map((x) => [x.id, x]));
+  const correcao = t.ordem.map((id) => ({ questaoId: id, correta: !!r.get(id)?.correta, anulada: !!q.get(id)?.anulada }));
   return {
+    revisar: await montarRevisao(aluno, correcao, qs ?? []),
     liberado: true,
     tempoSeg,
     acertos: t.acertos ?? 0, total: t.total ?? 0, porcentagem: Number(t.porcentagem ?? 0), porArea: t.por_area ?? {},

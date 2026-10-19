@@ -17,9 +17,10 @@ export async function imagensParaTela(questaoIds: string[], validadeSeg = 300): 
   for (const i of imagens ?? []) {
     const pagina = i.pagina_id ? paginaPorId.get(i.pagina_id) : undefined;
     const url = i.tipo === "arquivo" ? links.get(i.storage_path ?? "") : pagina ? links.get(pagina.storage_path) : undefined;
-    if (!url) continue;
+    // Sem link: segue com url vazia para a tela mostrar "Imagem indisponível" em vez de sumir com a figura.
+    if (!url) console.error(`imagensParaTela: sem link para a imagem ${i.id} da questão ${i.questao_id} (${i.storage_path ?? pagina?.storage_path ?? "sem caminho"}).`);
     const tela: ImagemTela = {
-      id: i.id, alvo: i.alvo, tipo: i.tipo, url,
+      id: i.id, alvo: i.alvo, tipo: i.tipo, url: url ?? "",
       quadro: i.tipo === "recorte" ? { x: Number(i.x), y: Number(i.y), w: Number(i.w), h: Number(i.h) } : null,
       largura: pagina?.largura ?? null, altura: pagina?.altura ?? null,
     };

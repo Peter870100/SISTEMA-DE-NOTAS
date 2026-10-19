@@ -1,4 +1,6 @@
 import type { CSSProperties } from "react";
+import Link from "next/link";
+import { BookOpen, Target } from "lucide-react";
 import type { ResultadoAluno as Resultado } from "@/actions/simulados-aluno";
 import type { QuestaoAluno } from "@/lib/simulados/servidor";
 import { AREAS } from "@/lib/questoes/materias";
@@ -6,6 +8,7 @@ import { formatarDuracao } from "@/lib/simulados/regras";
 import type { Area } from "@/lib/types";
 import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { TextoQuestao } from "@/components/questoes/TextoQuestao";
+import { TreinarAssunto } from "@/components/simulados/TreinarAssunto";
 import { estilos } from "@/components/ui/estilos";
 
 import css from "./ResultadoAluno.module.css";
@@ -63,6 +66,35 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
           </ul>
         )}
       </section>
+
+      {resultado.revisar.length > 0 && (
+        <section className={css.reviseIsto} aria-labelledby="revise-isto">
+          <div className={css.reviseTopo}>
+            <span className={css.reviseIcone} data-icone><Target size={22} aria-hidden="true" /></span>
+            <div><h2 id="revise-isto">Revise isto</h2><p>Os assuntos em que você mais errou. Treine cada um ou volte à aula.</p></div>
+          </div>
+          <ul className={css.reviseLista}>
+            {resultado.revisar.map((r, i) => {
+              const nome = r.assuntoNome ?? r.materiaRotulo ?? "Assunto";
+              return (
+                <li key={r.chave} className={`${css.reviseItem} cartao-interativo`} style={vars({ "--i": i })}>
+                  <div className={css.reviseInfo}>
+                    {r.assuntoNome && r.materiaRotulo && <span className={css.reviseMateria}>{r.materiaRotulo}</span>}
+                    <strong>{nome}</strong>
+                    <span className={css.reviseErros}>✗ Errou {r.erros} de {r.total}</span>
+                  </div>
+                  <div className={css.reviseAcoes}>
+                    <TreinarAssunto assuntoId={r.assuntoId} materia={r.materia} nome={nome} className={css.botaoTreinar} />
+                    {r.aulas.map((a) => (
+                      <Link key={a.id} href={`/aluno/aulas/${a.id}`} className={css.botaoAula}><BookOpen size={17} aria-hidden="true" /><span>{a.titulo}</span></Link>
+                    ))}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <div className={css.revisao}>
         <fieldset className={css.filtros}>
