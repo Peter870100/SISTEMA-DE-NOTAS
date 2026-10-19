@@ -936,3 +936,7 @@ alter table questoes add column if not exists conferida_em timestamptz;
 alter table questao_imagens add column if not exists alinhamento varchar(8) not null default 'centro'
     check (alinhamento in ('esquerda', 'centro', 'direita'));
 NOTIFY pgrst, 'reload schema';
+
+-- ===== Barra de formatação do enunciado (2026-10-19) =====
+alter table questoes add column if not exists conteudo jsonb;
+NOTIFY pgrst, 'reload schema';

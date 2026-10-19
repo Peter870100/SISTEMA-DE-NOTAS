@@ -1,4 +1,5 @@
 import type { PerguntaQuiz, ResultadoQuiz } from "@/lib/aulas/quiz";
+import type { DocConteudo } from "@/lib/questoes/conteudo";
 export type Turma = {
   id: string;
   nome: string;
@@ -250,7 +251,7 @@ export type Escopo = "geral" | "escola";
 export type Area = "linguagens" | "humanas" | "natureza" | "matematica";
 export type Letra = "A" | "B" | "C" | "D" | "E";
 export type AlvoImagem = "enunciado" | Letra;
-export type Alternativa = { letra: Letra; texto: string };
+export type Alternativa = { letra: Letra; texto: string; conteudo?: DocConteudo | null };
 
 export type Assunto = { id: string; materia: string; nome: string; situacao: "aprovado" | "proposto"; created_at: string };
 
@@ -301,6 +302,7 @@ export type Questao = {
   materia: string;
   assunto_id: string | null;
   enunciado: string;
+  conteudo: DocConteudo | null;
   comando: string;
   alternativas: Alternativa[];
   resposta: Letra | null;
