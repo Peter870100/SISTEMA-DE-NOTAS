@@ -7,7 +7,7 @@ import { fecharSaidaPendente, mesclarPresenca, type Presenca } from "@/lib/herme
 import { formatarDuracao, PULSO_SEG, type TemposQuestoes } from "@/lib/simulados/regras";
 import type { Letra } from "@/lib/types";
 import { ImagemIndisponivel, ImagemQuestao } from "@/components/questoes/ImagemQuestao";
-import { TextoQuestao } from "@/components/questoes/TextoQuestao";
+import { ConteudoQuestao, TextoAlternativa } from "@/components/questoes/ConteudoQuestao";
 import { estilos } from "@/components/ui/estilos";
 import { Modal } from "@/components/ui/Modal";
 
@@ -253,9 +253,8 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       {aviso && <p role="status" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{aviso}</p>}
       <div className={css.layout}><div className="min-w-0"><section id="caderno-questao" className={css.caderno} aria-label={`Questão ${atual + 1}`}>
         <div className={css.cabecalho}><span>Simulado · questões objetivas</span><span>{atual + 1} / {prova.questoes.length}</span></div><div className={css.titulo}><h2>QUESTÃO {String(atual + 1).padStart(2, "0")}</h2><span aria-hidden="true" /></div>
-        <div className={css.texto}><TextoQuestao texto={q.enunciado} /></div>
-        {q.faltaImagem && <div className={css.figura}><ImagemIndisponivel /></div>}
-        {q.imagens.filter((i) => i.alvo === "enunciado").map((i) => <div key={i.id} className={css.figura}><ImagemQuestao imagem={i} /></div>)}
+        <ConteudoQuestao doc={q.conteudo} textoAntigo={q.enunciado} imagens={q.imagens} classeTexto={css.texto} classeFigura={css.figura}
+          aviso={q.faltaImagem ? <div className={css.figura}><ImagemIndisponivel /></div> : null} />
         {q.comando && <p className={css.comando}>{q.comando}</p>}
         <fieldset className={css.alternativas}>
           <legend className="sr-only">Alternativas</legend>
@@ -263,7 +262,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
             <label key={l} className={css.alternativa}>
               <input type="radio" name={`q-${q.id}`} value={l} aria-label={`Alternativa ${l}`} checked={respostas[q.id] === l} onChange={() => marcar(q.id, l)} className={css.radio} />
               <span className={css.letra} aria-hidden="true">{l}</span>
-              <div className={css.texto}><TextoQuestao texto={q.alternativas.find((a) => a.letra === l)?.texto ?? ""} />
+              <div className={css.texto}>{(() => { const alt = q.alternativas.find((a) => a.letra === l); return <TextoAlternativa doc={alt?.conteudo ?? null} texto={alt?.texto ?? ""} markdown />; })()}
                 {q.imagens.filter((i) => i.alvo === l).map((i) => <div key={i.id} className={css.figuraAlternativa}><ImagemQuestao imagem={i} /></div>)}</div>
             </label>
           ))}

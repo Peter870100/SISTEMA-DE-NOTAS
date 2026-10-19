@@ -7,7 +7,7 @@ import { AREAS } from "@/lib/questoes/materias";
 import { formatarDuracao } from "@/lib/simulados/regras";
 import type { Area } from "@/lib/types";
 import { ImagemIndisponivel, ImagemQuestao } from "@/components/questoes/ImagemQuestao";
-import { TextoQuestao } from "@/components/questoes/TextoQuestao";
+import { ConteudoQuestao, TextoAlternativa } from "@/components/questoes/ConteudoQuestao";
 import { TreinarAssunto } from "@/components/simulados/TreinarAssunto";
 import { estilos } from "@/components/ui/estilos";
 
@@ -129,9 +129,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
                   <details className={css.detalhes}>
                     <summary>Ver questão</summary>
                     <div className={css.corpo}>
-                      <TextoQuestao texto={q.enunciado} />
-                      {q.faltaImagem && <ImagemIndisponivel />}
-                      {q.imagens.filter((im) => im.alvo === "enunciado").map((im) => <ImagemQuestao key={im.id} imagem={im} />)}
+                      <ConteudoQuestao doc={q.conteudo} textoAntigo={q.enunciado} imagens={q.imagens} aviso={q.faltaImagem ? <ImagemIndisponivel /> : null} />
                       {q.comando && <p className={css.comando}>{q.comando}</p>}
                       <ul className={css.alternativas}>
                         {LETRAS.map((l) => {
@@ -140,7 +138,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
                             <li key={l} className={`${css.alternativa} ${tipo}`}>
                               <b className={css.letra}>{l}</b>
                               <div className="min-w-0 flex-1">
-                                {q.alternativas.find((a) => a.letra === l)?.texto}
+                                {(() => { const alt = q.alternativas.find((a) => a.letra === l); return <TextoAlternativa doc={alt?.conteudo ?? null} texto={alt?.texto ?? ""} />; })()}
                                 {q.imagens.filter((im) => im.alvo === l).map((im) => <ImagemQuestao key={im.id} imagem={im} />)}
                               </div>
                               {it.certa === l && <span className={css.marca}>✓ Correta</span>}

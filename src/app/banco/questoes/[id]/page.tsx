@@ -8,7 +8,7 @@ import { LETRAS } from "@/lib/questoes/materias";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { EditorQuestao } from "@/components/questoes/EditorQuestao";
 import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
-import { TextoQuestao } from "@/components/questoes/TextoQuestao";
+import { ConteudoQuestao, TextoAlternativa } from "@/components/questoes/ConteudoQuestao";
 import { PromoverQuestao } from "@/components/questoes/PromoverQuestao";
 import { estilos } from "@/components/ui/estilos";
 
@@ -34,12 +34,11 @@ export default async function QuestaoPage({ params }: { params: Promise<{ id: st
       <section className={edita ? undefined : `${estilos.card} p-4`}>
         {edita ? <EditorQuestao questao={q} imagens={imgs} assuntos={assuntos ?? []} podeEscolherGeral={false} /> : (
           <div className="flex flex-col gap-3">
-            <TextoQuestao texto={q.enunciado} />
-            {imgs.filter((i) => i.alvo === "enunciado").map((i) => <ImagemQuestao key={i.id} imagem={i} />)}
+            <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={q.enunciado} imagens={imgs} />
             <p className="text-sm font-medium text-ink">{q.comando}</p>
             <ol className="flex flex-col gap-2">{LETRAS.map((l) => (
               <li key={l} className={`rounded-control border p-2 text-sm ${q.resposta === l ? "border-ok bg-ok/10" : "border-line"}`}>
-                <strong>{l})</strong> {q.alternativas.find((a) => a.letra === l)?.texto}
+                <strong>{l})</strong> {(() => { const alt = q.alternativas.find((a) => a.letra === l); return <TextoAlternativa doc={alt?.conteudo ?? null} texto={alt?.texto ?? ""} />; })()}
                 {imgs.filter((i) => i.alvo === l).map((i) => <ImagemQuestao key={i.id} imagem={i} />)}
               </li>
             ))}</ol>

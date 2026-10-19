@@ -7,9 +7,10 @@ import { padraoExato } from "@/lib/questoes/busca";
 import type { ImagemTela } from "@/components/questoes/ImagemQuestao";
 import type { AlunoConta, Alternativa, Area, Letra, Professor, Simulado, Tentativa } from "@/lib/types";
 import { mesclarPresenca } from "@/lib/hermes/presenca";
+import type { DocConteudo } from "@/lib/questoes/conteudo";
 import { acumularTempo, correcaoLiberada, corrigir, emBlocos, LIMITE_TEMPO_QUESTAO_SEG, mesclarTempos, tempoEsgotado, TOLERANCIA_SEG, type Gabarito } from "./regras";
 
-export type QuestaoAluno = { id: string; enunciado: string; comando: string; alternativas: Alternativa[]; imagens: ImagemTela[]; faltaImagem: boolean };
+export type QuestaoAluno = { id: string; enunciado: string; comando: string; alternativas: Alternativa[]; conteudo: DocConteudo | null; imagens: ImagemTela[]; faltaImagem: boolean };
 
 /** Questões para mostrar ao aluno — a coluna `resposta` nunca é lida aqui. */
 export async function questoesParaAluno(ids: string[], validadeSeg: number): Promise<QuestaoAluno[]> {
@@ -19,11 +20,14 @@ export async function questoesParaAluno(ids: string[], validadeSeg: number): Pro
   // Melhor esforço: se a coluna ainda não existir no banco, a prova segue sem o aviso de figura.
   const { data: marcas } = await supabase.from("questoes").select("id, falta_imagem").in("id", ids);
   const faltam = new Set((marcas ?? []).filter((m) => m.falta_imagem === true).map((m) => m.id));
+  // Idem para o conteúdo formatado: sem a coluna, cai no texto antigo.
+  const { data: docs } = await supabase.from("questoes").select("id, conteudo").in("id", ids);
+  const conteudos = new Map((docs ?? []).map((d) => [d.id, (d.conteudo ?? null) as DocConteudo | null]));
   const imagens = await imagensParaTela(ids, validadeSeg);
   const porId = new Map((data ?? []).map((q) => [q.id, q]));
   return ids.flatMap((id) => {
     const q = porId.get(id);
-    return q ? [{ id, enunciado: q.enunciado, comando: q.comando, alternativas: q.alternativas, imagens: imagens.get(id) ?? [], faltaImagem: faltam.has(id) }] : [];
+    return q ? [{ id, enunciado: q.enunciado, comando: q.comando, alternativas: q.alternativas, conteudo: conteudos.get(id) ?? null, imagens: imagens.get(id) ?? [], faltaImagem: faltam.has(id) }] : [];
   });
 }
 
