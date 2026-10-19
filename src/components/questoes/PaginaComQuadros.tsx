@@ -33,6 +33,14 @@ export function PaginaComQuadros({ url, largura, altura, quadros, questaoId, pag
   const [salvando, setSalvando] = useState(false);
   const novo = useRef<{ x0: number; y0: number } | null>(null);
   const arraste = useRef<{ id: string; modo: "mover" | "redimensionar"; x0: number; y0: number; q0: Quadro } | null>(null);
+  const chaveQuadros = quadros.map((q) => `${q.id}:${q.quadro.x},${q.quadro.y},${q.quadro.w},${q.quadro.h}`).join("|");
+  const [anterior, setAnterior] = useState({ chaveQuadros, paginaId });
+  if (anterior.chaveQuadros !== chaveQuadros || anterior.paginaId !== paginaId) {
+    const trocouPagina = anterior.paginaId !== paginaId;
+    setAnterior({ chaveQuadros, paginaId });
+    setItens(quadros);
+    if (trocouPagina) { setModoRecorte(false); setPendente(null); setPrevia(null); setErro(null); }
+  }
 
   function fracao(e: React.PointerEvent) {
     const r = area.current!.getBoundingClientRect();
@@ -48,7 +56,7 @@ export function PaginaComQuadros({ url, largura, altura, quadros, questaoId, pag
   }
 
   function iniciarNovo(e: React.PointerEvent) {
-    if (!modoRecorte || salvando) return;
+    if (!modoRecorte || salvando || e.button !== 0 || !e.isPrimary) return;
     e.preventDefault();
     area.current!.setPointerCapture(e.pointerId);
     const p = fracao(e);
@@ -115,7 +123,7 @@ export function PaginaComQuadros({ url, largura, altura, quadros, questaoId, pag
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <NavPagina href={anteriorHref}>◀ página anterior</NavPagina>
-        <button type="button" aria-pressed={modoRecorte} onClick={alternarModo} className={modoRecorte ? estilos.botaoPrimario : estilos.botaoSecundario}>✂ Recortar figura</button>
+        <button type="button" aria-pressed={modoRecorte} disabled={salvando} onClick={alternarModo} className={modoRecorte ? estilos.botaoPrimario : estilos.botaoSecundario}>✂ Recortar figura</button>
         <NavPagina href={seguinteHref}>página seguinte ▶</NavPagina>
       </div>
       {erro && <p role="alert" className="text-sm text-danger">{erro}</p>}
