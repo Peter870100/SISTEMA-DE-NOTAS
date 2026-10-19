@@ -51,3 +51,16 @@ export function quadroDoArraste(a: { x: number; y: number }, b: { x: number; y: 
   if (w < 0.01 || h < 0.01) return null;
   return limitarQuadro({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w, h });
 }
+
+/** Região em pixels (inteiros, mínimo 1x1) de um quadro em frações sobre uma imagem largura x altura. */
+export function pixelsDoQuadro(
+  q: Quadro,
+  largura: number,
+  altura: number,
+): { sx: number; sy: number; sw: number; sh: number } {
+  const sx = Math.min(Math.max(Math.round(q.x * largura), 0), Math.max(largura - 1, 0));
+  const sy = Math.min(Math.max(Math.round(q.y * altura), 0), Math.max(altura - 1, 0));
+  const sw = Math.max(1, Math.min(Math.round(q.w * largura), largura - sx));
+  const sh = Math.max(1, Math.min(Math.round(q.h * altura), altura - sy));
+  return { sx, sy, sw, sh };
+}

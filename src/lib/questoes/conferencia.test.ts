@@ -7,6 +7,7 @@ import {
   camposConferida,
   paginaVizinha,
   quadroDoArraste,
+  pixelsDoQuadro,
 } from "./conferencia";
 
 test("justificarAlinhamento", () => {
@@ -46,4 +47,11 @@ test("paginaVizinha", () => {
 test("quadroDoArraste", () => {
   assert.deepEqual(quadroDoArraste({ x: 0.5, y: 0.6 }, { x: 0.2, y: 0.1 }), { x: 0.2, y: 0.1, w: 0.3, h: 0.5 });
   assert.equal(quadroDoArraste({ x: 0.5, y: 0.5 }, { x: 0.505, y: 0.9 }), null);
+});
+
+test("pixelsDoQuadro", () => {
+  assert.deepEqual(pixelsDoQuadro({ x: 0.1, y: 0.2, w: 0.5, h: 0.25 }, 1000, 800), { sx: 100, sy: 160, sw: 500, sh: 200 });
+  const p = pixelsDoQuadro({ x: 0, y: 0, w: 0.0001, h: 0.0001 }, 100, 100);
+  assert.equal(p.sw, 1);
+  assert.equal(p.sh, 1);
 });

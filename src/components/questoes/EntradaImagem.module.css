@@ -1,0 +1,227 @@
+/* Entrada de imagem (colar, arrastar, escolher) e modal de corte. */
+
+.zona {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  text-align: center;
+  color: var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand) 6%, var(--color-surface));
+  border: 2px dashed var(--color-brand);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.zona:focus-visible {
+  outline: 3px solid var(--color-brand-bright);
+  outline-offset: 2px;
+}
+
+.zonaAtiva {
+  background: color-mix(in srgb, var(--color-gold) 25%, var(--color-surface));
+  border-color: var(--color-gold-ink);
+}
+
+.zonaOff {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rotulo {
+  margin: 0;
+  font-family: var(--font-heading), sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-ink);
+}
+
+.dica {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-brand);
+}
+
+.erro {
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.oculto {
+  display: none;
+}
+
+.botao,
+.botaoSec {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 16px;
+  font-family: var(--font-heading), sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.botao {
+  color: var(--color-gold-ink);
+  background: var(--color-gold);
+  border: 2px solid var(--color-gold);
+}
+
+.botaoSec {
+  color: var(--color-brand);
+  background: var(--color-surface);
+  border: 2px solid var(--color-brand);
+}
+
+.botao:disabled,
+.botaoSec:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.botao:focus-visible,
+.botaoSec:focus-visible {
+  outline: 3px solid var(--color-brand-bright);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .zona:not(.zonaOff):hover {
+    background: color-mix(in srgb, var(--color-brand) 12%, var(--color-surface));
+  }
+  .botao:not(:disabled):hover {
+    transform: translateY(-1px);
+    background: color-mix(in srgb, var(--color-gold) 85%, white);
+  }
+  .botaoSec:not(:disabled):hover {
+    background: var(--color-brand);
+    color: var(--color-surface);
+  }
+}
+
+/* Modal de corte */
+
+.fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--color-frame-deep) 80%, transparent);
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 960px;
+  max-height: 100%;
+  padding: 16px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.modal:focus {
+  outline: none;
+}
+
+.titulo {
+  margin: 0;
+  font-family: var(--font-heading), sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-ink);
+}
+
+.palco {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 0;
+  overflow: auto;
+  background: var(--color-surface-sunken);
+  border-radius: 8px;
+}
+
+.area {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+  touch-action: none;
+  user-select: none;
+  cursor: crosshair;
+  overflow: hidden;
+}
+
+.imagem {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100dvh - 230px);
+  width: auto;
+  height: auto;
+}
+
+.quadro {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--color-gold);
+  outline: 1px solid var(--color-brand);
+  box-shadow: 0 0 0 9999px color-mix(in srgb, var(--color-frame-deep) 45%, transparent);
+  cursor: move;
+}
+
+.canto {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 22px;
+  height: 22px;
+  background: var(--color-gold);
+  border: 2px solid var(--color-brand);
+  cursor: se-resize;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ajuda {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-brand);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zona,
+  .botao,
+  .botaoSec {
+    transition: none;
+  }
+  .botao:not(:disabled):hover {
+    transform: none;
+  }
+}
