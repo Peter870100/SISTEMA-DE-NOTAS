@@ -1,7 +1,7 @@
 "use client";
 
 import { ImagePlus } from "lucide-react";
-import { useRef, useState } from "react";
+import { useImperativeHandle, useRef, useState, type Ref } from "react";
 import { CortarImagem } from "./CortarImagem";
 import estilos from "./EntradaImagem.module.css";
 
@@ -10,14 +10,19 @@ const TAMANHO_MAXIMO = 5242880;
 const TIPOS = ["image/png", "image/jpeg", "image/webp"];
 const MSG_TIPO = "Use uma imagem PNG, JPG ou WebP.";
 
+/** Permite a quem hospeda a entrada mandar uma imagem colada em outro campo para o mesmo fluxo (corte + envio). */
+export type EntradaImagemRef = { receber: (arquivo: File) => void };
+
 export function EntradaImagem({
   rotulo,
   aoEscolher,
   desabilitado = false,
+  ref,
 }: {
   rotulo: string;
   aoEscolher: (arquivo: File) => Promise<void>;
   desabilitado?: boolean;
+  ref?: Ref<EntradaImagemRef>;
 }) {
   const entrada = useRef<HTMLInputElement>(null);
   const [cortando, setCortando] = useState<File | null>(null);
@@ -36,6 +41,12 @@ export function EntradaImagem({
     setErro(null);
     setCortando(arquivo);
   }
+
+  useImperativeHandle(ref, () => ({
+    receber(arquivo: File) {
+      if (!off) receber(arquivo);
+    },
+  }));
 
   function colar(e: React.ClipboardEvent) {
     if (off) return;
@@ -76,7 +87,7 @@ export function EntradaImagem({
     <div>
       <div
         tabIndex={off ? -1 : 0}
-        role="button"
+        role="group"
         aria-label={rotulo}
         aria-disabled={off}
         className={`${estilos.zona} ${arrastando ? estilos.zonaAtiva : ""} ${off ? estilos.zonaOff : ""}`}
@@ -84,7 +95,8 @@ export function EntradaImagem({
         onDragOver={(e) => { e.preventDefault(); if (!off) setArrastando(true); }}
         onDragLeave={() => setArrastando(false)}
         onDrop={soltar}
-        onClick={abrirSeletor}
+        // Clicar na zona só a deixa pronta para o Ctrl+V; o seletor abre pelo botão (ou Enter/Espaço).
+        onClick={(e) => { if (!off) e.currentTarget.focus(); }}
         onKeyDown={(e) => {
           if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
             e.preventDefault();
@@ -94,7 +106,10 @@ export function EntradaImagem({
       >
         <ImagePlus size={28} aria-hidden="true" />
         <p className={estilos.rotulo}>{enviando ? "Enviando…" : rotulo}</p>
-        <p className={estilos.dica}>Cole um print (Ctrl+V) · arraste o arquivo aqui · escolher do computador</p>
+        <p className={estilos.dica}>
+          Clique aqui e cole um print (Ctrl+V) · arraste o arquivo aqui ·{" "}
+          <button type="button" className={estilos.link} disabled={off} onClick={(e) => { e.stopPropagation(); abrirSeletor(); }}>escolher do computador</button>
+        </p>
         <input
           ref={entrada}
           type="file"

@@ -131,7 +131,7 @@ export function PaginaComQuadros({ url, largura, altura, quadros, questaoId, pag
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={url} alt="Página original da prova" className="absolute inset-0 h-full w-full" draggable={false} />
         {itens.map((i) => (
-          <div key={i.id} onPointerDown={(e) => iniciar(e, i, "mover")} className="absolute cursor-move border-2 border-brand bg-brand/10"
+          <div key={i.id} onPointerDown={(e) => iniciar(e, i, "mover")} className={`absolute cursor-move border-2 border-brand bg-brand/10 ${modoRecorte ? "pointer-events-none" : ""}`}
             style={{ left: `${i.quadro.x * 100}%`, top: `${i.quadro.y * 100}%`, width: `${i.quadro.w * 100}%`, height: `${i.quadro.h * 100}%` }}
             aria-label={`Recorte da figura (${i.alvo})`}>
             <span className="absolute left-0 top-0 bg-brand px-1 text-[10px] font-bold text-white">{i.alvo}</span>

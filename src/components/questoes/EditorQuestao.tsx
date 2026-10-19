@@ -7,7 +7,7 @@ import { criarQuestao, definirAlinhamento, excluirQuestao, marcarConferida, marc
 import { LETRAS, MATERIAS } from "@/lib/questoes/materias";
 import type { Alinhamento, AlvoImagem, Assunto, Letra, Questao } from "@/lib/types";
 import { estilos } from "@/components/ui/estilos";
-import { EntradaImagem } from "./EntradaImagem";
+import { EntradaImagem, type EntradaImagemRef } from "./EntradaImagem";
 import { ImagemQuestao, type ImagemTela } from "./ImagemQuestao";
 import { TextoQuestao } from "./TextoQuestao";
 
@@ -68,6 +68,8 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
     escopo: questao?.escopo ?? "escola",
   }));
   const [ocupado, setOcupado] = useState(false);
+  // Entradas de imagem por parte (enunciado, A..E): recebem imagens coladas nos textos.
+  const entradas = useRef<Partial<Record<AlvoImagem, EntradaImagemRef | null>>>({});
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [previa, setPrevia] = useState(false);
@@ -112,6 +114,16 @@ Adicione as imagens novamente nesta página.`);
     await registrarImagem(questao.id, alvo, storagePath, substituirId);
   }
 
+  /** Colar um print dentro do texto: manda para o fluxo de imagem daquela parte; texto colado segue normal. */
+  function colarImagem(alvo: AlvoImagem, e: React.ClipboardEvent) {
+    if (ocupado) return;
+    const item = Array.from(e.clipboardData?.items ?? []).find((i) => i.kind === "file" && i.type.startsWith("image/"));
+    const arquivo = item?.getAsFile();
+    if (!arquivo) return;
+    e.preventDefault();
+    entradas.current[alvo]?.receber(arquivo);
+  }
+
   function blocoImagens(alvo: AlvoImagem) {
     const lista = imagens.filter((i) => i.alvo === alvo);
     const fila = pendentes.filter((p) => p.alvo === alvo);
@@ -138,12 +150,13 @@ Adicione as imagens novamente nesta página.`);
         {fila.map((p) => (
           <div key={p.id} className="flex flex-col items-start gap-1">
             <MiniaturaPendente arquivo={p.arquivo} />
-            <button type="button" onClick={() => setPendentes((x) => x.filter((y) => y.id !== p.id))} className={`${estilos.botaoFantasma} px-2 text-xs`}><Trash2 size={13} aria-hidden="true" /> Remover</button>
+            <button type="button" disabled={ocupado} onClick={() => setPendentes((x) => x.filter((y) => y.id !== p.id))} className={`${estilos.botaoFantasma} px-2 text-xs`}><Trash2 size={13} aria-hidden="true" /> Remover</button>
           </div>
         ))}
         <EntradaImagem
           rotulo={lista.length + fila.length ? "Adicionar outra imagem" : "Adicionar imagem"}
           desabilitado={ocupado}
+          ref={(r) => { entradas.current[alvo] = r; }}
           aoEscolher={async (arquivo) => {
             if (questao) { await enviarPara(alvo, arquivo, null); router.refresh(); }
             else setPendentes((x) => [...x, { id: crypto.randomUUID(), alvo, arquivo }]);
@@ -195,7 +208,7 @@ Adicione as imagens novamente nesta página.`);
       <section className={`${styles.card} ${styles.statement}`} aria-label="Enunciado e comando">
       <div className={styles.heading}><span className={styles.icon}><FileText size={22} aria-hidden="true" /></span><div><h2>Enunciado e comando</h2><p>Prepare o texto que será apresentado ao aluno.</p></div></div>
       <div className="flex items-center justify-between"><span className={estilos.rotulo}>Enunciado</span><button type="button" aria-pressed={previa} onClick={() => setPrevia(!previa)} className={styles.previewToggle}>{previa ? "Editar texto" : "Ver como fica"}</button></div>
-      {previa ? <div className={styles.preview}><TextoQuestao texto={d.enunciado} /></div> : <textarea value={d.enunciado} onChange={(e) => set("enunciado", e.target.value)} rows={10} className={estilos.input} aria-label="Enunciado" />}
+      {previa ? <div className={styles.preview}><TextoQuestao texto={d.enunciado} /></div> : <textarea value={d.enunciado} onChange={(e) => set("enunciado", e.target.value)} rows={10} onPaste={(e) => colarImagem("enunciado", e)} className={estilos.input} aria-label="Enunciado" />}
       <p className="text-xs text-muted">Use **negrito** e *itálico*. Quebre linhas normalmente.</p>
       {blocoImagens("enunciado")}
       <label className="flex flex-col gap-1 text-xs text-muted">Comando<input value={d.comando} onChange={(e) => set("comando", e.target.value)} className={estilos.input} /></label>
@@ -208,7 +221,7 @@ Adicione as imagens novamente nesta página.`);
           <div key={letra} className={styles.answer} data-selected={d.resposta === letra}>
             <div className={styles.answerRow}>
               <label className={styles.letter}><input type="radio" name="resposta" checked={d.resposta === letra} onChange={() => set("resposta", letra as Letra)} aria-label={`Resposta ${letra}`} /><span>{letra}</span></label>
-              <textarea value={d.alternativas.find((a) => a.letra === letra)!.texto} onChange={(e) => set("alternativas", d.alternativas.map((a) => (a.letra === letra ? { ...a, texto: e.target.value } : a)))} rows={2} className={estilos.input} aria-label={`Alternativa ${letra}`} />
+              <textarea value={d.alternativas.find((a) => a.letra === letra)!.texto} onChange={(e) => set("alternativas", d.alternativas.map((a) => (a.letra === letra ? { ...a, texto: e.target.value } : a)))} rows={2} onPaste={(e) => colarImagem(letra, e)} className={estilos.input} aria-label={`Alternativa ${letra}`} />
             </div>
             {blocoImagens(letra)}
           </div>
@@ -220,7 +233,7 @@ Adicione as imagens novamente nesta página.`);
         <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); }, "Salvo.")} className={styles.primary}><Save size={18} aria-hidden="true" />{ocupado ? "Aguarde…" : questao ? "Salvar questão" : "Criar questão"}</button>
         {questao && modoRevisao && (
           <>
-            <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); await marcarFaltaImagem(questao.id); }, "Marcada como falta imagem.")} className={`${estilos.botaoSecundario} border-danger text-danger`}>⚠ Falta imagem</button>
+            <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); await marcarFaltaImagem(questao.id); }, "Marcada como falta imagem.")} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-control border border-danger bg-surface px-3 py-2 text-sm font-semibold text-danger transition hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50">⚠ Falta imagem</button>
             <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); await marcarConferida(questao.id); if (proximaHref) router.push(proximaHref); }, "Conferida.")} className={styles.primary}><CheckCircle2 size={18} aria-hidden="true" />✓ Conferida — próxima</button>
           </>
         )}

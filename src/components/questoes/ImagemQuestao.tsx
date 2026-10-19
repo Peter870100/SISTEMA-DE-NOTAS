@@ -25,7 +25,7 @@ export function ImagemQuestao({ imagem }: { imagem: ImagemTela }) {
   let figura: React.ReactNode;
   if (imagem.tipo === "arquivo" || !imagem.quadro || !imagem.largura || !imagem.altura) {
     // eslint-disable-next-line @next/next/no-img-element
-    figura = <img src={imagem.url} alt="Figura da questão" onError={() => setFalhou(true)} className="max-h-96 max-w-full rounded border border-line" />;
+    figura = <img src={imagem.url} alt="Figura da questão" onError={() => setFalhou(true)} className="max-h-96 max-w-[min(100%,28rem)] rounded border border-line" />;
   } else {
     const e = estiloRecorte(imagem.quadro, imagem.largura, imagem.altura);
     figura = (
@@ -33,7 +33,7 @@ export function ImagemQuestao({ imagem }: { imagem: ImagemTela }) {
         {/* background-image não avisa quando falha: a cópia escondida detecta o erro. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imagem.url} alt="" hidden onError={() => setFalhou(true)} />
-        <div role="img" aria-label="Figura da questão" className="w-full max-w-xl rounded border border-line bg-no-repeat"
+        <div role="img" aria-label="Figura da questão" className={`w-full rounded border border-line bg-no-repeat ${imagem.alinhamento === "centro" ? "max-w-xl" : "max-w-md"}`}
           style={{ backgroundImage: `url(${JSON.stringify(imagem.url)})`, backgroundSize: e.backgroundSize, backgroundPosition: e.backgroundPosition, aspectRatio: e.aspectRatio }} />
       </>
     );
