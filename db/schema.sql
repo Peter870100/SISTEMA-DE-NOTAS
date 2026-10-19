@@ -929,3 +929,9 @@ alter table aula_progresso add column if not exists tempo_assistido_seg integer 
 alter table aula_progresso add column if not exists saidas integer not null default 0;
 alter table aula_progresso add column if not exists tempo_fora_seg integer not null default 0;
 COMMIT;
+
+-- ===== Conferência de imagens (2026-10-18) =====
+alter table questoes add column if not exists falta_imagem boolean not null default false;
+alter table questoes add column if not exists conferida_em timestamptz;
+alter table questao_imagens add column if not exists alinhamento varchar(8) not null default 'centro'
+    check (alinhamento in ('esquerda', 'centro', 'direita'));

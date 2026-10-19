@@ -287,6 +287,8 @@ export type ImportacaoPagina = {
   erro: string | null;
 };
 
+export type Alinhamento = "esquerda" | "centro" | "direita";
+
 export type Questao = {
   id: string;
   escopo: Escopo;
@@ -306,6 +308,8 @@ export type Questao = {
   status: "revisao" | "publicada";
   precisa_revisao: boolean;
   motivo_revisao: string | null;
+  falta_imagem: boolean;
+  conferida_em: string | null;
   origem: "pdf" | "enemdev" | "manual";
   importacao_id: string | null;
   pagina_id: string | null;
@@ -327,6 +331,7 @@ export type QuestaoImagem = {
   w: number | null;
   h: number | null;
   storage_path: string | null;
+  alinhamento: Alinhamento;
   created_at: string;
 };
 

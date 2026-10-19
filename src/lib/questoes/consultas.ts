@@ -23,6 +23,7 @@ export async function imagensParaTela(questaoIds: string[], validadeSeg = 300): 
       id: i.id, alvo: i.alvo, tipo: i.tipo, url: url ?? "",
       quadro: i.tipo === "recorte" ? { x: Number(i.x), y: Number(i.y), w: Number(i.w), h: Number(i.h) } : null,
       largura: pagina?.largura ?? null, altura: pagina?.altura ?? null,
+      alinhamento: i.alinhamento ?? "centro",
     };
     mapa.set(i.questao_id, [...(mapa.get(i.questao_id) ?? []), tela]);
   }
