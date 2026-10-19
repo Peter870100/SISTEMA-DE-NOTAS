@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pixelsDoQuadro, quadroDoArraste } from "@/lib/questoes/conferencia";
 import { limitarQuadro, type Quadro } from "@/lib/questoes/quadro";
 import estilos from "./EntradaImagem.module.css";
@@ -33,14 +33,19 @@ export function CortarImagem({
   aoUsar: (cortado: File) => void;
   aoCancelar: () => void;
 }) {
-  const url = useMemo(() => URL.createObjectURL(arquivo), [arquivo]);
-  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  const img = useRef<HTMLImageElement>(null);
+  // URL criada e revogada no mesmo efeito (seguro com o remonte do StrictMode).
+  useEffect(() => {
+    const u = URL.createObjectURL(arquivo);
+    if (img.current) img.current.src = u;
+    return () => URL.revokeObjectURL(u);
+  }, [arquivo]);
 
   const dialogo = useRef<HTMLDivElement>(null);
   const area = useRef<HTMLDivElement>(null);
-  const img = useRef<HTMLImageElement>(null);
   const arraste = useRef<Arraste | null>(null);
   const cancelar = useRef(aoCancelar);
+  const ocupado = useRef(false);
   useEffect(() => {
     cancelar.current = aoCancelar;
   });
@@ -53,7 +58,7 @@ export function CortarImagem({
   useEffect(() => {
     dialogo.current?.focus();
     function tecla(e: KeyboardEvent) {
-      if (e.key === "Escape") cancelar.current();
+      if (e.key === "Escape" && !ocupado.current) cancelar.current();
     }
     window.addEventListener("keydown", tecla);
     return () => window.removeEventListener("keydown", tecla);
@@ -100,6 +105,7 @@ export function CortarImagem({
   async function usar() {
     const el = img.current;
     if (!el || !carregada || gerando) return;
+    ocupado.current = true;
     setGerando(true);
     setErro(null);
     try {
@@ -127,6 +133,7 @@ export function CortarImagem({
     } catch {
       setErro("Não foi possível cortar a imagem.");
     } finally {
+      ocupado.current = false;
       setGerando(false);
     }
   }
@@ -152,7 +159,7 @@ export function CortarImagem({
             onPointerCancel={() => { arraste.current = null; }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img ref={img} src={url} alt="Imagem a cortar" className={estilos.imagem} draggable={false} onLoad={() => setCarregada(true)} />
+            <img ref={img} alt="Imagem a cortar" className={estilos.imagem} draggable={false} onLoad={() => setCarregada(true)} />
             <div
               className={estilos.quadro}
               onPointerDown={(e) => iniciar(e, "mover")}
@@ -166,7 +173,7 @@ export function CortarImagem({
         <p className={estilos.ajuda}>Arraste o quadro para mover, puxe o canto para ajustar ou desenhe um novo sobre a imagem.</p>
         {erro && <p role="alert" className={estilos.erro}>{erro}</p>}
         <div className={estilos.acoes}>
-          <button type="button" className={estilos.botaoSec} onClick={aoCancelar}>
+          <button type="button" className={estilos.botaoSec} onClick={aoCancelar} disabled={gerando}>
             <X size={16} aria-hidden="true" /> Cancelar
           </button>
           <button type="button" className={estilos.botao} onClick={() => void usar()} disabled={!carregada || gerando}>
