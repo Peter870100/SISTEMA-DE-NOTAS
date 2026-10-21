@@ -10,10 +10,11 @@
 .texto > div { color: inherit; font-size: inherit; line-height: inherit; gap: .8rem; }
 .caderno { font-size: 1.125rem; line-height: 1.65; overflow-wrap: anywhere; }
 .comando { margin-top: 1.5rem; }
-.figura { margin: 1.5rem auto; width: fit-content; max-width: 100%; }
+.figura { margin: 1.5rem 0; width: 100%; max-width: 100%; }
 .figura > img, .figuraAlternativa > img { width: auto; height: auto; max-width: 100%; max-height: 24rem; object-fit: contain; border: 0; border-radius: 0; }
-.figura > div { width: min(100%, 28rem); max-width: 100%; border: 0; border-radius: 0; }
-.figura:has(> div) { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; }
+/* O contêiner da imagem ocupa a coluna toda: é ele que alinha (esquerda/centro/direita) a figura e a legenda. */
+.figura > div { width: 100%; max-width: 100%; border: 0; border-radius: 0; }
+.figura > div > div[role="img"] { max-width: 28rem; }
 .alternativas { display: flex; flex-direction: column; gap: .25rem; margin-top: 1.25rem; min-width: 0; }
 .alternativa { position: relative; display: flex; align-items: flex-start; gap: .9rem; padding: .7rem .65rem; border: 1px solid transparent; border-radius: .25rem; cursor: pointer; transition: background .15s, border-color .15s; }
 .alternativa:hover { background: color-mix(in srgb, var(--color-gold) 16%, white); border-color: var(--color-gold); }
