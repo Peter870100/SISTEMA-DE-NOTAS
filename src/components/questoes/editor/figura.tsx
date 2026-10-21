@@ -74,16 +74,16 @@ export const Figura = Node.create({
   selectable: true,
   addAttributes() {
     return {
-      imagemId: { default: "" },
-      alinhamento: { default: "centro" },
-      legenda: { default: "" },
+      imagemId: { default: "", parseHTML: (el) => el.getAttribute("data-imagem-id") ?? "", renderHTML: (a) => ({ "data-imagem-id": a.imagemId }) },
+      alinhamento: { default: "centro", parseHTML: (el) => el.getAttribute("data-alinhamento") ?? "centro", renderHTML: (a) => ({ "data-alinhamento": a.alinhamento }) },
+      legenda: { default: "", parseHTML: (el) => el.getAttribute("data-legenda") ?? "", renderHTML: (a) => ({ "data-legenda": a.legenda }) },
     };
   },
   parseHTML() {
     return [{ tag: "figure[data-figura]" }];
   },
   renderHTML({ HTMLAttributes }) {
-    return ["figure", mergeAttributes({ "data-figura": "" }, { "data-imagem-id": HTMLAttributes.imagemId })];
+    return ["figure", mergeAttributes({ "data-figura": "" }, HTMLAttributes)];
   },
   addNodeView() {
     return ReactNodeViewRenderer(VisaoFigura);

@@ -11,6 +11,7 @@ import {
   Minus, SquareDashed, Subscript as IconeSub, Superscript as IconeSup, Underline as IconeSublinhado,
 } from "lucide-react";
 import type { DocConteudo } from "@/lib/questoes/conteudo";
+import { colagemEhImagem } from "@/lib/questoes/colar";
 import { EntradaImagem, type EntradaImagemRef } from "./EntradaImagem";
 import { Caixa } from "./editor/caixa";
 import { Figura, ImagensContexto, type ImagensEditor } from "./editor/figura";
@@ -91,8 +92,11 @@ function Barra({ editor, enunciado, figuraAberta, alternarFigura, podeFigura }: 
 }
 
 function arquivoDeImagem(e: ClipboardEvent): File | null {
-  const item = Array.from(e.clipboardData?.items ?? []).find((i) => i.kind === "file" && i.type.startsWith("image/"));
-  return item?.getAsFile() ?? null;
+  const dados = e.clipboardData;
+  if (!dados) return null;
+  const item = Array.from(dados.items ?? []).find((i) => i.kind === "file" && i.type.startsWith("image/"));
+  const arquivo = item?.getAsFile() ?? null;
+  return colagemEhImagem({ temArquivoImagem: !!arquivo, texto: dados.getData("text/plain"), html: dados.getData("text/html") }) ? arquivo : null;
 }
 
 export function EditorConteudo({ modo, valor, aoMudar, imagens, aoInserirImagem, rotulo }: Props) {
