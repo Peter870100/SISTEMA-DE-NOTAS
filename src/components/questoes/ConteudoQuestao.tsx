@@ -45,13 +45,16 @@ function FiguraInline({ no, doEnunciado, classeFigura }: { no: NoConteudo; doEnu
   if (!img) return null;
   const al = typeof no.attrs?.alinhamento === "string" && ALINHAMENTOS_FIGURA.includes(no.attrs.alinhamento) ? (no.attrs.alinhamento as Alinhamento) : img.alinhamento;
   const legenda = typeof no.attrs?.legenda === "string" ? no.attrs.legenda.trim() : "";
-  const corpo = (
+  const classeLegenda = `${css.legenda} ${classeFigura ? css.legendaLinha : ""} ${Object.hasOwn(TEXTO_FIGURA, al) ? TEXTO_FIGURA[al] : ""}`;
+  const imagem = <ImagemQuestao imagem={{ ...img, alinhamento: al }} />;
+  // Na prova a imagem precisa ser filha direta da figura (o CSS da prova depende disso); a legenda vai ao lado, em outra linha.
+  if (classeFigura) return <div className={classeFigura}>{imagem}{legenda && <p className={classeLegenda}>{legenda}</p>}</div>;
+  return (
     <figure className={css.figura} style={{ margin: 0 }}>
-      <ImagemQuestao imagem={{ ...img, alinhamento: al }} />
-      {legenda && <figcaption className={`${css.legenda} ${Object.hasOwn(TEXTO_FIGURA, al) ? TEXTO_FIGURA[al] : ""}`}>{legenda}</figcaption>}
+      {imagem}
+      {legenda && <figcaption className={classeLegenda}>{legenda}</figcaption>}
     </figure>
   );
-  return classeFigura ? <div className={classeFigura}>{corpo}</div> : corpo;
 }
 
 export function ConteudoQuestao({

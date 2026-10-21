@@ -150,7 +150,8 @@ export function EditorConteudo({ modo, valor, aoMudar, imagens, aoInserirImagem,
 
   async function escolheu(arquivo: File) {
     if (!aoInserirImagem || !editor) return;
-    const id = await aoInserirImagem(arquivo);
+    let id: string;
+    try { id = await aoInserirImagem(arquivo); } catch { return; } // quem enviou já mostra o erro
     editor.chain().focus().inserirFigura(id).run();
     setFiguraAberta(false);
   }

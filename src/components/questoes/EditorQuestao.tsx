@@ -13,6 +13,7 @@ import { EntradaImagem, type EntradaImagemRef } from "./EntradaImagem";
 import { ImagemQuestao, type ImagemTela } from "./ImagemQuestao";
 import { ConteudoQuestao } from "./ConteudoQuestao";
 import { EditorConteudo } from "./EditorConteudo";
+import type { ImagensEditor } from "./editor/figura";
 
 import styles from "./EditorQuestao.module.css";
 
@@ -92,8 +93,8 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
   const citadas = useMemo(() => new Set(imagensDoConteudo(conteudoEnunciado)), [conteudoEnunciado]);
   // Mapa que as figuras do texto consultam para achar a URL; o servidor manda no que já conhece.
   const imagensEditor = useMemo(() => {
-    const m = new Map<string, { url: string }>(Object.entries(urlsLocais).map(([id, url]) => [id, { url }]));
-    for (const i of imagens) m.set(i.id, { url: i.url });
+    const m: ImagensEditor = new Map(Object.entries(urlsLocais).map(([id, url]) => [id, { url }]));
+    for (const i of imagens) m.set(i.id, { url: i.url, tela: i });
     return m;
   }, [imagens, urlsLocais]);
   const imagensPrevia = useMemo<ImagemTela[]>(() => [
@@ -155,16 +156,25 @@ Adicione as imagens novamente nesta página.`);
 
   /** Figura inserida direto no texto do enunciado: devolve o id que o documento vai citar. */
   async function inserirNoTexto(arquivo: File): Promise<string> {
-    if (questao) {
-      const id = await enviarPara("enunciado", arquivo, null);
+    // Mesmo controle de `executar` (Salvar fica desligado durante o envio), mas devolvendo o id.
+    setOcupado(true); setErro(null); setAviso(null);
+    try {
+      if (questao) {
+        const id = await enviarPara("enunciado", arquivo, null);
+        guardarUrlLocal(id, arquivo);
+        router.refresh();
+        return id;
+      }
+      const id = crypto.randomUUID(); // provisório: vira o id real quando a questão for criada
+      setPendentes((x) => [...x, { id, alvo: "enunciado", arquivo }]);
       guardarUrlLocal(id, arquivo);
-      router.refresh();
       return id;
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível enviar a imagem.");
+      throw e;
+    } finally {
+      setOcupado(false);
     }
-    const id = crypto.randomUUID(); // provisório: vira o id real quando a questão for criada
-    setPendentes((x) => [...x, { id, alvo: "enunciado", arquivo }]);
-    guardarUrlLocal(id, arquivo);
-    return id;
   }
 
   /** Colar um print dentro do texto: manda para o fluxo de imagem daquela parte; texto colado segue normal. */

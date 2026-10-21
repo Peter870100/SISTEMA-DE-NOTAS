@@ -10,6 +10,8 @@
 .caixa { display: flex; flex-direction: column; gap: 0.25rem; border: 1px solid var(--color-line); background: var(--color-surface-sunken); border-radius: 0.75rem; padding: 0.75rem 1rem; }
 .linha { border: 0; border-top: 1px solid var(--color-line); margin: 0.75rem 0; }
 .figura { display: flex; flex-direction: column; }
-.legenda { margin: 0.25rem 0 0; font-size: 0.75rem; line-height: 1rem; color: var(--color-ink); }
+.legenda { margin: 0.25rem 0 0; font-size: 0.8em; line-height: 1.3; color: var(--color-ink); max-width: 100%; overflow-wrap: anywhere; }
+.legendaLinha { flex: 0 0 100%; width: 100%; }
 .alternativa { white-space: pre-wrap; }
-.alternativaBloco { display: block; font-size: 0.875rem; line-height: 1.25rem; color: var(--color-ink); min-height: 1em; }
+/* Tamanho, altura de linha e cor vêm do contêiner (a prova define os seus), como no texto antigo. */
+.alternativaBloco { display: block; min-height: 1em; }

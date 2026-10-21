@@ -8,7 +8,7 @@ import { ehMateria, areaDaMateria, LETRAS } from "@/lib/questoes/materias";
 import { limitarQuadro, type Quadro } from "@/lib/questoes/quadro";
 import { BUCKET } from "@/lib/questoes/storage";
 import { camposConferida, camposFaltaImagem } from "@/lib/questoes/conferencia";
-import { limparConteudo, textoDoConteudo } from "@/lib/questoes/conteudo";
+import { limparConteudo, textoDoConteudo, trocarIdsFiguras, type DocConteudo } from "@/lib/questoes/conteudo";
 import type { Alinhamento, AlvoImagem, Escopo, Letra } from "@/lib/types";
 
 export type DadosQuestao = {
@@ -194,6 +194,7 @@ export async function promoverQuestao(id: string): Promise<string> {
     await desfazer();
     throw new Error(MSG);
   }
+  const novosIds = new Map<string, string>();
   for (const img of imagens ?? []) {
     let storage_path = img.storage_path;
     if (img.tipo === "arquivo" && img.storage_path) {
@@ -208,8 +209,18 @@ export async function promoverQuestao(id: string): Promise<string> {
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _i, created_at: _ci, questao_id: _q, ...dadosImg } = img;
-    const { error: erroInsert } = await supabase.from("questao_imagens").insert({ ...dadosImg, questao_id: nova.id, storage_path });
-    if (erroInsert) {
+    const { data: copia, error: erroInsert } = await supabase.from("questao_imagens").insert({ ...dadosImg, questao_id: nova.id, storage_path }).select("id").single();
+    if (erroInsert || !copia) {
+      await desfazer();
+      throw new Error(MSG);
+    }
+    novosIds.set(img.id, copia.id);
+  }
+  // As figuras do texto citam o id da imagem: na cópia, passam a citar o id da imagem copiada.
+  if (questao.conteudo && novosIds.size) {
+    const conteudo = trocarIdsFiguras(questao.conteudo as DocConteudo, novosIds, new Set());
+    const { error: erroConteudo } = await supabase.from("questoes").update({ conteudo }).eq("id", nova.id);
+    if (erroConteudo) {
       await desfazer();
       throw new Error(MSG);
     }

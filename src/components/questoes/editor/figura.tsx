@@ -4,9 +4,11 @@ import { createContext, useContext } from "react";
 import { Node, mergeAttributes, ReactNodeViewRenderer, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { PanelLeft, PanelRight, Square, Trash2 } from "lucide-react";
 import { LIMITE_LEGENDA } from "@/lib/questoes/conteudo";
+import { ImagemQuestao, type ImagemTela } from "../ImagemQuestao";
 import estilos from "../EditorConteudo.module.css";
 
-export type ImagensEditor = Map<string, { url: string }>;
+/** `tela` vem das imagens do servidor (permite mostrar o recorte); imagens só locais têm apenas a URL. */
+export type ImagensEditor = Map<string, { url: string; tela?: ImagemTela }>;
 /** Quem monta o editor entrega as imagens por aqui; a visão da figura relê quando o mapa muda. */
 export const ImagensContexto = createContext<ImagensEditor>(new Map());
 
@@ -28,11 +30,14 @@ const JUSTIFICA = { esquerda: "flex-start", centro: "center", direita: "flex-end
 function VisaoFigura({ node, selected, updateAttributes, deleteNode }: NodeViewProps) {
   const imagens = useContext(ImagensContexto);
   const { imagemId, alinhamento, legenda } = node.attrs as { imagemId: string; alinhamento: keyof typeof JUSTIFICA; legenda: string };
-  const url = imagens.get(imagemId)?.url;
+  const imagem = imagens.get(imagemId);
+  const url = imagem?.url;
   return (
     <NodeViewWrapper className={`${estilos.figura} ${selected ? estilos.figuraSelecionada : ""}`} data-drag-handle>
       <div className={estilos.figuraImagem} style={{ justifyContent: JUSTIFICA[alinhamento] ?? "center" }}>
-        {url ? (
+        {url && imagem?.tela ? (
+          <div style={{ width: "100%" }}><ImagemQuestao imagem={{ ...imagem.tela, alinhamento: alinhamento in JUSTIFICA ? alinhamento : "centro" }} /></div>
+        ) : url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt="Figura da questão" draggable={false} />
         ) : (

@@ -135,3 +135,11 @@ test("trocarIdsFiguras troca provisório pelo real e remove o que não foi envia
   assert.deepEqual(imagensDoConteudo(entrada), ["tmp1", "tmp2", "real"]); // não altera a entrada
   assert.equal(trocarIdsFiguras(null, new Map(), new Set()), null);
 });
+
+test("trocarIdsFiguras na promoção: figuras passam a citar as imagens copiadas", () => {
+  const fig = (id: string) => ({ type: "figura", attrs: { imagemId: id, alinhamento: "direita", legenda: "Fonte" } });
+  const entrada = doc(p("a"), fig("velha1"), fig("velha2")) as DocConteudo;
+  const r = trocarIdsFiguras(entrada, new Map([["velha1", "nova1"], ["velha2", "nova2"]]), new Set());
+  assert.deepEqual(imagensDoConteudo(r), ["nova1", "nova2"]);
+  assert.equal((r!.content![1].attrs as { legenda: string }).legenda, "Fonte");
+});

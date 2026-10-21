@@ -13,7 +13,7 @@
 .figura { margin: 1.5rem auto; width: fit-content; max-width: 100%; }
 .figura > img, .figuraAlternativa > img { width: auto; height: auto; max-width: 100%; max-height: 24rem; object-fit: contain; border: 0; border-radius: 0; }
 .figura > div { width: min(100%, 28rem); max-width: 100%; border: 0; border-radius: 0; }
-.figura:has(> div) { width: 100%; display: flex; justify-content: center; }
+.figura:has(> div) { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; }
 .alternativas { display: flex; flex-direction: column; gap: .25rem; margin-top: 1.25rem; min-width: 0; }
 .alternativa { position: relative; display: flex; align-items: flex-start; gap: .9rem; padding: .7rem .65rem; border: 1px solid transparent; border-radius: .25rem; cursor: pointer; transition: background .15s, border-color .15s; }
 .alternativa:hover { background: color-mix(in srgb, var(--color-gold) 16%, white); border-color: var(--color-gold); }
