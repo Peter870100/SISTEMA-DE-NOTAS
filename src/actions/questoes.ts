@@ -228,7 +228,7 @@ export async function prepararEnvioImagem(questaoId: string, _nome: string, tama
   return { signedUrl: data.signedUrl, storagePath };
 }
 
-export async function registrarImagem(questaoId: string, alvo: AlvoImagem, storagePath: string, substituirId: string | null): Promise<void> {
+export async function registrarImagem(questaoId: string, alvo: AlvoImagem, storagePath: string, substituirId: string | null): Promise<string> {
   await exigirEditorQuestao(questaoId);
   if (!["enunciado", ...LETRAS].includes(alvo)) throw new Error("Destino da imagem inválido.");
   const prefixo = `imagens/${questaoId}/`;
@@ -238,9 +238,10 @@ export async function registrarImagem(questaoId: string, alvo: AlvoImagem, stora
   const { data: existente } = await supabase.from("questao_imagens").select("id").eq("storage_path", storagePath).maybeSingle();
   if (existente) throw new Error("Imagem já registrada.");
   const { count } = await supabase.from("questao_imagens").select("id", { count: "exact", head: true }).eq("questao_id", questaoId).eq("alvo", alvo);
-  const { error } = await supabase.from("questao_imagens").insert({ questao_id: questaoId, alvo, tipo: "arquivo", storage_path: storagePath, ordem: count ?? 0 });
-  if (error) throw new Error(error.message);
+  const { data: nova, error } = await supabase.from("questao_imagens").insert({ questao_id: questaoId, alvo, tipo: "arquivo", storage_path: storagePath, ordem: count ?? 0 }).select("id").single();
+  if (error || !nova) throw new Error(error?.message ?? "Falha ao registrar imagem.");
   if (substituirId) await removerImagemInterna(questaoId, substituirId);
+  return nova.id;
 }
 
 async function removerImagemInterna(questaoId: string, imagemId: string) {

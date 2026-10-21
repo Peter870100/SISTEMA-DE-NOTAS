@@ -156,3 +156,22 @@ export function conteudoDeMarkdown(texto: string): DocConteudo {
   });
   return { type: "doc", content };
 }
+
+/**
+ * Depois de enviar as imagens de uma questão nova: troca os ids provisórios pelos reais (`mapa`)
+ * e tira as figuras provisórias que não foram enviadas. Ids que não são provisórios ficam como estão.
+ */
+export function trocarIdsFiguras(doc: DocConteudo | null, mapa: Map<string, string>, provisorios: Set<string>): DocConteudo | null {
+  if (!doc) return null;
+  const visitar = (nos?: NoConteudo[]): NoConteudo[] | undefined =>
+    nos?.flatMap((n): NoConteudo[] => {
+      if (n.type === "figura") {
+        const id = n.attrs?.imagemId;
+        if (typeof id === "string" && mapa.has(id)) return [{ ...n, attrs: { ...n.attrs, imagemId: mapa.get(id) } }];
+        if (typeof id === "string" && provisorios.has(id)) return [];
+        return [n];
+      }
+      return n.content ? [{ ...n, content: visitar(n.content) }] : [n];
+    });
+  return { ...doc, content: visitar(doc.content) };
+}

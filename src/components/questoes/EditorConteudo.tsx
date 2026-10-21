@@ -27,6 +27,8 @@ type Props = {
   /** Envia/guarda a imagem e devolve o id usado no nó da figura (pode ser provisório). */
   aoInserirImagem?: (arquivo: File) => Promise<string>;
   rotulo: string;
+  /** Quem monta o editor recebe aqui a ação de inserir uma figura já enviada (ex.: da lista de figuras soltas). */
+  acoesRef?: React.MutableRefObject<{ inserirFigura: (imagemId: string) => void } | null>;
 };
 
 // Só o que a lista fechada de `limparConteudo` aceita fica ligado.
@@ -99,7 +101,7 @@ function arquivoDeImagem(e: ClipboardEvent): File | null {
   return colagemEhImagem({ temArquivoImagem: !!arquivo, texto: dados.getData("text/plain"), html: dados.getData("text/html") }) ? arquivo : null;
 }
 
-export function EditorConteudo({ modo, valor, aoMudar, imagens, aoInserirImagem, rotulo }: Props) {
+export function EditorConteudo({ modo, valor, aoMudar, imagens, aoInserirImagem, rotulo, acoesRef }: Props) {
   const enunciado = modo === "enunciado";
   const podeFigura = enunciado && !!aoInserirImagem;
   const [figuraAberta, setFiguraAberta] = useState(false);
@@ -130,6 +132,12 @@ export function EditorConteudo({ modo, valor, aoMudar, imagens, aoInserirImagem,
     },
     onUpdate: ({ editor: ed }) => aoMudarRef.current(ed.getJSON() as DocConteudo),
   });
+
+  useEffect(() => {
+    if (!acoesRef) return;
+    acoesRef.current = editor ? { inserirFigura: (id) => { editor.chain().focus().inserirFigura(id).run(); } } : null;
+    return () => { acoesRef.current = null; };
+  }, [acoesRef, editor]);
 
   // O painel monta depois do Ctrl+V: a imagem colada espera aqui até a entrada existir.
   function receberPendente(r: EntradaImagemRef | null) {

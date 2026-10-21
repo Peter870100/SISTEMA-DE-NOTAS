@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { conteudoDeMarkdown, imagensDoConteudo, limparConteudo, textoDoConteudo, type DocConteudo } from "./conteudo";
+import { conteudoDeMarkdown, imagensDoConteudo, limparConteudo, textoDoConteudo, trocarIdsFiguras, type DocConteudo } from "./conteudo";
 
 const p = (texto: string, extra: Record<string, unknown> = {}) => ({ type: "paragraph", ...extra, content: [{ type: "text", text: texto }] });
 const doc = (...content: unknown[]) => ({ type: "doc", content });
@@ -125,4 +125,13 @@ test("ida e volta sem marcadores", () => {
   const t = "linha um\n\nlinha três\nfim";
   assert.equal(textoDoConteudo(conteudoDeMarkdown(t)), t);
   assert.equal(textoDoConteudo(conteudoDeMarkdown("x **y** *z*")), "x y z");
+});
+
+test("trocarIdsFiguras troca provisório pelo real e remove o que não foi enviado", () => {
+  const fig = (id: string) => ({ type: "figura", attrs: { imagemId: id, alinhamento: "centro", legenda: "" } });
+  const entrada = doc(p("a"), fig("tmp1"), fig("tmp2"), fig("real")) as DocConteudo;
+  const r = trocarIdsFiguras(entrada, new Map([["tmp1", "id1"]]), new Set(["tmp1", "tmp2"]));
+  assert.deepEqual(imagensDoConteudo(r), ["id1", "real"]);
+  assert.deepEqual(imagensDoConteudo(entrada), ["tmp1", "tmp2", "real"]); // não altera a entrada
+  assert.equal(trocarIdsFiguras(null, new Map(), new Set()), null);
 });

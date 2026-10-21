@@ -1,15 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Trash2, Upload, Tags, FileText, ListChecks, Save, CheckCircle2 } from "lucide-react";
 import { criarQuestao, definirAlinhamento, excluirQuestao, marcarConferida, marcarFaltaImagem, prepararEnvioImagem, publicarQuestao, registrarImagem, removerImagem, salvarQuestao, type DadosQuestao } from "@/actions/questoes";
 import { LETRAS, MATERIAS } from "@/lib/questoes/materias";
+import { conteudoDeMarkdown, imagensDoConteudo, textoDoConteudo, trocarIdsFiguras, type DocConteudo } from "@/lib/questoes/conteudo";
+import { colagemEhImagem } from "@/lib/questoes/colar";
 import type { Alinhamento, AlvoImagem, Assunto, Letra, Questao } from "@/lib/types";
 import { estilos } from "@/components/ui/estilos";
 import { EntradaImagem, type EntradaImagemRef } from "./EntradaImagem";
 import { ImagemQuestao, type ImagemTela } from "./ImagemQuestao";
-import { TextoQuestao } from "./TextoQuestao";
+import { ConteudoQuestao } from "./ConteudoQuestao";
+import { EditorConteudo } from "./EditorConteudo";
 
 import styles from "./EditorQuestao.module.css";
 
@@ -61,8 +64,13 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
     materia: questao?.materia ?? "portugues",
     assunto_id: questao?.assunto_id ?? null,
     enunciado: questao?.enunciado ?? "",
+    // Sempre enviamos o documento (do enunciado e de cada alternativa): omitido, o servidor apagaria a formatação guardada.
+    conteudo: questao?.conteudo ?? conteudoDeMarkdown(questao?.enunciado ?? ""),
     comando: questao?.comando ?? "",
-    alternativas: LETRAS.map((letra) => ({ letra, texto: questao?.alternativas.find((a) => a.letra === letra)?.texto ?? "" })),
+    alternativas: LETRAS.map((letra) => {
+      const alt = questao?.alternativas.find((a) => a.letra === letra);
+      return { letra, texto: alt?.texto ?? "", conteudo: alt?.conteudo ?? conteudoDeMarkdown(alt?.texto ?? "") };
+    }),
     resposta: questao?.resposta ?? null,
     anulada: questao?.anulada ?? false,
     escopo: questao?.escopo ?? "escola",
@@ -74,6 +82,30 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
   const [aviso, setAviso] = useState<string | null>(null);
   const [previa, setPrevia] = useState(false);
   const [pendentes, setPendentes] = useState<Pendente[]>([]);
+  // Miniaturas locais (id provisório ou imagem recém-enviada ainda fora da lista do servidor).
+  const [urlsLocais, setUrlsLocais] = useState<Record<string, string>>({});
+  const urlsRef = useRef<string[]>([]);
+  const acoesEnunciado = useRef<{ inserirFigura: (imagemId: string) => void } | null>(null);
+  useEffect(() => () => { urlsRef.current.forEach((u) => URL.revokeObjectURL(u)); }, []);
+
+  const conteudoEnunciado = (d.conteudo ?? null) as DocConteudo | null;
+  const citadas = useMemo(() => new Set(imagensDoConteudo(conteudoEnunciado)), [conteudoEnunciado]);
+  // Mapa que as figuras do texto consultam para achar a URL; o servidor manda no que já conhece.
+  const imagensEditor = useMemo(() => {
+    const m = new Map<string, { url: string }>(Object.entries(urlsLocais).map(([id, url]) => [id, { url }]));
+    for (const i of imagens) m.set(i.id, { url: i.url });
+    return m;
+  }, [imagens, urlsLocais]);
+  const imagensPrevia = useMemo<ImagemTela[]>(() => [
+    ...imagens,
+    ...pendentes.filter((p) => urlsLocais[p.id]).map((p): ImagemTela => ({ id: p.id, alvo: p.alvo, tipo: "arquivo", url: urlsLocais[p.id], quadro: null, largura: null, altura: null, alinhamento: "centro", paginaId: null })),
+  ], [imagens, pendentes, urlsLocais]);
+
+  function guardarUrlLocal(id: string, arquivo: File) {
+    const u = URL.createObjectURL(arquivo);
+    urlsRef.current.push(u);
+    setUrlsLocais((x) => ({ ...x, [id]: u }));
+  }
 
   const assuntosMateria = assuntos.filter((a) => a.materia === d.materia);
   const set = <K extends keyof DadosQuestao>(k: K, v: DadosQuestao[K]) => setD((x) => ({ ...x, [k]: v }));
@@ -90,15 +122,22 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
     const id = await criarQuestao(d);
     aoSalvar?.(id);
     let falha: string | null = null;
+    const reais = new Map<string, string>();
     for (const p of pendentes) {
       try {
         const { signedUrl, storagePath } = await prepararEnvioImagem(id, p.arquivo.name, p.arquivo.size, p.arquivo.type);
         await enviarImagem(signedUrl, p.arquivo);
-        await registrarImagem(id, p.alvo, storagePath, null);
+        reais.set(p.id, await registrarImagem(id, p.alvo, storagePath, null));
       } catch (e) {
         falha = e instanceof Error ? e.message : "Falha ao enviar imagem.";
         break;
       }
+    }
+    // Figuras do texto ainda citam o id provisório: troca pelo real (e tira as que não subiram) e salva de novo.
+    const provisorios = new Set(pendentes.map((p) => p.id));
+    if (imagensDoConteudo(conteudoEnunciado).some((i) => provisorios.has(i))) {
+      try { await salvarQuestao(id, { ...d, conteudo: trocarIdsFiguras(conteudoEnunciado, reais, provisorios) }); }
+      catch (e) { falha ??= e instanceof Error ? e.message : "Falha ao salvar as figuras no texto."; }
     }
     // A questão já existe: sempre vai para a página dela (evita criar duplicada).
     if (falha) window.alert(`A questão foi criada, mas uma imagem não foi enviada: ${falha}
@@ -107,11 +146,25 @@ Adicione as imagens novamente nesta página.`);
     return id;
   }
 
-  async function enviarPara(alvo: AlvoImagem, arquivo: File, substituirId: string | null) {
+  async function enviarPara(alvo: AlvoImagem, arquivo: File, substituirId: string | null): Promise<string> {
     if (!questao) throw new Error("Salve a questão antes de adicionar imagens.");
     const { signedUrl, storagePath } = await prepararEnvioImagem(questao.id, arquivo.name, arquivo.size, arquivo.type);
     await enviarImagem(signedUrl, arquivo);
-    await registrarImagem(questao.id, alvo, storagePath, substituirId);
+    return registrarImagem(questao.id, alvo, storagePath, substituirId);
+  }
+
+  /** Figura inserida direto no texto do enunciado: devolve o id que o documento vai citar. */
+  async function inserirNoTexto(arquivo: File): Promise<string> {
+    if (questao) {
+      const id = await enviarPara("enunciado", arquivo, null);
+      guardarUrlLocal(id, arquivo);
+      router.refresh();
+      return id;
+    }
+    const id = crypto.randomUUID(); // provisório: vira o id real quando a questão for criada
+    setPendentes((x) => [...x, { id, alvo: "enunciado", arquivo }]);
+    guardarUrlLocal(id, arquivo);
+    return id;
   }
 
   /** Colar um print dentro do texto: manda para o fluxo de imagem daquela parte; texto colado segue normal. */
@@ -119,14 +172,19 @@ Adicione as imagens novamente nesta página.`);
     if (ocupado) return;
     const item = Array.from(e.clipboardData?.items ?? []).find((i) => i.kind === "file" && i.type.startsWith("image/"));
     const arquivo = item?.getAsFile();
-    if (!arquivo) return;
+    if (!arquivo || !colagemEhImagem({ temArquivoImagem: true, texto: e.clipboardData.getData("text/plain"), html: e.clipboardData.getData("text/html") })) return;
     e.preventDefault();
+    e.stopPropagation();
     entradas.current[alvo]?.receber(arquivo);
   }
 
   function blocoImagens(alvo: AlvoImagem) {
-    const lista = imagens.filter((i) => i.alvo === alvo);
-    const fila = pendentes.filter((p) => p.alvo === alvo);
+    // No enunciado, as figuras já citadas no texto aparecem lá; aqui ficam só as soltas.
+    const lista = imagens.filter((i) => i.alvo === alvo && !(alvo === "enunciado" && citadas.has(i.id)));
+    const fila = pendentes.filter((p) => p.alvo === alvo && !(alvo === "enunciado" && citadas.has(p.id)));
+    const inserir = (id: string) => alvo === "enunciado" && (
+      <button type="button" disabled={ocupado} onClick={() => acoesEnunciado.current?.inserirFigura(id)} className={`${estilos.botaoFantasma} px-2 text-xs`}>Inserir no texto</button>
+    );
     return (
       <div className="flex flex-col gap-2">
         {lista.map((img) => (
@@ -141,8 +199,9 @@ Adicione as imagens novamente nesta página.`);
                 ))}
               </div>
               <label className={`${estilos.botaoFantasma} cursor-pointer px-2 text-xs`}><Upload size={13} aria-hidden="true" /> Trocar imagem
-                <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void executar(() => enviarPara(alvo, f, img.id)); }} />
+                <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void executar(async () => { await enviarPara(alvo, f, img.id); }); }} />
               </label>
+              {inserir(img.id)}
               <button type="button" onClick={() => void executar(() => removerImagem(img.id))} className={`${estilos.botaoFantasma} px-2 text-xs`}><Trash2 size={13} aria-hidden="true" /> Remover</button>
             </div>
           </div>
@@ -150,7 +209,10 @@ Adicione as imagens novamente nesta página.`);
         {fila.map((p) => (
           <div key={p.id} className="flex flex-col items-start gap-1">
             <MiniaturaPendente arquivo={p.arquivo} />
-            <button type="button" disabled={ocupado} onClick={() => setPendentes((x) => x.filter((y) => y.id !== p.id))} className={`${estilos.botaoFantasma} px-2 text-xs`}><Trash2 size={13} aria-hidden="true" /> Remover</button>
+            <div className="flex flex-wrap items-center gap-2">
+              {inserir(p.id)}
+              <button type="button" disabled={ocupado} onClick={() => setPendentes((x) => x.filter((y) => y.id !== p.id))} className={`${estilos.botaoFantasma} px-2 text-xs`}><Trash2 size={13} aria-hidden="true" /> Remover</button>
+            </div>
           </div>
         ))}
         <EntradaImagem
@@ -159,7 +221,11 @@ Adicione as imagens novamente nesta página.`);
           ref={(r) => { entradas.current[alvo] = r; }}
           aoEscolher={async (arquivo) => {
             if (questao) { await enviarPara(alvo, arquivo, null); router.refresh(); }
-            else setPendentes((x) => [...x, { id: crypto.randomUUID(), alvo, arquivo }]);
+            else {
+              const id = crypto.randomUUID();
+              setPendentes((x) => [...x, { id, alvo, arquivo }]);
+              if (alvo === "enunciado") guardarUrlLocal(id, arquivo);
+            }
           }}
         />
       </div>
@@ -208,8 +274,13 @@ Adicione as imagens novamente nesta página.`);
       <section className={`${styles.card} ${styles.statement}`} aria-label="Enunciado e comando">
       <div className={styles.heading}><span className={styles.icon}><FileText size={22} aria-hidden="true" /></span><div><h2>Enunciado e comando</h2><p>Prepare o texto que será apresentado ao aluno.</p></div></div>
       <div className="flex items-center justify-between"><span className={estilos.rotulo}>Enunciado</span><button type="button" aria-pressed={previa} onClick={() => setPrevia(!previa)} className={styles.previewToggle}>{previa ? "Editar texto" : "Ver como fica"}</button></div>
-      {previa ? <div className={styles.preview}><TextoQuestao texto={d.enunciado} /></div> : <textarea value={d.enunciado} onChange={(e) => set("enunciado", e.target.value)} rows={10} onPaste={(e) => colarImagem("enunciado", e)} className={estilos.input} aria-label="Enunciado" />}
-      <p className="text-xs text-muted">Use **negrito** e *itálico*. Quebre linhas normalmente.</p>
+      {previa && <div className={styles.preview}><ConteudoQuestao doc={conteudoEnunciado} textoAntigo={d.enunciado} imagens={imagensPrevia} /></div>}
+      {/* Fica montado (só escondido) para não perder cursor, desfazer nem o documento ao alternar a prévia. */}
+      <div hidden={previa}>
+        <EditorConteudo key={`${questao?.id ?? "nova"}-enunciado`} modo="enunciado" rotulo="Enunciado" valor={conteudoEnunciado} imagens={imagensEditor} acoesRef={acoesEnunciado}
+          aoInserirImagem={inserirNoTexto}
+          aoMudar={(doc) => setD((x) => ({ ...x, conteudo: doc, enunciado: textoDoConteudo(doc) }))} />
+      </div>
       {blocoImagens("enunciado")}
       <label className="flex flex-col gap-1 text-xs text-muted">Comando<input value={d.comando} onChange={(e) => set("comando", e.target.value)} className={estilos.input} /></label>
 
@@ -221,7 +292,10 @@ Adicione as imagens novamente nesta página.`);
           <div key={letra} className={styles.answer} data-selected={d.resposta === letra}>
             <div className={styles.answerRow}>
               <label className={styles.letter}><input type="radio" name="resposta" checked={d.resposta === letra} onChange={() => set("resposta", letra as Letra)} aria-label={`Resposta ${letra}`} /><span>{letra}</span></label>
-              <textarea value={d.alternativas.find((a) => a.letra === letra)!.texto} onChange={(e) => set("alternativas", d.alternativas.map((a) => (a.letra === letra ? { ...a, texto: e.target.value } : a)))} rows={2} onPaste={(e) => colarImagem(letra, e)} className={estilos.input} aria-label={`Alternativa ${letra}`} />
+              <div className="min-w-0 flex-1" onPasteCapture={(e) => colarImagem(letra, e)}>
+                <EditorConteudo key={`${questao?.id ?? "nova"}-${letra}`} modo="alternativa" rotulo={`Alternativa ${letra}`} valor={(d.alternativas.find((a) => a.letra === letra)!.conteudo ?? null) as DocConteudo | null} imagens={imagensEditor}
+                  aoMudar={(doc) => setD((x) => ({ ...x, alternativas: x.alternativas.map((a) => (a.letra === letra ? { ...a, texto: textoDoConteudo(doc), conteudo: doc } : a)) }))} />
+              </div>
             </div>
             {blocoImagens(letra)}
           </div>
