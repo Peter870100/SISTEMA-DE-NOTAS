@@ -4,3 +4,5 @@
 @media(max-width:1000px){.schedule{grid-template-columns:minmax(0,1fr)}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.card{padding:20px 16px}.heading{align-items:flex-start;gap:12px}.heading h2{font-size:24px}.heading p{font-size:13px}.correction,.filters{grid-template-columns:minmax(0,1fr)}.filters{padding:16px}.formFooter button,.publish{width:100%}.search{flex-direction:column}.question{padding:14px}.questionText{min-width:calc(100% - 48px)}.shuffle{align-items:flex-start}.publishAction{align-items:stretch}}
 @media(prefers-reduced-motion:reduce){.publish,.remove,.bankSummary svg{transition:none;transform:none!important}}
+
+.noRepeat{grid-column:1/-1;display:flex;align-items:center;gap:10px;color:var(--color-frame-deep);font-size:14px;font-weight:600;line-height:1.6;cursor:pointer}

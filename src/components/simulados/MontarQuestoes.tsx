@@ -24,7 +24,7 @@ export function MontarQuestoes({ simuladoId, questoes, travado, assuntos }: Prop
   const router = useRouter();
   const [area, setArea] = useState(""); const [materia, setMateria] = useState(""); const [assunto, setAssunto] = useState("");
   const [banca, setBanca] = useState(""); const [anoDe, setAnoDe] = useState(""); const [anoAte, setAnoAte] = useState("");
-  const [quantidade, setQuantidade] = useState("10");
+  const [quantidade, setQuantidade] = useState("10"); const [naoRepetir, setNaoRepetir] = useState(true);
   const [texto, setTexto] = useState(""); const [achadas, setAchadas] = useState<Item[]>([]);
   const [ocupado, setOcupado] = useState(false); const [erro, setErro] = useState<string | null>(null); const [aviso, setAviso] = useState<string | null>(null);
   const filtros = () => ({ area: (area || undefined) as Area | undefined, materia: materia || undefined, assunto_id: assunto || undefined, banca: banca.trim() || undefined, anoDe: anoDe ? Number(anoDe) : undefined, anoAte: anoAte ? Number(anoAte) : undefined });
@@ -48,7 +48,8 @@ export function MontarQuestoes({ simuladoId, questoes, travado, assuntos }: Prop
           <label className={css.field}>Ano até<input value={anoAte} onChange={(e) => setAnoAte(e.target.value.replace(/\D/g, ""))} placeholder="Ano até" aria-label="Ano até" inputMode="numeric" className={css.input} /></label>
           <div className={css.draw}>
             <label className={css.field}>Quantidade<input value={quantidade} onChange={(e) => setQuantidade(e.target.value.replace(/\D/g, ""))} aria-label="Quantidade" inputMode="numeric" className={css.input} /></label>
-            <button type="button" disabled={ocupado} onClick={() => void executar(async () => { const r = desembrulhar(await sortearQuestoes(simuladoId, { ...filtros(), quantidade: Number(quantidade) })); if (r.adicionadas < r.pedidas) setAviso(`Foram adicionadas ${r.adicionadas} de ${r.pedidas} (não há mais questões com esses filtros).`); })} className={base.primary}><Dices size={18} aria-hidden="true" />Sortear questões</button>
+            <button type="button" disabled={ocupado} onClick={() => void executar(async () => { const r = desembrulhar(await sortearQuestoes(simuladoId, { ...filtros(), quantidade: Number(quantidade), naoRepetir })); const partes: string[] = []; if (r.adicionadas < r.pedidas) partes.push(`Foram adicionadas ${r.adicionadas} de ${r.pedidas} (não há mais questões com esses filtros).`); if (naoRepetir && r.semTurmas) partes.push("O simulado ainda não tem turmas: nenhuma questão foi excluída por repetição."); else if (r.puladas > 0) partes.push(`${r.puladas} ${r.puladas === 1 ? "questão foi pulada" : "questões foram puladas"} por já ter${r.puladas === 1 ? "" : "em"} caído para estas turmas.`); if (partes.length) setAviso(partes.join(" ")); })} className={base.primary}><Dices size={18} aria-hidden="true" />Sortear questões</button>
+            <label className={css.noRepeat}><input type="checkbox" checked={naoRepetir} onChange={(e) => setNaoRepetir(e.target.checked)} />Não repetir questões já aplicadas a estas turmas</label>
           </div>
         </div>
       )}
@@ -59,7 +60,7 @@ export function MontarQuestoes({ simuladoId, questoes, travado, assuntos }: Prop
             <span className={css.questionText}><span className={css.meta}>{q.banca} {q.ano ?? ""} · Nº {q.numero ?? "—"} · {rotuloMateria(q.materia)}</span><span className={css.excerpt}>{q.trecho}</span></span>
             <Link href={`/banco/questoes/${q.id}`} target="_blank" className={base.secondary}><Eye size={16} aria-hidden="true" />Ver</Link>
             {!travado && <>
-              <button type="button" disabled={ocupado} onClick={() => void executar(async () => { if (!desembrulhar(await trocarQuestao(simuladoId, q.id, filtros()))) setAviso("Não há outra questão com os filtros atuais."); })} className={base.secondary}><RefreshCw size={16} aria-hidden="true" />Trocar</button>
+              <button type="button" disabled={ocupado} onClick={() => void executar(async () => { if (!desembrulhar(await trocarQuestao(simuladoId, q.id, { ...filtros(), naoRepetir }))) setAviso("Não há outra questão com os filtros atuais."); })} className={base.secondary}><RefreshCw size={16} aria-hidden="true" />Trocar</button>
               <button type="button" disabled={ocupado} onClick={() => void executar(async () => { desembrulhar(await removerQuestao(simuladoId, q.id)); })} className={css.remove}><Trash2 size={16} aria-hidden="true" />Remover</button>
             </>}
           </li>

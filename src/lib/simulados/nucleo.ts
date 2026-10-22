@@ -3,6 +3,7 @@ import { padraoExato } from "@/lib/questoes/busca";
 import type { Simulado } from "@/lib/types";
 import type { AtorEscola } from "./ator";
 import { chaveTurma, limparConfiguracao, limparFiltros, mudancaProibidaComTentativas, validarOrdem, validarPublicacao, type DadosSimulado } from "./configuracao";
+import { filtrarRepetidas, questoesAplicadas } from "./repetidas";
 import { sortear } from "./regras";
 import { candidatosSorteio, filtroVisivel, podeEditarSimulado, type FiltrosSorteio } from "./servidor";
 
@@ -92,7 +93,7 @@ export async function salvarSimuladoPor(ator: AtorEscola, id: string, d: DadosSi
   }
 }
 
-export async function sortearQuestoesPor(ator: AtorEscola, id: string, f: FiltrosSorteio & { quantidade: number; naoRepetir?: boolean }): Promise<{ adicionadas: number; pedidas: number; puladas: number }> {
+export async function sortearQuestoesPor(ator: AtorEscola, id: string, f: FiltrosSorteio & { quantidade: number; naoRepetir?: boolean }): Promise<{ adicionadas: number; pedidas: number; puladas: number; semTurmas: boolean }> {
   const { simulado } = await exigirQuestoesEditaveis(ator, id);
   const pedidas = Math.round(f.quantidade);
   if (!Number.isFinite(pedidas) || pedidas < 1 || pedidas > 200) throw new Error("Quantidade de 1 a 200.");
@@ -100,20 +101,30 @@ export async function sortearQuestoesPor(ator: AtorEscola, id: string, f: Filtro
   const { ids: atuais, proxima } = await idsDoSimulado(id);
   const vagas = MAX_QUESTOES - atuais.length;
   if (vagas <= 0) throw new Error(`Um simulado pode ter no máximo ${MAX_QUESTOES} questões.`);
-  const novas = sortear(await candidatosSorteio(simulado.escola_id, filtros, atuais), Math.min(pedidas, vagas));
+  let candidatos = await candidatosSorteio(simulado.escola_id, filtros, atuais);
+  let puladas = 0;
+  let semTurmas = false;
+  if (f.naoRepetir ?? true) {
+    const r = await questoesAplicadas(simulado.escola_id, id);
+    semTurmas = r.semTurmas;
+    ({ ids: candidatos, puladas } = filtrarRepetidas(candidatos, r.aplicadas));
+  }
+  const novas = sortear(candidatos, Math.min(pedidas, vagas));
   if (novas.length) {
     const { error } = await supabase.from("simulado_questoes").insert(novas.map((questao_id, i) => ({ simulado_id: id, questao_id, ordem: proxima + i })));
     if (error) throw new Error(error.message);
   }
-  return { adicionadas: novas.length, pedidas, puladas: 0 };
+  return { adicionadas: novas.length, pedidas, puladas, semTurmas };
 }
 
-export async function trocarQuestaoPor(ator: AtorEscola, id: string, questaoId: string, f: FiltrosSorteio): Promise<boolean> {
+export async function trocarQuestaoPor(ator: AtorEscola, id: string, questaoId: string, f: FiltrosSorteio & { naoRepetir?: boolean }): Promise<boolean> {
   const { simulado } = await exigirQuestoesEditaveis(ator, id);
   const filtros = limparFiltros(f);
   const { ids: atuais } = await idsDoSimulado(id);
   if (!atuais.includes(questaoId)) throw new Error("Questão não está no simulado.");
-  const [nova] = sortear(await candidatosSorteio(simulado.escola_id, filtros, atuais), 1);
+  let candidatos = await candidatosSorteio(simulado.escola_id, filtros, atuais);
+  if (f.naoRepetir ?? true) candidatos = filtrarRepetidas(candidatos, (await questoesAplicadas(simulado.escola_id, id)).aplicadas).ids;
+  const [nova] = sortear(candidatos, 1);
   if (!nova) return false;
   const { error } = await supabase.from("simulado_questoes").update({ questao_id: nova }).eq("simulado_id", id).eq("questao_id", questaoId);
   if (error) throw new Error(error.message);

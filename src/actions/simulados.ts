@@ -35,10 +35,10 @@ export async function salvarSimulado(id: string, d: DadosSimulado): Promise<Resu
   return comErro(async () => salvarSimuladoPor(await atorDaSessao(), id, d), "Não foi possível salvar o simulado.");
 }
 
-export async function sortearQuestoes(id: string, f: FiltrosSorteio & { quantidade: number }) {
+export async function sortearQuestoes(id: string, f: FiltrosSorteio & { quantidade: number; naoRepetir?: boolean }) {
   return comErro(async () => sortearQuestoesPor(await atorDaSessao(), id, f), "Não foi possível sortear.");
 }
-export async function trocarQuestao(id: string, questaoId: string, f: FiltrosSorteio) {
+export async function trocarQuestao(id: string, questaoId: string, f: FiltrosSorteio & { naoRepetir?: boolean }) {
   return comErro(async () => trocarQuestaoPor(await atorDaSessao(), id, questaoId, f), "Não foi possível trocar a questão.");
 }
 export async function removerQuestao(id: string, questaoId: string) {
