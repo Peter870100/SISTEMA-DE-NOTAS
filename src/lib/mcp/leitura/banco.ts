@@ -26,7 +26,7 @@ function filtroVisiveis(ctx: Ctx, escolas: EscolaInfo[], pediuEscola: boolean): 
   return `escopo.eq.geral,escola_id.in.(${escolas.map((e) => e.id).join(",")})`;
 }
 
-function materiaDoTexto(t: string): string {
+export function materiaDoTexto(t: string): string {
   const alvo = normalizarBusca(t);
   const chave = Object.keys(MATERIAS).find((k) => k === alvo.replace(/ /g, "_") || normalizarBusca(ROTULO_MATERIA[k].rotulo) === alvo);
   if (!chave) throw new Error(`Matéria "${t}" não existe. Use uma destas: ${Object.values(ROTULO_MATERIA).map((m) => m.rotulo).join(", ")}.`);

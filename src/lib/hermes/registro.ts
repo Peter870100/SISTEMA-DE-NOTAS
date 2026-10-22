@@ -21,22 +21,57 @@ export function resumirParametros(v: unknown, profundidade = 0): unknown {
 
 export type ContextoRegistro = { perfil: "dono" | "professor"; professorId: string | null; escolaId: string | null };
 
-/** Grava `iniciada`, roda a acao e fecha o registro. Sem registro, a acao nao roda. */
-export async function executarRegistrado<T>(ctx: ContextoRegistro, ferramenta: string, parametros: unknown, acao: () => Promise<T>): Promise<T> {
+/** Quem grava o registro (injetável para testar sem banco). */
+export type GravadorRegistro = {
+  iniciar(linha: { perfil: ContextoRegistro["perfil"]; professor_id: string | null; escola_id: string | null; ferramenta: string; parametros: Record<string, unknown> }): Promise<string>;
+  fechar(id: string, campos: { situacao: "concluida" | "erro"; mensagem?: string; concluido_em: string }): Promise<void>;
+};
+
+async function gravadorSupabase(): Promise<GravadorRegistro> {
   const { supabase } = await import("@/lib/supabase/client");
-  const { data, error } = await supabase
-    .from("hermes_registro")
-    .insert({ perfil: ctx.perfil, professor_id: ctx.professorId, escola_id: ctx.escolaId, ferramenta, parametros: resumirParametros(parametros) as Record<string, unknown>, situacao: "iniciada" })
-    .select("id")
-    .single();
-  if (error || !data) throw new Error(`Não foi possível registrar a ação da Hermes: ${error?.message ?? "sem resposta"}`);
+  return {
+    async iniciar(linha) {
+      const { data, error } = await supabase.from("hermes_registro").insert({ ...linha, situacao: "iniciada" }).select("id").single();
+      if (error || !data) throw new Error(error?.message ?? "sem resposta");
+      return data.id as string;
+    },
+    async fechar(id, campos) {
+      const { error } = await supabase.from("hermes_registro").update(campos).eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+  };
+}
+
+/** Fechar o registro nunca muda o resultado da ação: a falha só vai para o log. */
+async function fecharSemFalhar(gravador: GravadorRegistro, id: string, campos: Parameters<GravadorRegistro["fechar"]>[1]) {
   try {
-    const resultado = await acao();
-    await supabase.from("hermes_registro").update({ situacao: "concluida", concluido_em: new Date().toISOString() }).eq("id", data.id);
-    return resultado;
+    await gravador.fechar(id, campos);
+  } catch (e) {
+    console.error(`hermes_registro ${id}: não foi possível marcar '${campos.situacao}':`, e instanceof Error ? e.message : e);
+  }
+}
+
+/**
+ * Grava `iniciada`, roda a acao e fecha o registro. Sem registro, a acao nao roda.
+ * Se a ação deu certo, devolve o resultado mesmo que o fechamento falhe (senão a Hermes repetiria a ação);
+ * se deu erro, relança o erro original da ação.
+ */
+export async function executarRegistrado<T>(ctx: ContextoRegistro, ferramenta: string, parametros: unknown, acao: () => Promise<T>, gravador?: GravadorRegistro): Promise<T> {
+  const g = gravador ?? (await gravadorSupabase());
+  let id: string;
+  try {
+    id = await g.iniciar({ perfil: ctx.perfil, professor_id: ctx.professorId, escola_id: ctx.escolaId, ferramenta, parametros: resumirParametros(parametros) as Record<string, unknown> });
+  } catch (e) {
+    throw new Error(`Não foi possível registrar a ação da Hermes: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  let resultado: T;
+  try {
+    resultado = await acao();
   } catch (e) {
     const mensagem = (e instanceof Error ? e.message : String(e)).slice(0, 500);
-    await supabase.from("hermes_registro").update({ situacao: "erro", mensagem, concluido_em: new Date().toISOString() }).eq("id", data.id);
+    await fecharSemFalhar(g, id, { situacao: "erro", mensagem, concluido_em: new Date().toISOString() });
     throw e;
   }
+  await fecharSemFalhar(g, id, { situacao: "concluida", concluido_em: new Date().toISOString() });
+  return resultado;
 }
