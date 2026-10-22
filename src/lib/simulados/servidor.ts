@@ -1,11 +1,11 @@
 import { supabase } from "@/lib/supabase/client";
-import { exigirNaoAluno, getProfessorAtual } from "@/lib/auth";
+import type { Ator } from "@/lib/questoes/regras";
 import { ehAdmin } from "@/lib/papeis";
 import { turmasDoAluno } from "@/lib/aulas/acesso";
 import { imagensParaTela } from "@/lib/questoes/consultas";
 import { padraoExato } from "@/lib/questoes/busca";
 import type { ImagemTela } from "@/components/questoes/ImagemQuestao";
-import type { AlunoConta, Alternativa, Area, Letra, Professor, Simulado, Tentativa } from "@/lib/types";
+import type { AlunoConta, Alternativa, Area, Letra, Simulado, Tentativa } from "@/lib/types";
 import { mesclarPresenca } from "@/lib/hermes/presenca";
 import type { DocConteudo } from "@/lib/questoes/conteudo";
 import { acumularTempo, correcaoLiberada, corrigir, emBlocos, LIMITE_TEMPO_QUESTAO_SEG, mesclarTempos, tempoEsgotado, TOLERANCIA_SEG, type Gabarito } from "./regras";
@@ -31,17 +31,8 @@ export async function questoesParaAluno(ids: string[], validadeSeg: number): Pro
   });
 }
 
-export function podeEditarSimulado(professor: Professor, s: Simulado): boolean {
-  return s.tipo === "professor" && s.escola_id === professor.escola_id && (s.professor_id === professor.id || ehAdmin(professor.role));
-}
-
-export async function exigirSimuladoEditavel(simuladoId: string): Promise<{ professor: Professor; simulado: Simulado }> {
-  await exigirNaoAluno();
-  const professor = await getProfessorAtual();
-  if (!professor) throw new Error("Faça login novamente.");
-  const { data: simulado } = await supabase.from("simulados").select("*").eq("id", simuladoId).maybeSingle();
-  if (!simulado || !podeEditarSimulado(professor, simulado)) throw new Error("Simulado não encontrado.");
-  return { professor, simulado };
+export function podeEditarSimulado(ator: Ator, s: Simulado): boolean {
+  return s.tipo === "professor" && s.escola_id === ator.escola_id && (s.professor_id === ator.id || ehAdmin(ator.role));
 }
 
 export async function simuladoVisivelParaAluno(aluno: AlunoConta, s: Simulado): Promise<boolean> {
