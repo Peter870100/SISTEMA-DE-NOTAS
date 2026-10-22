@@ -3,8 +3,10 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase/client";
-import { exigirEditorQuestao, exigirProfessor } from "@/lib/questoes/acesso";
-import { ehMateria, areaDaMateria, LETRAS } from "@/lib/questoes/materias";
+import { exigirEditorQuestao, exigirEditorQuestaoPor, exigirProfessor } from "@/lib/questoes/acesso";
+import { areaDaMateria, LETRAS } from "@/lib/questoes/materias";
+import { exigirMateria, exigirResposta, exigirRespostaSePublicada } from "@/lib/questoes/edicao";
+import { concluirImportacaoSeVazia, excluirQuestaoPor, publicarQuestaoPor } from "@/lib/questoes/nucleo";
 import { limitarQuadro, type Quadro } from "@/lib/questoes/quadro";
 import { BUCKET } from "@/lib/questoes/storage";
 import { camposConferida, camposFaltaImagem } from "@/lib/questoes/conferencia";
@@ -34,7 +36,7 @@ const TAMANHO_MAXIMO = 5242880;
 function limpar(d: DadosQuestao) {
   const banca = d.banca.trim();
   if (!banca) throw new Error("Informe a banca.");
-  if (!ehMateria(d.materia)) throw new Error("Escolha a matéria.");
+  const materia = exigirMateria(d.materia);
   const alternativas = LETRAS.map((letra) => {
     const alt = d.alternativas.find((a) => a.letra === letra);
     if (alt?.conteudo !== undefined) {
@@ -43,19 +45,18 @@ function limpar(d: DadosQuestao) {
     }
     return { letra, texto: (alt?.texto ?? "").trim() };
   });
-  if (d.resposta && !LETRAS.includes(d.resposta)) throw new Error("Resposta inválida.");
   return {
     banca,
     ano: d.ano && Number.isInteger(d.ano) ? d.ano : null,
     caderno: d.caderno.trim(),
     numero: d.numero && Number.isInteger(d.numero) ? d.numero : null,
-    area: areaDaMateria(d.materia),
-    materia: d.materia,
+    area: areaDaMateria(materia),
+    materia,
     assunto_id: d.assunto_id || null,
     enunciado: d.enunciado.trim(),
     comando: d.comando.trim(),
     alternativas,
-    resposta: d.resposta,
+    resposta: exigirResposta(d.resposta),
     anulada: d.anulada,
   };
 }
@@ -84,9 +85,9 @@ export async function criarQuestao(dados: DadosQuestao): Promise<string> {
 }
 
 export async function salvarQuestao(id: string, dados: DadosQuestao): Promise<void> {
-  const { questao } = await exigirEditorQuestao(id);
+  const questao = await exigirEditorQuestaoPor(await exigirProfessor(), id);
   const limpo = limpar(dados);
-  if (questao.status === "publicada" && !limpo.anulada && !limpo.resposta) throw new Error("Questão publicada precisa de resposta (ou ser anulada).");
+  exigirRespostaSePublicada(questao.status, limpo.anulada, limpo.resposta);
   let imagensValidas = new Set<string>();
   if (dados.conteudo !== undefined) {
     const { data: imagens, error: erroImagens } = await supabase.from("questao_imagens").select("id").eq("questao_id", id).eq("alvo", "enunciado");
@@ -98,23 +99,9 @@ export async function salvarQuestao(id: string, dados: DadosQuestao): Promise<vo
 }
 
 export async function publicarQuestao(id: string, publicar: boolean): Promise<void> {
-  const { questao } = await exigirEditorQuestao(id);
-  if (publicar && !questao.anulada && !questao.resposta) throw new Error("Marque a resposta certa (ou anulada) antes de publicar.");
-  const { error } = await supabase
-    .from("questoes")
-    .update({ status: publicar ? "publicada" : "revisao", precisa_revisao: publicar ? false : questao.precisa_revisao, ...(publicar ? { falta_imagem: false } : {}), updated_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-  if (publicar) await concluirImportacaoSeVazia(questao.importacao_id);
+  await publicarQuestaoPor(await exigirProfessor(), id, publicar);
   // Listas do banco e das importações mudam de situação: não mostrar a versão guardada no navegador.
   revalidatePath("/banco", "layout");
-}
-
-/** Marca a importação como concluída quando nenhuma questão dela sobra em revisão. */
-async function concluirImportacaoSeVazia(importacaoId: string | null) {
-  if (!importacaoId) return;
-  const { count } = await supabase.from("questoes").select("id", { count: "exact", head: true }).eq("importacao_id", importacaoId).eq("status", "revisao");
-  if (count === 0) await supabase.from("importacoes").update({ status: "concluida" }).eq("id", importacaoId).eq("status", "revisao");
 }
 
 export async function marcarFaltaImagem(questaoId: string): Promise<void> {
@@ -157,13 +144,9 @@ export async function definirAlinhamento(imagemId: string, alinhamento: Alinhame
   revalidatePath("/banco", "layout");
 }
 
+/** Vai para a Lixeira (restaurável); os arquivos do Storage ficam para a restauração. */
 export async function excluirQuestao(id: string): Promise<void> {
-  await exigirEditorQuestao(id);
-  const { data: imagens } = await supabase.from("questao_imagens").select("storage_path").eq("questao_id", id).eq("tipo", "arquivo");
-  const caminhos = (imagens ?? []).map((i) => i.storage_path).filter((p): p is string => !!p);
-  if (caminhos.length) await supabase.storage.from(BUCKET).remove(caminhos);
-  const { error } = await supabase.from("questoes").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  await excluirQuestaoPor(await exigirProfessor(), id, "app");
 }
 
 /** Copia uma questão de escola para o banco geral (só dono). Imagens 'arquivo' são copiadas no Storage. */

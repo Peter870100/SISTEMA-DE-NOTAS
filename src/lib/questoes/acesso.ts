@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase/client";
 import { exigirNaoAluno, getProfessorAtual } from "@/lib/auth";
 import type { Importacao, Professor, Questao } from "@/lib/types";
-import { podeEditarQuestao, podeImportar } from "./regras";
+import { podeEditarQuestao, podeImportar, type Ator } from "./regras";
 
 export { podeEditarQuestao, podeVerQuestao, podeImportar, type Ator } from "./regras";
 
@@ -12,11 +12,16 @@ export async function exigirProfessor(): Promise<Professor> {
   return professor;
 }
 
+/** A questão, se o ator (sessão ou Hermes) pode editá-la. */
+export async function exigirEditorQuestaoPor(ator: Ator, questaoId: string): Promise<Questao> {
+  const { data: questao } = await supabase.from("questoes").select("*").eq("id", questaoId).maybeSingle();
+  if (!questao || !podeEditarQuestao(ator, questao)) throw new Error("Você não pode editar essa questão.");
+  return questao;
+}
+
 export async function exigirEditorQuestao(questaoId: string): Promise<{ professor: Professor; questao: Questao }> {
   const professor = await exigirProfessor();
-  const { data: questao } = await supabase.from("questoes").select("*").eq("id", questaoId).maybeSingle();
-  if (!questao || !podeEditarQuestao(professor, questao)) throw new Error("Você não pode editar essa questão.");
-  return { professor, questao };
+  return { professor, questao: await exigirEditorQuestaoPor(professor, questaoId) };
 }
 
 export async function exigirImportacao(importacaoId: string): Promise<{ professor: Professor; importacao: Importacao }> {
