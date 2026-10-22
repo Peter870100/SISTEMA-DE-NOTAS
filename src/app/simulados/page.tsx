@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { emBlocos, situacaoSimulado, type Situacao } from "@/lib/simulados/regras";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos } from "@/components/ui/estilos";
+import { SeloHermes } from "@/components/ui/SeloHermes";
 import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
 import css from "./SimuladosProfessor.module.css";
 
@@ -46,6 +47,9 @@ export default async function SimuladosPage() {
   }
 
   const lista = simulados ?? [];
+  // Melhor esforço: sem a coluna `criado_via` no banco, a lista só fica sem o selo.
+  const { data: origens } = await supabase.from("simulados").select("id, criado_via").in("id", lista.map((s) => s.id));
+  const daHermes = new Set((origens ?? []).filter((o) => o.criado_via === "hermes").map((o) => o.id));
   const situacoes = new Map(lista.map((s) => [s.id, situacaoSimulado(s, agora)]));
   const entregasTotal = [...contagem.values()].reduce((soma, c) => soma + c.entregaram, 0);
   const painel: ItemResumo[] = [
@@ -83,7 +87,7 @@ export default async function SimuladosPage() {
                       <span className={css.icone} data-icone aria-hidden="true"><Timer size={22} strokeWidth={2.2} /></span>
                       <span className={css.etiqueta}>{ROTULOS[situacao]}</span>
                     </div>
-                    <h3 className={css.titulo}>{s.titulo}</h3>
+                    <h3 className={css.titulo}>{s.titulo} {daHermes.has(s.id) && <SeloHermes />}</h3>
                     <ul className={css.meta}>
                       <li><CalendarClock size={16} aria-hidden="true" />{s.abre_em || s.fecha_em ? `${data(s.abre_em)} até ${data(s.fecha_em)}` : "Sem datas definidas"}</li>
                       <li><Users size={16} aria-hidden="true" />{turmas.join(", ") || "Sem turmas"}</li>

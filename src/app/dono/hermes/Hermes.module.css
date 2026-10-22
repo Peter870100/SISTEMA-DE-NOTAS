@@ -1,0 +1,21 @@
+.vazio { display: flex; align-items: center; gap: .5rem; padding: 1.5rem; border: 1px dashed var(--color-line); border-radius: 1.25rem; background: white; color: var(--color-brand); font-weight: 600; }
+.lista { display: grid; gap: 1rem; }
+.cartao {
+  --tom: var(--color-brand-bright);
+  position: relative; display: flex; flex-direction: column; gap: .75rem; min-width: 0; overflow: hidden;
+  padding: 1.1rem 1.35rem 1.1rem 1.6rem;
+  border: 1px solid var(--color-line); border-radius: 1.25rem; background: white; box-shadow: 0 6px 22px rgb(10 42 110 / .07);
+}
+.cartao::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--tom); }
+.cartao[data-situacao="concluida"] { --tom: var(--color-ok); }
+.cartao[data-situacao="erro"] { --tom: #c62828; }
+.cartao[data-situacao="iniciada"] { --tom: #d4a800; }
+.topo { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.icone { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: .8rem; background: var(--color-gold); color: var(--color-gold-ink); flex-shrink: 0; }
+.ferramenta { flex: 1 1 10rem; min-width: 0; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1.2rem; font-weight: 700; text-transform: uppercase; overflow-wrap: anywhere; }
+.etiqueta { display: inline-flex; align-items: center; gap: .3rem; padding: .25rem .65rem; border-radius: 999px; background: color-mix(in srgb, var(--tom) 12%, #fff); color: var(--tom); font-family: var(--font-heading), sans-serif; font-size: .8125rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.cartao[data-situacao="iniciada"] .etiqueta { background: color-mix(in srgb, var(--color-gold) 40%, #fff); color: var(--color-gold-ink); }
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .5rem 1rem; }
+.meta dt { color: var(--color-brand); font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.meta dd { color: var(--color-ink); font-size: .9rem; font-weight: 600; overflow-wrap: anywhere; }
+.mensagem { padding: .6rem .8rem; border-radius: .7rem; background: color-mix(in srgb, var(--tom) 10%, #fff); color: var(--color-ink); font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }

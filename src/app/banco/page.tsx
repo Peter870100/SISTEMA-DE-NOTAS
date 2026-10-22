@@ -8,6 +8,7 @@ import { AREAS, MATERIAS } from "@/lib/questoes/materias";
 import { padraoExato } from "@/lib/questoes/busca";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos } from "@/components/ui/estilos";
+import { SeloHermes } from "@/components/ui/SeloHermes";
 import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
 import css from "./Banco.module.css";
 
@@ -50,6 +51,10 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
     contar().eq("escopo", "escola"),
   ]);
 
+  // Melhor esforço: sem a coluna `criado_via` no banco, a lista só fica sem o selo.
+  const { data: origens } = await supabase.from("questoes").select("id, criado_via").in("id", (questoes ?? []).map((q) => q.id));
+  const daHermes = new Set((origens ?? []).filter((o) => o.criado_via === "hermes").map((o) => o.id));
+
   const query = (extra: Partial<Filtros>) => `/banco?${new URLSearchParams(Object.entries({ ...f, ...extra }).filter(([, v]) => v) as [string, string][]).toString()}`;
   const total = count ?? 0;
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
@@ -91,6 +96,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
                   <div className={css.topo}>
                     <span className={css.numero} data-icone>Nº {q.numero ?? "—"}</span>
                     <span className={css.origem}>{q.banca} {q.ano ?? ""}{q.caderno ? ` · ${q.caderno}` : ""}</span>
+                    {daHermes.has(q.id) && <SeloHermes />}
                     {q.status === "revisao" && <span className={css.revisao}>Em revisão</span>}
                     {q.precisa_revisao && <span className={css.alerta} title="Marcada para conferir"><TriangleAlert size={15} aria-hidden="true" />Conferir</span>}
                   </div>

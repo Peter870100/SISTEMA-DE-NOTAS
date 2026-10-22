@@ -472,6 +472,12 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      hermes_registro: {
+        Row: HermesRegistro;
+        Insert: Partial<Omit<HermesRegistro, "id">> & { perfil: HermesRegistro["perfil"]; ferramenta: string };
+        Update: Partial<Omit<HermesRegistro, "id">>;
+        Relationships: [];
+      };
       escolas: {
         Row: Escola;
         Insert: Partial<Omit<Escola, "id" | "created_at">> & {
