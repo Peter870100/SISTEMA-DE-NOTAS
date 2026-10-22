@@ -109,6 +109,7 @@ language plpgsql as $$
 declare
     r lixeira%rowtype;
     tabela text;
+    linhas jsonb;
 begin
     select * into r from lixeira where id = p_lixeira_id for update;
     if not found then raise exception 'Item não encontrado'; end if;
@@ -121,9 +122,27 @@ begin
     foreach tabela in array array['questoes', 'questao_imagens', 'simulados', 'simulado_turmas',
                                   'simulado_questoes', 'tentativas', 'tentativa_respostas'] loop
         if r.dados ? tabela then
+            linhas := r.dados -> tabela;
+            -- Referências "on delete set null" que sumiram depois da exclusão viram null (como o autor na restauração legada)
+            if tabela = 'questoes' then
+                select coalesce(jsonb_agg(e || jsonb_build_object(
+                    'criado_por', case when e->>'criado_por' is not null and exists (select 1 from professores p where p.id = (e->>'criado_por')::uuid) then e->'criado_por' else 'null'::jsonb end,
+                    'assunto_id', case when e->>'assunto_id' is not null and exists (select 1 from assuntos a where a.id = (e->>'assunto_id')::uuid) then e->'assunto_id' else 'null'::jsonb end,
+                    'importacao_id', case when e->>'importacao_id' is not null and exists (select 1 from importacoes i where i.id = (e->>'importacao_id')::uuid) then e->'importacao_id' else 'null'::jsonb end,
+                    'pagina_id', case when e->>'pagina_id' is not null and exists (select 1 from importacao_paginas g where g.id = (e->>'pagina_id')::uuid) then e->'pagina_id' else 'null'::jsonb end
+                )), '[]'::jsonb) into linhas from jsonb_array_elements(linhas) e;
+            elsif tabela = 'simulados' then
+                select coalesce(jsonb_agg(e || jsonb_build_object(
+                    'professor_id', case when e->>'professor_id' is not null and exists (select 1 from professores p where p.id = (e->>'professor_id')::uuid) then e->'professor_id' else 'null'::jsonb end
+                )), '[]'::jsonb) into linhas from jsonb_array_elements(linhas) e;
+            elsif tabela = 'questao_imagens' then
+                -- recorte depende da página (FK em cascata): sem a página não há o que restaurar
+                select coalesce(jsonb_agg(e), '[]'::jsonb) into linhas from jsonb_array_elements(linhas) e
+                where e->>'pagina_id' is null or exists (select 1 from importacao_paginas g where g.id = (e->>'pagina_id')::uuid);
+            end if;
             begin
                 execute format('insert into %I select * from jsonb_populate_recordset(null::%I, $1)', tabela, tabela)
-                using r.dados -> tabela;
+                using linhas;
             exception
                 when unique_violation then
                     raise exception 'Não foi possível restaurar: já existe um registro igual (%).', tabela;

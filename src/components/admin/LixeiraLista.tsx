@@ -13,6 +13,8 @@ type Item = ItemLixeira & { excluido_por_nome: string | null };
 const ICONE: Record<TipoLixeira, typeof GraduationCap> = { turma: GraduationCap, aluno: User, atividade: ClipboardList, questao: FileQuestion, simulado: ListChecks, tentativa: Timer };
 const NOME_TIPO: Record<TipoLixeira, string> = { turma: "Planilha", aluno: "Aluno", atividade: "Atividade", questao: "Questão", simulado: "Simulado", tentativa: "Tentativa" };
 
+const PLURAL_TIPO: Record<TipoLixeira, string> = { turma: "Planilhas", aluno: "Alunos", atividade: "Atividades", questao: "Questões", simulado: "Simulados", tentativa: "Tentativas" };
+
 export function LixeiraLista({ itensIniciais }: { itensIniciais: Item[] }) {
   const [itens, setItens] = useState(itensIniciais);
   const [tipo, setTipo] = useState<TipoLixeira | "todos">("todos");
@@ -69,7 +71,7 @@ export function LixeiraLista({ itensIniciais }: { itensIniciais: Item[] }) {
         <div className="inline-flex items-center gap-0.5 rounded-control border border-line bg-surface-sunken p-0.5" role="group" aria-label="Filtrar por tipo">
           {(["todos", "turma", "aluno", "atividade", "questao", "simulado", "tentativa"] as const).map((t) => (
             <button key={t} type="button" aria-pressed={tipo === t} onClick={() => setTipo(t)} className={filtro(tipo === t)}>
-              {t === "todos" ? "Todos" : `${NOME_TIPO[t]}s`}
+              {t === "todos" ? "Todos" : PLURAL_TIPO[t]}
             </button>
           ))}
         </div>
