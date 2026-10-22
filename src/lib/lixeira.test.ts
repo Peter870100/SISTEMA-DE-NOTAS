@@ -40,3 +40,14 @@ test("mensagemRestauracao informa notas restauradas e puladas", () => {
     "Aluno restaurado."
   );
 });
+
+test("descreverResumo dos tipos novos usa o total de registros", () => {
+  assert.equal(descreverResumo("questao", { registros: 1 }), "1 registro");
+  assert.equal(descreverResumo("simulado", { registros: 34 }), "34 registros");
+});
+
+test("mensagemRestauracao dos tipos novos", () => {
+  assert.equal(mensagemRestauracao({ tipo: "questao", turma_id: null, notas_restauradas: 0, notas_puladas: 0 }), "Questão restaurada.");
+  assert.equal(mensagemRestauracao({ tipo: "simulado", turma_id: null, notas_restauradas: 0, notas_puladas: 0 }), "Simulado restaurado.");
+  assert.equal(mensagemRestauracao({ tipo: "tentativa", turma_id: null, notas_restauradas: 0, notas_puladas: 0 }), "Tentativa restaurada.");
+});

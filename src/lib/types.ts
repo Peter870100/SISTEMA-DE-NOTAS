@@ -98,9 +98,9 @@ export type NotaHistorico = {
   created_at: string;
 };
 
-export type TipoLixeira = "turma" | "aluno" | "atividade";
+export type TipoLixeira = "turma" | "aluno" | "atividade" | "questao" | "simulado" | "tentativa";
 
-export type ResumoLixeira = { alunos?: number; atividades?: number; notas?: number };
+export type ResumoLixeira = { alunos?: number; atividades?: number; notas?: number; registros?: number };
 
 /** Linha da lixeira sem a cópia (`dados`), que é pesada e só a função de restaurar usa. */
 export type ItemLixeira = {
@@ -113,7 +113,8 @@ export type ItemLixeira = {
   excluido_por: string | null;
   excluido_via: OrigemRegistro;
   excluido_em: string;
-  escola_id: string;
+  /** Nulo para questões do banco geral, que não pertencem a uma escola. */
+  escola_id: string | null;
 };
 
 export type ResultadoRestauracao = {
@@ -317,6 +318,7 @@ export type Questao = {
   pagina_id: string | null;
   fonte_id: string | null;
   criado_por: string | null;
+  criado_via: OrigemRegistro;
   created_at: string;
   updated_at: string;
 };
@@ -337,6 +339,20 @@ export type QuestaoImagem = {
   created_at: string;
 };
 
+/** Registro de cada ação da Hermes que altera dados (tela "Feito pela Hermes"). */
+export type HermesRegistro = {
+  id: string;
+  perfil: "dono" | "professor";
+  professor_id: string | null;
+  escola_id: string | null;
+  ferramenta: string;
+  parametros: Record<string, unknown>;
+  situacao: "iniciada" | "concluida" | "erro";
+  mensagem: string | null;
+  criado_em: string;
+  concluido_em: string | null;
+};
+
 export type TipoSimulado = "professor" | "treino";
 export type Simulado = {
   id: string;
@@ -351,6 +367,7 @@ export type Simulado = {
   correcao: "na_hora" | "apos_prazo";
   embaralhar: boolean;
   status: "rascunho" | "publicado";
+  criado_via: OrigemRegistro;
   created_at: string;
   updated_at: string;
 };

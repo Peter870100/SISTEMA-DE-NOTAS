@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bot, ClipboardList, GraduationCap, RotateCcw, Trash2, User } from "lucide-react";
+import { Bot, ClipboardList, FileQuestion, GraduationCap, Timer, ListChecks, RotateCcw, Trash2, User } from "lucide-react";
 import type { ItemLixeira, TipoLixeira } from "@/lib/types";
 import { apagarDaLixeira, restaurarDaLixeira } from "@/actions/lixeira";
 import { descreverOrigem, descreverResumo, mensagemRestauracao } from "@/lib/lixeira";
@@ -10,8 +10,8 @@ import { estilos } from "@/components/ui/estilos";
 
 type Item = ItemLixeira & { excluido_por_nome: string | null };
 
-const ICONE: Record<TipoLixeira, typeof GraduationCap> = { turma: GraduationCap, aluno: User, atividade: ClipboardList };
-const NOME_TIPO: Record<TipoLixeira, string> = { turma: "Planilha", aluno: "Aluno", atividade: "Atividade" };
+const ICONE: Record<TipoLixeira, typeof GraduationCap> = { turma: GraduationCap, aluno: User, atividade: ClipboardList, questao: FileQuestion, simulado: ListChecks, tentativa: Timer };
+const NOME_TIPO: Record<TipoLixeira, string> = { turma: "Planilha", aluno: "Aluno", atividade: "Atividade", questao: "Questão", simulado: "Simulado", tentativa: "Tentativa" };
 
 export function LixeiraLista({ itensIniciais }: { itensIniciais: Item[] }) {
   const [itens, setItens] = useState(itensIniciais);
@@ -67,7 +67,7 @@ export function LixeiraLista({ itensIniciais }: { itensIniciais: Item[] }) {
     <div className="flex flex-col gap-4">
       <div className={`${estilos.card} flex flex-wrap items-center gap-3 p-3`}>
         <div className="inline-flex items-center gap-0.5 rounded-control border border-line bg-surface-sunken p-0.5" role="group" aria-label="Filtrar por tipo">
-          {(["todos", "turma", "aluno", "atividade"] as const).map((t) => (
+          {(["todos", "turma", "aluno", "atividade", "questao", "simulado", "tentativa"] as const).map((t) => (
             <button key={t} type="button" aria-pressed={tipo === t} onClick={() => setTipo(t)} className={filtro(tipo === t)}>
               {t === "todos" ? "Todos" : `${NOME_TIPO[t]}s`}
             </button>

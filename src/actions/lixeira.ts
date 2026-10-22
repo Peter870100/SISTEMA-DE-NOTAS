@@ -6,7 +6,7 @@ import { exigirAdminDaEscola, exigirProfessorLogado } from "@/lib/escola-acesso"
 import { mesmaEscola } from "@/lib/escola-regras";
 import type { ItemLixeira, ResultadoRestauracao } from "@/lib/types";
 
-const COLUNAS_EXIBICAO = "id, tipo, titulo, turma_id, turma_nome, resumo, excluido_por, excluido_via, excluido_em";
+const COLUNAS_EXIBICAO = "id, tipo, titulo, turma_id, turma_nome, resumo, excluido_por, excluido_via, excluido_em, escola_id";
 
 /** Janela em que o professor ainda pode desfazer a própria exclusão (Ctrl+Z) sem precisar do admin. */
 const JANELA_DESFAZER_MS = 30 * 60 * 1000;
@@ -20,11 +20,12 @@ export type Resposta<T> = { ok: true; dados: T } | { ok: false; erro: string };
 
 export async function listarLixeira(): Promise<(ItemLixeira & { excluido_por_nome: string | null })[]> {
   const admin = await exigirAdminDaEscola();
-  const { data, error } = await supabase
-    .from("lixeira")
-    .select(COLUNAS_EXIBICAO)
-    .eq("escola_id", admin.escola_id)
-    .order("excluido_em", { ascending: false });
+  const consulta = supabase.from("lixeira").select(COLUNAS_EXIBICAO);
+  // O dono também vê o que veio do banco geral de questões (sem escola).
+  const { data, error } = await (admin.role === "dono"
+    ? consulta.or(`escola_id.eq.${admin.escola_id},escola_id.is.null`)
+    : consulta.eq("escola_id", admin.escola_id)
+  ).order("excluido_em", { ascending: false });
   if (error) throw new Error(error.message);
   const itens = (data ?? []) as ItemLixeira[];
 
@@ -37,9 +38,10 @@ export async function listarLixeira(): Promise<(ItemLixeira & { excluido_por_nom
   return itens.map((i) => ({ ...i, excluido_por_nome: i.excluido_por ? nomePorId.get(i.excluido_por) ?? null : null }));
 }
 
-async function itemDaEscola(id: string, escolaId: string): Promise<boolean> {
+/** O dono também alcança os itens sem escola (questões do banco geral). */
+async function itemDaEscola(id: string, escolaId: string, dono = false): Promise<boolean> {
   const { data: item } = await supabase.from("lixeira").select("id, escola_id").eq("id", id).maybeSingle();
-  return !!item && mesmaEscola(item, escolaId);
+  return !!item && (mesmaEscola(item, escolaId) || (dono && item.escola_id === null));
 }
 
 async function restaurar(id: string): Promise<Resposta<ResultadoRestauracao>> {
@@ -53,14 +55,14 @@ async function restaurar(id: string): Promise<Resposta<ResultadoRestauracao>> {
 
 export async function restaurarDaLixeira(id: string): Promise<Resposta<ResultadoRestauracao>> {
   const admin = await exigirAdminDaEscola();
-  if (!(await itemDaEscola(id, admin.escola_id))) return { ok: false, erro: "Item não encontrado." };
+  if (!(await itemDaEscola(id, admin.escola_id, admin.role === "dono"))) return { ok: false, erro: "Item não encontrado." };
   return restaurar(id);
 }
 
 export async function apagarDaLixeira(id: string): Promise<Resposta<null>> {
   const admin = await exigirAdminDaEscola();
-  if (!(await itemDaEscola(id, admin.escola_id))) return { ok: false, erro: "Item não encontrado." };
-  const { error } = await supabase.from("lixeira").delete().eq("id", id).eq("escola_id", admin.escola_id);
+  if (!(await itemDaEscola(id, admin.escola_id, admin.role === "dono"))) return { ok: false, erro: "Item não encontrado." };
+  const { error } = await supabase.from("lixeira").delete().eq("id", id);
   if (error) return { ok: false, erro: error.message };
   revalidatePath("/admin/lixeira");
   return { ok: true, dados: null };
