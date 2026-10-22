@@ -7,3 +7,4 @@
 @media(max-width:900px){.groups{grid-template-columns:minmax(0,1fr)}.wideGroup .options{grid-template-columns:minmax(0,1fr)}.wideGroup{grid-column:auto}}
 @media(max-width:600px){.option{gap:12px;padding:20px 16px}.title{font-size:22px}.description{font-size:13px}.arrow{width:28px;height:28px}.help summary{padding:20px 16px;flex-wrap:wrap;align-items:flex-start}.helpTitle{flex:1 1 calc(100% - 62px)}.helpAction{margin-left:62px;width:calc(100% - 62px)}.helpContent{padding:0 16px 20px}.helpContent>a{width:100%;flex-wrap:wrap}.groupHeading h2{font-size:24px}}
 @media(prefers-reduced-motion:reduce){.option,.arrow,.help summary,.helpAction svg{transition:none;transform:none!important}}
+.mediaCard{display:flex;align-items:flex-start;gap:16px;border-top:3px solid var(--color-brand)}.mediaLinha{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}.mediaLinha label{width:160px}.mediaOk{font-size:14px;font-weight:700;color:var(--color-brand)}

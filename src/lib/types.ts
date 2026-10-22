@@ -138,6 +138,7 @@ export type Escola = {
   nome_remetente_email: string;
   codigo_convite_professor: string;
   ativa: boolean;
+  media_aprovacao?: number;
   created_at: string;
 };
 

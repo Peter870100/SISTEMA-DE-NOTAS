@@ -3,12 +3,13 @@ import { ArrowRight, Building2, ChevronDown, Contact, GraduationCap, History, Ke
 import type { ProfessorRole } from "@/lib/types";
 import { ehAdmin } from "@/lib/papeis";
 import base from "@/components/admin/ContasAdmin.module.css";
+import { MediaAprovacaoCard } from "./MediaAprovacaoCard";
 import styles from "./ConfiguracoesPainel.module.css";
 
 type Opcao = { href: string; icon: LucideIcon; titulo: string; descricao: string };
 type Grupo = { titulo: string; opcoes: Opcao[] };
 
-export function ConfiguracoesPainel({ role }: { role: ProfessorRole }) {
+export function ConfiguracoesPainel({ role, mediaAprovacao }: { role: ProfessorRole; mediaAprovacao: number }) {
   const grupos: Grupo[] = [
     ...(ehAdmin(role) ? [{
       titulo: "Escola",
@@ -53,6 +54,7 @@ export function ConfiguracoesPainel({ role }: { role: ProfessorRole }) {
           </div>
         </details>
       )}
+      {ehAdmin(role) && <MediaAprovacaoCard mediaInicial={mediaAprovacao} />}
       <div className={styles.groups}>
         {grupos.map((grupo, index) => (
           <section key={grupo.titulo} aria-labelledby={`configuracoes-grupo-${index}`} className={grupo.opcoes.length > 1 ? styles.wideGroup : undefined}>
