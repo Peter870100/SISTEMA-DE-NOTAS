@@ -50,7 +50,7 @@ export default async function FeitoPelaHermesPage() {
               <li key={r.id} className={css.cartao} data-situacao={situacao}>
                 <div className={css.topo}>
                   <span className={css.icone} aria-hidden="true"><Bot size={20} /></span>
-                  <h3 className={css.ferramenta}>{r.ferramenta}</h3>
+                  <h3 className={css.ferramenta} title={r.ferramenta}>{r.ferramenta.replaceAll("_", " ")}</h3>
                   <span className={css.etiqueta}><s.Icone size={14} aria-hidden="true" />{s.rotulo}</span>
                 </div>
                 <dl className={css.meta}>
