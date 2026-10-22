@@ -6,7 +6,7 @@ import { MATERIAS } from "@/lib/questoes/materias";
 import type { AtorEscola } from "@/lib/simulados/ator";
 import { materiaDoTexto } from "../leitura/banco";
 import { acharPorNome, campoTelefone, texto, type Ctx, type ObterCtx } from "../leitura/comum";
-import { atorDoEscopo, campoId, contaDoDono, ERRO_OUTRA_ESCOLA, falha, registrado, type Perfil } from "./ator";
+import { atorDoEscopo, campoId, contaDoDono, ERRO_QUESTAO, falha, registrado, type Perfil } from "./ator";
 
 type QuestaoAlvo = { id: string; escopo: "geral" | "escola"; escola_id: string | null; materia: string };
 type Rodar = <T>(acao: () => Promise<T>) => Promise<T>;
@@ -15,14 +15,14 @@ type Rodar = <T>(acao: () => Promise<T>) => Promise<T>;
 async function lerQuestao(ctx: Ctx, id: string): Promise<QuestaoAlvo> {
   const { data, error } = await ctx.supabase.from("questoes").select("id, escopo, escola_id, materia").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data) throw new Error("Questão não encontrada.");
+  if (!data) throw new Error(ERRO_QUESTAO); // como a tela: não diz se o id existe
   return data as QuestaoAlvo;
 }
 
 /** Escola onde a ação acontece: a da questão; no banco geral (sem escola), só o dono, na escola da conta dele. */
 async function escolaDaQuestao(ctx: Ctx, q: QuestaoAlvo): Promise<string> {
   if (q.escola_id) return q.escola_id;
-  if (ctx.escopo.tipo === "professor") throw new Error(`${ERRO_OUTRA_ESCOLA} Questões do banco geral só o dono altera.`);
+  if (ctx.escopo.tipo === "professor") throw new Error(ERRO_QUESTAO); // banco geral: só o dono altera (como a tela)
   return (await contaDoDono(ctx)).escola_id;
 }
 
@@ -42,7 +42,7 @@ function comQuestao<A extends { questao_id: string; professor_telefone?: string 
     try {
       const ctx = await obter(args);
       const q = await lerQuestao(ctx, args.questao_id);
-      const ator = await atorDoEscopo(ctx, await escolaDaQuestao(ctx, q));
+      const ator = await atorDoEscopo(ctx, await escolaDaQuestao(ctx, q), ERRO_QUESTAO);
       const rodar: Rodar = (fn) => registrado(perfil, ator, ferramenta, args, fn);
       const resposta = await acao(ctx, ator, q, args, rodar);
       atualizarTelas();

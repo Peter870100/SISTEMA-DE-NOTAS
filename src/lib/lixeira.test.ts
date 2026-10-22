@@ -51,3 +51,18 @@ test("mensagemRestauracao dos tipos novos", () => {
   assert.equal(mensagemRestauracao({ tipo: "simulado", turma_id: null, notas_restauradas: 0, notas_puladas: 0 }), "Simulado restaurado.");
   assert.equal(mensagemRestauracao({ tipo: "tentativa", turma_id: null, notas_restauradas: 0, notas_puladas: 0 }), "Tentativa restaurada.");
 });
+
+test("mensagemRestauracao da questão informa vínculos pulados", () => {
+  assert.equal(
+    mensagemRestauracao({ tipo: "questao", turma_id: null, notas_restauradas: 0, notas_puladas: 0, vinculos_pulados: 0 }),
+    "Questão restaurada."
+  );
+  assert.equal(
+    mensagemRestauracao({ tipo: "questao", turma_id: null, notas_restauradas: 0, notas_puladas: 0, vinculos_pulados: 1 }),
+    "Questão restaurada. 1 vínculo foi pulado porque o simulado ou a tentativa dele não existe mais."
+  );
+  assert.equal(
+    mensagemRestauracao({ tipo: "questao", turma_id: null, notas_restauradas: 0, notas_puladas: 0, vinculos_pulados: 12 }),
+    "Questão restaurada. 12 vínculos foram pulados porque o simulado ou a tentativa deles não existe mais."
+  );
+});

@@ -40,6 +40,14 @@ const ROTULO: Record<TipoLixeira, string> = {
 
 export function mensagemRestauracao(r: ResultadoRestauracao): string {
   const base = r.notas_restauradas > 0 ? `${ROTULO[r.tipo]} com ${plural(r.notas_restauradas, "nota", "notas")}.` : `${ROTULO[r.tipo]}.`;
+  const vinculos = r.vinculos_pulados ?? 0;
+  if (vinculos > 0) {
+    const pulado =
+      vinculos === 1
+        ? "1 vínculo foi pulado porque o simulado ou a tentativa dele não existe mais."
+        : `${vinculos} vínculos foram pulados porque o simulado ou a tentativa deles não existe mais.`;
+    return `${base} ${pulado}`;
+  }
   if (r.notas_puladas === 0) return base;
   const pulada =
     r.notas_puladas === 1

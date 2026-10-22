@@ -19,6 +19,27 @@ export function resumirParametros(v: unknown, profundidade = 0): unknown {
   );
 }
 
+// ---------- tela "Feito pela Hermes" ----------
+
+const MAX_PARAMETROS_TELA = 300;
+const MINUTOS_SEM_CONFIRMACAO = 5;
+
+/** Parâmetros já resumidos → "chave: valor · chave: valor", em texto puro e com tamanho limitado. Pura. */
+export function textoParametros(p: unknown, max = MAX_PARAMETROS_TELA): string {
+  if (p === null || typeof p !== "object" || Array.isArray(p)) return "";
+  const valor = (v: unknown) => (typeof v === "string" ? v : v === null || v === undefined ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v));
+  const s = Object.entries(p as Record<string, unknown>).map(([k, v]) => `${k}: ${valor(v)}`).join(" · ").replace(/\s+/g, " ").trim();
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
+export type SituacaoTela = "iniciada" | "concluida" | "erro" | "sem_confirmacao";
+
+/** 'iniciada' há mais de 5 minutos não está mais em andamento: a ação não confirmou o fim. Pura. */
+export function situacaoNaTela(situacao: "iniciada" | "concluida" | "erro", criadoEm: string, agora = Date.now()): SituacaoTela {
+  if (situacao !== "iniciada") return situacao;
+  return agora - Date.parse(criadoEm) > MINUTOS_SEM_CONFIRMACAO * 60_000 ? "sem_confirmacao" : "iniciada";
+}
+
 export type ContextoRegistro = { perfil: "dono" | "professor"; professorId: string | null; escolaId: string | null };
 
 /** Quem grava o registro (injetável para testar sem banco). */

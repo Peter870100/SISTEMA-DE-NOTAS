@@ -11,7 +11,7 @@ import type { FiltrosSorteio } from "@/lib/simulados/servidor";
 import type { Area } from "@/lib/types";
 import { materiaDoTexto } from "../leitura/banco";
 import { acharPorNome, campoEscola, campoTelefone, dataHoraBR, lerTodas, texto, type Ctx, type ObterCtx } from "../leitura/comum";
-import { atorDoEscopo, campoId, escolaParaCriar, falha, paraIsoSaoPaulo, registrado, resolverTurmas, type Perfil } from "./ator";
+import { atorDoEscopo, campoId, ERRO_SIMULADO, escolaParaCriar, falha, paraIsoSaoPaulo, registrado, resolverTurmas, type Perfil } from "./ator";
 
 type SimuladoAtual = {
   id: string; escola_id: string; tipo: string; titulo: string; duracao_min: number | null; abre_em: string | null; fecha_em: string | null;
@@ -24,7 +24,7 @@ async function lerSimulado(ctx: Ctx, id: string): Promise<{ sim: SimuladoAtual; 
     .select("id, escola_id, tipo, titulo, duracao_min, abre_em, fecha_em, correcao, embaralhar, status").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
   const sim = data as SimuladoAtual | null;
-  if (!sim || sim.tipo !== "professor") throw new Error("Simulado não encontrado.");
+  if (!sim || sim.tipo !== "professor") throw new Error(ERRO_SIMULADO);
   const { data: turmas, error: e2 } = await ctx.supabase.from("simulado_turmas").select("turma_nome, ano_letivo").eq("simulado_id", id);
   if (e2) throw new Error(e2.message);
   return { sim, turmas: (turmas ?? []) as TurmaSimulado[] };
@@ -107,7 +107,8 @@ function comSimulado<A extends { simulado_id: string; professor_telefone?: strin
     try {
       const ctx = await obter(args);
       const atual = await lerSimulado(ctx, args.simulado_id);
-      const ator = await atorDoEscopo(ctx, atual.sim.escola_id);
+      // Simulado de outra escola: mesma mensagem da tela, sem confirmar que o id existe
+      const ator = await atorDoEscopo(ctx, atual.sim.escola_id, ERRO_SIMULADO);
       const rodar: Rodar = (fn) => registrado(perfil, ator, ferramenta, args, fn);
       return texto(await acao(ctx, ator, atual, args, rodar));
     } catch (e) {

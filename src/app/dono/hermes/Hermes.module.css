@@ -10,6 +10,7 @@
 .cartao[data-situacao="concluida"] { --tom: var(--color-ok); }
 .cartao[data-situacao="erro"] { --tom: #c62828; }
 .cartao[data-situacao="iniciada"] { --tom: #d4a800; }
+.cartao[data-situacao="sem_confirmacao"] { --tom: #b45309; }
 .topo { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
 .icone { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: .8rem; background: var(--color-gold); color: var(--color-gold-ink); flex-shrink: 0; }
 .ferramenta { flex: 1 1 10rem; min-width: 0; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1.2rem; font-weight: 700; text-transform: uppercase; overflow-wrap: anywhere; }
@@ -19,3 +20,4 @@
 .meta dt { color: var(--color-brand); font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .meta dd { color: var(--color-ink); font-size: .9rem; font-weight: 600; overflow-wrap: anywhere; }
 .mensagem { padding: .6rem .8rem; border-radius: .7rem; background: color-mix(in srgb, var(--tom) 10%, #fff); color: var(--color-ink); font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+.parametros { color: var(--color-brand); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8125rem; font-weight: 600; overflow-wrap: anywhere; }

@@ -110,6 +110,8 @@ declare
     r lixeira%rowtype;
     tabela text;
     linhas jsonb;
+    antes integer;
+    pulados integer := 0;
 begin
     select * into r from lixeira where id = p_lixeira_id for update;
     if not found then raise exception 'Item não encontrado'; end if;
@@ -139,6 +141,18 @@ begin
                 -- recorte depende da página (FK em cascata): sem a página não há o que restaurar
                 select coalesce(jsonb_agg(e), '[]'::jsonb) into linhas from jsonb_array_elements(linhas) e
                 where e->>'pagina_id' is null or exists (select 1 from importacao_paginas g where g.id = (e->>'pagina_id')::uuid);
+            -- Só na questão: o simulado ou a tentativa (aluno excluído, "Apagar de vez") pode ter sumido depois.
+            -- Esses vínculos são pulados e contados; no simulado a falta da questão continua abortando tudo.
+            elsif r.tipo = 'questao' and tabela = 'simulado_questoes' then
+                antes := jsonb_array_length(linhas);
+                select coalesce(jsonb_agg(e), '[]'::jsonb) into linhas from jsonb_array_elements(linhas) e
+                where exists (select 1 from simulados s where s.id = (e->>'simulado_id')::uuid);
+                pulados := pulados + antes - jsonb_array_length(linhas);
+            elsif r.tipo = 'questao' and tabela = 'tentativa_respostas' then
+                antes := jsonb_array_length(linhas);
+                select coalesce(jsonb_agg(e), '[]'::jsonb) into linhas from jsonb_array_elements(linhas) e
+                where exists (select 1 from tentativas t where t.id = (e->>'tentativa_id')::uuid);
+                pulados := pulados + antes - jsonb_array_length(linhas);
             end if;
             begin
                 execute format('insert into %I select * from jsonb_populate_recordset(null::%I, $1)', tabela, tabela)
@@ -153,7 +167,8 @@ begin
     end loop;
 
     delete from lixeira where id = r.id;
-    return jsonb_build_object('tipo', r.tipo, 'turma_id', null, 'notas_restauradas', 0, 'notas_puladas', 0);
+    return jsonb_build_object('tipo', r.tipo, 'turma_id', null, 'notas_restauradas', 0, 'notas_puladas', 0,
+                              'vinculos_pulados', pulados);
 end $$;
 
 NOTIFY pgrst, 'reload schema';

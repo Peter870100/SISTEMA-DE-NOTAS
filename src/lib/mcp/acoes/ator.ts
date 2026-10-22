@@ -11,6 +11,9 @@ import { acharPorNome, escolasDoPedido, texto, type Ctx, type EscolaInfo } from 
  */
 
 export const ERRO_OUTRA_ESCOLA = "Você só pode mexer na sua escola.";
+/** Mesmas mensagens das telas para registros citados por id: não confirmam que o id existe em outra escola. */
+export const ERRO_SIMULADO = "Simulado não encontrado.";
+export const ERRO_QUESTAO = "Você não pode editar essa questão.";
 
 /** O professor com role 'dono' (só `id` e `escola_id`). Precisa existir exatamente um. */
 export async function contaDoDono(ctx: Ctx): Promise<{ id: string; escola_id: string }> {
@@ -21,11 +24,14 @@ export async function contaDoDono(ctx: Ctx): Promise<{ id: string; escola_id: st
   return linhas[0];
 }
 
-/** Ator da Hermes na escola `escolaId`: o dono age em qualquer escola; o professor só na dele. */
-export async function atorDoEscopo(ctx: Ctx, escolaId: string): Promise<AtorEscola> {
+/**
+ * Ator da Hermes na escola `escolaId`: o dono age em qualquer escola; o professor só na dele.
+ * `erroOutraEscola` = mensagem quando o professor não é dessa escola (para um registro citado por id, a da tela).
+ */
+export async function atorDoEscopo(ctx: Ctx, escolaId: string, erroOutraEscola = ERRO_OUTRA_ESCOLA): Promise<AtorEscola> {
   const e = ctx.escopo;
   if (e.tipo === "professor") {
-    if (escolaId !== e.escolaId) throw new Error(ERRO_OUTRA_ESCOLA);
+    if (escolaId !== e.escolaId) throw new Error(erroOutraEscola);
     return { id: e.professorId, role: e.papel ?? "professor", escola_id: escolaId, turmas: e.turmas, via: "hermes" };
   }
   const dono = await contaDoDono(ctx);

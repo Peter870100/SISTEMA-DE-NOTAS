@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Escopo } from "../escopo";
 import type { Ctx } from "../leitura/comum";
-import { atorDoEscopo, escolherEscola, paraIsoSaoPaulo, resolverTurmas } from "./ator";
+import { atorDoEscopo, ERRO_QUESTAO, ERRO_SIMULADO, escolherEscola, paraIsoSaoPaulo, resolverTurmas } from "./ator";
 
 const professor: Escopo = { tipo: "professor", escolaId: "e1", professorId: "p1", turmas: null, papel: "professor" };
 
@@ -16,6 +16,15 @@ const ctx = (escopo: Escopo, supabase = bancoDono([])): Ctx => ({ supabase, esco
 
 test("atorDoEscopo: professor de outra escola é recusado", async () => {
   await assert.rejects(atorDoEscopo(ctx(professor), "e2"), /Você só pode mexer na sua escola\./);
+});
+
+test("atorDoEscopo: registro de outra escola citado por id usa a mensagem da tela", async () => {
+  assert.equal(ERRO_SIMULADO, "Simulado não encontrado.");
+  assert.equal(ERRO_QUESTAO, "Você não pode editar essa questão.");
+  await assert.rejects(atorDoEscopo(ctx(professor), "e2", ERRO_SIMULADO), (e: Error) => e.message === "Simulado não encontrado.");
+  await assert.rejects(atorDoEscopo(ctx(professor), "e2", ERRO_QUESTAO), (e: Error) => e.message === "Você não pode editar essa questão.");
+  // na própria escola a mensagem não importa
+  assert.equal((await atorDoEscopo(ctx(professor), "e1", ERRO_SIMULADO)).escola_id, "e1");
 });
 
 test("atorDoEscopo: professor da escola recebe as turmas dele e via hermes", async () => {

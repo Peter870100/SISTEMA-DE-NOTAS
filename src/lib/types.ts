@@ -122,6 +122,8 @@ export type ResultadoRestauracao = {
   turma_id: string | null;
   notas_restauradas: number;
   notas_puladas: number;
+  /** Só na questão: vínculos com simulado/tentativa que sumiram depois da exclusão. */
+  vinculos_pulados?: number;
 };
 
 export type Escola = {

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { Bot, CheckCircle2, Clock, TriangleAlert } from "lucide-react";
+import { Bot, CheckCircle2, CircleHelp, Clock, TriangleAlert } from "lucide-react";
+import { situacaoNaTela, textoParametros } from "@/lib/hermes/registro";
 import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -11,6 +12,7 @@ const SITUACOES = {
   iniciada: { rotulo: "Em andamento", Icone: Clock },
   concluida: { rotulo: "Concluída", Icone: CheckCircle2 },
   erro: { rotulo: "Erro", Icone: TriangleAlert },
+  sem_confirmacao: { rotulo: "Sem confirmação", Icone: CircleHelp },
 } as const;
 const quando = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 
@@ -41,9 +43,11 @@ export default async function FeitoPelaHermesPage() {
       ) : (
         <ul className={css.lista}>
           {linhas.map((r) => {
-            const s = SITUACOES[r.situacao];
+            const situacao = situacaoNaTela(r.situacao, r.criado_em);
+            const s = SITUACOES[situacao];
+            const params = textoParametros(r.parametros);
             return (
-              <li key={r.id} className={css.cartao} data-situacao={r.situacao}>
+              <li key={r.id} className={css.cartao} data-situacao={situacao}>
                 <div className={css.topo}>
                   <span className={css.icone} aria-hidden="true"><Bot size={20} /></span>
                   <h3 className={css.ferramenta}>{r.ferramenta}</h3>
@@ -54,6 +58,7 @@ export default async function FeitoPelaHermesPage() {
                   <div><dt>Quem pediu</dt><dd>{r.perfil === "dono" ? "O dono" : (r.professor_id && nomeProf.get(r.professor_id)) || "Professor"}</dd></div>
                   <div><dt>Escola</dt><dd>{(r.escola_id && nomeEscola.get(r.escola_id)) || "—"}</dd></div>
                 </dl>
+                {params && <p className={css.parametros}>{params}</p>}
                 {r.mensagem && <p className={css.mensagem}>{r.mensagem}</p>}
               </li>
             );

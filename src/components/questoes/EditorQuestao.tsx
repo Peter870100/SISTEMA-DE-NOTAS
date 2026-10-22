@@ -324,7 +324,7 @@ Adicione as imagens novamente nesta página.`);
         {questao && !modoRevisao && (questao.status === "publicada"
           ? <button type="button" disabled={ocupado} onClick={() => void executar(() => publicarQuestao(questao.id, false), "Voltou para revisão.")} className={estilos.botaoFantasma}>Voltar para revisão</button>
           : <button type="button" disabled={ocupado} onClick={() => void executar(async () => { await salvar(); await publicarQuestao(questao.id, true); }, "Publicada.")} className={styles.publish}><CheckCircle2 size={18} aria-hidden="true" />Publicar</button>)}
-        {questao && <button type="button" disabled={ocupado} onClick={() => { if (window.confirm("Excluir esta questão?")) void executar(async () => { await excluirQuestao(questao.id); router.push(proximaHref ?? "/banco"); }); }} className={`${estilos.botaoFantasma} text-danger`}>Excluir</button>}
+        {questao && <button type="button" disabled={ocupado} onClick={() => { if (window.confirm("Mandar esta questão para a Lixeira? Um administrador pode restaurá-la.")) void executar(async () => { await excluirQuestao(questao.id); router.push(proximaHref ?? "/banco"); }); }} className={`${estilos.botaoFantasma} text-danger`}>Excluir</button>}
       </div>
     </div>
     </div>
