@@ -1017,6 +1017,7 @@ export function PlanilhaGrid({
       />
 
       <AlunoDashboardDrawer
+        turmaId={turmaId}
         aluno={alunos.find((a) => a.id === drawerAlunoId) ?? null}
         colunas={colunas}
         celulas={drawerAlunoId ? celulas[drawerAlunoId] ?? {} : {}}

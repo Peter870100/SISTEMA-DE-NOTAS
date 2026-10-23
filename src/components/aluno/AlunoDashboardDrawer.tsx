@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { X } from "lucide-react";
+import Link from "next/link";
+import { FileText, X } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -17,6 +18,7 @@ import { paraEscala10 } from "@/lib/analytics";
 import { Avatar } from "@/components/ui/Avatar";
 
 type AlunoDashboardDrawerProps = {
+  turmaId: string;
   aluno: Aluno | null;
   colunas: AtividadeColuna[];
   celulas: Record<string, ValorCelula>;
@@ -36,6 +38,7 @@ function StatTile({ label, value }: { label: string; value: string }) {
 }
 
 export function AlunoDashboardDrawer({
+  turmaId,
   aluno,
   colunas,
   celulas,
@@ -117,6 +120,14 @@ export function AlunoDashboardDrawer({
           <StatTile label="Entregas" value={`${entregas} / ${colunas.length}`} />
           <StatTile label="Faltas/Pendências" value={String(pendencias)} />
         </div>
+
+        <Link
+          href={`/turma/${turmaId}/relatorio/aluno/${aluno.id}`}
+          className="inline-flex items-center justify-center gap-2 rounded-control border border-brand bg-surface px-3 py-2 text-sm font-semibold text-brand hover:bg-brand/5"
+        >
+          <FileText size={15} />
+          Relatório completo
+        </Link>
 
         <div>
           <h3 className="mb-2 text-sm font-semibold text-ink">
