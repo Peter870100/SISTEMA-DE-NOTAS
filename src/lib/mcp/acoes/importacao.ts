@@ -29,6 +29,11 @@ const ORCAMENTO_PRIMEIRA_LEVA_MS = 25000;
 const MAX_ANTES_DA_PRIMEIRA_LEVA_MS = 30000;
 /** Tempo de trabalho por chamada, com folga para os 60 s da Vercel. */
 const LIMITE_CHAMADA_MS = 50000;
+/** Se a chamada desenhou páginas e já passou disso, a leitura (paga) fica para a próxima chamada. */
+export const MAX_ANTES_DA_LEITURA_MS = 30000;
+/** Janela em que um importar_prova repetido (ex.: a Hermes tentou de novo por tempo) acha o anterior. */
+export const JANELA_REPETIDA_MS = 15 * 60 * 1000;
+export const NOTA_LEITURA_ADIADA = "Todas as páginas desenhadas; chame situacao_importacao para começar a leitura.";
 /** Outra chamada mudou a importação de "enviando" enquanto esta desenhava (mensagem do núcleo). */
 export const ERRO_JA_ENVIADA = "Essa importação já foi enviada.";
 const ERRO_JA_LENDO = "Essa importação já está sendo lida.";
@@ -116,6 +121,22 @@ export function parametrosParaRegistro(args: Record<string, unknown>): Record<st
   return saida;
 }
 
+/** Filtros para achar uma importação igual ainda "enviando", criada pela Hermes há pouco. Pura. */
+export function criteriosRepetida(pedido: Pick<PedidoImportacao, "escopo" | "banca" | "ano" | "caderno">, escolaId: string, agora: number) {
+  return {
+    criado_via: "hermes" as const,
+    status: "enviando" as const,
+    escopo: pedido.escopo,
+    escola_id: pedido.escopo === "geral" ? null : escolaId,
+    banca: pedido.banca.trim(),
+    ano: pedido.ano,
+    caderno: pedido.caderno.trim(),
+    desde: new Date(agora - JANELA_REPETIDA_MS).toISOString(),
+  };
+}
+
+export const textoJaEmAndamento = (id: string) => `Já existe a importação ${id} em andamento; use situacao_importacao.`;
+
 const dinheiro = (n: number) => `US$ ${n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
@@ -154,7 +175,7 @@ export function textoSituacao(d: {
   const partes = [`Situação: ${ROTULO_STATUS[s.status]}.`];
   if (d.nota) partes.push(d.nota);
   if (s.status === "enviando" && d.desenho) {
-    partes.push(linhaDesenho(d.desenho.prontas, d.desenho.total));
+    if (d.desenho.prontas < d.desenho.total || !d.nota) partes.push(linhaDesenho(d.desenho.prontas, d.desenho.total));
     if (d.desenho.prontas < d.desenho.total) partes.push(`Chame situacao_importacao de novo (importacao_id ${d.id}) para continuar.`);
   }
   if (s.status === "lendo") {
@@ -182,10 +203,13 @@ export function textoSituacao(d: {
  * outra chamada ("já foi enviada" / "já está sendo lida") vira a situação normal.
  */
 export async function avancarEnvio(d: {
-  desenhar: () => Promise<{ prontas: number; faltam: number; erro?: string }>;
+  desenhar: () => Promise<{ prontas: number; faltam: number; desenhadas?: number; erro?: string }>;
   marcarErro: (mensagem: string) => Promise<void>;
   iniciarLeitura: () => Promise<void>;
-}): Promise<{ desenho?: { prontas: number; total: number }; leituraIniciada: boolean }> {
+  /** Quando a chamada começou (para não começar a leitura paga sem tempo). */
+  inicio: number;
+  agora?: () => number;
+}): Promise<{ desenho?: { prontas: number; total: number }; leituraIniciada: boolean; leituraAdiada?: boolean }> {
   let leva;
   try {
     leva = await d.desenhar();
@@ -199,6 +223,10 @@ export async function avancarEnvio(d: {
   }
   const desenho = { prontas: leva.prontas, total: leva.prontas + leva.faltam };
   if (leva.faltam > 0) return { desenho, leituraIniciada: false };
+  // A leitura só começa numa chamada com tempo: se esta desenhou e já gastou 30 s, fica para a próxima.
+  if ((leva.desenhadas ?? 0) > 0 && (d.agora ?? Date.now)() - d.inicio >= MAX_ANTES_DA_LEITURA_MS) {
+    return { desenho, leituraIniciada: false, leituraAdiada: true };
+  }
   try {
     await d.iniciarLeitura();
     return { desenho, leituraIniciada: true };
@@ -229,6 +257,18 @@ async function escolaDaImportacao(ctx: Ctx, imp: ImportacaoAlvo): Promise<string
   if (imp.escola_id) return imp.escola_id;
   if (ctx.escopo.tipo === "professor") throw new Error(ERRO_IMPORTACAO);
   return (await contaDoDono(ctx)).escola_id;
+}
+
+/** Id de uma importação igual ainda "enviando", criada pela Hermes nos últimos 15 minutos, ou null. */
+async function importacaoEmAndamento(ctx: Ctx, c: ReturnType<typeof criteriosRepetida>): Promise<string | null> {
+  let q = ctx.supabase.from("importacoes").select("id")
+    .eq("criado_via", c.criado_via).eq("status", c.status).eq("escopo", c.escopo)
+    .eq("banca", c.banca).eq("caderno", c.caderno).gte("created_at", c.desde);
+  q = c.escola_id === null ? q.is("escola_id", null) : q.eq("escola_id", c.escola_id);
+  q = c.ano === null ? q.is("ano", null) : q.eq("ano", c.ano);
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(1);
+  if (error) throw new Error(error.message);
+  return (data as { id: string }[] | null)?.[0]?.id ?? null;
 }
 
 async function slugDaEscola(ctx: Ctx, escolaId: string): Promise<string> {
@@ -268,11 +308,12 @@ async function obterPdf(f: FontePdf, tipo: TipoArquivo): Promise<Uint8Array> {
 
 /** Abre o PDF só para contar as páginas (e já recusar senha ou arquivo quebrado antes de criar a importação). */
 async function contarPaginas(bytes: Uint8Array, tipo: TipoArquivo): Promise<number> {
-  const [{ abrirPdfServidor }, { erroDoArquivo }] = await Promise.all([import("@/lib/questoes/pdf-servidor"), levas()]);
+  const [{ abrirPdfServidor }, { erroDoArquivo, ehDesenhoIndisponivel }] = await Promise.all([import("@/lib/questoes/pdf-servidor"), levas()]);
   let pdf;
   try {
     pdf = await abrirPdfServidor(bytes);
   } catch (e) {
+    if (ehDesenhoIndisponivel(e)) throw e; // problema do servidor, não do PDF: sem citar o arquivo
     throw new Error(erroDoArquivo(mensagem(e), tipo));
   }
   const n = pdf.numPaginas;
@@ -282,9 +323,10 @@ async function contarPaginas(bytes: Uint8Array, tipo: TipoArquivo): Promise<numb
 
 function comImportacao<A extends { importacao_id: string; professor_telefone?: string }>(
   obter: ObterCtx, perfil: Perfil, ferramenta: string, verbo: string,
-  acao: (ator: AtorEscola, imp: ImportacaoAlvo, slug: string, rodar: Rodar) => Promise<string>,
+  acao: (ator: AtorEscola, imp: ImportacaoAlvo, slug: string, rodar: Rodar, inicio: number) => Promise<string>,
 ) {
   return async (args: A) => {
+    const inicio = Date.now();
     try {
       const ctx = await obter(args);
       const imp = await lerImportacao(ctx, args.importacao_id);
@@ -292,7 +334,7 @@ function comImportacao<A extends { importacao_id: string; professor_telefone?: s
       const ator = await atorDoEscopo(ctx, await escolaDaImportacao(ctx, imp), ERRO_IMPORTACAO);
       const slug = await slugDaEscola(ctx, ator.escola_id);
       const rodar: Rodar = (fn) => registrado(perfil, ator, ferramenta, args, fn);
-      const resposta = await acao(ator, imp, slug, rodar);
+      const resposta = await acao(ator, imp, slug, rodar, inicio);
       await atualizarTelas();
       return texto(resposta);
     } catch (e) {
@@ -346,6 +388,9 @@ export function registrarAcoesImportacao(server: McpServer, obter: ObterCtx, per
         if (!podeImportar(ator, pedido.escopo)) throw new Error("Você não pode importar provas nesse banco.");
 
         const resposta = await registrado(perfil, ator, "importar_prova", parametrosParaRegistro(args), async () => {
+          // A Hermes pode repetir o pedido depois de um tempo esgotado: não cria (nem cobra) outra igual.
+          const repetida = await importacaoEmAndamento(ctx, criteriosRepetida(pedido, ator.escola_id, Date.now()));
+          if (repetida) return textoJaEmAndamento(repetida);
           // Tudo o que pode falhar sem custo (download, senha, páginas) acontece antes de criar a importação.
           const [prova, gabarito] = await Promise.all([obterPdf(pedido.prova, "prova"), pedido.gabarito ? obterPdf(pedido.gabarito, "gabarito") : null]);
           const selecao: Selecao = {
@@ -366,7 +411,7 @@ export function registrarAcoesImportacao(server: McpServer, obter: ObterCtx, per
           }
 
           const total = selecao.prova.length + selecao.gabarito.length;
-          let leva = { prontas: 0, faltam: total } as Awaited<ReturnType<typeof lv.desenharProximaLeva>>;
+          let leva: Awaited<ReturnType<typeof lv.desenharProximaLeva>> = { prontas: 0, faltam: total, desenhadas: 0 };
           let nota: string | undefined;
           const decorrido = Date.now() - inicio;
           if (decorrido > MAX_ANTES_DA_PRIMEIRA_LEVA_MS) {
@@ -405,7 +450,7 @@ export function registrarAcoesImportacao(server: McpServer, obter: ObterCtx, per
       description: "Continua e acompanha uma importação de prova: desenha as páginas que faltam (um pouco por chamada), começa a leitura pela IA quando todas estiverem prontas (uma vez só) e, durante a leitura, busca o resultado e grava as questões, como a tela faz ao atualizar. Chame de novo enquanto disser que faltam páginas.",
       inputSchema: { ...campoImportacao, ...campoTelefone },
     },
-    comImportacao(obter, perfil, "situacao_importacao", "ver a importação", async (ator, imp, slug, rodar) =>
+    comImportacao(obter, perfil, "situacao_importacao", "ver a importação", async (ator, imp, slug, rodar, inicio) =>
       rodar(async () => {
         const n = await nucleo();
         let desenho: { prontas: number; total: number } | undefined;
@@ -415,15 +460,20 @@ export function registrarAcoesImportacao(server: McpServer, obter: ObterCtx, per
           const lv = await levas();
           const selecao = await lv.lerSelecao(imp.id);
           if (!selecao && imp.criado_via === "hermes") {
-            throw new Error("Não encontrei as páginas escolhidas desta importação. Importe a prova de novo.");
+            const msg = "Não encontrei as páginas escolhidas desta importação. Importe a prova de novo.";
+            await marcarErro(ator, imp.id, msg); // senão ficaria "enviando" para sempre
+            throw new Error(msg);
           } else if (!selecao) {
             nota = "Essa importação foi começada pela tela e as páginas estão sendo enviadas por lá.";
           } else {
-            ({ desenho, leituraIniciada } = await avancarEnvio({
+            const passo = await avancarEnvio({
               desenhar: () => lv.desenharProximaLeva(ator, imp.id, selecao),
               marcarErro: (msg) => marcarErro(ator, imp.id, msg),
               iniciarLeitura: () => n.iniciarLeituraPor(ator, imp.id),
-            }));
+              inicio,
+            });
+            ({ desenho, leituraIniciada } = passo);
+            if (passo.leituraAdiada) nota = NOTA_LEITURA_ADIADA;
           }
         }
         const situacao = await n.atualizarImportacaoPor(ator, imp.id);

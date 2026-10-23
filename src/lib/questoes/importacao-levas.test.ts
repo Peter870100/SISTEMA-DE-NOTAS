@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { caminhoOriginal, caminhoSelecao, desenharProximaLeva, ehNaoEncontrado, OriginalNaoEncontrado, ENVIO_JPEG, ENVIO_JSON, ENVIO_PDF, erroDoArquivo, planejarLeva, validarSelecao, type DepsLeva, type TipoArquivo } from "./importacao-levas";
+import { caminhoOriginal, ehDesenhoIndisponivel, caminhoSelecao, desenharProximaLeva, ehNaoEncontrado, OriginalNaoEncontrado, ENVIO_JPEG, ENVIO_JSON, ENVIO_PDF, erroDoArquivo, planejarLeva, validarSelecao, type DepsLeva, type TipoArquivo } from "./importacao-levas";
 import type { AtorEscola } from "@/lib/simulados/ator";
 
 const ator: AtorEscola = { id: "p1", role: "professor", escola_id: "e1", turmas: null, via: "hermes" };
@@ -67,7 +67,7 @@ function mundo(opcoes: { paginasPdf?: Partial<Record<TipoArquivo, number>>; msPo
 test("desenha tudo numa chamada quando cabe, e registra largura e altura reais", async () => {
   const m = mundo();
   const r = await desenharProximaLeva(ator, "imp", { prova: [1, 2, 3], gabarito: [1] }, m.agora, m.deps);
-  assert.deepEqual(r, { prontas: 4, faltam: 0 });
+  assert.deepEqual(r, { prontas: 4, faltam: 0, desenhadas: 4 });
   assert.deepEqual(m.desenhos, ["prova-1", "prova-2", "prova-3", "gabarito-1"]);
   assert.deepEqual(m.prontas.get("prova-2"), { largura: 1240, altura: 1754 });
   assert.equal(m.fechados(), 2);
@@ -115,7 +115,7 @@ test("chamada sem nada a fazer não lê o original", async () => {
   await desenharProximaLeva(ator, "imp", sel, m.agora, m.deps);
   const lidos = m.originaisLidos.length;
   const r = await desenharProximaLeva(ator, "imp", sel, m.agora, m.deps);
-  assert.deepEqual(r, { prontas: 1, faltam: 0 });
+  assert.deepEqual(r, { prontas: 1, faltam: 0, desenhadas: 0 });
   assert.equal(m.originaisLidos.length, lidos);
 });
 
@@ -124,7 +124,7 @@ test("página que falha → erro citando o número e o arquivo; as anteriores fi
   const r = await desenharProximaLeva(ator, "imp", { prova: [1, 2, 3, 4], gabarito: [] }, m.agora, m.deps);
   assert.equal(r.prontas, 2);
   assert.equal(r.faltam, 2);
-  assert.match(r.erro ?? "", /página 3 da prova/);
+  assert.match(r.erro ?? "", /página 3 da prova \(página 3 do PDF\)/);
   assert.equal(m.fechados(), 1, "fecha o PDF mesmo com erro");
 });
 
@@ -138,13 +138,13 @@ test("página além do fim do PDF → erro claro", async () => {
 test("PDF protegido por senha → mensagem com o arquivo", async () => {
   const m = mundo({ erroAbrir: "O PDF está protegido por senha." });
   const r = await desenharProximaLeva(ator, "imp", { prova: [1], gabarito: [] }, m.agora, m.deps);
-  assert.deepEqual(r, { prontas: 0, faltam: 1, erro: "O PDF da prova está protegido por senha." });
+  assert.deepEqual(r, { prontas: 0, faltam: 1, desenhadas: 0, erro: "O PDF da prova está protegido por senha." });
 });
 
 test("nenhuma página escolhida → erro, sem ler nada", async () => {
   const m = mundo();
   const r = await desenharProximaLeva(ator, "imp", { prova: [], gabarito: [] }, m.agora, m.deps);
-  assert.deepEqual(r, { prontas: 0, faltam: 0, erro: "Nenhuma página escolhida." });
+  assert.deepEqual(r, { prontas: 0, faltam: 0, desenhadas: 0, erro: "Nenhuma página escolhida." });
   assert.equal(m.originaisLidos.length, 0);
 });
 
@@ -161,7 +161,7 @@ test("duas chamadas ao mesmo tempo: no fim cada página está registrada uma vez
   // Podem ter desenhado a mesma página (upsert no storage e na tabela), mas nada além da seleção.
   assert.ok(m.envios.every((e) => ["prova-1", "prova-2", "prova-3", "gabarito-1", "gabarito-2"].includes(e)));
   const r = await desenharProximaLeva(ator, "imp", sel, m.agora, m.deps);
-  assert.deepEqual(r, { prontas: 5, faltam: 0 });
+  assert.deepEqual(r, { prontas: 5, faltam: 0, desenhadas: 0 });
 });
 
 test("com o desenhador de verdade (fixture de 2 páginas): envia JPEG e registra o tamanho real", async () => {
@@ -173,7 +173,7 @@ test("com o desenhador de verdade (fixture de 2 páginas): envia JPEG e registra
   const jpegs: Buffer[] = [];
   const deps: DepsLeva = { ...m.deps, lerOriginal: async () => bytes, abrirPdf: abrirPdfServidor, enviarPagina: async (_i, _t, _n, jpeg) => { jpegs.push(jpeg); } };
   const r = await desenharProximaLeva(ator, "imp", { prova: [1, 2], gabarito: [] }, Date.now, deps);
-  assert.deepEqual(r, { prontas: 2, faltam: 0 });
+  assert.deepEqual(r, { prontas: 2, faltam: 0, desenhadas: 2 });
   assert.equal(jpegs.length, 2);
   assert.deepEqual([...jpegs[0].subarray(0, 2)], [0xff, 0xd8]);
   const p1 = m.prontas.get("prova-1")!;
@@ -209,7 +209,7 @@ test("nova tentativa depois de falhar no registro: reenvia a mesma página por c
   // Falha no banco é passageira: lança (a importação não vira "erro") e a próxima chamada refaz.
   await assert.rejects(desenharProximaLeva(ator, "imp", { prova: [1, 2], gabarito: [] }, m.agora, deps), /rede caiu/);
   const r2 = await desenharProximaLeva(ator, "imp", { prova: [1, 2], gabarito: [] }, m.agora, deps);
-  assert.deepEqual(r2, { prontas: 2, faltam: 0 });
+  assert.deepEqual(r2, { prontas: 2, faltam: 0, desenhadas: 2 });
   assert.equal(storage.get("prova-1"), 2, "o JPEG da página 1 foi escrito por cima");
   // O storage real só aceita escrever por cima com upsert (e a policy de UPDATE do SQL da B2).
   assert.equal(ENVIO_JPEG.upsert, true);
@@ -232,7 +232,7 @@ test("envio ao storage que falha uma vez: lança, e a próxima chamada envia e r
   await assert.rejects(desenharProximaLeva(ator, "imp", sel, m.agora, deps), /storage fora do ar/);
   assert.equal(m.prontas.size, 0, "a página que falhou não foi registrada");
   const r = await desenharProximaLeva(ator, "imp", sel, m.agora, deps);
-  assert.deepEqual(r, { prontas: 2, faltam: 0 });
+  assert.deepEqual(r, { prontas: 2, faltam: 0, desenhadas: 2 });
   assert.deepEqual(m.envios, ["prova-1", "prova-2"]);
   assert.ok(m.prontas.has("prova-1"));
 });
@@ -247,7 +247,7 @@ test("original que sumiu do storage → erro claro (não tenta de novo para semp
   const m = mundo();
   const deps: DepsLeva = { ...m.deps, lerOriginal: async () => { throw new OriginalNaoEncontrado("Não encontrei o PDF da prova guardado. Importe a prova de novo."); } };
   const r = await desenharProximaLeva(ator, "imp", { prova: [1], gabarito: [] }, m.agora, deps);
-  assert.deepEqual(r, { prontas: 0, faltam: 1, erro: "Não encontrei o PDF da prova guardado. Importe a prova de novo." });
+  assert.deepEqual(r, { prontas: 0, faltam: 1, desenhadas: 0, erro: "Não encontrei o PDF da prova guardado. Importe a prova de novo." });
 });
 
 test("página desenhada menor que 100 px → erro citando página e arquivo, sem enviar", async () => {
@@ -262,7 +262,7 @@ test("página desenhada menor que 100 px → erro citando página e arquivo, sem
   };
   const r2 = await desenharProximaLeva(ator, "imp", { prova: [1, 2], gabarito: [] }, m.agora, deps);
   assert.equal(r2.prontas, 1);
-  assert.match(r2.erro ?? "", /página 2 da prova é pequena demais \(80×1754 px/);
+  assert.match(r2.erro ?? "", /página 2 da prova \(página 2 do PDF\) é pequena demais \(80×1754 px/);
   assert.deepEqual(m.envios, ["prova-1"], "a página pequena não foi enviada");
 });
 
@@ -279,4 +279,54 @@ test("caminhos do original e da seleção: só com id uuid, na pasta das página
   assert.equal(caminhoSelecao(id), `${id}/selecao.json`);
   assert.throws(() => caminhoOriginal("../outra/escola", "prova"), /Importação inválida\./);
   assert.throws(() => caminhoSelecao("x"), /Importação inválida\./);
+});
+
+test("numera como a tela: seleção [61, 62] registra as páginas 1 e 2 e desenha as 61 e 62 do PDF", async () => {
+  const m = mundo({ paginasPdf: { prova: 90, gabarito: 70 } });
+  const r = await desenharProximaLeva(ator, "imp", { prova: [61, 62], gabarito: [64] }, m.agora, m.deps);
+  assert.deepEqual(r, { prontas: 3, faltam: 0, desenhadas: 3 });
+  assert.deepEqual(m.desenhos, ["prova-61", "prova-62", "gabarito-64"]);
+  assert.deepEqual(m.envios, ["prova-1", "prova-2", "gabarito-1"]);
+  assert.deepEqual([...m.prontas.keys()], ["prova-1", "prova-2", "gabarito-1"]);
+});
+
+test("seleção com buracos: retomada depois de uma leva parcial continua pela posição certa", async () => {
+  const m = mundo({ msPorPagina: 20000, paginasPdf: { prova: 90 } });
+  const sel = { prova: [2, 5, 30, 61], gabarito: [] };
+  const r1 = await desenharProximaLeva(ator, "imp", sel, m.agora, m.deps);
+  assert.ok(r1.faltam > 0 && r1.prontas > 0, JSON.stringify(r1));
+  let r = r1;
+  for (let i = 0; i < 10 && r.faltam > 0; i++) r = await desenharProximaLeva(ator, "imp", sel, m.agora, m.deps);
+  assert.deepEqual({ prontas: r.prontas, faltam: r.faltam, erro: r.erro }, { prontas: 4, faltam: 0, erro: undefined });
+  assert.deepEqual(m.desenhos, ["prova-2", "prova-5", "prova-30", "prova-61"], "cada página do PDF uma vez, na ordem");
+  assert.deepEqual(m.envios, ["prova-1", "prova-2", "prova-3", "prova-4"]);
+});
+
+test("página que não existe no PDF cita a página do PDF", async () => {
+  const m = mundo({ paginasPdf: { prova: 62 } });
+  const r = await desenharProximaLeva(ator, "imp", { prova: [61, 63], gabarito: [] }, m.agora, m.deps);
+  assert.equal(r.erro, "O PDF da prova tem 62 páginas; a página 63 não existe.");
+  assert.deepEqual(m.envios, ["prova-1"]);
+});
+
+test("página grande demais → erro do PDF (não passageiro), com a posição e a página do PDF", async () => {
+  const m = mundo({ paginasPdf: { prova: 90 } });
+  const deps: DepsLeva = { ...m.deps, abrirPdf: async () => ({
+    numPaginas: 90,
+    desenhar: async () => { throw Object.assign(new Error("A página 70 do PDF é grande demais para desenhar."), { name: "PaginaGrandeDemais" }); },
+    fechar: async () => {},
+  }) };
+  const r = await desenharProximaLeva(ator, "imp", { prova: [70], gabarito: [] }, m.agora, deps);
+  assert.equal(r.erro, "A página 1 da prova (página 70 do PDF) é grande demais para desenhar.");
+});
+
+test("desenho indisponível no servidor lança (passageiro), ao abrir ou ao desenhar", async () => {
+  const indisponivel = () => Object.assign(new Error("O desenho de PDF não está disponível no servidor (x)."), { name: "DesenhoIndisponivel" });
+  assert.equal(ehDesenhoIndisponivel(indisponivel()), true);
+  assert.equal(ehDesenhoIndisponivel(new Error("y")), false);
+  const m = mundo();
+  await assert.rejects(desenharProximaLeva(ator, "imp", { prova: [1], gabarito: [] }, m.agora, { ...m.deps, abrirPdf: async () => { throw indisponivel(); } }), /não está disponível no servidor/);
+  const m2 = mundo();
+  const deps: DepsLeva = { ...m2.deps, abrirPdf: async () => ({ numPaginas: 5, desenhar: async () => { throw indisponivel(); }, fechar: async () => {} }) };
+  await assert.rejects(desenharProximaLeva(ator, "imp", { prova: [1], gabarito: [] }, m2.agora, deps), /não está disponível no servidor/);
 });

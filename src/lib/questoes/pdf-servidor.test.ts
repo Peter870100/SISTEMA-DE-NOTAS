@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { abrirPdfServidor, escalaPagina } from "./pdf-servidor";
+import { abrirPdfServidor, ALTURA_MAX, carregarDesenhador, DesenhoIndisponivel, escalaPagina, esquecerDesenhador, PaginaGrandeDemais, tamanhoDesenho } from "./pdf-servidor";
 
 const fixture = (nome: string) => new Uint8Array(readFileSync(join(__dirname, "__fixtures__", nome)));
 
@@ -35,4 +35,27 @@ test("arquivo inválido", async () => {
 
 test("PDF protegido por senha", async () => {
   await assert.rejects(abrirPdfServidor(fixture("prova-com-senha.pdf")), { message: "O PDF está protegido por senha." });
+});
+
+test("tamanhoDesenho: arredonda; recusa altura acima de 20000 px ou pixels demais, antes do canvas", () => {
+  assert.deepEqual(tamanhoDesenho(1, 1239.6, 1754.2), { largura: 1240, altura: 1754 });
+  assert.deepEqual(tamanhoDesenho(1, 1600, ALTURA_MAX), { largura: 1600, altura: ALTURA_MAX });
+  assert.throws(() => tamanhoDesenho(7, 1600, 20001), (e: unknown) => e instanceof PaginaGrandeDemais && e.name === "PaginaGrandeDemais" && e.message === "A página 7 do PDF é grande demais para desenhar.");
+  assert.throws(() => tamanhoDesenho(2, 1600, 30000), PaginaGrandeDemais);
+  assert.throws(() => tamanhoDesenho(3, 1600, Number.NaN), PaginaGrandeDemais);
+});
+
+test("carregarDesenhador: falha vira DesenhoIndisponivel e a próxima chamada tenta de novo", async () => {
+  esquecerDesenhador();
+  let tentativas = 0;
+  const falhar = async () => { tentativas++; throw new Error("canvas nativo ausente"); };
+  await assert.rejects(carregarDesenhador(falhar), (e: unknown) =>
+    e instanceof DesenhoIndisponivel && e.name === "DesenhoIndisponivel" && e.message === "O desenho de PDF não está disponível no servidor (canvas nativo ausente).");
+  await assert.rejects(carregarDesenhador(falhar), DesenhoIndisponivel);
+  assert.equal(tentativas, 2, "não guardou a promessa que falhou");
+  esquecerDesenhador();
+  // Depois, o desenhador de verdade carrega normalmente.
+  const pdf = await abrirPdfServidor(fixture("prova-2-paginas.pdf"));
+  assert.equal(pdf.numPaginas, 2);
+  await pdf.fechar();
 });

@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Ctx } from "../leitura/comum";
 import { escolaParaCriar } from "./ator";
 import {
-  avancarEnvio, ERRO_IMPORTACAO, ERRO_JA_ENVIADA, lerPedidoImportacao, paginasDoTexto, parametrosParaRegistro, selecionarPaginas, textoImportacaoCriada, textoSituacao,
+  avancarEnvio, criteriosRepetida, JANELA_REPETIDA_MS, NOTA_LEITURA_ADIADA, textoJaEmAndamento, ERRO_IMPORTACAO, ERRO_JA_ENVIADA, lerPedidoImportacao, paginasDoTexto, parametrosParaRegistro, selecionarPaginas, textoImportacaoCriada, textoSituacao,
 } from "./importacao";
 
 const base = { banca: "UFMS", ano: 2025 };
@@ -102,15 +102,15 @@ test("dono sem escola, com mais de uma, recebe o pedido da escola", async () => 
 
 test("avancarEnvio: corrida 'já foi enviada' vira a situação normal; falha passageira lança", async () => {
   const nada = async () => {};
-  assert.deepEqual(await avancarEnvio({ desenhar: async () => { throw new Error(ERRO_JA_ENVIADA); }, marcarErro: nada, iniciarLeitura: nada }), { leituraIniciada: false });
-  await assert.rejects(avancarEnvio({ desenhar: async () => { throw new Error("storage fora do ar"); }, marcarErro: nada, iniciarLeitura: nada }), /storage fora do ar/);
+  assert.deepEqual(await avancarEnvio({ desenhar: async () => { throw new Error(ERRO_JA_ENVIADA); }, marcarErro: nada, iniciarLeitura: nada, inicio: 0, agora: () => 0 }), { leituraIniciada: false });
+  await assert.rejects(avancarEnvio({ desenhar: async () => { throw new Error("storage fora do ar"); }, marcarErro: nada, iniciarLeitura: nada, inicio: 0, agora: () => 0 }), /storage fora do ar/);
 });
 
 test("avancarEnvio: inicia a leitura só com tudo pronto; erro do PDF marca a importação", async () => {
   let iniciou = 0;
   const marcados: string[] = [];
   const d = (r: { prontas: number; faltam: number; erro?: string }) => ({
-    desenhar: async () => r, marcarErro: async (m: string) => { marcados.push(m); }, iniciarLeitura: async () => { iniciou++; },
+    desenhar: async () => r, marcarErro: async (m: string) => { marcados.push(m); }, iniciarLeitura: async () => { iniciou++; }, inicio: 0, agora: () => 0,
   });
   assert.deepEqual(await avancarEnvio(d({ prontas: 3, faltam: 2 })), { desenho: { prontas: 3, total: 5 }, leituraIniciada: false });
   assert.equal(iniciou, 0);
@@ -120,4 +120,42 @@ test("avancarEnvio: inicia a leitura só com tudo pronto; erro do PDF marca a im
   assert.deepEqual(marcados, ["PDF ruim"]);
   const corrida = { ...d({ prontas: 5, faltam: 0 }), iniciarLeitura: async () => { throw new Error("Essa importação já está sendo lida."); } };
   assert.deepEqual(await avancarEnvio(corrida), { desenho: { prontas: 5, total: 5 }, leituraIniciada: false });
+});
+
+test("avancarEnvio: não começa a leitura paga se esta chamada desenhou e já passaram 30 s", async () => {
+  let iniciou = 0;
+  let relogio = 1000;
+  const d = (r: { prontas: number; faltam: number; desenhadas: number }) => ({
+    desenhar: async () => { relogio += 29000; return r; }, // o desenho levou 29 s
+    marcarErro: async () => {}, iniciarLeitura: async () => { iniciou++; }, inicio: 1000, agora: () => relogio,
+  });
+  // 29 s: ainda dá tempo
+  assert.deepEqual(await avancarEnvio(d({ prontas: 5, faltam: 0, desenhadas: 2 })), { desenho: { prontas: 5, total: 5 }, leituraIniciada: true });
+  assert.equal(iniciou, 1);
+  // 30 s ou mais, tendo desenhado: adia (a próxima chamada, sem nada a desenhar, começa a leitura)
+  relogio = 2000;
+  assert.deepEqual(await avancarEnvio(d({ prontas: 5, faltam: 0, desenhadas: 1 })), { desenho: { prontas: 5, total: 5 }, leituraIniciada: false, leituraAdiada: true });
+  assert.equal(iniciou, 1);
+  // Mesmo devagar, se esta chamada não desenhou nada, começa
+  relogio = 50000;
+  assert.deepEqual(await avancarEnvio(d({ prontas: 5, faltam: 0, desenhadas: 0 })), { desenho: { prontas: 5, total: 5 }, leituraIniciada: true });
+  assert.equal(iniciou, 2);
+});
+
+test("textoSituacao: leitura adiada pede outra chamada", () => {
+  const situacao = { status: "enviando", lidas: 0, total: 5, questoes: 0, aConferir: 0, custoEstimado: null, custoReal: null, erros: [], avisos: [] } as unknown as Parameters<typeof textoSituacao>[0]["situacao"];
+  const t = textoSituacao({ id: "i1", link: "L", situacao, desenho: { prontas: 5, total: 5 }, nota: NOTA_LEITURA_ADIADA });
+  assert.equal(t, `Situação: enviando. ${NOTA_LEITURA_ADIADA} Acompanhar: L`);
+});
+
+test("criteriosRepetida: mesma escola, banca, ano, caderno, Hermes, enviando, últimos 15 min", () => {
+  const agora = Date.parse("2026-10-23T12:00:00Z");
+  assert.equal(JANELA_REPETIDA_MS, 15 * 60 * 1000);
+  assert.deepEqual(criteriosRepetida({ escopo: "escola", banca: " UFMS ", ano: 2024, caderno: " 1º dia " }, "e1", agora), {
+    criado_via: "hermes", status: "enviando", escopo: "escola", escola_id: "e1", banca: "UFMS", ano: 2024, caderno: "1º dia", desde: "2026-10-23T11:45:00.000Z",
+  });
+  const geral = criteriosRepetida({ escopo: "geral", banca: "ENEM", ano: null, caderno: "" }, "e1", agora);
+  assert.equal(geral.escola_id, null);
+  assert.equal(geral.ano, null);
+  assert.equal(textoJaEmAndamento("abc"), "Já existe a importação abc em andamento; use situacao_importacao.");
 });

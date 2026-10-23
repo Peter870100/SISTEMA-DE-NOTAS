@@ -12,7 +12,8 @@ import type { PdfServidor } from "@/lib/questoes/pdf-servidor";
 
 export type TipoArquivo = "prova" | "gabarito";
 export type Selecao = { prova: number[]; gabarito: number[] };
-export type ResultadoLeva = { prontas: number; faltam: number; erro?: string };
+/** `desenhadas`: quantas páginas esta chamada desenhou e registrou. */
+export type ResultadoLeva = { prontas: number; faltam: number; desenhadas: number; erro?: string };
 
 export const ORCAMENTO_LEVA_MS = 40000;
 const LEVA_INICIAL = 5;
@@ -56,6 +57,13 @@ export type DepsLeva = {
 
 const mensagem = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+const temNome = (e: unknown, nome: string) => (e as { name?: unknown } | null)?.name === nome;
+/**
+ * O desenho de PDF não carregou no servidor (pdfjs/canvas): não é culpa do PDF, então não marca erro.
+ * Pelo nome, para não carregar o pdf-servidor (e o canvas nativo) só para comparar a classe.
+ */
+export const ehDesenhoIndisponivel = (e: unknown) => temNome(e, "DesenhoIndisponivel");
+
 /** O original guardado não existe no storage (não se resolve tentando de novo). */
 export class OriginalNaoEncontrado extends Error {}
 
@@ -80,21 +88,24 @@ export async function desenharProximaLeva(
 ): Promise<ResultadoLeva> {
   const total = selecao.prova.length + selecao.gabarito.length;
   const invalida = validarSelecao(selecao);
-  if (invalida) return { prontas: 0, faltam: total, erro: invalida };
+  if (invalida) return { prontas: 0, faltam: total, desenhadas: 0, erro: invalida };
   const d = deps ?? (await depsPadrao());
   const inicio = agora();
   await d.exigir(ator, importacaoId);
 
   const feitas = new Set((await d.paginasProntas(importacaoId)).map((p) => `${p.tipo}-${p.numero}`));
-  const escolhidas: { tipo: TipoArquivo; numero: number }[] = [
-    ...selecao.prova.map((numero) => ({ tipo: "prova" as const, numero })),
-    ...selecao.gabarito.map((numero) => ({ tipo: "gabarito" as const, numero })),
+  // Como a tela: `numero` é a posição na seleção (1..N por arquivo); `paginaPdf` é a página no PDF.
+  const escolhidas: { tipo: TipoArquivo; numero: number; paginaPdf: number }[] = [
+    ...selecao.prova.map((paginaPdf, i) => ({ tipo: "prova" as const, numero: i + 1, paginaPdf })),
+    ...selecao.gabarito.map((paginaPdf, i) => ({ tipo: "gabarito" as const, numero: i + 1, paginaPdf })),
   ];
   const contarProntas = () => escolhidas.filter((p) => feitas.has(`${p.tipo}-${p.numero}`)).length;
   const restantes = escolhidas.filter((p) => !feitas.has(`${p.tipo}-${p.numero}`));
+  let desenhadas = 0;
   const resultado = (erro?: string): ResultadoLeva => {
     const prontas = contarProntas();
-    return erro ? { prontas, faltam: total - prontas, erro } : { prontas, faltam: total - prontas };
+    const r = { prontas, faltam: total - prontas, desenhadas };
+    return erro ? { ...r, erro } : r;
   };
   if (restantes.length === 0) return resultado();
 
@@ -113,6 +124,7 @@ export async function desenharProximaLeva(
       try {
         pdf = await d.abrirPdf(bytes);
       } catch (e) {
+        if (ehDesenhoIndisponivel(e)) throw e; // passageiro: não é o PDF
         return { erro: erroDoArquivo(mensagem(e), tipo) };
       }
       abertos.set(tipo, pdf);
@@ -120,7 +132,6 @@ export async function desenharProximaLeva(
     return pdf;
   };
 
-  let desenhadas = 0;
   let decorridoDesenho = 0; // tempo gasto desenhando, para a média (sem abrir o PDF)
   try {
     const mediaAtual = () => (desenhadas > 0 ? decorridoDesenho / desenhadas : null);
@@ -137,18 +148,20 @@ export async function desenharProximaLeva(
         const pagina = restantes[0];
         const pdf = await abrir(pagina.tipo);
         if ("erro" in pdf) return resultado(pdf.erro);
-        if (pagina.numero > pdf.numPaginas) {
-          return resultado(`O PDF ${NOME[pagina.tipo]} tem ${pdf.numPaginas} páginas; a página ${pagina.numero} não existe.`);
+        if (pagina.paginaPdf > pdf.numPaginas) {
+          return resultado(`O PDF ${NOME[pagina.tipo]} tem ${pdf.numPaginas} páginas; a página ${pagina.paginaPdf} não existe.`);
         }
         const antes = agora();
         let desenho: Awaited<ReturnType<PdfServidor["desenhar"]>>;
         try {
-          desenho = await pdf.desenhar(pagina.numero);
+          desenho = await pdf.desenhar(pagina.paginaPdf);
         } catch (e) {
-          return resultado(`Não consegui desenhar a página ${pagina.numero} ${NOME[pagina.tipo]}: ${mensagem(e)}`);
+          if (ehDesenhoIndisponivel(e)) throw e; // problema do servidor, não do PDF: passageiro
+          if (temNome(e, "PaginaGrandeDemais")) return resultado(`A página ${pagina.numero} ${NOME[pagina.tipo]} (página ${pagina.paginaPdf} do PDF) é grande demais para desenhar.`);
+          return resultado(`Não consegui desenhar a página ${pagina.numero} ${NOME[pagina.tipo]} (página ${pagina.paginaPdf} do PDF): ${mensagem(e)}`);
         }
         if (desenho.largura < LADO_MINIMO || desenho.altura < LADO_MINIMO) {
-          return resultado(`A página ${pagina.numero} ${NOME[pagina.tipo]} é pequena demais (${desenho.largura}×${desenho.altura} px; o mínimo é ${LADO_MINIMO} px de cada lado).`);
+          return resultado(`A página ${pagina.numero} ${NOME[pagina.tipo]} (página ${pagina.paginaPdf} do PDF) é pequena demais (${desenho.largura}×${desenho.altura} px; o mínimo é ${LADO_MINIMO} px de cada lado).`);
         }
         // Storage e banco podem falhar por um soluço: lançam (quem chama trata como passageiro e a
         // próxima chamada refaz esta página; o upsert torna isso seguro).
