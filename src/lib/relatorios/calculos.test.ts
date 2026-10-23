@@ -129,7 +129,7 @@ test("situacaoNoSimulado: os 5 casos", () => {
   assert.equal(situacaoNoSimulado({ status: "entregue", prazo_em: "2026-10-22T11:00:00Z" }, true, agora), "fez");
   assert.equal(situacaoNoSimulado({ status: "em_andamento", prazo_em: "2026-10-22T13:00:00Z" }, true, agora), "fazendo");
   assert.equal(situacaoNoSimulado({ status: "em_andamento", prazo_em: "2026-10-22T11:00:00Z" }, true, agora), "nao_entregou");
-  assert.equal(situacaoNoSimulado({ status: "em_andamento", prazo_em: null }, true, agora), "nao_entregou");
+  assert.equal(situacaoNoSimulado({ status: "em_andamento", prazo_em: null }, true, agora), "fazendo"); // treino sem cronômetro
 });
 
 // agruparAlunoEntreBimestres
@@ -261,10 +261,28 @@ test("fraseAluno: situações do quanto falta", () => {
   };
   assert.match(com([5, 6], 2), /média 5,5 nos bimestres encerrados; precisa de 6,5 em cada um dos 2 bimestres restantes para chegar a 6,0\./);
   assert.match(com([9, 9, 9], 3), /média 9,0 nos bimestres encerrados; já atingiu a média 6,0\./);
-  assert.match(com([2, 2, 2], 3), /não dá mais para chegar a 6,0 \(precisaria de 18,0 no 4º\)/);
+  assert.match(com([2, 2, 2], 3), /não dá mais para chegar a 6,0 \(precisaria de 18,0 no bimestre restante\)/);
   assert.match(com([5, 5, 5, 5], 4), /média 5,0 nos 4 bimestres; ficou abaixo da média 6,0\./);
   assert.match(com([7.25], 0), /nenhum bimestre encerrado ainda \(7,3 no bimestre em andamento\)/);
   assert.match(com([], 0), /nenhum bimestre encerrado ainda\./);
+});
+
+test("fraseAluno: bimestre que falta é nomeado pelas linhas (2º encerrado sem notas → 'no 2º')", () => {
+  const b: BimestreAluno[] = [
+    { bimestre: "1º Bimestre", turmaId: "t1", media: 5, encerrado: true, vigente: false },
+    { bimestre: "2º Bimestre", turmaId: "t2", media: null, encerrado: true, vigente: false },
+    { bimestre: "3º Bimestre", turmaId: "t3", media: 6, encerrado: true, vigente: false },
+    { bimestre: "4º Bimestre", turmaId: "t4", media: 6, encerrado: true, vigente: false },
+  ];
+  const q = quantoFalta(b, 6);
+  assert.equal(q.situacao, "precisa");
+  assert.equal(q.porBimestre, 7);
+  const f = fraseAluno({ ...alunoBase(), bimestres: b, quantoFalta: q }, 6);
+  assert.match(f, /precisa de 7,0 no 2º para chegar a 6,0\./);
+  assert.doesNotMatch(f, /4º/);
+  // Sem as 4 linhas não dá para saber qual é: texto neutro.
+  const parcial = bims([6, 6, 6], 3);
+  assert.match(fraseAluno({ ...alunoBase(), bimestres: parcial, quantoFalta: quantoFalta(parcial, 6) }, 6), /precisa de 6,0 no bimestre restante/);
 });
 
 test("fraseAluno: aluno sem conta e lista de faltas longa", () => {

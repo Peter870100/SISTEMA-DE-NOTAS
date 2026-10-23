@@ -86,7 +86,8 @@ export function situacaoNoSimulado(t: { status: string; prazo_em: string | null 
   if (!temConta) return "sem_login";
   if (!t) return "nao_fez";
   if (t.status === "entregue") return "fez";
-  if (t.status === "em_andamento" && t.prazo_em && new Date(t.prazo_em).getTime() > agora.getTime()) return "fazendo";
+  // Sem prazo (treino sem cronômetro) ainda está fazendo; com prazo vencido, não entregou.
+  if (t.status === "em_andamento" && (!t.prazo_em || new Date(t.prazo_em).getTime() > agora.getTime())) return "fazendo";
   return "nao_entregou";
 }
 
@@ -177,11 +178,22 @@ function juntarComE(itens: string[]): string {
   return itens.length <= 1 ? (itens[0] ?? "") : `${itens.slice(0, -1).join(", ")} e ${itens[itens.length - 1]}`;
 }
 
+/**
+ * Nome do único bimestre que falta ("4º"), quando dá para saber pelas linhas recebidas (as 4 linhas,
+ * com um só bimestre que não conta e com ordinal no nome). Senão, "bimestre restante".
+ * Ex.: 1º, 3º e 4º encerrados e o 2º encerrado sem notas → "2º".
+ */
+function bimestreRestante(bimestres: BimestreAluno[]): string {
+  const abertos = bimestres.filter((b) => !(b.encerrado && b.media != null));
+  const ordinal = abertos.length === 1 && bimestres.length === BIMESTRES_NO_ANO ? /^\s*(\d+)\s*º/.exec(abertos[0].bimestre)?.[1] : undefined;
+  return ordinal ? `${ordinal}º` : "bimestre restante";
+}
+
 function textoQuantoFalta(bimestres: BimestreAluno[], q: ResultadoQuantoFalta, media: number): string {
   const alvo = formatarNota(media);
   const atual = q.mediaAtual != null ? formatarNota(q.mediaAtual) : "";
   const restantes = BIMESTRES_NO_ANO - encerradosQueContam(bimestres).length;
-  const onde = restantes === 1 ? `no ${BIMESTRES_NO_ANO}º` : `em cada um dos ${restantes} bimestres restantes`;
+  const onde = restantes === 1 ? `no ${bimestreRestante(bimestres)}` : `em cada um dos ${restantes} bimestres restantes`;
   switch (q.situacao) {
     case "sem_dados": {
       const vigente = bimestres.find((b) => b.vigente && b.media != null);
