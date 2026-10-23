@@ -1,0 +1,26 @@
+.pagina { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
+.cartao { break-inside: avoid; page-break-inside: avoid; min-width: 0; }
+.rolagem { overflow-x: auto; max-width: 100%; }
+.tabela { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.tabela th, .tabela td { padding: 0.5rem 0.75rem; text-align: left; white-space: nowrap; border-bottom: 1px solid #eaeff7; }
+.tabela th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #293b5b; background: #f4f7fc; }
+.tabela tr { break-inside: avoid; }
+.grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+@media (min-width: 1024px) { .grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+@media (min-width: 768px) { .numeros { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.larga { grid-column: 1 / -1; }
+.naoImprimir { }
+
+@media print {
+  body:has(.pagina) { display: block !important; height: auto !important; overflow: visible !important; background: #fff !important; }
+  body:has(.pagina) aside, body:has(.pagina) .naoImprimir { display: none !important; }
+  body:has(.pagina) #conteudo-principal { height: auto !important; overflow: visible !important; display: block !important; }
+  body:has(.pagina) .fundo-escolar { min-height: 0 !important; }
+  body:has(.pagina) main { margin-top: 0 !important; padding-top: 1rem; max-width: none !important; }
+  .grade { grid-template-columns: minmax(0, 1fr); }
+  .graficoFixo { width: 17cm; max-width: 100%; }
+  .rolagem { overflow: visible; }
+  .tabela th, .tabela td { white-space: normal; }
+  body:has(.pagina) * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

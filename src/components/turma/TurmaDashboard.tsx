@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { CalendarCheck2, ClipboardList } from "lucide-react";
+import Link from "next/link";
+import { BarChart3, CalendarCheck2, ClipboardList } from "lucide-react";
 import type { Aluno, AtividadeColuna, TipoColuna, Turma } from "@/lib/types";
 import { celulasIniciaisDe, type CelulasMap, type NotaCelulaComAutor } from "@/lib/celulas";
 import { mediaAluno, mediaDeValores, paraEscala10 } from "@/lib/analytics";
@@ -95,6 +96,7 @@ export function TurmaDashboard({
         <>
           <BimestreAbas turma={turma} todasTurmas={todasTurmas} />
           <CodigoAlunos turmaId={turma.id} />
+          <Link href={`/turma/${turma.id}/relatorio`} className={estilos.botaoSecundario}><BarChart3 size={15} />Relatório da turma</Link>
         </>
       }
     >
