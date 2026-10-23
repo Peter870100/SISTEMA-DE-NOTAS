@@ -52,13 +52,21 @@ export function rotuloConta(c: ContaAchada, variasEscolas: boolean): string {
   return `${variasEscolas ? `[${c.escolaNome}] ` : ""}${c.nome} (${c.turmas.join(", ") || "sem turma"})`;
 }
 
+/** O nome é o pedido (normalizado), e não só o contém. */
+const igual = (nome: string, busca: string) => normalizarBusca(nome) === normalizarBusca(busca);
+
 /**
- * Uma conta entre as achadas pelo nome. Nenhuma → erro; mais de uma → texto com as opções (com turma
- * e conta_id) para a Hermes perguntar; nada é feito.
+ * Uma conta entre as achadas pelo nome (ou a do `conta_id`, com `porId`). Nenhuma → erro. Só age
+ * com uma conta de nome igual ao pedido: uma só que apenas contém o pedido ("Ana" → "Mariana") ou
+ * mais de uma → texto com as opções (turma e conta_id) para a Hermes perguntar; nada é feito.
  */
-export function escolherConta(achadas: ContaAchada[], busca: string, variasEscolas: boolean): { conta: ContaAchada } | { mensagem: string } {
+export function escolherConta(achadas: ContaAchada[], busca: string, variasEscolas: boolean, porId = false): { conta: ContaAchada } | { mensagem: string } {
   if (achadas.length === 0) throw new Error(`Aluno "${busca}" não encontrado.`);
-  if (achadas.length === 1) return { conta: achadas[0] };
+  if (achadas.length === 1) {
+    const c = achadas[0];
+    if (porId || igual(c.nome, busca)) return { conta: c };
+    return { mensagem: `Achei só ${rotuloConta(c, variasEscolas)} para "${busca}". É esse aluno? Nada foi feito; repita com o conta_id ${c.id}.` };
+  }
   const opcoes = achadas.map((c) => `- ${rotuloConta(c, variasEscolas)} · ${login(c)}${c.ativo ? "" : " · bloqueada"} · conta_id ${c.id}`);
   return {
     mensagem: `Achei ${achadas.length} alunos com "${busca}". Qual deles? Nada foi feito; repita com o conta_id.\n${limitarLinhas(opcoes, 30, "Use o nome completo.").join("\n")}`,
@@ -116,12 +124,22 @@ export function escolherVinculo(vinculos: VinculoConta[], turma?: string): Vincu
   return achados[0];
 }
 
-/** Um item pelo nome (curso, aula…). `genero` = "o" ou "a" para "não encontrado/a". */
-export function escolherPorNome<T>(lista: T[], nome: (x: T) => string, busca: string, rotulo: string, genero: "o" | "a"): T {
-  const achados = acharPorNome(lista, nome, busca);
-  if (achados.length === 0) throw new Error(`${rotulo} "${busca.trim()}" não encontrad${genero}.`);
-  if (achados.length > 1) throw new Error(`Mais de um${genero === "a" ? "a" : ""} ${rotulo.toLowerCase()} com "${busca.trim()}": ${achados.slice(0, 20).map(nome).join(", ")}. Diga qual.`);
-  return achados[0];
+/**
+ * Um item pelo nome (curso, aula, aluno da planilha…) para uma ação. Só devolve o item quando há um
+ * só e de nome igual ao pedido; um só que apenas contém o pedido, ou vários → texto para perguntar
+ * (nada é feito). Nenhum → erro. `genero` = "o" ou "a" ("não encontrado/a", "o curso"/"a aula").
+ */
+export function escolherPorNome<T>(lista: T[], nome: (x: T) => string, busca: string, rotulo: string, genero: "o" | "a"): { item: T } | { mensagem: string } {
+  const pedido = busca.trim();
+  const achados = acharPorNome(lista, nome, pedido);
+  if (achados.length === 0) throw new Error(`${rotulo} "${pedido}" não encontrad${genero}.`);
+  const minusculo = rotulo.toLowerCase();
+  if (achados.length > 1) {
+    return { mensagem: `Mais de um${genero === "a" ? "a" : ""} ${minusculo} com "${pedido}": ${achados.slice(0, 20).map(nome).join(", ")}. Nada foi feito; diga qual.` };
+  }
+  const item = achados[0];
+  if (igual(nome(item), pedido)) return { item };
+  return { mensagem: `Achei só ${genero} ${minusculo} "${nome(item)}" para "${pedido}". É esse? Nada foi feito; repita com o título completo.` };
 }
 
 // ---------- tentativa ----------
@@ -131,23 +149,38 @@ export type TentativaAchada = { id: string; simuladoId: string; titulo: string; 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const situacao = (t: TentativaAchada) => (t.status === "em_andamento" ? "em andamento" : "entregue");
 
+export type PedidoTentativa = {
+  /** Título (ou parte) do simulado; um uuid aqui também vale como id. */
+  simulado?: string;
+  simuladoId?: string;
+  /** Só tentativas neste status (encerrar → em_andamento; recorrigir → entregue; liberar → qualquer). */
+  status?: "em_andamento" | "entregue";
+};
+
 /**
- * A tentativa do aluno no simulado pedido (id ou título). Vários simulados com o mesmo título → a
- * tentativa mais recente, com aviso de qual; títulos diferentes → texto com as opções.
+ * A tentativa do aluno no simulado pedido. Filtra pelo id ou pelo título e depois pelo status que faz
+ * sentido para a ação. Só escolhe sozinha quando sobra exatamente uma e o pedido foi o id ou o título
+ * igual; senão (mesmo título em dois simulados, como dois "Treino de dd/mm/aaaa", ou título só
+ * parecido) devolve as opções com o simulado_id, e nada é feito.
  */
-export function escolherTentativa(lista: TentativaAchada[], simulado: string): { tentativa: TentativaAchada; aviso?: string } | { mensagem: string } {
-  const pedido = simulado.trim();
-  const achadas = UUID.test(pedido) ? lista.filter((t) => t.simuladoId.toLowerCase() === pedido.toLowerCase()) : acharPorNome(lista, (t) => t.titulo, pedido);
-  if (achadas.length === 0) throw new Error(`O aluno não tem tentativa no simulado "${pedido}".`);
-  const recentes = [...achadas].sort((a, b) => b.iniciadaEm.localeCompare(a.iniciadaEm));
-  if (achadas.length === 1) return { tentativa: achadas[0] };
-  const titulos = new Set(achadas.map((t) => normalizarBusca(t.titulo)));
-  if (titulos.size === 1) {
-    const t = recentes[0];
-    return { tentativa: t, aviso: `Havia ${achadas.length} tentativas em simulados chamados "${t.titulo}"; usei a mais recente (iniciada em ${dataHoraBR(t.iniciadaEm)}, simulado ${t.simuladoId}).` };
+export function escolherTentativa(lista: TentativaAchada[], pedido: PedidoTentativa): { tentativa: TentativaAchada } | { mensagem: string } {
+  const texto = pedido.simulado?.trim() ?? "";
+  const id = pedido.simuladoId?.trim() || (UUID.test(texto) ? texto : "");
+  if (!id && !texto) throw new Error("Informe o simulado (título) ou o simulado_id.");
+  const porTitulo = id ? [] : acharPorNome(lista, (t) => t.titulo, texto);
+  const doPedido = id ? lista.filter((t) => t.simuladoId.toLowerCase() === id.toLowerCase()) : porTitulo;
+  const onde = id ? "nesse simulado" : `no simulado "${texto}"`;
+  if (doPedido.length === 0) throw new Error(`O aluno não tem tentativa ${onde}.`);
+  const achadas = pedido.status ? doPedido.filter((t) => t.status === pedido.status) : doPedido;
+  if (achadas.length === 0) throw new Error(`O aluno não tem tentativa ${pedido.status === "em_andamento" ? "em andamento" : "entregue"} ${onde}.`);
+  if (achadas.length === 1) {
+    const t = achadas[0];
+    if (id || igual(t.titulo, texto)) return { tentativa: t };
+    return { mensagem: `Achei só "${t.titulo}" para "${texto}" (${situacao(t)}, iniciada em ${dataHoraBR(t.iniciadaEm)}). É esse? Nada foi feito; repita com o título completo ou o simulado_id ${t.simuladoId}.` };
   }
-  const opcoes = recentes.map((t) => `- ${t.titulo} · ${situacao(t)} · iniciada em ${dataHoraBR(t.iniciadaEm)} · simulado ${t.simuladoId}`);
-  return { mensagem: `Qual simulado? Achei ${achadas.length} com "${pedido}". Nada foi feito; repita com o título completo ou o id.\n${limitarLinhas(opcoes, 30, "Use o título completo.").join("\n")}` };
+  const recentes = [...achadas].sort((a, b) => b.iniciadaEm.localeCompare(a.iniciadaEm));
+  const opcoes = recentes.map((t) => `- ${t.titulo} · ${situacao(t)} · iniciada em ${dataHoraBR(t.iniciadaEm)} · simulado_id ${t.simuladoId}`);
+  return { mensagem: `Qual simulado? Achei ${achadas.length} tentativas com "${texto || id}". Nada foi feito; repita com o simulado_id.\n${limitarLinhas(opcoes, 30, "Use o título completo.").join("\n")}` };
 }
 
 // ---------- textos ----------

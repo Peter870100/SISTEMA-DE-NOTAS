@@ -6,6 +6,15 @@ export function limparNome(nome: string): string {
 }
 
 /**
+ * Fim da mensagem quando o lote de contas para no meio: quem já foi criado (as senhas dessas contas
+ * se perderam com o erro) e o aviso para não repetir o lote, o que duplicaria as contas.
+ */
+export function textoJaCriadas(nomes: string[]): string {
+  if (nomes.length === 0) return "Nenhuma conta foi criada.";
+  return `${nomes.length} conta(s) já foram criadas antes deste: ${nomes.join(", ")}. Não repita: essas contas já existem; use gerar_senha_provisoria para elas.`;
+}
+
+/**
  * Linha da planilha que a conta do aluno aponta (`aluno_turmas.aluno_id`): a turma do bimestre
  * vigente do grupo; sem vigente, a do último bimestre (ordem natural do nome: "1º" < "2º" < …).
  */

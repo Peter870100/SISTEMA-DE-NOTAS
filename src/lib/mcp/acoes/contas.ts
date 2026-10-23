@@ -8,7 +8,7 @@ import {
 import { acharPorNome, campoEscola, campoTelefone, escolasDoPedido, lerPorIds, lerTodas, texto, type Ctx, type EscolaInfo, type ObterCtx } from "../leitura/comum";
 import { atorDoEscopo, campoId, falha, registrado, resolverTurmas, type Perfil } from "./ator";
 import {
-  escolherConta, escolherTurma, escolherVinculo, exigirAluno, parametrosParaRegistro, textoCredenciais, textoPreviaLigacoes, textoPreviaPlanilha,
+  escolherConta, escolherPorNome, escolherTurma, escolherVinculo, exigirAluno, parametrosParaRegistro, textoCredenciais, textoPreviaLigacoes, textoPreviaPlanilha,
   validarUsuario, type ContaAchada, type TurmaLinha, type VinculoConta,
 } from "./contas-regras";
 
@@ -28,7 +28,7 @@ type AtorHermes = Awaited<ReturnType<typeof atorDoEscopo>>;
 export type Rodar = <T>(acao: () => Promise<T>, extras?: Record<string, unknown>) => Promise<T>;
 
 export const campoAluno = {
-  aluno: z.string().trim().max(120).optional().describe("Nome (ou parte) do aluno. Se houver mais de um, a resposta lista para escolher."),
+  aluno: z.string().trim().max(120).optional().describe("Nome completo do aluno. Nome parcial ou repetido não age: a resposta lista para escolher e você repete com o conta_id."),
   conta_id: campoId("Id da conta do aluno (use quando o nome se repetir).").optional(),
   ...campoEscola,
 };
@@ -77,7 +77,8 @@ export async function acharConta(ctx: Ctx, args: { aluno?: string; conta_id?: st
     id: c.id, nome: c.nome, escolaId: c.escola_id, escolaNome: nomeEscola(c.escola_id), usuario: c.usuario, email: c.email, ativo: c.ativo,
     turmas: (vinculos.get(c.id) ?? []).map((v) => `${v.turma_nome} · ${v.ano_letivo}`),
   }));
-  return escolherConta(achadas, (args.aluno ?? args.conta_id ?? "").trim(), escolas.length > 1);
+  const porId = !!args.conta_id;
+  return escolherConta(achadas, (porId ? args.conta_id! : args.aluno ?? "").trim(), escolas.length > 1, porId);
 }
 
 /** Turma pelo nome nas escolas do pedido (mesmo nome em duas escolas → pede a escola). */
@@ -217,10 +218,12 @@ export function registrarAcoesContas(server: McpServer, obter: ObterCtx, perfil:
       }
       if (!args.aluno_planilha?.trim()) throw new Error("Informe aluno_planilha (o nome na planilha) ou desligar: true.");
       const livres = await alunosSemContaDoGrupoPor(ator, turmaId);
-      const achados = acharPorNome(livres, (a) => a.nome, args.aluno_planilha);
-      if (achados.length === 0) throw new Error(`"${args.aluno_planilha}" não está entre os alunos sem conta da planilha de ${rotulo}.`);
-      if (achados.length > 1) throw new Error(`Mais de um aluno da planilha com "${args.aluno_planilha}": ${achados.slice(0, 20).map((a) => a.nome).join(", ")}. Diga o nome completo.`);
-      const aluno = achados[0];
+      if (acharPorNome(livres, (a) => a.nome, args.aluno_planilha).length === 0) {
+        throw new Error(`"${args.aluno_planilha}" não está entre os alunos sem conta da planilha de ${rotulo}.`);
+      }
+      const escolha = escolherPorNome(livres, (a) => a.nome, args.aluno_planilha, "Aluno da planilha", "o");
+      if ("mensagem" in escolha) return escolha.mensagem;
+      const aluno = escolha.item;
       await rodar(() => ligarContaPor(ator, conta.id, turmaId, aluno.alunoId), { turma_id: turmaId, aluno_id: aluno.alunoId });
       return `Conta de ${conta.nome} ligada a ${aluno.nome} na planilha de ${rotulo}.`;
     }),

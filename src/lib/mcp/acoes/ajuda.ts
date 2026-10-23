@@ -3,17 +3,21 @@ import { z } from "zod";
 import { zerarProgressoAulaPor } from "@/lib/aulas/ajuda";
 import { encerrarTentativaPor, liberarNovaTentativaPor, recorrigirTentativaPor } from "@/lib/simulados/ajuda";
 import { campoTelefone, lerPorIds, lerTodas, pct, type Ctx, type ObterCtx } from "../leitura/comum";
-import type { Perfil } from "./ator";
+import { campoId, type Perfil } from "./ator";
 import { campoAluno, comConta } from "./contas";
-import { escolherPorNome, escolherTentativa, type ContaAchada, type TentativaAchada } from "./contas-regras";
+import { escolherPorNome, escolherTentativa, type ContaAchada, type PedidoTentativa, type TentativaAchada } from "./contas-regras";
 
 /**
  * Ferramentas de ajuda ao aluno da Hermes (só no perfil dono): nova tentativa, encerrar ou
  * recorrigir uma tentativa e zerar o progresso de uma aula. O aluno é achado pelo nome ou conta_id;
- * o simulado, entre os que o aluno tem tentativa (título ou id).
+ * o simulado, entre os que o aluno tem tentativa (título igual ou simulado_id). Nome só parecido ou
+ * repetido → a resposta lista as opções e nada é feito.
  */
 
-const campoSimulado = { simulado: z.string().trim().min(1).max(160).describe("Título (ou parte) do simulado, ou o id dele.") };
+const campoSimulado = {
+  simulado: z.string().trim().max(160).optional().describe("Título completo do simulado (título parcial ou repetido só lista as opções)."),
+  simulado_id: campoId("Id do simulado (use quando o título se repetir, ex.: dois \"Treino de dd/mm/aaaa\").").optional(),
+};
 
 /** As tentativas da conta, com o título do simulado. */
 async function tentativasDaConta(ctx: Ctx, contaId: string): Promise<TentativaAchada[]> {
@@ -25,13 +29,9 @@ async function tentativasDaConta(ctx: Ctx, contaId: string): Promise<TentativaAc
   return ts.map((t) => ({ id: t.id, simuladoId: t.simulado_id, titulo: titulo.get(t.simulado_id) ?? "(sem título)", status: t.status, iniciadaEm: t.iniciada_em }));
 }
 
-type ResultadoAjuda = { tentativa: TentativaAchada; aviso?: string } | { mensagem: string };
-
-async function acharTentativa(ctx: Ctx, conta: ContaAchada, simulado: string): Promise<ResultadoAjuda> {
-  return escolherTentativa(await tentativasDaConta(ctx, conta.id), simulado);
+async function acharTentativa(ctx: Ctx, conta: ContaAchada, args: { simulado?: string; simulado_id?: string }, status?: PedidoTentativa["status"]) {
+  return escolherTentativa(await tentativasDaConta(ctx, conta.id), { simulado: args.simulado, simuladoId: args.simulado_id, status });
 }
-
-const comAviso = (s: string, aviso?: string) => (aviso ? `${s}\n${aviso}` : s);
 
 async function notaDaTentativa(ctx: Ctx, id: string): Promise<string> {
   const { data } = await ctx.supabase.from("tentativas").select("acertos, total, porcentagem").eq("id", id).maybeSingle();
@@ -52,11 +52,11 @@ export function registrarAcoesAjuda(server: McpServer, obter: ObterCtx, perfil: 
       },
     },
     comConta(obter, perfil, "liberar_nova_tentativa", "liberar nova tentativa", async (ctx, ator, conta, args, rodar) => {
-      const r = await acharTentativa(ctx, conta, args.simulado);
+      const r = await acharTentativa(ctx, conta, args);
       if ("mensagem" in r) return r.mensagem;
       const t = r.tentativa;
       const lixeiraId = await rodar(() => liberarNovaTentativaPor(ator, t.id, args.mesmo_em_andamento === true), { tentativa_id: t.id });
-      return comAviso(`Tentativa de ${conta.nome} em "${t.titulo}" foi para a Lixeira (item ${lixeiraId}); ele já pode fazer de novo. Dá para restaurar pela Lixeira.`, r.aviso);
+      return `Tentativa de ${conta.nome} em "${t.titulo}" foi para a Lixeira (item ${lixeiraId}); ele já pode fazer de novo. Dá para restaurar pela Lixeira.`;
     }),
   );
 
@@ -68,11 +68,11 @@ export function registrarAcoesAjuda(server: McpServer, obter: ObterCtx, perfil: 
       inputSchema: { ...campoAluno, ...campoSimulado, ...campoTelefone },
     },
     comConta(obter, perfil, "encerrar_tentativa", "encerrar a tentativa", async (ctx, ator, conta, args, rodar) => {
-      const r = await acharTentativa(ctx, conta, args.simulado);
+      const r = await acharTentativa(ctx, conta, args, "em_andamento");
       if ("mensagem" in r) return r.mensagem;
       const t = r.tentativa;
       await rodar(() => encerrarTentativaPor(ator, t.id), { tentativa_id: t.id });
-      return comAviso(`Tentativa de ${conta.nome} em "${t.titulo}" entregue e corrigida.${await notaDaTentativa(ctx, t.id)}`, r.aviso);
+      return `Tentativa de ${conta.nome} em "${t.titulo}" entregue e corrigida.${await notaDaTentativa(ctx, t.id)}`;
     }),
   );
 
@@ -84,11 +84,11 @@ export function registrarAcoesAjuda(server: McpServer, obter: ObterCtx, perfil: 
       inputSchema: { ...campoAluno, ...campoSimulado, ...campoTelefone },
     },
     comConta(obter, perfil, "recorrigir_tentativa", "corrigir a tentativa de novo", async (ctx, ator, conta, args, rodar) => {
-      const r = await acharTentativa(ctx, conta, args.simulado);
+      const r = await acharTentativa(ctx, conta, args, "entregue");
       if ("mensagem" in r) return r.mensagem;
       const t = r.tentativa;
       await rodar(() => recorrigirTentativaPor(ator, t.id), { tentativa_id: t.id });
-      return comAviso(`Tentativa de ${conta.nome} em "${t.titulo}" corrigida de novo.${await notaDaTentativa(ctx, t.id)}`, r.aviso);
+      return `Tentativa de ${conta.nome} em "${t.titulo}" corrigida de novo.${await notaDaTentativa(ctx, t.id)}`;
     }),
   );
 
@@ -96,21 +96,25 @@ export function registrarAcoesAjuda(server: McpServer, obter: ObterCtx, perfil: 
     "zerar_progresso_aula",
     {
       title: "Zerar progresso de uma aula",
-      description: "Zera o progresso do aluno numa aula (o registro vai para a Lixeira; dá para restaurar). Antes, resuma e peça confirmação.",
+      description: "Zera o progresso do aluno numa aula (o registro vai para a Lixeira; dá para restaurar). Use os títulos completos (título parcial só lista as opções). Antes, resuma e peça confirmação.",
       inputSchema: {
         ...campoAluno,
-        curso: z.string().trim().min(1).max(160).describe("Título (ou parte) do curso."),
-        aula: z.string().trim().min(1).max(160).describe("Título (ou parte) da aula."),
+        curso: z.string().trim().min(1).max(160).describe("Título completo do curso."),
+        aula: z.string().trim().min(1).max(160).describe("Título completo da aula."),
         ...campoTelefone,
       },
     },
     comConta(obter, perfil, "zerar_progresso_aula", "zerar o progresso da aula", async (ctx, ator, conta, args, rodar) => {
       const cursos = await lerTodas<{ id: string; titulo: string }>((de, ate) =>
         ctx.supabase.from("cursos").select("id, titulo").eq("escola_id", conta.escolaId).order("titulo").order("id").range(de, ate));
-      const curso = escolherPorNome(cursos, (c) => c.titulo, args.curso, "Curso", "o");
+      const c = escolherPorNome(cursos, (x) => x.titulo, args.curso, "Curso", "o");
+      if ("mensagem" in c) return c.mensagem;
+      const curso = c.item;
       const aulas = await lerTodas<{ id: string; titulo: string }>((de, ate) =>
         ctx.supabase.from("aulas").select("id, titulo").eq("curso_id", curso.id).order("ordem").order("id").range(de, ate));
-      const aula = escolherPorNome(aulas, (a) => a.titulo, args.aula, "Aula", "a");
+      const a = escolherPorNome(aulas, (x) => x.titulo, args.aula, "Aula", "a");
+      if ("mensagem" in a) return a.mensagem;
+      const aula = a.item;
       const lixeiraId = await rodar(() => zerarProgressoAulaPor(ator, conta.id, aula.id), { aula_id: aula.id });
       return `Progresso de ${conta.nome} na aula "${aula.titulo}" (${curso.titulo}) zerado; o registro foi para a Lixeira (item ${lixeiraId}) e dá para restaurar.`;
     }),

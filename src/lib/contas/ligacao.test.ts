@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { alunosSemConta, escolherLinhasParaCriar, limparNome, linhaDeReferencia, nomesDeContasSemLigacao, pessoasDaReferencia, sugerirLigacoes } from "./ligacao";
+import { alunosSemConta, escolherLinhasParaCriar, limparNome, linhaDeReferencia, nomesDeContasSemLigacao, pessoasDaReferencia, sugerirLigacoes, textoJaCriadas } from "./ligacao";
+
+test("textoJaCriadas: falha no meio do lote lista quem já foi criado e pede para não repetir", () => {
+  assert.equal(textoJaCriadas([]), "Nenhuma conta foi criada.");
+  const t = textoJaCriadas(["Ana Souza", "Bruno Lima"]);
+  assert.match(t, /2 conta\(s\) já foram criadas antes deste: Ana Souza, Bruno Lima\./);
+  assert.match(t, /Não repita: essas contas já existem; use gerar_senha_provisoria para elas\./);
+});
 
 test("sugerirLigacoes: acento, espaço e maiúsculas casam (João Silva × joao  silva)", () => {
   const r = sugerirLigacoes([{ contaId: "c1", nome: "João Silva", alunoIdAtual: null }], [{ alunoId: "a1", nome: "joao  silva", jaLigado: false }]);

@@ -76,10 +76,18 @@ test("escolherConta: várias escolas → mostra a escola de cada um", () => {
   assert.match(r.mensagem, /\[Escola Teste\] Ana \(3C · 2026\)/);
 });
 
-test("escolherConta: um só → a conta; nenhum → erro", () => {
-  const r = escolherConta([conta("c1", "Ana Souza", ["1A · 2026"])], "ana", false);
+test("escolherConta: nome exato único → a conta; pelo conta_id → a conta; nenhum → erro", () => {
+  const r = escolherConta([conta("c1", "Ana Souza", ["1A · 2026"])], "ana  souza", false);
   assert.ok("conta" in r && r.conta.id === "c1");
+  const porId = escolherConta([conta("c1", "Ana Souza", ["1A · 2026"])], "c1", false, true);
+  assert.ok("conta" in porId && porId.conta.id === "c1");
   assert.throws(() => escolherConta([], "Fulano", false), /Aluno "Fulano" não encontrado\./);
+});
+
+test("escolherConta: parcial único ('Ana' → só 'Mariana Silva') → pergunta, não age", () => {
+  const r = escolherConta([conta("c9", "Mariana Silva", ["1A · 2026"])], "Ana", false);
+  assert.ok("mensagem" in r);
+  assert.match(r.mensagem, /Achei só Mariana Silva \(1A · 2026\) para "Ana"\. É esse aluno\? Nada foi feito; repita com o conta_id c9\./);
 });
 
 test("exigirAluno: precisa do nome ou do conta_id", () => {
@@ -120,37 +128,73 @@ test("escolherVinculo: sem turma, só vale se a conta estiver em uma; com turma,
   assert.throws(() => escolherVinculo([v("1A", "2026")], "3C"), /A conta não está na turma "3C"\. Turmas da conta: 1A · 2026\./);
 });
 
-test("escolherPorNome: um só; nenhum ou vários → erro com as opções", () => {
+test("escolherPorNome: exato → o item; parcial único ou vários → pergunta; nenhum → erro", () => {
   const cursos = [{ id: "c1", titulo: "Química Geral" }, { id: "c2", titulo: "Química Orgânica" }, { id: "c3", titulo: "Física" }];
-  assert.equal(escolherPorNome(cursos, (c) => c.titulo, "física", "Curso", "o").id, "c3");
-  assert.throws(() => escolherPorNome(cursos, (c) => c.titulo, "química", "Curso", "o"), /Mais de um curso com "química": Química Geral, Química Orgânica\. Diga qual\./);
+  const exato = escolherPorNome(cursos, (c) => c.titulo, "física", "Curso", "o");
+  assert.ok("item" in exato && exato.item.id === "c3");
+  const varios = escolherPorNome(cursos, (c) => c.titulo, "química", "Curso", "o");
+  assert.ok("mensagem" in varios);
+  assert.match(varios.mensagem, /Mais de um curso com "química": Química Geral, Química Orgânica\. Nada foi feito; diga qual\./);
+  const parcial = escolherPorNome(cursos, (c) => c.titulo, "orgânica", "Curso", "o");
+  assert.ok("mensagem" in parcial);
+  assert.match(parcial.mensagem, /Achei só o curso "Química Orgânica" para "orgânica"\. É esse\? Nada foi feito; repita com o título completo\./);
+  const aula = escolherPorNome([{ titulo: "Aula 1 — Átomos" }], (a) => a.titulo, "átomos", "Aula", "a");
+  assert.ok("mensagem" in aula && /Achei só a aula "Aula 1 — Átomos"/.test(aula.mensagem));
   assert.throws(() => escolherPorNome(cursos, (c) => c.titulo, "Biologia", "Aula", "a"), /Aula "Biologia" não encontrada\./);
 });
 
 // ---------- escolha da tentativa ----------
 
-test("escolherTentativa: mesmo título em dois simulados → a mais recente, dizendo qual", () => {
-  const r = escolherTentativa([
-    { id: "x1", simuladoId: "s1", titulo: "Simulado ENEM", status: "entregue", iniciadaEm: "2026-09-01T12:00:00Z" },
-    { id: "x2", simuladoId: "s2", titulo: "Simulado ENEM", status: "entregue", iniciadaEm: "2026-10-01T12:00:00Z" },
-  ], "simulado enem");
-  assert.ok("tentativa" in r);
-  assert.equal(r.tentativa.id, "x2");
-  assert.match(r.aviso ?? "", /2 tentativas em simulados chamados "Simulado ENEM"; usei a mais recente/);
+const S1 = "11111111-1111-1111-1111-111111111111";
+const S2 = "22222222-2222-2222-2222-222222222222";
+const S3 = "33333333-3333-3333-3333-333333333333";
+
+test("escolherTentativa: dois treinos com o mesmo título → lista para escolher, não age", () => {
+  const lista = [
+    { id: "x1", simuladoId: S1, titulo: "Treino de 01/10/2026", status: "entregue", iniciadaEm: "2026-10-01T12:00:00Z" },
+    { id: "x2", simuladoId: S2, titulo: "Treino de 01/10/2026", status: "entregue", iniciadaEm: "2026-10-01T15:00:00Z" },
+  ];
+  const r = escolherTentativa(lista, { simulado: "treino de 01/10/2026" });
+  assert.ok("mensagem" in r);
+  assert.match(r.mensagem, /Qual simulado\? Achei 2/);
+  assert.match(r.mensagem, new RegExp(`Treino de 01/10/2026 · entregue · iniciada em .* · simulado_id ${S1}`));
+  assert.match(r.mensagem, new RegExp(`simulado_id ${S2}`));
+  assert.match(r.mensagem, /Nada foi feito; repita com o simulado_id\./);
+  // com o simulado_id, escolhe
+  const porId = escolherTentativa(lista, { simuladoId: S1 });
+  assert.ok("tentativa" in porId && porId.tentativa.id === "x1");
 });
 
-test("escolherTentativa: títulos diferentes → lista; nenhum → erro; por id do simulado", () => {
+test("escolherTentativa: o status filtra — encerrar só vê em andamento, recorrigir só entregue", () => {
   const lista = [
-    { id: "x1", simuladoId: "11111111-1111-1111-1111-111111111111", titulo: "Simulado 1", status: "entregue", iniciadaEm: "2026-09-01T12:00:00Z" },
-    { id: "x2", simuladoId: "22222222-2222-2222-2222-222222222222", titulo: "Simulado 2", status: "em_andamento", iniciadaEm: "2026-10-01T12:00:00Z" },
+    { id: "x1", simuladoId: S1, titulo: "Simulado ENEM", status: "entregue", iniciadaEm: "2026-09-01T12:00:00Z" },
+    { id: "x2", simuladoId: S2, titulo: "Simulado ENEM", status: "em_andamento", iniciadaEm: "2026-10-01T12:00:00Z" },
   ];
-  const r = escolherTentativa(lista, "simulado");
-  assert.ok("mensagem" in r);
-  assert.match(r.mensagem, /Qual simulado\?/);
-  assert.match(r.mensagem, /Simulado 2 .*em andamento/);
-  const porId = escolherTentativa(lista, "22222222-2222-2222-2222-222222222222");
-  assert.ok("tentativa" in porId && porId.tentativa.id === "x2");
-  assert.throws(() => escolherTentativa(lista, "Química"), /O aluno não tem tentativa no simulado "Química"\./);
+  const encerrar = escolherTentativa(lista, { simulado: "Simulado ENEM", status: "em_andamento" });
+  assert.ok("tentativa" in encerrar && encerrar.tentativa.id === "x2");
+  const recorrigir = escolherTentativa(lista, { simulado: "Simulado ENEM", status: "entregue" });
+  assert.ok("tentativa" in recorrigir && recorrigir.tentativa.id === "x1");
+  // liberar aceita qualquer status → as duas → lista
+  assert.ok("mensagem" in escolherTentativa(lista, { simulado: "Simulado ENEM" }));
+  // nenhuma no status pedido
+  assert.throws(() => escolherTentativa([lista[0]], { simulado: "Simulado ENEM", status: "em_andamento" }), /O aluno não tem tentativa em andamento no simulado "Simulado ENEM"\./);
+});
+
+test("escolherTentativa: título parcial com um só resultado → pergunta, não age; exato → age", () => {
+  const lista = [{ id: "x1", simuladoId: S1, titulo: "Simulado ENEM 1º dia", status: "entregue", iniciadaEm: "2026-09-01T12:00:00Z" }];
+  const parcial = escolherTentativa(lista, { simulado: "enem" });
+  assert.ok("mensagem" in parcial);
+  assert.match(parcial.mensagem, /Achei só "Simulado ENEM 1º dia" para "enem"/);
+  assert.match(parcial.mensagem, new RegExp(`Nada foi feito; repita com o título completo ou o simulado_id ${S1}\\.`));
+  const exato = escolherTentativa(lista, { simulado: "simulado enem 1º dia" });
+  assert.ok("tentativa" in exato && exato.tentativa.id === "x1");
+});
+
+test("escolherTentativa: nenhum → erro; precisa do título ou do id", () => {
+  const lista = [{ id: "x1", simuladoId: S1, titulo: "Simulado 1", status: "entregue", iniciadaEm: "2026-09-01T12:00:00Z" }];
+  assert.throws(() => escolherTentativa(lista, { simulado: "Química" }), /O aluno não tem tentativa no simulado "Química"\./);
+  assert.throws(() => escolherTentativa(lista, { simuladoId: S3 }), /O aluno não tem tentativa nesse simulado\./);
+  assert.throws(() => escolherTentativa(lista, {}), /Informe o simulado \(título\) ou o simulado_id\./);
 });
 
 // ---------- usuário ----------

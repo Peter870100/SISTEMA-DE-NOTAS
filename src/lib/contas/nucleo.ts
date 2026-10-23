@@ -12,6 +12,7 @@ import {
   nomesDeContasSemLigacao,
   pessoasDaReferencia,
   sugerirLigacoes,
+  textoJaCriadas,
   type SugestaoLigacoes,
 } from "./ligacao";
 
@@ -153,14 +154,15 @@ export async function criarContasNaTurma(
       })
       .select("id")
       .single();
-    if (error?.code === "23505") throw new Error(`O usuário ${usuarioLimpo} já existe. Gere a prévia de novo. ${credenciais.length} conta(s) já foram criadas antes deste.`);
-    if (error || !conta) throw new Error(error?.message ?? "Falha ao criar conta.");
+    const jaCriadas = () => textoJaCriadas(credenciais.map((c) => c.nome));
+    if (error?.code === "23505") throw new Error(`O usuário ${usuarioLimpo} já existe. Gere a prévia de novo. ${jaCriadas()}`);
+    if (error || !conta) throw new Error(`${error?.message ?? "Falha ao criar conta."} ${jaCriadas()}`);
     const vinculo = { conta_id: conta.id, escola_id: ator.escola_id, turma_nome: turma.nome, ano_letivo: turma.ano_letivo, ...(alunoId ? { aluno_id: alunoId } : {}) };
     const { error: erroVinculo } = await supabase.from("aluno_turmas").insert(vinculo);
     if (erroVinculo) {
       await supabase.from("alunos_contas").delete().eq("id", conta.id);
       const motivo = alunoId && erroVinculo.code === "23505" ? `${nome.trim()} já tem conta ligada na planilha.` : `Falha ao ligar ${nome.trim()} à turma.`;
-      throw new Error(`${motivo} ${credenciais.length} conta(s) já foram criadas antes deste.`);
+      throw new Error(`${motivo} ${jaCriadas()}`);
     }
     credenciais.push({ nome: nome.trim(), usuario: usuarioLimpo, senha, turma: rotuloTurma(turma) });
   }
