@@ -5,6 +5,7 @@ import { podeImportar } from "@/lib/questoes/acesso";
 import { supabase } from "@/lib/supabase/client";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { ImportarProva } from "@/components/questoes/ImportarProva";
+import { SeloHermes } from "@/components/ui/SeloHermes";
 import ui from "@/components/ui/SecaoPainel.module.css";
 import { History } from "lucide-react";
 import type { Escopo } from "@/lib/types";
@@ -18,6 +19,7 @@ export default async function ImportarPage() {
   if (escopos.length === 0) redirect("/banco");
   let consulta = supabase.from("importacoes").select("*").order("created_at", { ascending: false }).limit(20);
   if (professor.role !== "dono") consulta = consulta.eq("escola_id", professor.escola_id);
+  // `select("*")` traz `criado_via` quando a coluna existe; sem ela, a lista só fica sem o selo.
   const { data: recentes } = await consulta;
 
   return (
@@ -32,7 +34,7 @@ export default async function ImportarPage() {
                 const faixa = i.status === "concluida" ? "boa" : i.status === "erro" ? "baixa" : "media";
                 return (
                   <li key={i.id}><Link href={`/banco/importacoes/${i.id}`} className="cartao-interativo flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-3">
-                    <span className="min-w-0 font-heading text-base font-bold uppercase text-brand">{i.banca} {i.ano ?? ""}{i.caderno ? <span className="block truncate font-sans text-xs font-semibold normal-case text-ink">{i.caderno}</span> : null}</span>
+                    <span className="min-w-0 font-heading text-base font-bold uppercase text-brand">{i.banca} {i.ano ?? ""}{i.criado_via === "hermes" && <> <SeloHermes /></>}{i.caderno ? <span className="block truncate font-sans text-xs font-semibold normal-case text-ink">{i.caderno}</span> : null}</span>
                     <span className={ui.nota} data-faixa={faixa}>{{ enviando: "Enviando", lendo: "Lendo", revisao: "Em revisão", concluida: "Concluída", erro: "Erro" }[i.status]}</span>
                   </Link></li>
                 );

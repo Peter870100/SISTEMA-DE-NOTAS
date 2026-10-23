@@ -251,6 +251,20 @@ async function situacao(importacaoId: string, avisosNovos: string[]): Promise<Si
   };
 }
 
+/**
+ * Falha no envio (ex.: Hermes não conseguiu guardar o PDF ou desenhar uma página): a importação sai de
+ * "enviando" para "erro" com a mensagem, em vez de ficar presa. Só mexe se ainda estiver enviando.
+ */
+export async function marcarErroEnvioPor(ator: AtorEscola, importacaoId: string, mensagem: string): Promise<void> {
+  await exigirImportacaoPor(ator, importacaoId);
+  const { error } = await supabase
+    .from("importacoes")
+    .update({ status: "erro", erro: mensagem.slice(0, 4000), updated_at: new Date().toISOString() })
+    .eq("id", importacaoId)
+    .eq("status", "enviando");
+  if (error) throw new Error(error.message);
+}
+
 export async function lerDeNovoPor(ator: AtorEscola, importacaoId: string): Promise<void> {
   const { importacao } = await exigirImportacaoPor(ator, importacaoId);
   if (importacao.status === "lendo") throw new Error("A leitura ainda está em andamento.");
