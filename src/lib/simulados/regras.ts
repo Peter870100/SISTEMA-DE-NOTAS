@@ -22,6 +22,18 @@ export function aceitaResposta(agora: Date, prazoEm: Date | null): boolean {
   return !prazoEm || agora.getTime() <= prazoEm.getTime() + TOLERANCIA_SEG * 1000;
 }
 
+export const RECUSA_EM_ANDAMENTO = "O aluno está fazendo a prova agora; encerre antes.";
+
+/**
+ * Pode liberar nova tentativa? Recusa (mensagem) quando a tentativa está em andamento e o aluno ainda
+ * pode estar respondendo: prazo no futuro (com a tolerância de sempre) ou sem prazo (treino). Só passa
+ * com o pedido explícito `mesmoEmAndamento`. Entregue ou com prazo vencido → null (pode).
+ */
+export function regraNovaTentativa(t: { status: string; prazo_em: string | null }, agora: Date, mesmoEmAndamento: boolean): string | null {
+  if (t.status !== "em_andamento" || mesmoEmAndamento) return null;
+  return aceitaResposta(agora, t.prazo_em ? new Date(t.prazo_em) : null) ? RECUSA_EM_ANDAMENTO : null;
+}
+
 /** Soma o tempo desde o último pulso, no máximo 20 s (lacunas maiores = página fechada/pausada). */
 export function acumularTempo(tempoUsadoSeg: number, ultimoPulso: Date | null, agora: Date): number {
   if (!ultimoPulso) return tempoUsadoSeg;

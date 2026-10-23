@@ -5,16 +5,17 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual } from "@/lib/auth";
-import { exigirAdminDaEscola, exigirTurmaDaEscola } from "@/lib/escola-acesso";
-import { mesmaEscola } from "@/lib/escola-regras";
+import { exigirAdminDaEscola } from "@/lib/escola-acesso";
 import { normalizarCodigo } from "@/lib/codigo-convite";
-import { gerarSenhaProvisoria, normalizarIdentificador } from "@/lib/contas-aluno";
+import { normalizarIdentificador } from "@/lib/contas-aluno";
 import {
   alunosSemContaDoGrupoPor,
   aplicarLigacoesPor,
   criarContasDaPlanilhaPor,
-  criarContasNaTurma,
+  criarContasPor,
+  definirContaAtivaPor,
   ligarContaPor,
+  novaSenhaPor,
   previaContasDaPlanilhaPor,
   previaLigacoesPorNomePor,
   sugerirUsuarios,
@@ -118,11 +119,6 @@ export type VinculoContaAdmin = { turmaId: string; rotulo: string; alunoNome: st
 export type ContaAlunoAdmin = { id: string; nome: string; usuario: string | null; email: string | null; ativo: boolean; ultimo_acesso: string | null; turmas: string[]; vinculos: VinculoContaAdmin[] };
 export type CredencialGerada = Credencial;
 
-async function contaDaMinhaEscola(contaId: string, escolaId: string): Promise<void> {
-  const { data } = await supabase.from("alunos_contas").select("escola_id").eq("id", contaId).maybeSingle();
-  if (!data || !mesmaEscola(data, escolaId)) throw new Error("Conta não encontrada.");
-}
-
 export async function listarContasAluno(): Promise<ContaAlunoAdmin[]> {
   const admin = await exigirAdminDaEscola();
   const [{ data: contas }, { data: vinculos }, { data: turmasEscola }] = await Promise.all([
@@ -175,10 +171,7 @@ async function atorAdmin(): Promise<AtorEscola> {
 }
 
 export async function criarContasAluno(turmaId: string, alunos: { nome: string; usuario: string }[]): Promise<CredencialGerada[]> {
-  const admin = await exigirAdminDaEscola();
-  const turma = await exigirTurmaDaEscola(admin, turmaId).catch(() => null);
-  if (!turma) throw new Error("Turma não encontrada.");
-  return criarContasNaTurma(atorDoAdmin(admin), turma, alunos.map(({ nome, usuario }) => ({ nome, usuario })));
+  return criarContasPor(await atorAdmin(), turmaId, alunos.map(({ nome, usuario }) => ({ nome: String(nome), usuario: String(usuario) })));
 }
 
 /** Alunos da planilha da turma (bimestre vigente) ainda sem conta ligada, com o usuário sugerido. */
@@ -211,17 +204,9 @@ export async function ligarConta(contaId: string, turmaId: string, alunoId: stri
 }
 
 export async function definirContaAtiva(contaId: string, ativo: boolean): Promise<void> {
-  const admin = await exigirAdminDaEscola();
-  await contaDaMinhaEscola(contaId, admin.escola_id);
-  const { error } = await supabase.from("alunos_contas").update({ ativo }).eq("id", contaId);
-  if (error) throw new Error(error.message);
+  return definirContaAtivaPor(await atorAdmin(), contaId, ativo);
 }
 
 export async function novaSenhaAlunoPeloAdmin(contaId: string): Promise<string> {
-  const admin = await exigirAdminDaEscola();
-  await contaDaMinhaEscola(contaId, admin.escola_id);
-  const senha = gerarSenhaProvisoria();
-  const { error } = await supabase.from("alunos_contas").update({ senha_hash: await bcrypt.hash(senha, 10), senha_provisoria: true, email_verificado: true }).eq("id", contaId);
-  if (error) throw new Error(error.message);
-  return senha;
+  return novaSenhaPor(await atorAdmin(), contaId);
 }

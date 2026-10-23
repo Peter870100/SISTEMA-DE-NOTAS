@@ -167,6 +167,120 @@ export async function criarContasNaTurma(
   return credenciais;
 }
 
+/** Lote por nomes digitados (a tela "Contas de alunos" de sempre); pela Hermes, `criado_via = 'hermes'`. */
+export async function criarContasPor(ator: AtorEscola, turmaId: string, alunos: { nome: string; usuario: string }[]): Promise<CredencialGerada[]> {
+  const grupo = await grupoDaTurmaId(ator, turmaId);
+  return criarContasNaTurma(ator, { nome: grupo.turmaNome, ano_letivo: grupo.anoLetivo }, alunos.map(({ nome, usuario }) => ({ nome, usuario })));
+}
+
+/** Confere que a conta é da escola do ator; outra escola → "Conta não encontrada.". */
+async function exigirContaDaEscola(ator: AtorEscola, contaId: string): Promise<void> {
+  const { data, error } = await supabase.from("alunos_contas").select("escola_id").eq("id", contaId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data || !mesmaEscola(data, ator.escola_id)) throw new Error(ERRO_CONTA);
+}
+
+/** Bloqueia (`false`) ou desbloqueia (`true`) a conta. */
+export async function definirContaAtivaPor(ator: AtorEscola, contaId: string, ativo: boolean): Promise<void> {
+  await exigirContaDaEscola(ator, contaId);
+  const { error } = await supabase.from("alunos_contas").update({ ativo }).eq("id", contaId);
+  if (error) throw new Error(error.message);
+}
+
+/** Gera e grava uma senha provisória nova; a senha só volta aqui (nunca é gravada em claro). */
+export async function novaSenhaPor(ator: AtorEscola, contaId: string): Promise<string> {
+  await exigirContaDaEscola(ator, contaId);
+  const senha = gerarSenhaProvisoria();
+  const { error } = await supabase.from("alunos_contas").update({ senha_hash: await bcrypt.hash(senha, 10), senha_provisoria: true, email_verificado: true }).eq("id", contaId);
+  if (error) throw new Error(error.message);
+  return senha;
+}
+
+/** Corrige o nome e/ou o usuário da conta (usuário: minúsculas, números e ponto; único). */
+export async function editarContaPor(ator: AtorEscola, contaId: string, campos: { nome?: string; usuario?: string }): Promise<{ nome: string; usuario: string | null }> {
+  await exigirContaDaEscola(ator, contaId);
+  const mudar: { nome?: string; usuario?: string } = {};
+  if (campos.nome !== undefined) {
+    const nome = limparNome(campos.nome);
+    if (!nome) throw new Error("Informe o nome.");
+    mudar.nome = nome;
+  }
+  if (campos.usuario !== undefined) {
+    const usuario = campos.usuario.trim().toLowerCase();
+    if (!/^[a-z0-9.]+$/.test(usuario)) throw new Error("Usuário inválido: use só letras minúsculas, números e ponto.");
+    mudar.usuario = usuario;
+  }
+  if (Object.keys(mudar).length === 0) throw new Error("Nada para alterar: informe o nome ou o usuário.");
+  const { data, error } = await supabase.from("alunos_contas").update(mudar).eq("id", contaId).select("nome, usuario").single();
+  if (error?.code === "23505") throw new Error("Esse usuário já existe.");
+  if (error || !data) throw new Error(error?.message ?? ERRO_CONTA);
+  return { nome: data.nome, usuario: data.usuario };
+}
+
+type TurmaPedida = { turma_nome: string; ano_letivo: string };
+
+/**
+ * Inclui e/ou remove turmas da conta (trocar = remover uma e incluir outra). Toda turma a incluir
+ * precisa existir na escola (e estar liberada para o ator); tudo é validado antes de gravar. Remover
+ * apaga a linha de `aluno_turmas`, e a ligação com a planilha daquela turma vai junto. A conta pode
+ * ficar sem turma, com aviso.
+ */
+export async function turmasDaContaPor(
+  ator: AtorEscola,
+  contaId: string,
+  pedido: { incluir?: TurmaPedida[]; remover?: TurmaPedida[] },
+): Promise<{ incluidas: string[]; removidas: string[]; avisos: string[] }> {
+  await exigirContaDaEscola(ator, contaId);
+  const limpar = (t: TurmaPedida): TurmaPedida => ({ turma_nome: String(t.turma_nome ?? "").trim(), ano_letivo: String(t.ano_letivo ?? "").trim() });
+  const incluir = (pedido.incluir ?? []).map(limpar);
+  const remover = (pedido.remover ?? []).map(limpar);
+  if (incluir.length === 0 && remover.length === 0) throw new Error("Nada para alterar: informe as turmas a incluir ou a remover.");
+
+  for (const t of incluir) {
+    const { data, error } = await supabase.from("turmas").select("escola_id, nome").eq("escola_id", ator.escola_id).eq("nome", t.turma_nome).eq("ano_letivo", t.ano_letivo).limit(1);
+    if (error) throw new Error(error.message);
+    const turma = data?.[0];
+    if (!turma || !podeAcessarTurma(ator, turma, ator.turmas)) throw new Error(`Turma não encontrada: ${rotuloTurma({ nome: t.turma_nome, ano_letivo: t.ano_letivo })}. Nada foi alterado.`);
+  }
+  for (const t of remover) {
+    if (ator.turmas && !ator.turmas.has(t.turma_nome)) throw new Error(`Turma não encontrada: ${rotuloTurma({ nome: t.turma_nome, ano_letivo: t.ano_letivo })}. Nada foi alterado.`);
+  }
+
+  const avisos: string[] = [];
+  const removidas: string[] = [];
+  for (const t of remover) {
+    const rotulo = rotuloTurma({ nome: t.turma_nome, ano_letivo: t.ano_letivo });
+    const { data, error } = await supabase
+      .from("aluno_turmas")
+      .delete()
+      .eq("conta_id", contaId)
+      .eq("escola_id", ator.escola_id)
+      .eq("turma_nome", t.turma_nome)
+      .eq("ano_letivo", t.ano_letivo)
+      .select("conta_id");
+    if (error) throw new Error(`${error.message} ${removidas.length} turma(s) já foram removidas antes desta.`);
+    if (!data || data.length === 0) avisos.push(`A conta não estava na turma ${rotulo}.`);
+    else removidas.push(rotulo);
+  }
+
+  const incluidas: string[] = [];
+  for (const t of incluir) {
+    const rotulo = rotuloTurma({ nome: t.turma_nome, ano_letivo: t.ano_letivo });
+    const { data, error } = await supabase
+      .from("aluno_turmas")
+      .upsert({ conta_id: contaId, escola_id: ator.escola_id, turma_nome: t.turma_nome, ano_letivo: t.ano_letivo }, { onConflict: "conta_id,turma_nome,ano_letivo", ignoreDuplicates: true })
+      .select("conta_id");
+    if (error) throw new Error(`${error.message} Removidas: ${removidas.length}; incluídas antes desta: ${incluidas.length}.`);
+    if (!data || data.length === 0) avisos.push(`A conta já estava na turma ${rotulo}.`);
+    else incluidas.push(rotulo);
+  }
+
+  const { count, error: erroContagem } = await supabase.from("aluno_turmas").select("conta_id", { count: "exact", head: true }).eq("conta_id", contaId);
+  if (erroContagem) throw new Error(erroContagem.message);
+  if (count === 0) avisos.push("A conta ficou sem turma: o aluno não vê simulados nem cursos de turma até ser incluído em uma.");
+  return { incluidas, removidas, avisos };
+}
+
 export type LinhaPreviaPlanilha = {
   nome: string;
   usuario: string;
