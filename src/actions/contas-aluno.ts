@@ -18,8 +18,10 @@ import {
   previaLigacoesPorNomePor,
   sugerirUsuarios,
   type CredencialGerada as Credencial,
+  type LinhaPreviaPlanilha,
   type PreviaLigacoes,
 } from "@/lib/contas/nucleo";
+import { limparNome } from "@/lib/contas/ligacao";
 import type { AtorEscola } from "@/lib/simulados/ator";
 import type { Professor } from "@/lib/types";
 import { enviarEmailVerificacao } from "@/lib/email";
@@ -132,7 +134,7 @@ export async function listarContasAluno(): Promise<ContaAlunoAdmin[]> {
 
 export async function prepararLote(nomes: string[]): Promise<{ nome: string; usuario: string }[]> {
   await exigirAdminDaEscola();
-  const limpos = nomes.map((n) => n.trim().replace(/s+/g, " ")).filter(Boolean);
+  const limpos = nomes.map(limparNome).filter(Boolean);
   const usuarios = await sugerirUsuarios(limpos);
   return limpos.map((nome, i) => ({ nome, usuario: usuarios[i] }));
 }
@@ -154,12 +156,12 @@ export async function criarContasAluno(turmaId: string, alunos: { nome: string; 
 }
 
 /** Alunos da planilha da turma (bimestre vigente) ainda sem conta ligada, com o usuário sugerido. */
-export async function previaContasDaPlanilha(turmaId: string): Promise<{ nome: string; usuario: string; alunoId: string }[]> {
+export async function previaContasDaPlanilha(turmaId: string): Promise<LinhaPreviaPlanilha[]> {
   return previaContasDaPlanilhaPor(await atorAdmin(), turmaId);
 }
 
-/** Cria as contas com o nome da planilha e já ligadas; quem já tem conta ligada é ignorado. */
-export async function criarContasDaPlanilha(turmaId: string, linhas: { alunoId: string; usuario: string }[]): Promise<CredencialGerada[]> {
+/** Cria as contas com o nome da planilha e já ligadas; quem já tem conta ligada é ignorado (`ignorados`). */
+export async function criarContasDaPlanilha(turmaId: string, linhas: { alunoId: string; usuario: string }[]): Promise<{ credenciais: CredencialGerada[]; ignorados: string[] }> {
   return criarContasDaPlanilhaPor(await atorAdmin(), turmaId, linhas.map(({ alunoId, usuario }) => ({ alunoId: String(alunoId), usuario: String(usuario) })));
 }
 
@@ -172,9 +174,9 @@ export async function aplicarLigacoes(turmaId: string, pares: { contaId: string;
   return aplicarLigacoesPor(await atorAdmin(), turmaId, pares.map(({ contaId, alunoId }) => ({ contaId: String(contaId), alunoId: String(alunoId) })));
 }
 
-/** Liga a conta à mão a uma linha da planilha, ou desliga com null. */
-export async function ligarConta(contaId: string, alunoId: string | null): Promise<void> {
-  return ligarContaPor(await atorAdmin(), contaId, alunoId);
+/** Liga a conta à mão a uma linha da planilha da turma, ou desliga só nesta turma com null. */
+export async function ligarConta(contaId: string, turmaId: string, alunoId: string | null): Promise<void> {
+  return ligarContaPor(await atorAdmin(), contaId, turmaId, alunoId);
 }
 
 export async function definirContaAtiva(contaId: string, ativo: boolean): Promise<void> {

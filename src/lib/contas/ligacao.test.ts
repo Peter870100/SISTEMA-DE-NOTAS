@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { alunosSemConta, escolherLinhasParaCriar, linhaDeReferencia, sugerirLigacoes } from "./ligacao";
+import { alunosSemConta, escolherLinhasParaCriar, limparNome, linhaDeReferencia, nomesDeContasSemLigacao, pessoasDaReferencia, sugerirLigacoes } from "./ligacao";
 
 test("sugerirLigacoes: acento, espaço e maiúsculas casam (João Silva × joao  silva)", () => {
   const r = sugerirLigacoes([{ contaId: "c1", nome: "João Silva", alunoIdAtual: null }], [{ alunoId: "a1", nome: "joao  silva", jaLigado: false }]);
@@ -104,7 +104,66 @@ test("escolherLinhasParaCriar: rodar duas vezes não cria de novo para quem já 
   ]);
   const segunda = escolherLinhasParaCriar(pedidas, alunos, new Set(["a1", "a2"]));
   assert.deepEqual(segunda.criar, []);
-  assert.deepEqual(segunda.ignorados, ["Ana  Lima", "Bruno"]);
+  assert.deepEqual(segunda.ignorados, ["Ana Lima", "Bruno"]);
+});
+
+test("limparNome: tira espaços das pontas e repetidos, sem mexer nas letras", () => {
+  assert.equal(limparNome("  Ana   Souza "), "Ana Souza");
+  assert.equal(limparNome("Vanessa"), "Vanessa");
+  assert.equal(limparNome("Sassá\tSilva"), "Sassá Silva");
+});
+
+test("pessoasDaReferencia: conta ligada à linha do 1º bimestre conta como ligada quando o 2º é o vigente", () => {
+  const linhas = [
+    { turmaId: "b1", alunoId: "a1-1", nome: "Ana Lima" },
+    { turmaId: "b1", alunoId: "b1-1", nome: "Bruno" },
+    { turmaId: "b2", alunoId: "a1-2", nome: "ana  lima" },
+    { turmaId: "b2", alunoId: "b1-2", nome: "Bruno" },
+  ];
+  const pessoas = pessoasDaReferencia(linhas, "b2", new Map([["a1-1", "conta-ana"]]));
+  assert.deepEqual(pessoas, [
+    { alunoId: "a1-2", nome: "ana  lima", contas: ["conta-ana"] },
+    { alunoId: "b1-2", nome: "Bruno", contas: [] },
+  ]);
+  // Sem duplicar: a prévia de criação e a de ligação só oferecem o Bruno.
+  const ligados = new Set(pessoas.filter((p) => p.contas.length > 0).map((p) => p.alunoId));
+  assert.deepEqual(alunosSemConta(pessoas, ligados).map((p) => p.alunoId), ["b1-2"]);
+  const criar = escolherLinhasParaCriar([{ alunoId: "a1-2", usuario: "ana.lima" }], pessoas, ligados);
+  assert.deepEqual(criar.criar, []);
+  assert.deepEqual(criar.ignorados, ["ana lima"]);
+  const sugestao = sugerirLigacoes(
+    [{ contaId: "conta-ana2", nome: "Ana Lima", alunoIdAtual: null }],
+    pessoas.map((p) => ({ alunoId: p.alunoId, nome: p.nome, jaLigado: p.contas.length > 0 })),
+  );
+  assert.deepEqual(sugestao.ligar, []);
+});
+
+test("pessoasDaReferencia: nome repetido numa turma não junta entre bimestres", () => {
+  const linhas = [
+    { turmaId: "b1", alunoId: "p1", nome: "Pedro" },
+    { turmaId: "b1", alunoId: "p2", nome: "Pedro" },
+    { turmaId: "b2", alunoId: "p3", nome: "Pedro" },
+  ];
+  assert.deepEqual(pessoasDaReferencia(linhas, "b2", new Map([["p1", "c1"]])), [{ alunoId: "p3", nome: "Pedro", contas: [] }]);
+  const linhasRef = [
+    { turmaId: "b1", alunoId: "p1", nome: "Pedro" },
+    { turmaId: "b2", alunoId: "p3", nome: "Pedro" },
+    { turmaId: "b2", alunoId: "p4", nome: "Pedro" },
+  ];
+  assert.deepEqual(
+    pessoasDaReferencia(linhasRef, "b2", new Map([["p1", "c1"]])).map((p) => p.contas),
+    [[], []],
+  );
+});
+
+test("nomesDeContasSemLigacao: só as contas sem ligação, normalizadas", () => {
+  assert.deepEqual(
+    [...nomesDeContasSemLigacao([
+      { nome: "João Silva", alunoIdAtual: null },
+      { nome: "Maria", alunoIdAtual: "a1" },
+    ])],
+    ["joao silva"],
+  );
 });
 
 test("escolherLinhasParaCriar: nome vem da planilha, id repetido conta uma vez e id de fora é desconhecido", () => {

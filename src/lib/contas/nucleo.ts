@@ -1,9 +1,19 @@
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
 import { gerarSenhaProvisoria, sugerirUsuario } from "@/lib/contas-aluno";
+import { normalizarBusca } from "@/lib/hermes/relatorios";
 import { mesmaEscola, podeAcessarTurma } from "@/lib/escola-regras";
 import type { AtorEscola } from "@/lib/simulados/ator";
-import { alunosSemConta, escolherLinhasParaCriar, linhaDeReferencia, sugerirLigacoes, type SugestaoLigacoes } from "./ligacao";
+import {
+  alunosSemConta,
+  escolherLinhasParaCriar,
+  limparNome,
+  linhaDeReferencia,
+  nomesDeContasSemLigacao,
+  pessoasDaReferencia,
+  sugerirLigacoes,
+  type SugestaoLigacoes,
+} from "./ligacao";
 
 /**
  * Núcleo das contas de aluno com quem age explícito (`AtorEscola`): a tela passa o admin logado e a
@@ -16,6 +26,9 @@ type TurmaDoGrupo = { id: string; nome: string; ano_letivo: string; bimestre: st
 
 /** Turma (escola + nome + ano letivo) com os bimestres e a linha de referência (vigente, senão o último). */
 export type GrupoTurma = { escolaId: string; turmaNome: string; anoLetivo: string; bimestres: TurmaDoGrupo[]; referenciaId: string };
+
+/** Pessoa da planilha (linha de referência, não transferida) com as contas ligadas a qualquer linha dela. */
+type Pessoa = { alunoId: string; nome: string; contas: string[]; jaLigado: boolean };
 
 const ERRO_TURMA = "Turma não encontrada.";
 const ERRO_CONTA = "Conta não encontrada.";
@@ -43,21 +56,30 @@ export async function grupoDaTurmaId(ator: AtorEscola, turmaId: string): Promise
   return { escolaId: turma.escola_id, turmaNome: turma.nome, anoLetivo: turma.ano_letivo, bimestres: lista, referenciaId };
 }
 
-/** Alunos (não transferidos) da linha de referência do grupo, com quem já tem conta ligada. */
-async function alunosDaReferencia(grupo: GrupoTurma): Promise<{ alunoId: string; nome: string; jaLigado: boolean }[]> {
-  const { data: alunos, error } = await supabase.from("alunos").select("id, nome, transferido_em").eq("turma_id", grupo.referenciaId).order("ordem");
+/**
+ * As pessoas da turma (linhas não transferidas do bimestre de referência). "Já tem conta" é decidido
+ * por pessoa: conta ligada a qualquer linha dela em qualquer bimestre do grupo.
+ */
+async function pessoasDoGrupo(grupo: GrupoTurma): Promise<Pessoa[]> {
+  const turmaIds = grupo.bimestres.map((b) => b.id);
+  if (!turmaIds.includes(grupo.referenciaId)) turmaIds.push(grupo.referenciaId);
+  const { data: alunos, error } = await supabase.from("alunos").select("id, turma_id, nome, transferido_em").in("turma_id", turmaIds).order("ordem");
   if (error) throw new Error(error.message);
-  const ativos = (alunos ?? []).filter((a) => !a.transferido_em);
-  const ligados = await alunosLigados(ativos.map((a) => a.id));
-  return ativos.map((a) => ({ alunoId: a.id, nome: a.nome, jaLigado: ligados.has(a.id) }));
-}
-
-/** Ids de linhas da planilha que já estão ligadas a alguma conta. */
-async function alunosLigados(alunoIds: string[]): Promise<Set<string>> {
-  if (alunoIds.length === 0) return new Set();
-  const { data, error } = await supabase.from("aluno_turmas").select("aluno_id").in("aluno_id", alunoIds);
-  if (error) throw new Error(error.message);
-  return new Set((data ?? []).map((l) => l.aluno_id as string).filter(Boolean));
+  const linhas = alunos ?? [];
+  const contaPorAluno = new Map<string, string>();
+  if (linhas.length > 0) {
+    const { data: vinculos, error: erroVinc } = await supabase.from("aluno_turmas").select("conta_id, aluno_id").in("aluno_id", linhas.map((a) => a.id));
+    if (erroVinc) throw new Error(erroVinc.message);
+    for (const v of vinculos ?? []) if (v.aluno_id) contaPorAluno.set(v.aluno_id as string, v.conta_id as string);
+  }
+  const transferidos = new Set(linhas.filter((a) => a.transferido_em).map((a) => a.id as string));
+  return pessoasDaReferencia(
+    linhas.map((a) => ({ turmaId: a.turma_id as string, alunoId: a.id as string, nome: a.nome as string })),
+    grupo.referenciaId,
+    contaPorAluno,
+  )
+    .filter((p) => !transferidos.has(p.alunoId))
+    .map((p) => ({ ...p, jaLigado: p.contas.length > 0 }));
 }
 
 /** Contas (desta escola) que estão na turma do grupo, com a ligação atual. */
@@ -145,26 +167,40 @@ export async function criarContasNaTurma(
   return credenciais;
 }
 
-/** Alunos da planilha (linha de referência) ainda sem conta ligada, com o usuário sugerido. */
-export async function previaContasDaPlanilhaPor(ator: AtorEscola, turmaId: string): Promise<{ nome: string; usuario: string; alunoId: string }[]> {
+export type LinhaPreviaPlanilha = {
+  nome: string;
+  usuario: string;
+  alunoId: string;
+  /** Há na turma uma conta sem ligação com o mesmo nome: melhor "Ligar pelo nome" antes de criar. */
+  possivelContaExistente: boolean;
+};
+
+/** Pessoas da planilha ainda sem conta ligada, com o usuário sugerido. */
+export async function previaContasDaPlanilhaPor(ator: AtorEscola, turmaId: string): Promise<LinhaPreviaPlanilha[]> {
   const grupo = await grupoDaTurmaId(ator, turmaId);
-  const alunos = await alunosDaReferencia(grupo);
-  const semConta = alunosSemConta(alunos, new Set(alunos.filter((a) => a.jaLigado).map((a) => a.alunoId)));
-  const nomes = semConta.map((a) => a.nome.trim().replace(/\s+/g, " "));
+  const [pessoas, contas] = await Promise.all([pessoasDoGrupo(grupo), contasDoGrupo(grupo)]);
+  const semConta = alunosSemConta(pessoas, new Set(pessoas.filter((p) => p.jaLigado).map((p) => p.alunoId)));
+  const nomesContasLivres = nomesDeContasSemLigacao(contas);
+  const nomes = semConta.map((p) => limparNome(p.nome));
   const usuarios = await sugerirUsuarios(nomes);
-  return semConta.map((a, i) => ({ nome: nomes[i], usuario: usuarios[i], alunoId: a.alunoId }));
+  return semConta.map((p, i) => ({ nome: nomes[i], usuario: usuarios[i], alunoId: p.alunoId, possivelContaExistente: nomesContasLivres.has(normalizarBusca(p.nome)) }));
 }
 
 /**
  * Cria as contas dos alunos escolhidos da planilha, com o nome da planilha (o cliente só manda o id e o
- * usuário) e já ligadas à linha de referência. Quem já tem conta ligada é ignorado.
+ * usuário) e já ligadas à linha de referência. Quem já tem conta ligada é ignorado (`ignorados`).
  */
-export async function criarContasDaPlanilhaPor(ator: AtorEscola, turmaId: string, linhas: { alunoId: string; usuario: string }[]): Promise<CredencialGerada[]> {
+export async function criarContasDaPlanilhaPor(
+  ator: AtorEscola,
+  turmaId: string,
+  linhas: { alunoId: string; usuario: string }[],
+): Promise<{ credenciais: CredencialGerada[]; ignorados: string[] }> {
   const grupo = await grupoDaTurmaId(ator, turmaId);
-  const alunos = await alunosDaReferencia(grupo);
-  const escolha = escolherLinhasParaCriar(linhas, alunos, new Set(alunos.filter((a) => a.jaLigado).map((a) => a.alunoId)));
+  const pessoas = await pessoasDoGrupo(grupo);
+  const escolha = escolherLinhasParaCriar(linhas, pessoas, new Set(pessoas.filter((p) => p.jaLigado).map((p) => p.alunoId)));
   if (escolha.desconhecidos.length > 0) throw new Error("Aluno não encontrado na planilha desta turma. Gere a prévia de novo. Nenhuma conta foi criada.");
-  return criarContasNaTurma(ator, { nome: grupo.turmaNome, ano_letivo: grupo.anoLetivo }, escolha.criar);
+  const credenciais = await criarContasNaTurma(ator, { nome: grupo.turmaNome, ano_letivo: grupo.anoLetivo }, escolha.criar);
+  return { credenciais, ignorados: escolha.ignorados };
 }
 
 export type PreviaLigacoes = Omit<SugestaoLigacoes, "ligar"> & { ligar: { contaId: string; alunoId: string; nomeConta: string; nomeAluno: string }[] };
@@ -172,48 +208,54 @@ export type PreviaLigacoes = Omit<SugestaoLigacoes, "ligar"> & { ligar: { contaI
 /** O que "Ligar pelo nome" faria nesta turma (só casamentos únicos dos dois lados). */
 export async function previaLigacoesPorNomePor(ator: AtorEscola, turmaId: string): Promise<PreviaLigacoes> {
   const grupo = await grupoDaTurmaId(ator, turmaId);
-  const [contas, alunos] = await Promise.all([contasDoGrupo(grupo), alunosDaReferencia(grupo)]);
-  const sugestao = sugerirLigacoes(contas, alunos);
+  const [contas, pessoas] = await Promise.all([contasDoGrupo(grupo), pessoasDoGrupo(grupo)]);
+  const sugestao = sugerirLigacoes(contas, pessoas);
   const nomeConta = new Map(contas.map((c) => [c.contaId, c.nome]));
-  const nomeAluno = new Map(alunos.map((a) => [a.alunoId, a.nome]));
+  const nomeAluno = new Map(pessoas.map((p) => [p.alunoId, p.nome]));
   return {
     ...sugestao,
     ligar: sugestao.ligar.map((p) => ({ ...p, nomeConta: nomeConta.get(p.contaId) ?? "", nomeAluno: nomeAluno.get(p.alunoId) ?? "" })),
   };
 }
 
-/** Grava a ligação de uma conta com uma linha da planilha, numa turma; traduz a violação do índice único. */
-async function gravarLigacao(contaId: string, grupo: GrupoTurma, alunoId: string): Promise<void> {
-  const { error } = await supabase
+/**
+ * Grava (ou limpa, com null) a ligação de uma conta numa turma; traduz a violação do índice único e
+ * confere que alguma linha foi mesmo alterada.
+ */
+async function gravarLigacao(contaId: string, grupo: GrupoTurma, alunoId: string | null): Promise<void> {
+  const { data, error } = await supabase
     .from("aluno_turmas")
     .update({ aluno_id: alunoId })
     .eq("conta_id", contaId)
     .eq("escola_id", grupo.escolaId)
     .eq("turma_nome", grupo.turmaNome)
-    .eq("ano_letivo", grupo.anoLetivo);
+    .eq("ano_letivo", grupo.anoLetivo)
+    .select("conta_id");
   if (error?.code === "23505") throw new Error(ERRO_LINHA_OCUPADA);
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error(`A conta não está na turma ${grupo.turmaNome} · ${grupo.anoLetivo}.`);
 }
 
 /**
  * Aplica os pares (conta, aluno) da prévia, revalidando cada um: a conta está nesta turma e sem
- * ligação, o aluno é da linha de referência e sem conta, e nada se repete. Valida tudo antes de gravar.
+ * ligação, o aluno é da linha de referência e a pessoa não tem conta, e nada se repete. Valida tudo
+ * antes de gravar.
  */
 export async function aplicarLigacoesPor(ator: AtorEscola, turmaId: string, pares: { contaId: string; alunoId: string }[]): Promise<{ ligadas: number }> {
   const grupo = await grupoDaTurmaId(ator, turmaId);
-  const [contas, alunos] = await Promise.all([contasDoGrupo(grupo), alunosDaReferencia(grupo)]);
+  const [contas, pessoas] = await Promise.all([contasDoGrupo(grupo), pessoasDoGrupo(grupo)]);
   const contaPorId = new Map(contas.map((c) => [c.contaId, c]));
-  const alunoPorId = new Map(alunos.map((a) => [a.alunoId, a]));
+  const pessoaPorId = new Map(pessoas.map((p) => [p.alunoId, p]));
   const contasVistas = new Set<string>();
   const alunosVistos = new Set<string>();
   const problemas: string[] = [];
   for (const { contaId, alunoId } of pares) {
     const conta = contaPorId.get(contaId);
-    const aluno = alunoPorId.get(alunoId);
+    const pessoa = pessoaPorId.get(alunoId);
     if (!conta) problemas.push("conta que não está nesta turma");
     else if (conta.alunoIdAtual) problemas.push(`${conta.nome} (já está ligada)`);
-    else if (!aluno) problemas.push(`${conta.nome} (aluno não encontrado na planilha desta turma)`);
-    else if (aluno.jaLigado) problemas.push(`${aluno.nome} (já tem conta ligada)`);
+    else if (!pessoa) problemas.push(`${conta.nome} (aluno não encontrado na planilha desta turma)`);
+    else if (pessoa.jaLigado) problemas.push(`${pessoa.nome} (já tem conta ligada)`);
     else if (contasVistas.has(contaId) || alunosVistos.has(alunoId)) problemas.push(`${conta.nome} (repetido no pedido)`);
     contasVistas.add(contaId);
     alunosVistos.add(alunoId);
@@ -233,37 +275,22 @@ export async function aplicarLigacoesPor(ator: AtorEscola, turmaId: string, pare
 }
 
 /**
- * Liga uma conta, à mão, a uma linha da planilha (precisa ser da linha de referência de uma turma em
- * que a conta está), ou desliga de todas com `null`.
+ * Liga uma conta, à mão, a uma linha da planilha na turma indicada (a linha precisa ser do bimestre de
+ * referência), ou desliga só nesta turma com `null`. Se a conta já estava ligada à mesma pessoa numa
+ * linha de bimestre antigo, a ligação passa para a linha de referência.
  */
-export async function ligarContaPor(ator: AtorEscola, contaId: string, alunoId: string | null): Promise<void> {
+export async function ligarContaPor(ator: AtorEscola, contaId: string, turmaId: string, alunoId: string | null): Promise<void> {
   const { data: conta } = await supabase.from("alunos_contas").select("escola_id").eq("id", contaId).maybeSingle();
   if (!conta || !mesmaEscola(conta, ator.escola_id)) throw new Error(ERRO_CONTA);
+  const grupo = await grupoDaTurmaId(ator, turmaId);
 
   if (alunoId === null) {
-    let consulta = supabase.from("aluno_turmas").update({ aluno_id: null }).eq("conta_id", contaId).eq("escola_id", ator.escola_id);
-    if (ator.turmas) consulta = consulta.in("turma_nome", [...ator.turmas]);
-    const { error } = await consulta;
-    if (error) throw new Error(error.message);
+    await gravarLigacao(contaId, grupo, null);
     return;
   }
 
-  const { data: aluno } = await supabase.from("alunos").select("id, turma_id, transferido_em").eq("id", alunoId).maybeSingle();
-  if (!aluno) throw new Error("Aluno não encontrado.");
-  const grupo = await grupoDaTurmaId(ator, aluno.turma_id).catch(() => null);
-  if (!grupo) throw new Error("Aluno não encontrado.");
-  if (aluno.turma_id !== grupo.referenciaId || aluno.transferido_em) throw new Error("Ligue a conta à linha do aluno no bimestre vigente da turma.");
-
-  const { data: vinculo } = await supabase
-    .from("aluno_turmas")
-    .select("aluno_id")
-    .eq("conta_id", contaId)
-    .eq("escola_id", grupo.escolaId)
-    .eq("turma_nome", grupo.turmaNome)
-    .eq("ano_letivo", grupo.anoLetivo)
-    .maybeSingle();
-  if (!vinculo) throw new Error(`A conta não está na turma ${grupo.turmaNome} · ${grupo.anoLetivo}.`);
-  if (vinculo.aluno_id === alunoId) return;
-  if ((await alunosLigados([alunoId])).size > 0) throw new Error(ERRO_LINHA_OCUPADA);
+  const pessoa = (await pessoasDoGrupo(grupo)).find((p) => p.alunoId === alunoId);
+  if (!pessoa) throw new Error("Ligue a conta a um aluno da planilha desta turma (bimestre vigente).");
+  if (pessoa.contas.some((c) => c !== contaId)) throw new Error(ERRO_LINHA_OCUPADA);
   await gravarLigacao(contaId, grupo, alunoId);
 }
