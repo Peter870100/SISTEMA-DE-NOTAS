@@ -8,7 +8,20 @@ import { getAlunoAtual } from "@/lib/auth";
 import { exigirAdminDaEscola, exigirTurmaDaEscola } from "@/lib/escola-acesso";
 import { mesmaEscola } from "@/lib/escola-regras";
 import { normalizarCodigo } from "@/lib/codigo-convite";
-import { gerarSenhaProvisoria, normalizarIdentificador, sugerirUsuario } from "@/lib/contas-aluno";
+import { gerarSenhaProvisoria, normalizarIdentificador } from "@/lib/contas-aluno";
+import {
+  aplicarLigacoesPor,
+  criarContasDaPlanilhaPor,
+  criarContasNaTurma,
+  ligarContaPor,
+  previaContasDaPlanilhaPor,
+  previaLigacoesPorNomePor,
+  sugerirUsuarios,
+  type CredencialGerada as Credencial,
+  type PreviaLigacoes,
+} from "@/lib/contas/nucleo";
+import type { AtorEscola } from "@/lib/simulados/ator";
+import type { Professor } from "@/lib/types";
 import { enviarEmailVerificacao } from "@/lib/email";
 import { linkDaEscola, obterEscola } from "@/lib/escolas";
 import { vincularContaAoConvite, type ConviteValido } from "@/lib/convites";
@@ -97,7 +110,7 @@ export async function cadastrarAlunoComCodigo(formData: FormData): Promise<void>
 }
 
 export type ContaAlunoAdmin = { id: string; nome: string; usuario: string | null; email: string | null; ativo: boolean; ultimo_acesso: string | null; turmas: string[] };
-export type CredencialGerada = { nome: string; usuario: string; senha: string; turma: string };
+export type CredencialGerada = Credencial;
 
 async function contaDaMinhaEscola(contaId: string, escolaId: string): Promise<void> {
   const { data } = await supabase.from("alunos_contas").select("escola_id").eq("id", contaId).maybeSingle();
@@ -117,58 +130,51 @@ export async function listarContasAluno(): Promise<ContaAlunoAdmin[]> {
   return (contas ?? []).map((c) => ({ ...c, turmas: turmasPorConta.get(c.id) ?? [] }));
 }
 
-/** Usuários já tomados que começam igual aos sugeridos — para o sufixo numérico não colidir. */
-async function usuariosExistentes(bases: string[]): Promise<Set<string>> {
-  const prefixos = [...new Set(bases.map((b) => b.replace(/\d+$/, "")))];
-  const existentes = new Set<string>();
-  for (const prefixo of prefixos) {
-    const { data } = await supabase.from("alunos_contas").select("usuario").ilike("usuario", `${prefixo}%`);
-    for (const linha of data ?? []) if (linha.usuario) existentes.add(linha.usuario);
-  }
-  return existentes;
-}
-
 export async function prepararLote(nomes: string[]): Promise<{ nome: string; usuario: string }[]> {
   await exigirAdminDaEscola();
-  const limpos = nomes.map((n) => n.trim().replace(/\s+/g, " ")).filter(Boolean);
-  const existentes = await usuariosExistentes(limpos.map((n) => sugerirUsuario(n, new Set())));
-  return limpos.map((nome) => ({ nome, usuario: sugerirUsuario(nome, existentes) }));
+  const limpos = nomes.map((n) => n.trim().replace(/s+/g, " ")).filter(Boolean);
+  const usuarios = await sugerirUsuarios(limpos);
+  return limpos.map((nome, i) => ({ nome, usuario: usuarios[i] }));
+}
+
+/** O admin logado (admin ou dono da escola) como ator do núcleo: vê todas as turmas da escola. */
+function atorDoAdmin(admin: Professor): AtorEscola {
+  return { id: admin.id, role: admin.role, escola_id: admin.escola_id, turmas: null, via: "app" };
+}
+
+async function atorAdmin(): Promise<AtorEscola> {
+  return atorDoAdmin(await exigirAdminDaEscola());
 }
 
 export async function criarContasAluno(turmaId: string, alunos: { nome: string; usuario: string }[]): Promise<CredencialGerada[]> {
   const admin = await exigirAdminDaEscola();
   const turma = await exigirTurmaDaEscola(admin, turmaId).catch(() => null);
   if (!turma) throw new Error("Turma não encontrada.");
+  return criarContasNaTurma(atorDoAdmin(admin), turma, alunos.map(({ nome, usuario }) => ({ nome, usuario })));
+}
 
-  // Valida tudo antes do primeiro insert, para não perder senhas de contas já criadas.
-  const invalidos: string[] = [];
-  const vistos = new Set<string>();
-  for (const { nome, usuario } of alunos) {
-    const u = usuario.trim().toLowerCase();
-    if (!nome.trim() || !/^[a-z0-9.]+$/.test(u) || vistos.has(u)) invalidos.push(nome.trim() || "(sem nome)");
-    vistos.add(u);
-  }
-  if (invalidos.length > 0) throw new Error(`Usuário inválido ou repetido para: ${invalidos.join(", ")}. Nenhuma conta foi criada.`);
+/** Alunos da planilha da turma (bimestre vigente) ainda sem conta ligada, com o usuário sugerido. */
+export async function previaContasDaPlanilha(turmaId: string): Promise<{ nome: string; usuario: string; alunoId: string }[]> {
+  return previaContasDaPlanilhaPor(await atorAdmin(), turmaId);
+}
 
-  const credenciais: CredencialGerada[] = [];
-  for (const { nome, usuario } of alunos) {
-    const usuarioLimpo = usuario.trim().toLowerCase();
-    const senha = gerarSenhaProvisoria();
-    const { data: conta, error } = await supabase
-      .from("alunos_contas")
-      .insert({ escola_id: admin.escola_id, nome: nome.trim(), usuario: usuarioLimpo, senha_hash: await bcrypt.hash(senha, 10), senha_provisoria: true, criado_via: "escola" })
-      .select("id")
-      .single();
-    if (error?.code === "23505") throw new Error(`O usuário ${usuarioLimpo} já existe. Gere a prévia de novo. ${credenciais.length} conta(s) já foram criadas antes deste.`);
-    if (error || !conta) throw new Error(error?.message ?? "Falha ao criar conta.");
-    const { error: erroVinculo } = await supabase.from("aluno_turmas").insert({ conta_id: conta.id, escola_id: admin.escola_id, turma_nome: turma.nome, ano_letivo: turma.ano_letivo });
-    if (erroVinculo) {
-      await supabase.from("alunos_contas").delete().eq("id", conta.id);
-      throw new Error(`Falha ao ligar ${nome.trim()} à turma. ${credenciais.length} conta(s) já foram criadas antes deste.`);
-    }
-    credenciais.push({ nome: nome.trim(), usuario: usuarioLimpo, senha, turma: `${turma.nome} · ${turma.ano_letivo}` });
-  }
-  return credenciais;
+/** Cria as contas com o nome da planilha e já ligadas; quem já tem conta ligada é ignorado. */
+export async function criarContasDaPlanilha(turmaId: string, linhas: { alunoId: string; usuario: string }[]): Promise<CredencialGerada[]> {
+  return criarContasDaPlanilhaPor(await atorAdmin(), turmaId, linhas.map(({ alunoId, usuario }) => ({ alunoId: String(alunoId), usuario: String(usuario) })));
+}
+
+/** Prévia de "Ligar pelo nome": só casamentos únicos dos dois lados; os repetidos são ligados à mão. */
+export async function previaLigacoesPorNome(turmaId: string): Promise<PreviaLigacoes> {
+  return previaLigacoesPorNomePor(await atorAdmin(), turmaId);
+}
+
+export async function aplicarLigacoes(turmaId: string, pares: { contaId: string; alunoId: string }[]): Promise<{ ligadas: number }> {
+  return aplicarLigacoesPor(await atorAdmin(), turmaId, pares.map(({ contaId, alunoId }) => ({ contaId: String(contaId), alunoId: String(alunoId) })));
+}
+
+/** Liga a conta à mão a uma linha da planilha, ou desliga com null. */
+export async function ligarConta(contaId: string, alunoId: string | null): Promise<void> {
+  return ligarContaPor(await atorAdmin(), contaId, alunoId);
 }
 
 export async function definirContaAtiva(contaId: string, ativo: boolean): Promise<void> {
