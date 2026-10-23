@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { desenharProximaLeva, erroDoArquivo, planejarLeva, validarSelecao, type DepsLeva, type TipoArquivo } from "./importacao-levas";
+import { caminhoOriginal, caminhoSelecao, desenharProximaLeva, ENVIO_JPEG, ENVIO_JSON, ENVIO_PDF, erroDoArquivo, planejarLeva, validarSelecao, type DepsLeva, type TipoArquivo } from "./importacao-levas";
 import type { AtorEscola } from "@/lib/simulados/ator";
 
 const ator: AtorEscola = { id: "p1", role: "professor", escola_id: "e1", turmas: null, via: "hermes" };
@@ -178,4 +178,50 @@ test("com o desenhador de verdade (fixture de 2 páginas): envia JPEG e registra
   assert.deepEqual([...jpegs[0].subarray(0, 2)], [0xff, 0xd8]);
   const p1 = m.prontas.get("prova-1")!;
   assert.ok(p1.largura <= 1600 && p1.altura > p1.largura);
+});
+
+test("páginas de 9 s: para antes de passar dos 40 s, mesmo na primeira leva (sem média)", async () => {
+  const m = mundo({ msPorPagina: 9000 });
+  const r = await desenharProximaLeva(ator, "imp", { prova: faixa(20), gabarito: [] }, m.agora, m.deps);
+  assert.equal(r.prontas, 4);
+  assert.ok(m.agora() <= 40000, `usou ${m.agora()} ms`);
+});
+
+test("orçamento menor (primeira chamada, que também baixa o original)", async () => {
+  const m = mundo({ msPorPagina: 3000 });
+  const r = await desenharProximaLeva(ator, "imp", { prova: faixa(60), gabarito: [] }, m.agora, m.deps, 25000);
+  assert.equal(r.prontas, 8);
+  assert.ok(m.agora() <= 25000, `usou ${m.agora()} ms`);
+});
+
+test("nova tentativa depois de falhar no registro: reenvia a mesma página por cima (upsert)", async () => {
+  const m = mundo();
+  const storage = new Map<string, number>(); // caminho → quantas vezes foi escrito
+  let falharRegistro = true;
+  const deps: DepsLeva = {
+    ...m.deps,
+    enviarPagina: async (_i, tipo, numero) => { const k = `${tipo}-${numero}`; storage.set(k, (storage.get(k) ?? 0) + 1); },
+    registrarPagina: async (...a) => {
+      if (falharRegistro) { falharRegistro = false; throw new Error("rede caiu"); }
+      return m.deps.registrarPagina(...a);
+    },
+  };
+  const r1 = await desenharProximaLeva(ator, "imp", { prova: [1, 2], gabarito: [] }, m.agora, deps);
+  assert.match(r1.erro ?? "", /página 1 da prova: rede caiu/);
+  const r2 = await desenharProximaLeva(ator, "imp", { prova: [1, 2], gabarito: [] }, m.agora, deps);
+  assert.deepEqual(r2, { prontas: 2, faltam: 0 });
+  assert.equal(storage.get("prova-1"), 2, "o JPEG da página 1 foi escrito por cima");
+  // O storage real só aceita escrever por cima com upsert (e a policy de UPDATE do SQL da B2).
+  assert.equal(ENVIO_JPEG.upsert, true);
+  assert.equal(ENVIO_PDF.upsert, true);
+  assert.equal(ENVIO_JSON.upsert, true);
+  assert.equal(ENVIO_PDF.contentType, "application/pdf");
+});
+
+test("caminhos do original e da seleção: só com id uuid, na pasta das páginas", () => {
+  const id = "0b5c2f9e-1d2a-4c3b-9a8e-123456789abc";
+  assert.equal(caminhoOriginal(id, "gabarito"), `${id}/original-gabarito.pdf`);
+  assert.equal(caminhoSelecao(id), `${id}/selecao.json`);
+  assert.throws(() => caminhoOriginal("../outra/escola", "prova"), /Importação inválida\./);
+  assert.throws(() => caminhoSelecao("x"), /Importação inválida\./);
 });

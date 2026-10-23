@@ -8,4 +8,8 @@ update storage.buckets set
     array(select distinct unnest(allowed_mime_types || array['application/pdf', 'application/json'])) end
 where id = 'questoes';
 
+-- Upsert por cima de um arquivo que já existe (PDF original, selecao.json, página refeita) precisa de UPDATE.
+drop policy if exists "questoes_servidor_atualizar" on storage.objects;
+create policy "questoes_servidor_atualizar" on storage.objects for update using (bucket_id = 'questoes') with check (bucket_id = 'questoes');
+
 NOTIFY pgrst, 'reload schema';

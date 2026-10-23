@@ -3,8 +3,10 @@
 // link, que pode expirar) e para; a próxima continua de onde parou. Não inicia a leitura: isso é com
 // quem chama (`iniciarLeituraPor`, protegido por `reservar`).
 //
-// Duas chamadas ao mesmo tempo podem desenhar a mesma página: o envio ao storage é com upsert e
-// `registrarPaginaPor` faz upsert em `importacao_paginas`, então o resultado é o mesmo.
+// Duas chamadas ao mesmo tempo (ou uma nova tentativa depois de falhar no registro) podem desenhar a
+// mesma página: o envio ao storage é com upsert e `registrarPaginaPor` faz upsert em
+// `importacao_paginas`, então o resultado é o mesmo. O upsert sobre um arquivo que já existe precisa
+// da policy de UPDATE "questoes_servidor_atualizar" (db/2026-10-23-hermes-importacao.sql).
 import type { AtorEscola } from "@/lib/simulados/ator";
 import type { PdfServidor } from "@/lib/questoes/pdf-servidor";
 
@@ -64,6 +66,7 @@ export async function desenharProximaLeva(
   selecao: Selecao,
   agora: () => number = Date.now,
   deps?: DepsLeva,
+  /** Menor na primeira chamada, que também baixa e guarda o original (por exemplo 25 000). */
   orcamentoMs = ORCAMENTO_LEVA_MS,
 ): Promise<ResultadoLeva> {
   const total = selecao.prova.length + selecao.gabarito.length;
@@ -99,12 +102,18 @@ export async function desenharProximaLeva(
   let desenhadas = 0;
   let decorridoDesenho = 0; // tempo gasto desenhando, para a média (sem abrir o PDF)
   try {
-    while (restantes.length > 0) {
+    const mediaAtual = () => (desenhadas > 0 ? decorridoDesenho / desenhadas : null);
+    /** Para antes de começar uma página que, pela média desta chamada, passaria do orçamento. */
+    const cabeMaisUma = () => {
       const decorrido = agora() - inicio;
-      const media = desenhadas > 0 ? decorridoDesenho / desenhadas : null;
-      if (decorrido >= orcamentoMs || (media !== null && decorrido + media > orcamentoMs)) break;
-      const leva = planejarLeva(restantes.map((_, i) => i), media, orcamentoMs - decorrido).length;
-      for (const pagina of restantes.splice(0, leva)) {
+      const media = mediaAtual();
+      return decorrido < orcamentoMs && (media === null || decorrido + media <= orcamentoMs);
+    };
+    while (restantes.length > 0 && cabeMaisUma()) {
+      const leva = planejarLeva(restantes.map((_, i) => i), mediaAtual(), orcamentoMs - (agora() - inicio)).length;
+      for (let k = 0; k < leva && restantes.length > 0; k++) {
+        if (!cabeMaisUma()) break;
+        const pagina = restantes[0];
         let pdf: PdfServidor;
         try {
           pdf = await abrir(pagina.tipo);
@@ -122,10 +131,10 @@ export async function desenharProximaLeva(
         } catch (e) {
           return resultado(`Não consegui desenhar a página ${pagina.numero} ${NOME[pagina.tipo]}: ${mensagem(e)}`);
         }
+        restantes.shift();
         feitas.add(`${pagina.tipo}-${pagina.numero}`);
         desenhadas++;
         decorridoDesenho += agora() - antes;
-        if (agora() - inicio >= orcamentoMs) break;
       }
     }
     return resultado();
@@ -136,8 +145,17 @@ export async function desenharProximaLeva(
 
 // ---------- Storage e banco (carregados sob demanda, para os testes não precisarem do Supabase) ----------
 
-const caminhoOriginal = (importacaoId: string, tipo: TipoArquivo) => `${importacaoId}/original-${tipo}.pdf`;
-const caminhoSelecao = (importacaoId: string) => `${importacaoId}/selecao.json`;
+/** Opções de envio ao storage: sempre upsert (refazer uma página ou chamadas simultâneas sobrescrevem). */
+export const ENVIO_JPEG = { contentType: "image/jpeg", upsert: true } as const;
+export const ENVIO_PDF = { contentType: "application/pdf", upsert: true } as const;
+export const ENVIO_JSON = { contentType: "application/json", upsert: true } as const;
+
+function idSeguro(importacaoId: string): string {
+  if (!/^[0-9a-f-]{36}$/i.test(importacaoId)) throw new Error("Importação inválida.");
+  return importacaoId;
+}
+export const caminhoOriginal = (importacaoId: string, tipo: TipoArquivo) => `${idSeguro(importacaoId)}/original-${tipo}.pdf`;
+export const caminhoSelecao = (importacaoId: string) => `${idSeguro(importacaoId)}/selecao.json`;
 
 async function armazenamento() {
   const [{ supabase }, { BUCKET }] = await Promise.all([import("@/lib/supabase/client"), import("@/lib/questoes/storage")]);
@@ -147,7 +165,7 @@ async function armazenamento() {
 /** Guarda o PDF original na mesma pasta das páginas (`<id>/original-<tipo>.pdf`). */
 export async function guardarOriginal(importacaoId: string, tipo: TipoArquivo, bytes: Uint8Array): Promise<void> {
   const { bucket } = await armazenamento();
-  const { error } = await bucket.upload(caminhoOriginal(importacaoId, tipo), Buffer.from(bytes), { contentType: "application/pdf", upsert: true });
+  const { error } = await bucket.upload(caminhoOriginal(importacaoId, tipo), Buffer.from(bytes), ENVIO_PDF);
   if (error) throw new Error(`Não consegui guardar o PDF ${NOME[tipo]}: ${error.message}`);
 }
 
@@ -162,7 +180,7 @@ export async function lerOriginal(importacaoId: string, tipo: TipoArquivo): Prom
 export async function guardarSelecao(importacaoId: string, selecao: Selecao): Promise<void> {
   const { bucket } = await armazenamento();
   const corpo = Buffer.from(JSON.stringify({ prova: selecao.prova, gabarito: selecao.gabarito }));
-  const { error } = await bucket.upload(caminhoSelecao(importacaoId), corpo, { contentType: "application/json", upsert: true });
+  const { error } = await bucket.upload(caminhoSelecao(importacaoId), corpo, ENVIO_JSON);
   if (error) throw new Error(`Não consegui guardar as páginas escolhidas: ${error.message}`);
 }
 
@@ -197,7 +215,7 @@ async function depsPadrao(): Promise<DepsLeva> {
     lerOriginal,
     abrirPdf: pdf.abrirPdfServidor,
     enviarPagina: async (id, tipo, numero, jpeg) => {
-      const { error } = await bucket.upload(nucleo.caminhoPagina(id, tipo, numero), jpeg, { contentType: "image/jpeg", upsert: true });
+      const { error } = await bucket.upload(nucleo.caminhoPagina(id, tipo, numero), jpeg, ENVIO_JPEG);
       if (error) throw new Error(error.message);
     },
     registrarPagina: nucleo.registrarPaginaPor,

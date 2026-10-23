@@ -69,7 +69,7 @@ export function validarUrlPdf(url: string): string | null {
   }
   if (u.protocol !== "https:") return "O link do PDF precisa começar com https://.";
   if (u.username || u.password) return ERRO_ENDERECO;
-  const host = u.hostname.toLowerCase().replace(/\.$/, "");
+  const host = u.hostname.toLowerCase().replace(/\.+$/, "");
   if (!host || host === "localhost" || host.endsWith(".localhost")) return ERRO_ENDERECO;
   const semColchetes = host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host;
   const tipoIp = isIP(semColchetes);

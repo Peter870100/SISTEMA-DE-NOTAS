@@ -14,6 +14,7 @@ test("validarUrlPdf: recusa localhost, loopback e redes privadas", () => {
   for (const url of [
     "https://localhost/x.pdf",
     "https://LOCALHOST./x.pdf",
+    "https://localhost../x.pdf",
     "https://app.localhost/x.pdf",
     "https://127.0.0.1/a",
     "https://2130706433/a", // 127.0.0.1 em decimal
