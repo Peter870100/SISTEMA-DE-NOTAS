@@ -7,6 +7,7 @@ import { registrarBanco } from "./leitura/banco";
 import { registrarConsulta } from "./leitura/consulta";
 import { registrarCursos } from "./leitura/cursos";
 import { registrarGeral } from "./leitura/geral";
+import { registrarRelatorios } from "./leitura/relatorios";
 import { registrarSimulados } from "./leitura/simulados";
 import { registrarTurmas } from "./leitura/turmas";
 
@@ -29,5 +30,6 @@ export function registrarLeitura(
   registrarCursos(server, obter);
   registrarBanco(server, obter);
   registrarAlunos(server, obter);
+  registrarRelatorios(server, obter);
   if (opcoes.consultaLivre) registrarConsulta(server, obter);
 }
