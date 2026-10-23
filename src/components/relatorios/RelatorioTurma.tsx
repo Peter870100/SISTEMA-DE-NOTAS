@@ -18,10 +18,11 @@ function Numero({ rotulo, valor }: { rotulo: string; valor: string }) {
   );
 }
 
-export function RelatorioTurma({ turmaId, dados, mediaAprovacao }: { turmaId: string; dados: Dados; mediaAprovacao: number }) {
-  const medias = dados.mediaPorBimestre.map((b) => b.media).filter((m): m is number => m !== null);
-  const mediaTurma = medias.length ? medias.reduce((a, b) => a + b, 0) / medias.length : null;
-  const ult = dados.simulados[dados.simulados.length - 1];
+export function RelatorioTurma({ turmaId, dados }: { turmaId: string; dados: Dados }) {
+  const { mediaAprovacao, mediaTurma, mediaTurmaBase } = dados;
+  const rotuloMedia = mediaTurmaBase === "andamento" ? "Média da turma (em andamento)" : mediaTurmaBase === "encerrados" ? "Média da turma (encerrados)" : "Média da turma";
+  // `simulados` vem em ordem de abertura: o último é o mais recente.
+  const ult = dados.simulados.at(-1);
   const pctUltimo = ult && ult.total > 0 ? formatarPct((ult.fizeram / ult.total) * 100) : "—";
 
   return (
@@ -41,7 +42,7 @@ export function RelatorioTurma({ turmaId, dados, mediaAprovacao }: { turmaId: st
 
         <div className={css.numeros}>
           <Numero rotulo="Alunos" valor={String(dados.alunos.length)} />
-          <Numero rotulo="Média da turma" valor={mediaTurma === null ? "—" : formatarNota(mediaTurma)} />
+          <Numero rotulo={rotuloMedia} valor={mediaTurma === null ? "—" : formatarNota(mediaTurma)} />
           <Numero rotulo="Abaixo da média" valor={String(dados.abaixoDaMedia.length)} />
           <Numero rotulo="Fez o último simulado" valor={pctUltimo} />
         </div>
@@ -49,7 +50,7 @@ export function RelatorioTurma({ turmaId, dados, mediaAprovacao }: { turmaId: st
         <GraficosTurma
           mediaPorBimestre={dados.mediaPorBimestre}
           distribuicao={dados.distribuicao}
-          materias={dados.materiasFracas}
+          materias={dados.materias}
           mediaAprovacao={mediaAprovacao}
         />
 

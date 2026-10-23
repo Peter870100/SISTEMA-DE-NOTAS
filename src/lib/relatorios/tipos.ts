@@ -1,4 +1,5 @@
 /** Tipos dos relatórios do aluno e da turma (sem Supabase: usados pelas páginas e pela Hermes). */
+import type { EstadoAula } from "@/lib/aulas/progresso";
 
 /** Uma linha da planilha de um bimestre para o aluno. `media` já na escala 0–10 (null = sem notas). */
 export type BimestreAluno = { bimestre: string; turmaId: string; media: number | null; encerrado: boolean; vigente: boolean };
@@ -38,8 +39,11 @@ export type ResumoAulas = {
   concluidas: number;
   comecadas: number;
   naoComecadas: number;
-  aulas: { titulo: string; pct: number; concluida: boolean }[];
+  aulas: { titulo: string; pct: number; estado: EstadoAula }[];
 };
+
+/** Uma atividade (coluna da planilha) do bimestre, para o aluno. `nota10` na escala 0–10; `status` só sem nota. */
+export type AtividadeAluno = { titulo: string; tipo: string; nota10: number | null; status: string | null };
 
 export type RelatorioAluno = {
   nome: string;
@@ -47,7 +51,16 @@ export type RelatorioAluno = {
   anoLetivo: string;
   bimestres: BimestreAluno[];
   quantoFalta: ResultadoQuantoFalta;
+  /** Média de aprovação da escola usada nos cálculos (a página não precisa ler de novo). */
+  mediaAprovacao: number;
+  /** Atividades do bimestre vigente (sem vigente: do bimestre da linha pedida), na ordem da planilha. */
+  atividades: AtividadeAluno[];
+  /** Nome do bimestre de `atividades`. */
+  atividadesBimestre: string;
+  /** Tem conta de login ligada (sem conta: simulados e aulas não aparecem). */
+  temConta: boolean;
   materias: AcertoMateria[];
+  /** Em ordem de abertura (o mais recente no fim). */
   simulados: LinhaSimuladoAluno[];
   treinos: LinhaSimuladoAluno[];
   /** null = nenhum curso ligado à turma (ou aluno sem conta). */
@@ -63,6 +76,8 @@ export type AlunoDaTurma = {
   nome: string;
   /** Na mesma ordem de `RelatorioTurma.mediaPorBimestre`. */
   medias: (number | null)[];
+  /** Média do aluno pela mesma regra da turma: encerrados (com nota); nenhum encerrado na turma → vigente. */
+  mediaRanking: number | null;
   quantoFalta: ResultadoQuantoFalta;
   temConta: boolean;
   simuladosFeitos: number;
@@ -89,10 +104,21 @@ export type FaixaDistribuicao = { faixa: string; quantidade: number };
 export type RelatorioTurma = {
   turmaNome: string;
   anoLetivo: string;
+  /** Média de aprovação da escola usada nos cálculos. */
+  mediaAprovacao: number;
   alunos: AlunoDaTurma[];
   mediaPorBimestre: MediaBimestreTurma[];
+  /**
+   * Média da turma pela regra da frase: média dos bimestres encerrados (com nota); nenhum encerrado →
+   * o bimestre em andamento. `mediaTurmaBase` diz qual foi usada (null = sem notas).
+   */
+  mediaTurma: number | null;
+  mediaTurmaBase: "encerrados" | "andamento" | null;
   abaixoDaMedia: { alunoId: string; nome: string; media: number }[];
+  /** Em ordem de abertura (o mais recente no fim): o "último simulado" é sempre `simulados.at(-1)`. */
   simulados: SimuladoDaTurma[];
+  /** Acerto em todas as matérias (pior primeiro). */
+  materias: AcertoMateria[];
   /** As 3 matérias com menor acerto (de preferência com 5+ questões). */
   materiasFracas: AcertoMateria[];
   distribuicao: FaixaDistribuicao[];

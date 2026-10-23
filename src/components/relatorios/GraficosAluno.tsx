@@ -3,6 +3,7 @@
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { AcertoMateria } from "@/lib/relatorios/tipos";
 import type { PontoBimestre, PontoSimulado } from "@/lib/relatorios/apresentacao";
+import { formatarNota } from "@/lib/relatorios/calculos";
 import css from "./Relatorio.module.css";
 
 const AZUL = "#0444A0";
@@ -31,7 +32,7 @@ type Props = { bimestres: PontoBimestre[]; materias: AcertoMateria[]; simulados:
 export function GraficosAluno({ bimestres, materias, simulados, mediaAprovacao, semConta }: Props) {
   const temBimestres = bimestres.some((b) => b.media !== null);
   const mats = materias.map((m) => ({ nome: m.rotulo + (m.poucas ? " *" : ""), pct: Math.round(m.pct) }));
-  const rotuloMedia = `Média ${String(mediaAprovacao).replace(".", ",")}`;
+  const rotuloMedia = `Média ${formatarNota(mediaAprovacao)}`;
   const temAndamento = bimestres.some((b) => b.andamento && b.media !== null);
 
   return (

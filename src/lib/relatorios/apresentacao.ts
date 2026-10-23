@@ -69,10 +69,9 @@ export function pontosBimestres(b: BimestreAluno[]): PontoBimestre[] {
 
 export type PontoSimulado = { nome: string; data: string; nota: number };
 
-/** Só simulados feitos, em ordem de data de abertura (sem data vai para o fim). */
+/** Só simulados feitos, na ordem recebida (o carregador já entrega em ordem de abertura). */
 export function pontosSimulados(l: LinhaSimuladoAluno[]): PontoSimulado[] {
   return l
     .filter((x) => x.situacao === "fez" && x.nota10 !== null)
-    .sort((a, b) => (a.abreEm ?? "9").localeCompare(b.abreEm ?? "9"))
     .map((x) => ({ nome: x.titulo, data: formatarDataCurta(x.abreEm), nota: Number((x.nota10 as number).toFixed(1)) }));
 }

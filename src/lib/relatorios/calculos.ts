@@ -2,13 +2,17 @@
  * Cálculos puros dos relatórios do aluno e da turma (sem Supabase).
  * As páginas e a Hermes usam estas mesmas funções, para dizerem a mesma coisa.
  */
+import { paraEscala10 } from "@/lib/analytics";
+import type { EstadoAula } from "@/lib/aulas/progresso";
 import { normalizarBusca } from "@/lib/hermes/relatorios";
 import { MATERIAS } from "@/lib/questoes/materias";
 import type {
   AcertoMateria,
+  AtividadeAluno,
   BimestreAluno,
   FaixaDistribuicao,
   LinhaSimuladoAluno,
+  MediaBimestreTurma,
   RelatorioAluno,
   RelatorioTurma,
   ResultadoQuantoFalta,
@@ -160,9 +164,28 @@ export function distribuicaoMedias(medias: (number | null)[]): FaixaDistribuicao
   return FAIXAS.map((faixa, i) => ({ faixa, quantidade: qtd[i] }));
 }
 
-export function resumoAulas(aulas: { titulo: string; pct: number; concluida: boolean }[]): ResumoAulas {
-  const concluidas = aulas.filter((a) => a.concluida).length;
-  const comecadas = aulas.filter((a) => !a.concluida && a.pct > 0).length;
+/**
+ * Atividades (colunas da planilha) de uma linha de aluno, na ordem de `ordem` (empate: ordem recebida).
+ * `nota10` = valor na escala 0–10; `status` (ex.: "FALTOU") só quando a célula não tem nota.
+ */
+export function atividadesDaLinha(
+  colunas: { id: string; titulo: string; tipo: string; ordem: number }[],
+  celulas: Record<string, { valor: number | null; status_texto: string | null }> | undefined,
+): AtividadeAluno[] {
+  return colunas
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => a.c.ordem - b.c.ordem || a.i - b.i)
+    .map(({ c }) => {
+      const cel = celulas?.[c.id];
+      const valor = cel?.valor ?? null;
+      return { titulo: c.titulo, tipo: c.tipo, nota10: valor === null ? null : paraEscala10(valor), status: valor === null ? cel?.status_texto ?? null : null };
+    });
+}
+
+/** Conta as aulas pelo `estado` (o mesmo de `estadoAula` em src/lib/aulas/progresso.ts), não pelo %. */
+export function resumoAulas(aulas: { titulo: string; pct: number; estado: EstadoAula }[]): ResumoAulas {
+  const concluidas = aulas.filter((a) => a.estado === "concluida").length;
+  const comecadas = aulas.filter((a) => a.estado === "andamento").length;
   return { total: aulas.length, concluidas, comecadas, naoComecadas: aulas.length - concluidas - comecadas, aulas };
 }
 
@@ -210,9 +233,11 @@ function textoQuantoFalta(bimestres: BimestreAluno[], q: ResultadoQuantoFalta, m
   }
 }
 
-function textoSimuladosAluno(simulados: LinhaSimuladoAluno[]): string {
+export const TEXTO_SEM_CONTA = "Sem conta de login: simulados e aulas não aparecem.";
+
+function textoSimuladosAluno(simulados: LinhaSimuladoAluno[], temConta: boolean): string {
+  if (!temConta) return TEXTO_SEM_CONTA;
   if (simulados.length === 0) return "Nenhum simulado para a turma ainda.";
-  if (simulados.every((s) => s.situacao === "sem_login")) return "Sem conta de login: simulados e aulas não aparecem.";
   const fez = simulados.filter((s) => s.situacao === "fez").length;
   const faltas = simulados.filter((s) => s.situacao === "nao_fez" || s.situacao === "nao_entregou").map((s) => s.titulo);
   const fazendo = simulados.filter((s) => s.situacao === "fazendo").length;
@@ -227,7 +252,7 @@ function textoSimuladosAluno(simulados: LinhaSimuladoAluno[]): string {
  * Partes sem dado são omitidas (nunca "0 de 0" nem "NaN").
  */
 export function fraseAluno(r: Omit<RelatorioAluno, "frase">, media: number): string {
-  const partes = [`${r.nome} (${r.turmaNome}): ${textoQuantoFalta(r.bimestres, r.quantoFalta, media)}`, textoSimuladosAluno(r.simulados)];
+  const partes = [`${r.nome} (${r.turmaNome}): ${textoQuantoFalta(r.bimestres, r.quantoFalta, media)}`, textoSimuladosAluno(r.simulados, r.temConta)];
   const fraca = r.materias.find((m) => !m.poucas);
   if (fraca) partes.push(`Mais fraco em ${fraca.rotulo} (${formatarPct(fraca.pct)} de acerto).`);
   if (r.aulas && r.aulas.total > 0) partes.push(`Assistiu ${r.aulas.concluidas} de ${r.aulas.total} aulas.`);
@@ -239,23 +264,34 @@ function mediaDe(valores: number[]): number | null {
 }
 
 /**
- * Frase-resumo da turma. Ex.: "3º A (2026): 32 alunos, média 6,4 nos bimestres encerrados; 8 abaixo
+ * Média da turma: média dos bimestres encerrados (com nota); se nenhum encerrado tem nota, a do
+ * bimestre em andamento. A página, a frase e a Hermes usam esta mesma regra.
+ */
+export function mediaDaTurma(bimestres: MediaBimestreTurma[]): { media: number | null; base: "encerrados" | "andamento" | null } {
+  const encerrada = mediaDe(bimestres.filter((b) => b.encerrado && b.media != null).map((b) => b.media as number));
+  if (encerrada != null) return { media: encerrada, base: "encerrados" };
+  const vigente = bimestres.find((b) => b.vigente && b.media != null)?.media ?? null;
+  return vigente != null ? { media: vigente, base: "andamento" } : { media: null, base: null };
+}
+
+/**
+ * Frase-resumo da turma. Usa `mediaTurma`/`mediaTurmaBase` e espera `simulados` em ordem de abertura
+ * (o último é `simulados.at(-1)`), como o carregador entrega. Ex.: "3º A (2026): 32 alunos, média 6,4 nos bimestres encerrados; 8 abaixo
  * de 6,0. Último simulado ('Ufms 24'): 25 de 32 fizeram. Matérias mais fracas: Física (38%) e Química (45%)."
  */
 export function fraseTurma(r: Omit<RelatorioTurma, "frase">, media: number): string {
   const cab = `${r.turmaNome} (${r.anoLetivo}):`;
   if (r.alunos.length === 0) return `${cab} nenhum aluno na planilha ainda. ${r.simulados.length ? "" : "Nenhum simulado para esta turma ainda."}`.trim();
 
-  const encerrada = mediaDe(r.mediaPorBimestre.filter((b) => b.encerrado && b.media != null).map((b) => b.media as number));
-  const vigente = r.mediaPorBimestre.find((b) => b.vigente && b.media != null)?.media ?? null;
-  const notas = encerrada != null ? `média ${formatarNota(encerrada)} nos bimestres encerrados`
-    : vigente != null ? `média ${formatarNota(vigente)} no bimestre em andamento`
-    : "sem notas ainda";
+  const m = r.mediaTurma;
+  const notas = m == null ? "sem notas ainda"
+    : r.mediaTurmaBase === "encerrados" ? `média ${formatarNota(m)} nos bimestres encerrados`
+    : `média ${formatarNota(m)} no bimestre em andamento`;
   const alunos = `${r.alunos.length} ${r.alunos.length === 1 ? "aluno" : "alunos"}`;
-  const abaixo = encerrada != null || vigente != null ? `; ${r.abaixoDaMedia.length} abaixo de ${formatarNota(media)}` : "";
+  const abaixo = m != null ? `; ${r.abaixoDaMedia.length} abaixo de ${formatarNota(media)}` : "";
   const partes = [`${cab} ${alunos}, ${notas}${abaixo}.`];
 
-  const ultimo = [...r.simulados].sort((a, b) => (a.abreEm ?? "").localeCompare(b.abreEm ?? "")).at(-1);
+  const ultimo = r.simulados.at(-1);
   partes.push(ultimo && ultimo.total > 0 ? `Último simulado ('${ultimo.titulo}'): ${ultimo.fizeram} de ${ultimo.total} fizeram.` : "Nenhum simulado para esta turma ainda.");
 
   if (r.materiasFracas.length) {

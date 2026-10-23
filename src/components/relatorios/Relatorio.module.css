@@ -13,10 +13,14 @@
 .naoImprimir { }
 
 @media print {
-  body:has(.pagina) { display: block !important; height: auto !important; overflow: visible !important; background: #fff !important; }
+  /* O app prende a altura (html h-full, body h-dvh overflow-hidden, #conteudo-principal h-full overflow-y-auto):
+     na impressão tudo volta a crescer com o conteúdo, para o PDF ter várias páginas sem cortar.
+     Id e classes globais precisam de :global(), senão o CSS module troca o nome. */
+  :global(html):has(.pagina) { height: auto !important; overflow: visible !important; }
+  body:has(.pagina) { display: block !important; height: auto !important; min-height: 0 !important; overflow: visible !important; background: #fff !important; }
   body:has(.pagina) aside, body:has(.pagina) .naoImprimir { display: none !important; }
-  body:has(.pagina) #conteudo-principal { height: auto !important; overflow: visible !important; display: block !important; }
-  body:has(.pagina) .fundo-escolar { min-height: 0 !important; }
+  body:has(.pagina) :global(#conteudo-principal) { height: auto !important; min-height: 0 !important; overflow: visible !important; display: block !important; }
+  body:has(.pagina) :global(.fundo-escolar) { min-height: 0 !important; background: #fff !important; }
   body:has(.pagina) main { margin-top: 0 !important; padding-top: 1rem; max-width: none !important; }
   .grade { grid-template-columns: minmax(0, 1fr); }
   .graficoFixo { width: 17cm; max-width: 100%; }

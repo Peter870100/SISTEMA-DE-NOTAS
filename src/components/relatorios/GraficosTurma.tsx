@@ -2,6 +2,7 @@
 
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { AcertoMateria, FaixaDistribuicao, MediaBimestreTurma } from "@/lib/relatorios/tipos";
+import { formatarNota } from "@/lib/relatorios/calculos";
 import css from "./Relatorio.module.css";
 
 const AZUL = "#0444A0";
@@ -36,7 +37,7 @@ export function GraficosTurma({ mediaPorBimestre, distribuicao, materias, mediaA
   const temBimestres = bimestres.some((b) => b.media !== null);
   const temDistribuicao = distribuicao.some((d) => d.quantidade > 0);
   const mats = materias.map((m) => ({ nome: m.rotulo + (m.poucas ? " *" : ""), pct: Math.round(m.pct) }));
-  const rotuloMedia = `Média ${String(mediaAprovacao).replace(".", ",")}`;
+  const rotuloMedia = `Média ${formatarNota(mediaAprovacao)}`;
 
   return (
     <div className={css.grade}>
@@ -77,7 +78,7 @@ export function GraficosTurma({ mediaPorBimestre, distribuicao, materias, mediaA
         )}
       </Cartao>
 
-      <Cartao titulo="Acerto por matéria (as mais fracas)" className={css.larga}>
+      <Cartao titulo="Acerto por matéria (pior primeiro)" className={css.larga}>
         {mats.length === 0 ? (
           <Vazio texto="Ainda não há simulados ou treinos entregues para calcular o acerto por matéria." />
         ) : (

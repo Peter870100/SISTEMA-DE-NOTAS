@@ -41,8 +41,8 @@ const SITUACAO: Record<LinhaSimuladoAluno["situacao"], string> = {
 };
 
 function linhaSimuladosAluno(simulados: LinhaSimuladoAluno[], semConta: boolean): string {
-  if (simulados.length === 0) return "Simulados: nenhum simulado para a turma ainda.";
   if (semConta) return "Simulados: aluno sem conta de login (simulados e aulas não aparecem).";
+  if (simulados.length === 0) return "Simulados: nenhum simulado para a turma ainda.";
   // Os mais recentes primeiro (a lista vem em ordem de abertura).
   const itens = [...simulados].reverse().map((s) =>
     `'${s.titulo}' ${s.situacao === "fez" && s.nota10 != null ? formatarNota(s.nota10) : SITUACAO[s.situacao]}`);
@@ -65,7 +65,7 @@ function linhaAulas(r: RelatorioAluno, semConta: boolean): string {
 
 /** Frase-resumo + 6 ou 7 linhas de detalhe + o link (no máximo 10 linhas, sem NaN). */
 export function textoRelatorioAluno(r: RelatorioAluno, link: string): string {
-  const semConta = r.simulados.length > 0 && r.simulados.every((s) => s.situacao === "sem_login");
+  const semConta = !r.temConta;
   const saida = [
     r.frase,
     linhaBimestres(r.bimestres),
@@ -89,7 +89,8 @@ export function textoRelatorioTurma(r: RelatorioTurma, link: string): string {
       ? "Abaixo da média: ninguém."
       : `Abaixo da média (${r.abaixoDaMedia.length}): ${cortar(r.abaixoDaMedia.map((a) => `${a.nome} ${formatarNota(a.media)}`), 8)}`;
 
-  const porData = [...r.simulados].sort((a, b) => (a.abreEm ?? "").localeCompare(b.abreEm ?? ""));
+  // `simulados` já vem em ordem de abertura (o carregador ordena): o último é o mais recente.
+  const porData = r.simulados;
   const ultimo = porData.at(-1);
   const simulados = porData.length === 0
     ? "Simulados: nenhum simulado para esta turma ainda."

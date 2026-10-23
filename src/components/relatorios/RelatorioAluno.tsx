@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, TriangleAlert } from "lucide-react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos as ui } from "@/components/ui/estilos";
-import type { RelatorioAluno as Dados, LinhaSimuladoAluno } from "@/lib/relatorios/tipos";
+import type { AtividadeAluno, RelatorioAluno as Dados, LinhaSimuladoAluno, ResumoAulas } from "@/lib/relatorios/tipos";
 import { formatarNota, formatarPct } from "@/lib/relatorios/calculos";
 import {
   cartaoQuantoFalta,
@@ -68,8 +68,35 @@ function TabelaSimulados({ linhas, vazio }: { linhas: LinhaSimuladoAluno[]; vazi
   );
 }
 
-export function RelatorioAluno({ turmaId, dados, mediaAprovacao }: { turmaId: string; dados: Dados; mediaAprovacao: number }) {
-  const semConta = dados.simulados.length > 0 && dados.simulados.every((s) => s.situacao === "sem_login");
+function TabelaAtividades({ atividades }: { atividades: AtividadeAluno[] }) {
+  if (atividades.length === 0) return <p className="py-4 text-sm text-ink">Nenhuma atividade lançada neste bimestre ainda.</p>;
+  return (
+    <div className={css.rolagem}>
+      <table className={css.tabela}>
+        <thead><tr><th>Atividade</th><th>Tipo</th><th>Nota / situação</th></tr></thead>
+        <tbody>
+          {atividades.map((a, i) => (
+            <tr key={`${a.titulo}-${i}`}>
+              <td className="!whitespace-normal font-semibold text-ink">{a.titulo}</td>
+              <td className="text-ink">{a.tipo === "presenca" ? "Presença" : "Nota"}</td>
+              <td className="font-mono tabular-nums text-ink">{a.nota10 !== null ? formatarNota(a.nota10) : a.status ?? "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function textoAssistido(a: ResumoAulas["aulas"][number]): string {
+  if (a.estado === "concluida") return "Concluída";
+  if (a.estado === "nao_iniciada") return "Não começada";
+  return a.pct > 0 ? formatarPct(a.pct) : "Começada";
+}
+
+export function RelatorioAluno({ turmaId, dados }: { turmaId: string; dados: Dados }) {
+  const { mediaAprovacao } = dados;
+  const semConta = !dados.temConta;
   const q = cartaoQuantoFalta(dados.quantoFalta, mediaAprovacao);
   const tom = tomQuantoFalta(dados.quantoFalta.situacao);
   const encerradas = dados.bimestres.filter((b) => b.encerrado && b.media !== null).map((b) => b.media as number);
@@ -121,6 +148,10 @@ export function RelatorioAluno({ turmaId, dados, mediaAprovacao }: { turmaId: st
           semConta={semConta}
         />
 
+        <Secao titulo={`Atividades do bimestre (${dados.atividadesBimestre})`}>
+          <TabelaAtividades atividades={dados.atividades} />
+        </Secao>
+
         <Secao titulo="Simulados">
           {semConta ? <p className="py-4 text-sm text-ink">{AVISO_SEM_CONTA}</p> : <TabelaSimulados linhas={dados.simulados} vazio="Nenhum simulado para esta turma ainda." />}
         </Secao>
@@ -146,7 +177,7 @@ export function RelatorioAluno({ turmaId, dados, mediaAprovacao }: { turmaId: st
                     {aulas.aulas.map((a, i) => (
                       <tr key={`${a.titulo}-${i}`}>
                         <td className="!whitespace-normal font-semibold text-ink">{a.titulo}</td>
-                        <td className="font-mono tabular-nums text-ink">{a.concluida ? "Concluída" : formatarPct(a.pct)}</td>
+                        <td className="font-mono tabular-nums text-ink">{textoAssistido(a)}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -33,6 +33,7 @@ test("pontos dos gráficos", () => {
   assert.deepEqual(b.map((p) => p.andamento), [false, true]);
   assert.equal(b[0].media, 7);
   const l = (id: string, s: "fez" | "nao_fez", n: number | null, ab: string | null) => ({ simuladoId: id, titulo: id, abreEm: ab, fechaEm: null, situacao: s, nota10: n, tempoSeg: null, saidas: null, tempoForaSeg: null });
-  const p = pontosSimulados([l("b", "fez", 8, "2026-05-02T10:00:00Z"), l("c", "nao_fez", null, "2026-05-03T10:00:00Z"), l("a", "fez", 5, "2026-04-02T10:00:00Z")]);
+  // Só os feitos, na ordem do carregador (sem reordenar).
+  const p = pontosSimulados([l("a", "fez", 5, "2026-04-02T10:00:00Z"), l("c", "nao_fez", null, "2026-04-03T10:00:00Z"), l("b", "fez", 8, "2026-05-02T10:00:00Z")]);
   assert.deepEqual(p.map((x) => x.nome), ["a", "b"]);
 });

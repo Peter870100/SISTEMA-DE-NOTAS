@@ -22,6 +22,10 @@ function aluno(extra: Partial<RelatorioAluno> = {}): RelatorioAluno {
       { bimestre: "4º Bimestre", turmaId: "t4", media: null, encerrado: false, vigente: false },
     ],
     quantoFalta: { situacao: "precisa", porBimestre: 6.5, mediaAtual: 5.5 },
+    mediaAprovacao: 6,
+    atividades: [],
+    atividadesBimestre: "3º Bimestre",
+    temConta: true,
     materias: [
       { materia: "fisica", rotulo: "Física", acertos: 5, total: 13, pct: 38.46, poucas: false },
       { materia: "quimica", rotulo: "Química", acertos: 2, total: 3, pct: 66.7, poucas: true },
@@ -40,19 +44,23 @@ function turma(extra: Partial<RelatorioTurma> = {}): RelatorioTurma {
   return {
     turmaNome: "3º A",
     anoLetivo: "2026",
+    mediaAprovacao: 6,
     alunos: [
-      { alunoId: "a1", nome: "Ana", medias: [8, 7], quantoFalta: { situacao: "atingiu", mediaAtual: 8 }, temConta: true, simuladosFeitos: 2, simuladosTotal: 2, aulasConcluidas: 3 },
-      { alunoId: "a2", nome: "Bruno", medias: [4, 5], quantoFalta: { situacao: "precisa", porBimestre: 7, mediaAtual: 4 }, temConta: false, simuladosFeitos: 0, simuladosTotal: 2, aulasConcluidas: null },
+      { alunoId: "a1", nome: "Ana", medias: [8, 7], mediaRanking: 8, quantoFalta: { situacao: "atingiu", mediaAtual: 8 }, temConta: true, simuladosFeitos: 2, simuladosTotal: 2, aulasConcluidas: 3 },
+      { alunoId: "a2", nome: "Bruno", medias: [4, 5], mediaRanking: 4, quantoFalta: { situacao: "precisa", porBimestre: 7, mediaAtual: 4 }, temConta: false, simuladosFeitos: 0, simuladosTotal: 2, aulasConcluidas: null },
     ],
     mediaPorBimestre: [
       { bimestre: "1º Bimestre", turmaId: "t1", media: 6, encerrado: true, vigente: false },
       { bimestre: "2º Bimestre", turmaId: "t2", media: 6.1, encerrado: false, vigente: true },
     ],
+    mediaTurma: 6,
+    mediaTurmaBase: "encerrados",
     abaixoDaMedia: [{ alunoId: "a2", nome: "Bruno", media: 4 }],
     simulados: [
       { simuladoId: "s1", titulo: "Ufms 24", abreEm: "2026-04-01T12:00:00Z", fechaEm: null, fizeram: 2, total: 2, naoFizeram: [] },
       { simuladoId: "s2", titulo: "Revisão 2", abreEm: "2026-06-01T12:00:00Z", fechaEm: null, fizeram: 1, total: 2, naoFizeram: ["Bruno"] },
     ],
+    materias: [{ materia: "fisica", rotulo: "Física", acertos: 5, total: 13, pct: 38.46, poucas: false }],
     materiasFracas: [{ materia: "fisica", rotulo: "Física", acertos: 5, total: 13, pct: 38.46, poucas: false }],
     distribuicao: [],
     frase: "3º A (2026): 2 alunos, média 6,0 nos bimestres encerrados; 1 abaixo de 6,0. Último simulado ('Revisão 2'): 1 de 2 fizeram.",
@@ -95,6 +103,7 @@ test("textoRelatorioAluno: aluno sem conta, sem notas e sem nada nao mostra NaN/
     bimestres: [{ bimestre: "1º Bimestre", turmaId: "t1", media: null, encerrado: false, vigente: true }],
     quantoFalta: { situacao: "sem_dados" },
     materias: [],
+    temConta: false,
     simulados: [sim("Ufms 24", "sem_login")],
     treinos: [],
     aulas: null,
@@ -107,6 +116,21 @@ test("textoRelatorioAluno: aluno sem conta, sem notas e sem nada nao mostra NaN/
   assert.ok(linhas(t).length <= 10);
   assert.ok(t.endsWith(LINK));
   semLixo(t);
+});
+
+test("textoRelatorioAluno: sem conta e sem nenhum simulado diz que nao tem conta", () => {
+  const t = textoRelatorioAluno(aluno({ temConta: false, simulados: [], treinos: [], materias: [], aulas: null, ultimoAcesso: null }), LINK);
+  assert.match(t, /Simulados: aluno sem conta de login/);
+  assert.doesNotMatch(t, /nenhum simulado para a turma/);
+  assert.match(t, /Aulas: aluno sem conta de login/);
+  assert.match(t, /Último acesso: sem conta de login/);
+  semLixo(t);
+});
+
+test("textoRelatorioTurma: o ultimo simulado e o fim da lista (ordem do carregador)", () => {
+  const t = textoRelatorioTurma(turma(), LINK);
+  assert.match(t, /Não fizeram o último \('Revisão 2'\): Bruno/);
+  assert.match(t, /mais recentes primeiro\): 'Revisão 2' 1 de 2 · 'Ufms 24' 2 de 2/);
 });
 
 test("textoRelatorioAluno: muitos simulados ficam cortados", () => {

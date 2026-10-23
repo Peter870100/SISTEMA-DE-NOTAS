@@ -6,21 +6,30 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { mediaAluno, mediaDeValores, paraEscala10 } from "@/lib/analytics";
+import { estadoAula, porcentagemAula } from "@/lib/aulas/progresso";
 import { normalizarBusca } from "@/lib/hermes/relatorios";
 import { emBlocos, tempoDeProvaSeg } from "@/lib/simulados/regras";
 import type { ValorCelula } from "@/lib/status";
 import type { GrupoTurma } from "./acesso";
 import {
-  acertoPorMateria, agruparAlunoEntreBimestres, distribuicaoMedias, fraseAluno, fraseTurma, quantoFalta,
+  acertoPorMateria, agruparAlunoEntreBimestres, atividadesDaLinha, distribuicaoMedias, fraseAluno, fraseTurma, mediaDaTurma, quantoFalta,
   rankingTurma, resumoAulas, situacaoNoSimulado,
 } from "./calculos";
 import { mediaAprovacaoDaEscola } from "./media";
 import type {
-  AcertoMateria, AlunoDaTurma, BimestreAluno, LinhaSimuladoAluno, MediaBimestreTurma, RelatorioAluno, RelatorioTurma,
+  AcertoMateria, AlunoDaTurma, AtividadeAluno, BimestreAluno, LinhaSimuladoAluno, MediaBimestreTurma, RelatorioAluno, RelatorioTurma,
   ResumoAulas, SimuladoDaTurma,
 } from "./tipos";
 
 export { grupoDaTurma, podeVerGrupo, type GrupoTurma } from "./acesso";
+
+/** Erro de `carregarRelatorioAluno` quando o alunoId não é uma linha do grupo (a página responde 404). */
+export class AlunoForaDoGrupo extends Error {
+  constructor() {
+    super("Aluno não encontrado nesta turma.");
+    this.name = "AlunoForaDoGrupo";
+  }
+}
 
 // ---------- leitura paginada (cópia pequena de src/lib/mcp/leitura/comum.ts, sem puxar zod/MCP) ----------
 
@@ -37,11 +46,25 @@ async function lerTodas<T>(montar: (de: number, ate: number) => Resposta<T>): Pr
   }
 }
 
-/** Como lerTodas, com a lista de ids em blocos de 100 (limite de URL do `.in()`). */
+/** Quantos blocos de `lerPorIds` são lidos ao mesmo tempo. */
+const BLOCOS_EM_PARALELO = 5;
+
+/**
+ * Como lerTodas, com a lista de ids em blocos de 100 (limite de URL do `.in()`). Lê até
+ * BLOCOS_EM_PARALELO blocos ao mesmo tempo; o resultado sai na ordem dos blocos (determinístico).
+ */
 async function lerPorIds<T>(ids: string[], montar: (bloco: string[], de: number, ate: number) => Resposta<T>): Promise<T[]> {
-  const saida: T[] = [];
-  for (const bloco of emBlocos([...new Set(ids)], 100)) saida.push(...(await lerTodas<T>((de, ate) => montar(bloco, de, ate))));
-  return saida;
+  const blocos = emBlocos([...new Set(ids)], 100);
+  const lidos: T[][] = new Array(blocos.length);
+  let proximo = 0;
+  const trabalhador = async () => {
+    while (proximo < blocos.length) {
+      const i = proximo++;
+      lidos[i] = await lerTodas<T>((de, ate) => montar(blocos[i], de, ate));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(BLOCOS_EM_PARALELO, blocos.length) }, trabalhador));
+  return lidos.flat();
 }
 
 /** Cliente importado sob demanda: `acesso.ts`/cálculos continuam testáveis sem variáveis de ambiente. */
@@ -62,9 +85,10 @@ type TentativaLida = {
   iniciada_em: string; entregue_em: string | null; prazo_em: string | null; tempo_usado_seg: number;
   saidas: number | null; tempo_fora_seg: number | null;
 };
-type AulaLida = { id: string; curso_id: string; modulo_id: string; titulo: string; ordem: number; duracao_seg: number | null };
-type ProgressoLido = { conta_id: string; aula_id: string; maior_posicao_seg: number; duracao_seg: number | null; tempo_assistido_seg: number; concluida_em: string | null };
+type AulaLida = { id: string; curso_id: string; modulo_id: string; titulo: string; ordem: number };
+type ProgressoLido = { conta_id: string; aula_id: string; maior_posicao_seg: number; duracao_seg: number | null; concluida_em: string | null };
 type RespostaLida = { materia: string | null; correta: boolean | null; anulada: boolean };
+type ColunaLida = { id: string; turma_id: string; titulo: string; tipo: string; ordem: number };
 
 const COLUNAS_SIMULADO = "id, titulo, tipo, status, abre_em, fecha_em, created_at";
 const COLUNAS_TENTATIVA = "id, simulado_id, conta_id, status, porcentagem, iniciada_em, entregue_em, prazo_em, tempo_usado_seg, saidas, tempo_fora_seg";
@@ -73,6 +97,14 @@ const m10 = (m: number | null) => (m === null ? null : paraEscala10(m));
 
 /** Ano (no fuso de São Paulo) de uma data ISO, para os treinos do ano letivo. */
 const anoSP = (iso: string) => new Intl.DateTimeFormat("en", { timeZone: "America/Sao_Paulo", year: "numeric" }).format(new Date(iso));
+
+/**
+ * Janela larga (UTC) para filtrar no banco as tentativas de um ano: um dia de folga de cada lado cobre
+ * o fuso de São Paulo; o corte exato continua sendo `anoSP` no código.
+ */
+function janelaDoAno(ano: number): { de: string; ate: string } {
+  return { de: new Date(Date.UTC(ano - 1, 11, 31)).toISOString(), ate: new Date(Date.UTC(ano + 1, 0, 2)).toISOString() };
+}
 
 // ---------- base: planilhas do grupo e contas ligadas ----------
 
@@ -86,6 +118,8 @@ type Base = {
   celulas: Record<string, Record<string, ValorCelula>>;
   vinculos: Vinculo[];
   contas: Map<string, Conta>;
+  /** Colunas (atividades) das planilhas do grupo, em ordem de `ordem`. */
+  colunas: ColunaLida[];
 };
 
 async function carregarBase(g: GrupoTurma): Promise<Base> {
@@ -101,8 +135,12 @@ async function carregarBase(g: GrupoTurma): Promise<Base> {
   ]);
   if (turmas.length === 0) throw new Error("Turma não encontrada.");
 
-  const alunosLidos = await lerPorIds<{ id: string; turma_id: string; nome: string; ordem: number }>(turmas.map((t) => t.id), (bloco, de, ate) =>
-    db.from("alunos").select("id, turma_id, nome, ordem").in("turma_id", bloco).order("ordem").order("id").range(de, ate));
+  const [alunosLidos, colunas] = await Promise.all([
+    lerPorIds<{ id: string; turma_id: string; nome: string; ordem: number }>(turmas.map((t) => t.id), (bloco, de, ate) =>
+      db.from("alunos").select("id, turma_id, nome, ordem").in("turma_id", bloco).order("ordem").order("id").range(de, ate)),
+    lerPorIds<ColunaLida>(turmas.map((t) => t.id), (bloco, de, ate) =>
+      db.from("atividades_colunas").select("id, turma_id, titulo, tipo, ordem").in("turma_id", bloco).order("ordem").order("id").range(de, ate)),
+  ]);
   const bimestreDe = new Map(turmas.map((t) => [t.id, t.bimestre]));
   const linhas: Linha[] = alunosLidos.map((a) => ({ turmaId: a.turma_id, bimestre: bimestreDe.get(a.turma_id) ?? "", alunoId: a.id, nome: a.nome }));
 
@@ -117,7 +155,7 @@ async function carregarBase(g: GrupoTurma): Promise<Base> {
   for (const n of notas) (celulas[n.aluno_id] ??= {})[n.coluna_id] = { valor: n.valor === null ? null : Number(n.valor), status_texto: n.status_texto };
 
   const contas = new Map(contasLidas.map((c) => [c.id, c]));
-  return { db, g, media, turmas, linhas, celulas, vinculos: vinculos.filter((v) => contas.has(v.conta_id)), contas };
+  return { db, g, media, turmas, linhas, celulas, vinculos: vinculos.filter((v) => contas.has(v.conta_id)), contas, colunas };
 }
 
 // ---------- a pessoa: linhas em vários bimestres + conta ----------
@@ -200,32 +238,39 @@ async function carregarExtras(b: Base, contaIds: string[], agora: Date): Promise
     .sort((a, c) => (a.abre_em ?? a.created_at).localeCompare(c.abre_em ?? c.created_at) || a.id.localeCompare(c.id));
   const idsProva = new Set(simulados.map((s) => s.id));
 
-  // Todas as tentativas das contas; depois separa as provas do grupo e os treinos.
-  const tents = await lerPorIds<TentativaLida>(contaIds, (bloco, de, ate) =>
-    db.from("tentativas").select(COLUNAS_TENTATIVA).in("conta_id", bloco).order("id").range(de, ate));
+  // Duas leituras: as tentativas das provas do grupo e as de treino (com o treino junto, filtradas pelo ano no banco).
+  const ano = g.anoLetivo.trim();
+  const anoNumerico = /^\d{4}$/.test(ano);
+  const janela = anoNumerico ? janelaDoAno(Number(ano)) : null;
+  const [tentsProva, tentsTreino] = await Promise.all([
+    Promise.all(emBlocos([...idsProva], 50).map((provas) =>
+      lerPorIds<TentativaLida>(contaIds, (bloco, de, ate) =>
+        db.from("tentativas").select(COLUNAS_TENTATIVA).in("conta_id", bloco).in("simulado_id", provas).order("id").range(de, ate)))),
+    lerPorIds<TentativaLida & { simulados: SimuladoLido | null }>(contaIds, (bloco, de, ate) => {
+      let q = db.from("tentativas").select(`${COLUNAS_TENTATIVA}, simulados!inner(${COLUNAS_SIMULADO})`)
+        .in("conta_id", bloco).eq("simulados.tipo", "treino");
+      if (janela) q = q.gte("iniciada_em", janela.de).lt("iniciada_em", janela.ate);
+      // Sem tipos gerados, o embed viria tipado como lista; aqui é um só (muitos-para-um).
+      return q.order("id").range(de, ate) as unknown as Resposta<TentativaLida & { simulados: SimuladoLido | null }>;
+    }),
+  ]);
   const tentProva = new Map<string, TentativaLida>();
-  for (const t of tents) if (idsProva.has(t.simulado_id)) tentProva.set(`${t.conta_id}|${t.simulado_id}`, t);
+  for (const t of tentsProva.flat()) tentProva.set(`${t.conta_id}|${t.simulado_id}`, t);
 
-  const outrosIds = tents.filter((t) => !idsProva.has(t.simulado_id)).map((t) => t.simulado_id);
-  const treinosLidos = await lerPorIds<SimuladoLido>(outrosIds, (bloco, de, ate) =>
-    db.from("simulados").select(COLUNAS_SIMULADO).in("id", bloco).eq("tipo", "treino").order("id").range(de, ate));
-  const treinoPorId = new Map(treinosLidos.map((s) => [s.id, s]));
-  const anoNumerico = /^\d{4}$/.test(g.anoLetivo.trim());
-  const treinos = tents
-    .filter((t) => treinoPorId.has(t.simulado_id) && (!anoNumerico || anoSP(t.iniciada_em) === g.anoLetivo.trim()))
-    .map((t) => ({ t, s: treinoPorId.get(t.simulado_id) as SimuladoLido }))
-    .sort((a, c) => a.t.iniciada_em.localeCompare(c.t.iniciada_em));
+  const treinos = tentsTreino
+    .filter((t) => t.simulados && (!anoNumerico || anoSP(t.iniciada_em) === ano))
+    .map(({ simulados: s, ...t }) => ({ t, s: s as SimuladoLido }))
+    .sort((a, c) => a.t.iniciada_em.localeCompare(c.t.iniciada_em) || a.t.id.localeCompare(c.t.id));
 
   // Respostas das tentativas entregues (provas do grupo + treinos do ano), com matéria e anulada da questão.
   const entregues = [...tentProva.values(), ...treinos.map((x) => x.t)].filter((t) => t.status === "entregue");
-  const resps = await lerPorIds<{ tentativa_id: string; questao_id: string; correta: boolean | null }>(entregues.map((t) => t.id), (bloco, de, ate) =>
-    db.from("tentativa_respostas").select("tentativa_id, questao_id, correta").in("tentativa_id", bloco).order("tentativa_id").order("questao_id").range(de, ate));
-  const questoes = await lerPorIds<{ id: string; materia: string | null; anulada: boolean }>(resps.map((r) => r.questao_id), (bloco, de, ate) =>
-    db.from("questoes").select("id, materia, anulada").in("id", bloco).order("id").range(de, ate));
-  const questao = new Map(questoes.map((q) => [q.id, q]));
+  // A questão vem junto (FK tentativa_respostas.questao_id → questoes).
+  type RespostaComQuestao = { tentativa_id: string; correta: boolean | null; questoes: { materia: string | null; anulada: boolean } | null };
+  const resps = await lerPorIds<RespostaComQuestao>(entregues.map((t) => t.id), (bloco, de, ate) =>
+    db.from("tentativa_respostas").select("tentativa_id, correta, questoes(materia, anulada)").in("tentativa_id", bloco).order("tentativa_id").order("questao_id").range(de, ate) as unknown as Resposta<RespostaComQuestao>);
   const respostas = new Map<string, RespostaLida[]>();
   for (const r of resps) {
-    const q = questao.get(r.questao_id);
+    const q = r.questoes;
     if (!q) continue;
     const lista = respostas.get(r.tentativa_id) ?? [];
     lista.push({ materia: q.materia, correta: r.correta, anulada: q.anulada });
@@ -241,7 +286,7 @@ async function carregarExtras(b: Base, contaIds: string[], agora: Date): Promise
       lerPorIds<{ id: string; ordem: number }>(cursoIds, (bloco, de, ate) =>
         db.from("modulos").select("id, ordem").in("curso_id", bloco).order("id").range(de, ate)),
       lerPorIds<AulaLida>(cursoIds, (bloco, de, ate) =>
-        db.from("aulas").select("id, curso_id, modulo_id, titulo, ordem, duracao_seg").in("curso_id", bloco).eq("publicada", true).order("id").range(de, ate)),
+        db.from("aulas").select("id, curso_id, modulo_id, titulo, ordem").in("curso_id", bloco).eq("publicada", true).order("id").range(de, ate)),
     ]);
     const ordemModulo = new Map(modulos.map((m) => [m.id, m.ordem]));
     aulas = aulasLidas.sort((a, c) =>
@@ -249,7 +294,7 @@ async function carregarExtras(b: Base, contaIds: string[], agora: Date): Promise
       || a.modulo_id.localeCompare(c.modulo_id) || a.ordem - c.ordem);
     if (contaIds.length) {
       const prog = await lerPorIds<ProgressoLido>(contaIds, (bloco, de, ate) =>
-        db.from("aula_progresso").select("conta_id, aula_id, maior_posicao_seg, duracao_seg, tempo_assistido_seg, concluida_em")
+        db.from("aula_progresso").select("conta_id, aula_id, maior_posicao_seg, duracao_seg, concluida_em")
           .in("conta_id", bloco).in("curso_id", cursoIds).order("conta_id").order("aula_id").range(de, ate));
       for (const p of prog) progresso.set(`${p.conta_id}|${p.aula_id}`, p);
     }
@@ -290,22 +335,24 @@ function respostasDasContas(e: Extras, contaIds: Set<string>): RespostaLida[] {
   return tents.flatMap((t) => e.respostas.get(t.id) ?? []);
 }
 
-/** % assistido: concluída = 100; senão maior posição ÷ duração. Começada sem duração conhecida conta 1%. */
-function pctAula(a: AulaLida, p: ProgressoLido | undefined): number {
-  if (!p) return 0;
-  if (p.concluida_em) return 100;
-  const dur = a.duracao_seg ?? p.duracao_seg;
-  const pct = dur ? Math.min(100, Math.round((100 * (p.maior_posicao_seg ?? 0)) / dur)) : 0;
-  const comecou = (p.maior_posicao_seg ?? 0) > 0 || (p.tempo_assistido_seg ?? 0) > 0;
-  return comecou ? Math.max(1, pct) : pct;
-}
-
+/** % e estado de cada aula pelas mesmas regras da plataforma de estudos (src/lib/aulas/progresso.ts). */
 function aulasDaPessoa(e: Extras, contaId: string | null): ResumoAulas | null {
   if (!e.aulas || !contaId) return null;
   return resumoAulas(e.aulas.map((a) => {
-    const p = e.progresso.get(`${contaId}|${a.id}`);
-    return { titulo: a.titulo, pct: pctAula(a, p), concluida: !!p?.concluida_em };
+    const p = e.progresso.get(`${contaId}|${a.id}`) ?? null;
+    return { titulo: a.titulo, pct: porcentagemAula(p), estado: estadoAula(p) };
   }));
+}
+
+/**
+ * Atividades do bimestre vigente (sem vigente: o bimestre da linha pedida) na linha da pessoa,
+ * na ordem da planilha. Sem linha da pessoa naquele bimestre → lista vazia.
+ */
+function atividadesDaPessoa(b: Base, p: Pessoa, alvo: Linha): { bimestre: string; atividades: AtividadeAluno[] } {
+  const turma = b.turmas.find((t) => t.bimestre_vigente) ?? b.turmas.find((t) => t.id === alvo.turmaId) ?? b.turmas[0];
+  const linha = turma.id === alvo.turmaId ? alvo : b.linhas.find((l) => l.turmaId === turma.id && p.alunoIds.has(l.alunoId));
+  if (!linha) return { bimestre: turma.bimestre, atividades: [] };
+  return { bimestre: turma.bimestre, atividades: atividadesDaLinha(b.colunas.filter((c) => c.turma_id === turma.id), b.celulas[linha.alunoId]) };
 }
 
 /** As 3 matérias com menor acerto, de preferência com 5+ questões. */
@@ -323,10 +370,20 @@ export async function carregarRelatorioTurma(g: GrupoTurma, agora = new Date()):
   const e = await carregarExtras(b, contaIds, agora);
 
   const sims = new Map(pessoas.map((p) => [p.alunoId, simuladosDaPessoa(e, p.contaId, agora)]));
+  const encerrados = b.turmas.map((t) => t.bimestre_encerrado);
+  const iVigente = b.turmas.findIndex((t) => t.bimestre_vigente);
+  const ranking = rankingTurma(pessoas.map((p) => {
+    const medias = p.bimestres.map((x) => x.media);
+    return { alunoId: p.alunoId, nome: p.nome, medias, encerrados, vigente: iVigente >= 0 ? medias[iVigente] : null };
+  }));
+  const mediaRanking = new Map(ranking.map((a) => [a.alunoId, a.mediaRanking]));
+
+  // Na ordem da planilha; a tabela da página ordena por nome ou por `mediaRanking`.
   const alunos: AlunoDaTurma[] = pessoas.map((p) => ({
     alunoId: p.alunoId,
     nome: p.nome,
     medias: p.bimestres.map((x) => x.media),
+    mediaRanking: mediaRanking.get(p.alunoId) ?? null,
     quantoFalta: quantoFalta(p.bimestres, b.media),
     temConta: !!p.contaId,
     simuladosFeitos: (sims.get(p.alunoId) ?? []).filter((s) => s.situacao === "fez").length,
@@ -343,9 +400,7 @@ export async function carregarRelatorioTurma(g: GrupoTurma, agora = new Date()):
     return { bimestre: t.bimestre, turmaId: t.id, media: m10(mediaDeValores(valores)), encerrado: t.bimestre_encerrado, vigente: t.bimestre_vigente };
   });
 
-  const encerrados = b.turmas.map((t) => t.bimestre_encerrado);
-  const iVigente = b.turmas.findIndex((t) => t.bimestre_vigente);
-  const ranking = rankingTurma(alunos.map((a) => ({ ...a, encerrados, vigente: iVigente >= 0 ? a.medias[iVigente] : null })));
+  const { media: mediaTurma, base: mediaTurmaBase } = mediaDaTurma(mediaPorBimestre);
   const abaixoDaMedia = ranking
     .filter((a): a is typeof a & { mediaRanking: number } => a.mediaRanking != null && a.mediaRanking + 1e-9 < b.media)
     .map((a) => ({ alunoId: a.alunoId, nome: a.nome, media: a.mediaRanking }));
@@ -363,14 +418,19 @@ export async function carregarRelatorioTurma(g: GrupoTurma, agora = new Date()):
     };
   });
 
+  const materias = acertoPorMateria(respostasDasContas(e, new Set(contaIds)));
   const semFrase: Omit<RelatorioTurma, "frase"> = {
     turmaNome: g.nome,
     anoLetivo: g.anoLetivo,
+    mediaAprovacao: b.media,
     alunos,
     mediaPorBimestre,
+    mediaTurma,
+    mediaTurmaBase,
     abaixoDaMedia,
     simulados,
-    materiasFracas: materiasMaisFracas(acertoPorMateria(respostasDasContas(e, new Set(contaIds)))),
+    materias,
+    materiasFracas: materiasMaisFracas(materias),
     distribuicao: distribuicaoMedias(ranking.map((a) => a.mediaRanking)),
   };
   return { ...semFrase, frase: fraseTurma(semFrase, b.media) };
@@ -380,10 +440,11 @@ export async function carregarRelatorioTurma(g: GrupoTurma, agora = new Date()):
 export async function carregarRelatorioAluno(g: GrupoTurma, alunoId: string, agora = new Date()): Promise<RelatorioAluno> {
   const b = await carregarBase(g);
   const alvo = b.linhas.find((l) => l.alunoId === alunoId);
-  if (!alvo) throw new Error("Aluno não encontrado nesta turma.");
+  if (!alvo) throw new AlunoForaDoGrupo();
   const p = montarPessoa(b, alvo);
   const e = await carregarExtras(b, p.contaId ? [p.contaId] : [], agora);
   const conta = p.contaId ? b.contas.get(p.contaId) ?? null : null;
+  const { bimestre: atividadesBimestre, atividades } = atividadesDaPessoa(b, p, alvo);
 
   const semFrase: Omit<RelatorioAluno, "frase"> = {
     nome: p.nome,
@@ -391,6 +452,10 @@ export async function carregarRelatorioAluno(g: GrupoTurma, alunoId: string, ago
     anoLetivo: g.anoLetivo,
     bimestres: p.bimestres,
     quantoFalta: quantoFalta(p.bimestres, b.media),
+    mediaAprovacao: b.media,
+    atividades,
+    atividadesBimestre,
+    temConta: !!p.contaId,
     materias: p.contaId ? acertoPorMateria(respostasDasContas(e, new Set([p.contaId]))) : [],
     simulados: simuladosDaPessoa(e, p.contaId, agora),
     treinos: treinosDaPessoa(e, p.contaId, agora),

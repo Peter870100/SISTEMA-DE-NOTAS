@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
 import { exigirTurmaDaEscola } from "@/lib/escola-acesso";
 import { carregarRelatorioTurma, grupoDaTurma } from "@/lib/relatorios/dados";
-import { mediaAprovacaoDaEscola } from "@/lib/relatorios/media";
 import { RelatorioTurma } from "@/components/relatorios/RelatorioTurma";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +16,6 @@ export default async function RelatorioTurmaPage({ params }: PageProps) {
   if (!turma) notFound();
 
   const g = grupoDaTurma(turma);
-  const [dados, mediaAprovacao] = await Promise.all([carregarRelatorioTurma(g), mediaAprovacaoDaEscola(turma.escola_id)]);
-  return <RelatorioTurma turmaId={turmaId} dados={dados} mediaAprovacao={mediaAprovacao} />;
+  const dados = await carregarRelatorioTurma(g);
+  return <RelatorioTurma turmaId={turmaId} dados={dados} />;
 }

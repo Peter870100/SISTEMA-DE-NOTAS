@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import {
   acertoPorMateria,
   agruparAlunoEntreBimestres,
+  atividadesDaLinha,
   distribuicaoMedias,
   formatarNecessaria,
   fraseAluno,
   fraseTurma,
+  mediaDaTurma,
   quantoFalta,
   rankingTurma,
   resumoAulas,
@@ -207,13 +209,40 @@ test("distribuicaoMedias: 5 faixas, 10 na última, null fora", () => {
   ]);
 });
 
-test("resumoAulas conta concluídas, começadas e não começadas", () => {
+test("resumoAulas conta pelo estado (não pelo %)", () => {
   const r = resumoAulas([
-    { titulo: "A", pct: 100, concluida: true },
-    { titulo: "B", pct: 40, concluida: false },
-    { titulo: "C", pct: 0, concluida: false },
+    { titulo: "A", pct: 100, estado: "concluida" },
+    { titulo: "B", pct: 40, estado: "andamento" },
+    { titulo: "C", pct: 0, estado: "nao_iniciada" },
+    // começada sem duração conhecida: 0% mas em andamento
+    { titulo: "D", pct: 0, estado: "andamento" },
   ]);
-  assert.deepEqual([r.total, r.concluidas, r.comecadas, r.naoComecadas], [3, 1, 1, 1]);
+  assert.deepEqual([r.total, r.concluidas, r.comecadas, r.naoComecadas], [4, 1, 2, 1]);
+});
+
+test("atividadesDaLinha: ordem da planilha, nota na escala 10, status só sem nota, sem célula → vazio", () => {
+  const colunas = [
+    { id: "c3", titulo: "Prova", tipo: "nota", ordem: 2 },
+    { id: "c1", titulo: "Museus", tipo: "nota", ordem: 0 },
+    { id: "c2", titulo: "14/08/26", tipo: "presenca", ordem: 1 },
+    { id: "c4", titulo: "Leituras", tipo: "nota", ordem: 2 },
+  ];
+  const r = atividadesDaLinha(colunas, { c1: { valor: 850, status_texto: null }, c2: { valor: null, status_texto: "FALTOU" }, c3: { valor: 0, status_texto: null } });
+  assert.deepEqual(r, [
+    { titulo: "Museus", tipo: "nota", nota10: 8.5, status: null },
+    { titulo: "14/08/26", tipo: "presenca", nota10: null, status: "FALTOU" },
+    { titulo: "Prova", tipo: "nota", nota10: 0, status: null },
+    { titulo: "Leituras", tipo: "nota", nota10: null, status: null },
+  ]);
+  assert.deepEqual(atividadesDaLinha([], undefined), []);
+  assert.equal(atividadesDaLinha(colunas, undefined).every((a) => a.nota10 === null && a.status === null), true);
+});
+
+test("mediaDaTurma: encerrados; nenhum encerrado → em andamento; sem notas → null", () => {
+  const b = (media: number | null, encerrado: boolean, vigente: boolean) => ({ bimestre: "x", turmaId: "t", media, encerrado, vigente });
+  assert.deepEqual(mediaDaTurma([b(6, true, false), b(7, true, false), b(2, false, true)]), { media: 6.5, base: "encerrados" });
+  assert.deepEqual(mediaDaTurma([b(null, true, false), b(5, false, true)]), { media: 5, base: "andamento" });
+  assert.deepEqual(mediaDaTurma([b(null, false, true)]), { media: null, base: null });
 });
 
 // frases
@@ -222,7 +251,10 @@ function sim(titulo: string, situacao: LinhaSimuladoAluno["situacao"]): LinhaSim
 }
 
 function alunoBase(): Omit<RelatorioAluno, "frase"> {
-  return { nome: "Ana", turmaNome: "3º A", anoLetivo: "2026", bimestres: [], quantoFalta: { situacao: "sem_dados" }, materias: [], simulados: [], treinos: [], aulas: null, ultimoAcesso: null, historicoParcial: false };
+  return {
+    nome: "Ana", turmaNome: "3º A", anoLetivo: "2026", bimestres: [], quantoFalta: { situacao: "sem_dados" }, mediaAprovacao: 6,
+    atividades: [], atividadesBimestre: "1º", temConta: true, materias: [], simulados: [], treinos: [], aulas: null, ultimoAcesso: null, historicoParcial: false,
+  };
 }
 
 test("fraseAluno: sem simulados, sem cursos e sem notas → sem NaN, undefined nem '0 de 0'", () => {
@@ -246,7 +278,7 @@ test("fraseAluno: exemplo completo", () => {
       ...Array.from({ length: 8 }, (_, i) => ({ materia: "fisica", correta: i < 3, anulada: false })),
       ...Array.from({ length: 5 }, () => ({ materia: "quimica", correta: true, anulada: false })),
     ]),
-    aulas: resumoAulas(Array.from({ length: 12 }, (_, i) => ({ titulo: `Aula ${i}`, pct: i < 7 ? 100 : 0, concluida: i < 7 }))),
+    aulas: resumoAulas(Array.from({ length: 12 }, (_, i) => ({ titulo: `Aula ${i}`, pct: i < 7 ? 100 : 0, estado: i < 7 ? ("concluida" as const) : ("nao_iniciada" as const) }))),
   };
   assert.equal(
     fraseAluno(r, 6),
@@ -286,7 +318,7 @@ test("fraseAluno: bimestre que falta é nomeado pelas linhas (2º encerrado sem 
 });
 
 test("fraseAluno: aluno sem conta e lista de faltas longa", () => {
-  const semConta = fraseAluno({ ...alunoBase(), simulados: [sim("A", "sem_login"), sim("B", "sem_login")] }, 6);
+  const semConta = fraseAluno({ ...alunoBase(), temConta: false, simulados: [sim("A", "sem_login"), sim("B", "sem_login")] }, 6);
   assert.match(semConta, /Sem conta de login: simulados e aulas não aparecem\./);
   const muitas = fraseAluno({ ...alunoBase(), simulados: ["A", "B", "C", "D", "E"].map((t) => sim(t, "nao_fez")) }, 6);
   assert.match(muitas, /Fez 0 de 5 simulados \(faltou ao 'A', ao 'B', ao 'C' e a mais 2\)\./);
@@ -294,8 +326,17 @@ test("fraseAluno: aluno sem conta e lista de faltas longa", () => {
   assert.match(todos, /Fez 1 de 2 simulados \(1 em andamento\)\./);
 });
 
+test("fraseAluno: sem conta e sem nenhum simulado → diz que não tem conta (não 'nenhum simulado')", () => {
+  const f = fraseAluno({ ...alunoBase(), temConta: false }, 6);
+  assert.match(f, /Sem conta de login: simulados e aulas não aparecem\./);
+  assert.doesNotMatch(f, /Nenhum simulado/);
+});
+
 function turmaBase(): Omit<RelatorioTurma, "frase"> {
-  return { turmaNome: "3º A", anoLetivo: "2026", alunos: [], mediaPorBimestre: [], abaixoDaMedia: [], simulados: [], materiasFracas: [], distribuicao: distribuicaoMedias([]) };
+  return {
+    turmaNome: "3º A", anoLetivo: "2026", mediaAprovacao: 6, alunos: [], mediaPorBimestre: [], mediaTurma: null, mediaTurmaBase: null,
+    abaixoDaMedia: [], simulados: [], materias: [], materiasFracas: [], distribuicao: distribuicaoMedias([]),
+  };
 }
 
 test("fraseTurma: turma vazia → sem NaN nem '0 de 0'", () => {
@@ -309,12 +350,14 @@ test("fraseTurma: exemplo completo", () => {
   const qf = { situacao: "precisa" as const };
   const r: Omit<RelatorioTurma, "frase"> = {
     ...turmaBase(),
-    alunos: ["Ana", "Bia", "Caio"].map((nome, i) => ({ alunoId: `a${i}`, nome, medias: [], quantoFalta: qf, temConta: true, simuladosFeitos: 1, simuladosTotal: 2, aulasConcluidas: null })),
+    alunos: ["Ana", "Bia", "Caio"].map((nome, i) => ({ alunoId: `a${i}`, nome, medias: [], mediaRanking: null, quantoFalta: qf, temConta: true, simuladosFeitos: 1, simuladosTotal: 2, aulasConcluidas: null })),
     mediaPorBimestre: [
       { bimestre: "1º", turmaId: "t1", media: 6, encerrado: true, vigente: false },
       { bimestre: "2º", turmaId: "t2", media: 7, encerrado: true, vigente: false },
       { bimestre: "3º", turmaId: "t3", media: 2, encerrado: false, vigente: true },
     ],
+    mediaTurma: 6.5,
+    mediaTurmaBase: "encerrados",
     abaixoDaMedia: [{ alunoId: "a2", nome: "Caio", media: 4.5 }],
     simulados: [
       { simuladoId: "s1", titulo: "Ufms 23", abreEm: "2026-03-01T00:00:00Z", fechaEm: null, fizeram: 3, total: 3, naoFizeram: [] },
@@ -329,4 +372,8 @@ test("fraseTurma: exemplo completo", () => {
     fraseTurma(r, 6),
     "3º A (2026): 3 alunos, média 6,5 nos bimestres encerrados; 1 abaixo de 6,0. Último simulado ('Ufms 24'): 2 de 3 fizeram. Matérias mais fracas: Física (38%) e Química (60%).",
   );
+  // Em andamento (nenhum encerrado) e o último é sempre o fim da lista (a ordem vem do carregador).
+  const andamento = fraseTurma({ ...r, mediaTurma: 5, mediaTurmaBase: "andamento", simulados: [...r.simulados].reverse() }, 6);
+  assert.match(andamento, /média 5,0 no bimestre em andamento/);
+  assert.match(andamento, /Último simulado \('Ufms 23'\)/);
 });

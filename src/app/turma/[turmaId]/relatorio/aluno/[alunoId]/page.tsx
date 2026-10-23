@@ -1,8 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
 import { exigirTurmaDaEscola } from "@/lib/escola-acesso";
-import { carregarRelatorioAluno, grupoDaTurma } from "@/lib/relatorios/dados";
-import { mediaAprovacaoDaEscola } from "@/lib/relatorios/media";
+import { AlunoForaDoGrupo, carregarRelatorioAluno, grupoDaTurma } from "@/lib/relatorios/dados";
 import { RelatorioAluno } from "@/components/relatorios/RelatorioAluno";
 
 export const dynamic = "force-dynamic";
@@ -17,13 +16,10 @@ export default async function RelatorioAlunoPage({ params }: PageProps) {
   if (!turma) notFound();
 
   const g = grupoDaTurma(turma);
-  const [dados, mediaAprovacao] = await Promise.all([
-    carregarRelatorioAluno(g, alunoId).catch((e: unknown) => {
-      if (e instanceof Error && e.message === "Aluno não encontrado nesta turma.") return null;
-      throw e;
-    }),
-    mediaAprovacaoDaEscola(turma.escola_id),
-  ]);
+  const dados = await carregarRelatorioAluno(g, alunoId).catch((e: unknown) => {
+    if (e instanceof AlunoForaDoGrupo) return null;
+    throw e;
+  });
   if (!dados) notFound();
-  return <RelatorioAluno turmaId={turmaId} dados={dados} mediaAprovacao={mediaAprovacao} />;
+  return <RelatorioAluno turmaId={turmaId} dados={dados} />;
 }
