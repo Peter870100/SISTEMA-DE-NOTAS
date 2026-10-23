@@ -10,6 +10,7 @@ import { mesmaEscola } from "@/lib/escola-regras";
 import { normalizarCodigo } from "@/lib/codigo-convite";
 import { gerarSenhaProvisoria, normalizarIdentificador } from "@/lib/contas-aluno";
 import {
+  alunosSemContaDoGrupoPor,
   aplicarLigacoesPor,
   criarContasDaPlanilhaPor,
   criarContasNaTurma,
@@ -111,7 +112,9 @@ export async function cadastrarAlunoComCodigo(formData: FormData): Promise<void>
   redirect("/aluno/entrar-com-codigo?enviado=1");
 }
 
-export type ContaAlunoAdmin = { id: string; nome: string; usuario: string | null; email: string | null; ativo: boolean; ultimo_acesso: string | null; turmas: string[] };
+/** Vínculo da conta com uma turma: `turmaId` é um registro qualquer do grupo (nome + ano); `alunoNome` é o nome na planilha, se ligada. */
+export type VinculoContaAdmin = { turmaId: string; rotulo: string; alunoNome: string | null };
+export type ContaAlunoAdmin = { id: string; nome: string; usuario: string | null; email: string | null; ativo: boolean; ultimo_acesso: string | null; turmas: string[]; vinculos: VinculoContaAdmin[] };
 export type CredencialGerada = Credencial;
 
 async function contaDaMinhaEscola(contaId: string, escolaId: string): Promise<void> {
@@ -121,15 +124,33 @@ async function contaDaMinhaEscola(contaId: string, escolaId: string): Promise<vo
 
 export async function listarContasAluno(): Promise<ContaAlunoAdmin[]> {
   const admin = await exigirAdminDaEscola();
-  const [{ data: contas }, { data: vinculos }] = await Promise.all([
+  const [{ data: contas }, { data: vinculos }, { data: turmasEscola }] = await Promise.all([
     supabase.from("alunos_contas").select("id, nome, usuario, email, ativo, ultimo_acesso").eq("escola_id", admin.escola_id).order("nome"),
-    supabase.from("aluno_turmas").select("conta_id, turma_nome, ano_letivo").eq("escola_id", admin.escola_id),
+    supabase.from("aluno_turmas").select("conta_id, turma_nome, ano_letivo, aluno_id").eq("escola_id", admin.escola_id),
+    supabase.from("turmas").select("id, nome, ano_letivo").eq("escola_id", admin.escola_id),
   ]);
-  const turmasPorConta = new Map<string, string[]>();
-  for (const v of vinculos ?? []) {
-    turmasPorConta.set(v.conta_id, [...(turmasPorConta.get(v.conta_id) ?? []), `${v.turma_nome} · ${v.ano_letivo}`]);
+  const turmaIdPorGrupo = new Map<string, string>();
+  for (const t of turmasEscola ?? []) {
+    const chave = `${t.nome}|${t.ano_letivo}`;
+    if (!turmaIdPorGrupo.has(chave)) turmaIdPorGrupo.set(chave, t.id);
   }
-  return (contas ?? []).map((c) => ({ ...c, turmas: turmasPorConta.get(c.id) ?? [] }));
+  const alunoIds = [...new Set((vinculos ?? []).map((v) => v.aluno_id as string | null).filter((id): id is string => !!id))];
+  const nomePorAluno = new Map<string, string>();
+  if (alunoIds.length > 0) {
+    const { data: alunos } = await supabase.from("alunos").select("id, nome").in("id", alunoIds);
+    for (const a of alunos ?? []) nomePorAluno.set(a.id as string, a.nome as string);
+  }
+  const vinculosPorConta = new Map<string, VinculoContaAdmin[]>();
+  for (const v of vinculos ?? []) {
+    const turmaId = turmaIdPorGrupo.get(`${v.turma_nome}|${v.ano_letivo}`);
+    if (!turmaId) continue;
+    const alunoNome = v.aluno_id ? (nomePorAluno.get(v.aluno_id as string) ?? null) : null;
+    vinculosPorConta.set(v.conta_id, [...(vinculosPorConta.get(v.conta_id) ?? []), { turmaId, rotulo: `${v.turma_nome} · ${v.ano_letivo}`, alunoNome }]);
+  }
+  return (contas ?? []).map((c) => {
+    const lista = vinculosPorConta.get(c.id) ?? [];
+    return { ...c, turmas: lista.map((v) => v.rotulo), vinculos: lista };
+  });
 }
 
 export async function prepararLote(nomes: string[]): Promise<{ nome: string; usuario: string }[]> {
@@ -168,6 +189,11 @@ export async function criarContasDaPlanilha(turmaId: string, linhas: { alunoId: 
 /** Prévia de "Ligar pelo nome": só casamentos únicos dos dois lados; os repetidos são ligados à mão. */
 export async function previaLigacoesPorNome(turmaId: string): Promise<PreviaLigacoes> {
   return previaLigacoesPorNomePor(await atorAdmin(), turmaId);
+}
+
+/** Alunos da planilha da turma que ainda não têm conta ligada (para o seletor "Ligar a…"). */
+export async function alunosSemContaDaTurma(turmaId: string): Promise<{ alunoId: string; nome: string }[]> {
+  return alunosSemContaDoGrupoPor(await atorAdmin(), turmaId);
 }
 
 export async function aplicarLigacoes(turmaId: string, pares: { contaId: string; alunoId: string }[]): Promise<{ ligadas: number }> {

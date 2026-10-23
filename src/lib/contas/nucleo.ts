@@ -203,6 +203,13 @@ export async function criarContasDaPlanilhaPor(
   return { credenciais, ignorados: escolha.ignorados };
 }
 
+/** Pessoas da planilha da turma sem conta ligada (opções do seletor "Ligar a…"). */
+export async function alunosSemContaDoGrupoPor(ator: AtorEscola, turmaId: string): Promise<{ alunoId: string; nome: string }[]> {
+  const grupo = await grupoDaTurmaId(ator, turmaId);
+  const pessoas = await pessoasDoGrupo(grupo);
+  return pessoas.filter((p) => !p.jaLigado).map((p) => ({ alunoId: p.alunoId, nome: limparNome(p.nome) }));
+}
+
 export type PreviaLigacoes = Omit<SugestaoLigacoes, "ligar"> & { ligar: { contaId: string; alunoId: string; nomeConta: string; nomeAluno: string }[] };
 
 /** O que "Ligar pelo nome" faria nesta turma (só casamentos únicos dos dois lados). */

@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { KeyRound, Lock, Unlock, UserPlus, Users, Search, School, Clock3, UserRound, ShieldCheck } from "lucide-react";
+import { FileSpreadsheet, KeyRound, Link2, Lock, Unlock, UserPlus, Users, Search, School, Clock3, UserRound, ShieldCheck } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { estilos } from "@/components/ui/estilos";
 import styles from "./ContasAdmin.module.css";
+import { baixarPlanilha } from "./baixar-acessos";
+import { LigacaoConta, ModalCriarDaPlanilha, ModalLigarPorNome } from "./ContasPlanilha";
 import {
   criarContasAluno,
   definirContaAtiva,
@@ -17,15 +19,6 @@ import {
 
 type Props = { contasIniciais: ContaAlunoAdmin[]; turmas: { id: string; rotulo: string }[] };
 
-async function baixarPlanilha(credenciais: CredencialGerada[]) {
-  const XLSX = await import("xlsx");
-  const linhas = credenciais.map((c) => ({ Nome: c.nome, Turma: c.turma, Usuário: c.usuario, "Senha provisória": c.senha }));
-  const planilha = XLSX.utils.json_to_sheet(linhas);
-  const livro = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(livro, planilha, "Acessos");
-  XLSX.writeFile(livro, `acessos-alunos-${new Date().toISOString().slice(0, 10)}.xlsx`);
-}
-
 export function GerenciarAlunos({ contasIniciais, turmas }: Props) {
   const [contas, setContas] = useState(contasIniciais);
   const [busca, setBusca] = useState("");
@@ -37,6 +30,14 @@ export function GerenciarAlunos({ contasIniciais, turmas }: Props) {
   const [textoNomes, setTextoNomes] = useState("");
   const [pendentes, setPendentes] = useState<CredencialGerada[] | null>(null);
   const [previa, setPrevia] = useState<{ nome: string; usuario: string }[] | null>(null);
+  const [planilhaAberta, setPlanilhaAberta] = useState(false);
+  const [ligarAberto, setLigarAberto] = useState(false);
+
+  async function recarregar(mensagem?: string) {
+    setErro(null);
+    setAviso(mensagem ?? null);
+    setContas(await listarContasAluno());
+  }
 
   const filtradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -68,7 +69,11 @@ export function GerenciarAlunos({ contasIniciais, turmas }: Props) {
       <section className={styles.card} aria-labelledby="contas-titulo">
         <div className={styles.toolbar}>
           <div className={styles.sectionTitle}><span className={styles.icon}><Users size={23} aria-hidden="true" /></span><div><p className={styles.eyebrow}>ACESSOS DA ESCOLA</p><h2 id="contas-titulo">Seus alunos</h2><p>Gerencie os acessos e acompanhe quem já entrou na plataforma.</p></div></div>
-          <button type="button" onClick={abrirLote} disabled={turmas.length === 0 || ocupado} className={styles.primary}><UserPlus size={18} aria-hidden="true" />Criar contas</button>
+          <div className={styles.toolbarActions}>
+            <button type="button" onClick={() => setPlanilhaAberta(true)} disabled={turmas.length === 0 || ocupado} className={styles.primary}><FileSpreadsheet size={18} aria-hidden="true" />Criar contas da planilha</button>
+            <button type="button" onClick={() => setLigarAberto(true)} disabled={turmas.length === 0 || ocupado} className={styles.secondary}><Link2 size={18} aria-hidden="true" />Ligar pelo nome</button>
+            <button type="button" onClick={abrirLote} disabled={turmas.length === 0 || ocupado} className={styles.secondary}><UserPlus size={18} aria-hidden="true" />Criar contas</button>
+          </div>
         </div>
         <div className={styles.searchRow}>
           <label className={styles.search}><Search size={19} aria-hidden="true" /><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, usuário, email ou turma" aria-label="Buscar contas" /></label>
@@ -87,6 +92,7 @@ export function GerenciarAlunos({ contasIniciais, turmas }: Props) {
               <div><dt><School size={17} aria-hidden="true" />Turmas</dt><dd>{c.turmas.join(", ") || "Sem turma vinculada"}</dd></div>
               <div><dt><Clock3 size={17} aria-hidden="true" />Último acesso</dt><dd>{c.ultimo_acesso ? new Date(c.ultimo_acesso).toLocaleDateString("pt-BR") : "Ainda não acessou"}</dd></div>
             </dl>
+            <LigacaoConta conta={c} desabilitado={ocupado} onMudou={recarregar} onErro={(m) => { setAviso(null); setErro(m); }} />
             <div className={styles.actions}>
               <button type="button" disabled={ocupado} onClick={() => executar(async () => { const senha = await novaSenhaAlunoPeloAdmin(c.id); setAviso(`Nova senha de ${c.nome}: ${senha} (aparece só agora; o aluno troca no próximo acesso).`); })} className={styles.secondary}><KeyRound size={17} aria-hidden="true" />Nova senha</button>
               <button type="button" disabled={ocupado} onClick={() => executar(async () => { await definirContaAtiva(c.id, !c.ativo); setContas(await listarContasAluno()); })} className={c.ativo ? styles.secondary : styles.primary}>{c.ativo ? <><Lock size={17} aria-hidden="true" />Bloquear</> : <><Unlock size={17} aria-hidden="true" />Desbloquear</>}</button>
@@ -94,6 +100,9 @@ export function GerenciarAlunos({ contasIniciais, turmas }: Props) {
           </article>)}
         </div>
       )}
+
+      <ModalCriarDaPlanilha open={planilhaAberta} onClose={() => setPlanilhaAberta(false)} turmas={turmas} onConcluido={recarregar} />
+      <ModalLigarPorNome open={ligarAberto} onClose={() => setLigarAberto(false)} turmas={turmas} onConcluido={recarregar} />
 
       <Modal open={loteAberto} onClose={() => { setLoteAberto(false); setPendentes(null); }} titulo="Criar contas de aluno" descricao="Um nome por linha. Para criar uma conta só, cole um nome." largura="lg">
         {erro && <p role="alert" className={styles.error}>{erro}</p>}
