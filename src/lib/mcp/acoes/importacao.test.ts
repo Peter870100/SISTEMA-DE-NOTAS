@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Ctx } from "../leitura/comum";
 import { escolaParaCriar } from "./ator";
 import {
-  avancarEnvio, criteriosRepetida, JANELA_REPETIDA_MS, NOTA_LEITURA_ADIADA, textoJaEmAndamento, ERRO_IMPORTACAO, ERRO_JA_ENVIADA, lerPedidoImportacao, paginasDoTexto, parametrosParaRegistro, selecionarPaginas, textoImportacaoCriada, textoSituacao,
+  avancarEnvio, criteriosRepetida, NOTA_SELECAO_PREPARANDO, PRAZO_SELECAO_MS, semSelecaoEhErro, JANELA_REPETIDA_MS, NOTA_LEITURA_ADIADA, textoJaEmAndamento, ERRO_IMPORTACAO, ERRO_JA_ENVIADA, lerPedidoImportacao, paginasDoTexto, parametrosParaRegistro, selecionarPaginas, textoImportacaoCriada, textoSituacao,
 } from "./importacao";
 
 const base = { banca: "UFMS", ano: 2025 };
@@ -158,4 +158,24 @@ test("criteriosRepetida: mesma escola, banca, ano, caderno, Hermes, enviando, ú
   assert.equal(geral.escola_id, null);
   assert.equal(geral.ano, null);
   assert.equal(textoJaEmAndamento("abc"), "Já existe a importação abc em andamento; use situacao_importacao.");
+});
+
+test("semSelecaoEhErro: sem selecao.json só vira erro depois de 90 s da criação", () => {
+  const criada = "2026-10-23T12:00:00.000Z";
+  const t0 = Date.parse(criada);
+  assert.equal(PRAZO_SELECAO_MS, 90_000);
+  assert.equal(semSelecaoEhErro(criada, t0), false);
+  assert.equal(semSelecaoEhErro(criada, t0 + 89_999), false);
+  assert.equal(semSelecaoEhErro(criada, t0 + 90_000), true);
+  assert.equal(semSelecaoEhErro(criada, t0 + 10 * 60_000), true);
+  // Sem data (ou data inválida) não dá para esperar: erro, como antes
+  assert.equal(semSelecaoEhErro(null, t0), true);
+  assert.equal(semSelecaoEhErro("lixo", t0), true);
+});
+
+test("textoSituacao: importação ainda sendo preparada é resposta normal, sem erro", () => {
+  const situacao = { status: "enviando", total: 0, lidas: 0, questoes: 0, aConferir: 0, custoEstimado: null, custoReal: null, erros: [], avisos: [] } as unknown as Parameters<typeof textoSituacao>[0]["situacao"];
+  const t = textoSituacao({ id: "i1", link: "https://x/banco/importacoes/i1", situacao, nota: NOTA_SELECAO_PREPARANDO });
+  assert.match(t, /^Situação: enviando\. A importação ainda está sendo preparada; chame situacao_importacao de novo em instantes\./);
+  assert.doesNotMatch(t, /Erro/);
 });

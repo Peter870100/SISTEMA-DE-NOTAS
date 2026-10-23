@@ -37,6 +37,9 @@ export const NOTA_LEITURA_ADIADA = "Todas as páginas desenhadas; chame situacao
 /** Outra chamada mudou a importação de "enviando" enquanto esta desenhava (mensagem do núcleo). */
 export const ERRO_JA_ENVIADA = "Essa importação já foi enviada.";
 const ERRO_JA_LENDO = "Essa importação já está sendo lida.";
+/** Uma importação da Hermes sem selecao.json só vira erro depois disso: antes, o importar_prova ainda pode estar gravando. */
+export const PRAZO_SELECAO_MS = 90 * 1000;
+export const NOTA_SELECAO_PREPARANDO = "A importação ainda está sendo preparada; chame situacao_importacao de novo em instantes.";
 const NOME: Record<TipoArquivo, string> = { prova: "da prova", gabarito: "do gabarito" };
 
 const mensagem = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -133,6 +136,16 @@ export function criteriosRepetida(pedido: Pick<PedidoImportacao, "escopo" | "ban
     caderno: pedido.caderno.trim(),
     desde: new Date(agora - JANELA_REPETIDA_MS).toISOString(),
   };
+}
+
+/**
+ * Importação da Hermes ainda "enviando" e sem selecao.json: se foi criada há menos de 90 s, o primeiro
+ * importar_prova (ex.: a Hermes repetiu o pedido) ainda pode estar gravando os originais; só depois vira erro. Pura.
+ */
+export function semSelecaoEhErro(createdAt: string | null | undefined, agora: number): boolean {
+  const criada = createdAt ? Date.parse(createdAt) : NaN;
+  if (Number.isNaN(criada)) return true;
+  return agora - criada >= PRAZO_SELECAO_MS;
 }
 
 export const textoJaEmAndamento = (id: string) => `Já existe a importação ${id} em andamento; use situacao_importacao.`;
@@ -241,12 +254,12 @@ export async function avancarEnvio(d: {
 const nucleo = () => import("@/lib/questoes/importacao-nucleo");
 const levas = () => import("@/lib/questoes/importacao-levas");
 
-type ImportacaoAlvo = { id: string; escopo: "geral" | "escola"; escola_id: string | null; status: StatusImportacao; criado_via?: string | null };
+type ImportacaoAlvo = { id: string; escopo: "geral" | "escola"; escola_id: string | null; status: StatusImportacao; criado_via?: string | null; created_at?: string | null };
 type Rodar = <T>(acao: () => Promise<T>) => Promise<T>;
 
 /** Lê só o que decide o alcance; o núcleo confere de novo (`exigirImportacaoPor`). */
 async function lerImportacao(ctx: Ctx, id: string): Promise<ImportacaoAlvo> {
-  const { data, error } = await ctx.supabase.from("importacoes").select("id, escopo, escola_id, status, criado_via").eq("id", id).maybeSingle();
+  const { data, error } = await ctx.supabase.from("importacoes").select("id, escopo, escola_id, status, criado_via, created_at").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error(ERRO_IMPORTACAO);
   return data as ImportacaoAlvo;
@@ -459,7 +472,9 @@ export function registrarAcoesImportacao(server: McpServer, obter: ObterCtx, per
         if (imp.status === "enviando") {
           const lv = await levas();
           const selecao = await lv.lerSelecao(imp.id);
-          if (!selecao && imp.criado_via === "hermes") {
+          if (!selecao && imp.criado_via === "hermes" && !semSelecaoEhErro(imp.created_at, Date.now())) {
+            nota = NOTA_SELECAO_PREPARANDO; // o importar_prova ainda está gravando: status continua "enviando"
+          } else if (!selecao && imp.criado_via === "hermes") {
             const msg = "Não encontrei as páginas escolhidas desta importação. Importe a prova de novo.";
             await marcarErro(ator, imp.id, msg); // senão ficaria "enviando" para sempre
             throw new Error(msg);
