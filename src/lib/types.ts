@@ -276,6 +276,7 @@ export type Importacao = {
   custo_real_usd: number | null;
   erro: string | null;
   criado_por: string | null;
+  criado_via?: OrigemRegistro;
   created_at: string;
   updated_at: string;
 };

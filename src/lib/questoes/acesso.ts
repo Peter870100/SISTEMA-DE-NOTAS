@@ -24,12 +24,17 @@ export async function exigirEditorQuestao(questaoId: string): Promise<{ professo
   return { professor, questao: await exigirEditorQuestaoPor(professor, questaoId) };
 }
 
-export async function exigirImportacao(importacaoId: string): Promise<{ professor: Professor; importacao: Importacao }> {
-  const professor = await exigirProfessor();
+/** A importação, se o ator (sessão ou Hermes) pode mexer nela. */
+export async function exigirImportacaoPor(ator: Ator, importacaoId: string): Promise<{ importacao: Importacao }> {
   const { data: importacao } = await supabase.from("importacoes").select("*").eq("id", importacaoId).maybeSingle();
-  if (!importacao || !podeImportar(professor, importacao.escopo)) throw new Error("Importação não encontrada.");
-  if (importacao.escopo === "escola" && importacao.escola_id !== professor.escola_id && professor.role !== "dono") {
+  if (!importacao || !podeImportar(ator, importacao.escopo)) throw new Error("Importação não encontrada.");
+  if (importacao.escopo === "escola" && importacao.escola_id !== ator.escola_id && ator.role !== "dono") {
     throw new Error("Importação não encontrada.");
   }
-  return { professor, importacao };
+  return { importacao };
+}
+
+export async function exigirImportacao(importacaoId: string): Promise<{ professor: Professor; importacao: Importacao }> {
+  const professor = await exigirProfessor();
+  return { professor, ...(await exigirImportacaoPor(professor, importacaoId)) };
 }
