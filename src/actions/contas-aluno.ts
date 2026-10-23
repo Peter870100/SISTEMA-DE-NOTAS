@@ -170,8 +170,13 @@ async function atorAdmin(): Promise<AtorEscola> {
   return atorDoAdmin(await exigirAdminDaEscola());
 }
 
+/** Texto vindo do cliente: o que não for string vira "" (e não o texto "undefined"). */
+function textoOuVazio(x: unknown): string {
+  return typeof x === "string" ? x : "";
+}
+
 export async function criarContasAluno(turmaId: string, alunos: { nome: string; usuario: string }[]): Promise<CredencialGerada[]> {
-  return criarContasPor(await atorAdmin(), turmaId, alunos.map(({ nome, usuario }) => ({ nome: String(nome), usuario: String(usuario) })));
+  return criarContasPor(await atorAdmin(), turmaId, alunos.map(({ nome, usuario }) => ({ nome: textoOuVazio(nome), usuario: textoOuVazio(usuario) })));
 }
 
 /** Alunos da planilha da turma (bimestre vigente) ainda sem conta ligada, com o usuário sugerido. */
@@ -181,7 +186,7 @@ export async function previaContasDaPlanilha(turmaId: string): Promise<LinhaPrev
 
 /** Cria as contas com o nome da planilha e já ligadas; quem já tem conta ligada é ignorado (`ignorados`). */
 export async function criarContasDaPlanilha(turmaId: string, linhas: { alunoId: string; usuario: string }[]): Promise<{ credenciais: CredencialGerada[]; ignorados: string[] }> {
-  return criarContasDaPlanilhaPor(await atorAdmin(), turmaId, linhas.map(({ alunoId, usuario }) => ({ alunoId: String(alunoId), usuario: String(usuario) })));
+  return criarContasDaPlanilhaPor(await atorAdmin(), turmaId, linhas.map(({ alunoId, usuario }) => ({ alunoId: textoOuVazio(alunoId), usuario: textoOuVazio(usuario) })));
 }
 
 /** Prévia de "Ligar pelo nome": só casamentos únicos dos dois lados; os repetidos são ligados à mão. */
@@ -195,7 +200,7 @@ export async function alunosSemContaDaTurma(turmaId: string): Promise<{ alunoId:
 }
 
 export async function aplicarLigacoes(turmaId: string, pares: { contaId: string; alunoId: string }[]): Promise<{ ligadas: number }> {
-  return aplicarLigacoesPor(await atorAdmin(), turmaId, pares.map(({ contaId, alunoId }) => ({ contaId: String(contaId), alunoId: String(alunoId) })));
+  return aplicarLigacoesPor(await atorAdmin(), turmaId, pares.map(({ contaId, alunoId }) => ({ contaId: textoOuVazio(contaId), alunoId: textoOuVazio(alunoId) })));
 }
 
 /** Liga a conta à mão a uma linha da planilha da turma, ou desliga só nesta turma com null. */
