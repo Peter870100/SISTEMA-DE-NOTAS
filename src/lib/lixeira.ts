@@ -17,7 +17,7 @@ export function descreverResumo(tipo: TipoLixeira, resumo: ResumoLixeira): strin
       plural(notas, "nota", "notas"),
     ].join(" · ");
   }
-  if (tipo === "questao" || tipo === "simulado" || tipo === "tentativa") return plural(resumo.registros ?? 0, "registro", "registros");
+  if (tipo === "questao" || tipo === "simulado" || tipo === "tentativa" || tipo === "progresso_aula") return plural(resumo.registros ?? 0, "registro", "registros");
   const notas = resumo.notas ?? 0;
   return notas === 0 ? "sem notas" : plural(notas, "nota", "notas");
 }
@@ -36,6 +36,7 @@ const ROTULO: Record<TipoLixeira, string> = {
   questao: "Questão restaurada",
   simulado: "Simulado restaurado",
   tentativa: "Tentativa restaurada",
+  progresso_aula: "Progresso de aula restaurado",
 };
 
 export function mensagemRestauracao(r: ResultadoRestauracao): string {

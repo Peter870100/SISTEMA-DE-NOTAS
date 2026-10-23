@@ -98,7 +98,7 @@ export type NotaHistorico = {
   created_at: string;
 };
 
-export type TipoLixeira = "turma" | "aluno" | "atividade" | "questao" | "simulado" | "tentativa";
+export type TipoLixeira = "turma" | "aluno" | "atividade" | "questao" | "simulado" | "tentativa" | "progresso_aula";
 
 export type ResumoLixeira = { alunos?: number; atividades?: number; notas?: number; registros?: number };
 
@@ -142,7 +142,7 @@ export type Escola = {
   created_at: string;
 };
 
-export type OrigemContaAluno = "escola" | "convite";
+export type OrigemContaAluno = "escola" | "convite" | "hermes";
 
 export type AlunoConta = {
   avatar_perfil?: string | null;
@@ -629,7 +629,11 @@ export type Database = {
         Returns: Turma[];
       };
       lixeira_excluir: {
-        Args: { p_tipo: TipoLixeira; p_id: string; p_ator?: string | null; p_via?: OrigemRegistro };
+        Args: { p_tipo: Exclude<TipoLixeira, "progresso_aula">; p_id: string; p_ator?: string | null; p_via?: OrigemRegistro };
+        Returns: string;
+      };
+      lixeira_excluir_progresso: {
+        Args: { p_conta: string; p_aula: string; p_ator?: string | null; p_via?: OrigemRegistro };
         Returns: string;
       };
       lixeira_restaurar: {

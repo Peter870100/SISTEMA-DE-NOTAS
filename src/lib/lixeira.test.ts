@@ -66,3 +66,11 @@ test("mensagemRestauracao da questão informa vínculos pulados", () => {
     "Questão restaurada. 12 vínculos foram pulados porque o simulado ou a tentativa deles não existe mais."
   );
 });
+
+test("progresso de aula: resumo pelos registros e mensagem de restauração", () => {
+  assert.equal(descreverResumo("progresso_aula", { registros: 1 }), "1 registro");
+  assert.equal(
+    mensagemRestauracao({ tipo: "progresso_aula", turma_id: null, notas_restauradas: 0, notas_puladas: 0, vinculos_pulados: 0 }),
+    "Progresso de aula restaurado."
+  );
+});
