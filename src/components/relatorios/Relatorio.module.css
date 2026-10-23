@@ -25,6 +25,9 @@
   .grade { grid-template-columns: minmax(0, 1fr); }
   .graficoFixo { width: 17cm; max-width: 100%; }
   .rolagem { overflow: visible; }
-  .tabela th, .tabela td { white-space: normal; }
+  /* Folha A4: tabela mais compacta para a de alunos (9 colunas) caber na largura do cartão. */
+  .tabela { font-size: 0.75rem; }
+  .tabela th, .tabela td { white-space: normal; padding: 0.35rem 0.4rem; }
+  .tabela th { font-size: 0.625rem; letter-spacing: 0.04em; }
   body:has(.pagina) * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }

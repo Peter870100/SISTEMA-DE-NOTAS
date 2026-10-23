@@ -46,7 +46,7 @@ export function GraficosAluno({ bimestres, materias, simulados, mediaAprovacao, 
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={bimestres} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EAEFF7" />
-                  <XAxis dataKey="nome" tick={TICK} />
+                  <XAxis dataKey="nome" tick={TICK} interval={0} />
                   <YAxis domain={[0, 10]} tick={TICK} width={36} />
                   <Tooltip contentStyle={TOOLTIP} formatter={(v) => [String(v).replace(".", ","), "Nota"]} />
                   <ReferenceLine y={mediaAprovacao} stroke={DANGER} strokeDasharray="5 4" label={{ value: rotuloMedia, position: "insideTopRight", fill: DANGER, fontSize: 12 }} />
@@ -96,7 +96,7 @@ export function GraficosAluno({ bimestres, materias, simulados, mediaAprovacao, 
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={simulados} margin={{ top: 8, right: 16, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EAEFF7" />
-                <XAxis dataKey="data" tick={TICK} />
+                <XAxis dataKey="data" tick={TICK} interval="preserveStartEnd" padding={{ left: 20, right: 20 }} />
                 <YAxis domain={[0, 10]} tick={TICK} width={36} />
                 <Tooltip contentStyle={TOOLTIP} labelFormatter={(_, p) => p?.[0]?.payload?.nome ?? ""} formatter={(v) => [String(v).replace(".", ","), "Nota"]} />
                 <ReferenceLine y={mediaAprovacao} stroke={DANGER} strokeDasharray="5 4" />

@@ -49,7 +49,7 @@ export function GraficosTurma({ mediaPorBimestre, distribuicao, materias, mediaA
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={bimestres} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EAEFF7" />
-                <XAxis dataKey="nome" tick={TICK} />
+                <XAxis dataKey="nome" tick={TICK} interval={0} />
                 <YAxis domain={[0, 10]} tick={TICK} width={36} />
                 <Tooltip contentStyle={TOOLTIP} formatter={(v) => [String(v).replace(".", ","), "Média"]} />
                 <ReferenceLine y={mediaAprovacao} stroke={DANGER} strokeDasharray="5 4" label={{ value: rotuloMedia, position: "insideTopRight", fill: DANGER, fontSize: 12 }} />

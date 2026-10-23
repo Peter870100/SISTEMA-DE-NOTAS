@@ -117,25 +117,30 @@ export function RelatorioAluno({ turmaId, dados }: { turmaId: string; dados: Dad
       }
     >
       <div className={css.pagina}>
+        {/* Fundo branco por baixo da cor translúcida: o primeiro cartão sobe sobre a faixa azul do cabeçalho. */}
         {dados.historicoParcial && (
-          <p role="alert" className={`flex items-start gap-2 rounded-card border border-warn bg-warn/10 p-3 text-sm text-ink ${css.cartao}`}>
-            <TriangleAlert size={16} className="mt-0.5 shrink-0 text-warn" />
-            Histórico parcial: há outro aluno com o mesmo nome sem vínculo de conta, então alguns bimestres podem não ter sido juntados.
-          </p>
+          <div className={`rounded-card bg-surface ${css.cartao}`}>
+            <p role="alert" className="flex items-start gap-2 rounded-card border border-warn bg-warn/10 p-3 text-sm text-ink">
+              <TriangleAlert size={16} className="mt-0.5 shrink-0 text-warn" />
+              Histórico parcial: há outro aluno com o mesmo nome sem vínculo de conta, então alguns bimestres podem não ter sido juntados.
+            </p>
+          </div>
         )}
 
-        <div className={`rounded-card border-2 p-5 shadow-card ${TOM[tom]} ${css.cartao}`}>
-          <p className={ui.rotulo}>Quanto falta para a média {formatarNota(mediaAprovacao)}</p>
-          <p className="mt-1 font-display text-lg font-semibold text-ink">{q.titulo}</p>
-          {q.destaque && <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-ink">{q.destaque}</p>}
-          <p className="mt-1 text-sm leading-relaxed text-ink">{q.texto}</p>
+        <div className={`rounded-card bg-surface shadow-card ${css.cartao}`}>
+          <div className={`rounded-card border-2 p-5 ${TOM[tom]}`}>
+            <p className={ui.rotulo}>Quanto falta para a média {formatarNota(mediaAprovacao)}</p>
+            <p className="mt-1 font-display text-lg font-semibold text-ink">{q.titulo}</p>
+            {q.destaque && <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-ink">{q.destaque}</p>}
+            <p className="mt-1 text-sm leading-relaxed text-ink">{q.texto}</p>
+          </div>
         </div>
 
         <p className={`rounded-card border border-line bg-surface p-4 text-sm leading-relaxed text-ink shadow-card ${css.cartao}`}>{dados.frase}</p>
 
         <div className={css.numeros}>
           <Numero rotulo="Média atual" valor={mediaAtual === null ? "—" : formatarNota(mediaAtual)} />
-          <Numero rotulo="Simulados feitos" valor={`${feitos}/${dados.simulados.length}`} />
+          <Numero rotulo="Simulados feitos" valor={semConta ? "—" : `${feitos}/${dados.simulados.length}`} />
           <Numero rotulo="Aulas concluídas" valor={aulas ? `${aulas.concluidas}/${aulas.total}` : "—"} />
           <Numero rotulo="Último acesso" valor={formatarDataCurta(dados.ultimoAcesso)} />
         </div>
