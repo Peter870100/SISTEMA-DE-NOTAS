@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { caminhoOriginal, caminhoSelecao, desenharProximaLeva, ehNaoEncontrado, ENVIO_JPEG, ENVIO_JSON, ENVIO_PDF, erroDoArquivo, planejarLeva, validarSelecao, type DepsLeva, type TipoArquivo } from "./importacao-levas";
+import { caminhoOriginal, caminhoSelecao, desenharProximaLeva, ehNaoEncontrado, OriginalNaoEncontrado, ENVIO_JPEG, ENVIO_JSON, ENVIO_PDF, erroDoArquivo, planejarLeva, validarSelecao, type DepsLeva, type TipoArquivo } from "./importacao-levas";
 import type { AtorEscola } from "@/lib/simulados/ator";
 
 const ator: AtorEscola = { id: "p1", role: "professor", escola_id: "e1", turmas: null, via: "hermes" };
@@ -241,6 +241,29 @@ test("ler o original guardado que falha: lança (passageiro), não vira erro do 
   const m = mundo();
   const deps: DepsLeva = { ...m.deps, lerOriginal: async () => { throw new Error("download do storage falhou"); } };
   await assert.rejects(desenharProximaLeva(ator, "imp", { prova: [1], gabarito: [] }, m.agora, deps), /download do storage falhou/);
+});
+
+test("original que sumiu do storage → erro claro (não tenta de novo para sempre)", async () => {
+  const m = mundo();
+  const deps: DepsLeva = { ...m.deps, lerOriginal: async () => { throw new OriginalNaoEncontrado("Não encontrei o PDF da prova guardado. Importe a prova de novo."); } };
+  const r = await desenharProximaLeva(ator, "imp", { prova: [1], gabarito: [] }, m.agora, deps);
+  assert.deepEqual(r, { prontas: 0, faltam: 1, erro: "Não encontrei o PDF da prova guardado. Importe a prova de novo." });
+});
+
+test("página desenhada menor que 100 px → erro citando página e arquivo, sem enviar", async () => {
+  const m = mundo();
+  const deps: DepsLeva = {
+    ...m.deps,
+    abrirPdf: async () => ({
+      numPaginas: 2,
+      desenhar: async (n) => ({ jpeg: Buffer.from([0xff]), largura: n === 2 ? 80 : 1240, altura: 1754 }),
+      fechar: async () => {},
+    }),
+  };
+  const r2 = await desenharProximaLeva(ator, "imp", { prova: [1, 2], gabarito: [] }, m.agora, deps);
+  assert.equal(r2.prontas, 1);
+  assert.match(r2.erro ?? "", /página 2 da prova é pequena demais \(80×1754 px/);
+  assert.deepEqual(m.envios, ["prova-1"], "a página pequena não foi enviada");
 });
 
 test("ehNaoEncontrado: só 'não existe' do storage, não outras falhas", () => {

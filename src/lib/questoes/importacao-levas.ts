@@ -56,11 +56,18 @@ export type DepsLeva = {
 
 const mensagem = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/** O original guardado não existe no storage (não se resolve tentando de novo). */
+export class OriginalNaoEncontrado extends Error {}
+
+/** Mesmo limite de `registrarPaginaPor` (lá vira "Página inválida."): depende só do PDF. */
+const LADO_MINIMO = 100;
+
 /**
  * Desenha a próxima leva: as páginas escolhidas que ainda não têm linha em `importacao_paginas`, a
  * partir do original guardado. Para antes de passar do orçamento (média por página medida nesta chamada).
  * `erro` só para problemas do próprio PDF, que não se resolvem tentando de novo (seleção inválida, PDF que
- * não abre, página que não existe ou não desenha). Falhas de storage/banco lançam: são passageiras.
+ * não abre, original que sumiu do storage, página que não existe, não desenha ou sai menor que 100 px).
+ * Outras falhas de storage/banco lançam: são passageiras.
  */
 export async function desenharProximaLeva(
   ator: AtorEscola,
@@ -96,7 +103,13 @@ export async function desenharProximaLeva(
   const abrir = async (tipo: TipoArquivo): Promise<PdfServidor | { erro: string }> => {
     let pdf = abertos.get(tipo);
     if (!pdf) {
-      const bytes = await d.lerOriginal(importacaoId, tipo);
+      let bytes: Uint8Array;
+      try {
+        bytes = await d.lerOriginal(importacaoId, tipo);
+      } catch (e) {
+        if (e instanceof OriginalNaoEncontrado) return { erro: e.message };
+        throw e; // falha passageira do storage
+      }
       try {
         pdf = await d.abrirPdf(bytes);
       } catch (e) {
@@ -133,6 +146,9 @@ export async function desenharProximaLeva(
           desenho = await pdf.desenhar(pagina.numero);
         } catch (e) {
           return resultado(`Não consegui desenhar a página ${pagina.numero} ${NOME[pagina.tipo]}: ${mensagem(e)}`);
+        }
+        if (desenho.largura < LADO_MINIMO || desenho.altura < LADO_MINIMO) {
+          return resultado(`A página ${pagina.numero} ${NOME[pagina.tipo]} é pequena demais (${desenho.largura}×${desenho.altura} px; o mínimo é ${LADO_MINIMO} px de cada lado).`);
         }
         // Storage e banco podem falhar por um soluço: lançam (quem chama trata como passageiro e a
         // próxima chamada refaz esta página; o upsert torna isso seguro).
@@ -179,7 +195,8 @@ export async function guardarOriginal(importacaoId: string, tipo: TipoArquivo, b
 export async function lerOriginal(importacaoId: string, tipo: TipoArquivo): Promise<Uint8Array> {
   const { bucket } = await armazenamento();
   const { data, error } = await bucket.download(caminhoOriginal(importacaoId, tipo));
-  if (error || !data) throw new Error(`Não encontrei o PDF ${NOME[tipo]} guardado.`);
+  if (error && !ehNaoEncontrado(error)) throw new Error(`Falha ao ler o PDF ${NOME[tipo]} guardado: ${error.message}`);
+  if (error || !data) throw new OriginalNaoEncontrado(`Não encontrei o PDF ${NOME[tipo]} guardado. Importe a prova de novo.`);
   return new Uint8Array(await data.arrayBuffer());
 }
 

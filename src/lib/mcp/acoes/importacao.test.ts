@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Ctx } from "../leitura/comum";
 import { escolaParaCriar } from "./ator";
 import {
-  ERRO_IMPORTACAO, lerPedidoImportacao, paginasDoTexto, parametrosParaRegistro, selecionarPaginas, textoImportacaoCriada, textoSituacao,
+  avancarEnvio, ERRO_IMPORTACAO, ERRO_JA_ENVIADA, lerPedidoImportacao, paginasDoTexto, parametrosParaRegistro, selecionarPaginas, textoImportacaoCriada, textoSituacao,
 } from "./importacao";
 
 const base = { banca: "UFMS", ano: 2025 };
@@ -98,4 +98,26 @@ test("dono sem escola, com mais de uma, recebe o pedido da escola", async () => 
   const ctx: Ctx = { supabase: { from: () => consulta } as unknown as SupabaseClient, escopo: { tipo: "dono" } };
   await assert.rejects(escolaParaCriar(ctx), /Diga em qual escola: Status, Harmonia/);
   assert.equal((await escolaParaCriar(ctx, "harmonia")).id, "e2");
+});
+
+test("avancarEnvio: corrida 'já foi enviada' vira a situação normal; falha passageira lança", async () => {
+  const nada = async () => {};
+  assert.deepEqual(await avancarEnvio({ desenhar: async () => { throw new Error(ERRO_JA_ENVIADA); }, marcarErro: nada, iniciarLeitura: nada }), { leituraIniciada: false });
+  await assert.rejects(avancarEnvio({ desenhar: async () => { throw new Error("storage fora do ar"); }, marcarErro: nada, iniciarLeitura: nada }), /storage fora do ar/);
+});
+
+test("avancarEnvio: inicia a leitura só com tudo pronto; erro do PDF marca a importação", async () => {
+  let iniciou = 0;
+  const marcados: string[] = [];
+  const d = (r: { prontas: number; faltam: number; erro?: string }) => ({
+    desenhar: async () => r, marcarErro: async (m: string) => { marcados.push(m); }, iniciarLeitura: async () => { iniciou++; },
+  });
+  assert.deepEqual(await avancarEnvio(d({ prontas: 3, faltam: 2 })), { desenho: { prontas: 3, total: 5 }, leituraIniciada: false });
+  assert.equal(iniciou, 0);
+  assert.deepEqual(await avancarEnvio(d({ prontas: 5, faltam: 0 })), { desenho: { prontas: 5, total: 5 }, leituraIniciada: true });
+  assert.equal(iniciou, 1);
+  assert.deepEqual(await avancarEnvio(d({ prontas: 1, faltam: 1, erro: "PDF ruim" })), { leituraIniciada: false });
+  assert.deepEqual(marcados, ["PDF ruim"]);
+  const corrida = { ...d({ prontas: 5, faltam: 0 }), iniciarLeitura: async () => { throw new Error("Essa importação já está sendo lida."); } };
+  assert.deepEqual(await avancarEnvio(corrida), { desenho: { prontas: 5, total: 5 }, leituraIniciada: false });
 });

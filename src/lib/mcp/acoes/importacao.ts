@@ -30,7 +30,8 @@ const MAX_ANTES_DA_PRIMEIRA_LEVA_MS = 30000;
 /** Tempo de trabalho por chamada, com folga para os 60 s da Vercel. */
 const LIMITE_CHAMADA_MS = 50000;
 /** Outra chamada mudou a importação de "enviando" enquanto esta desenhava (mensagem do núcleo). */
-const ERRO_JA_ENVIADA = "Essa importação já foi enviada.";
+export const ERRO_JA_ENVIADA = "Essa importação já foi enviada.";
+const ERRO_JA_LENDO = "Essa importação já está sendo lida.";
 const NOME: Record<TipoArquivo, string> = { prova: "da prova", gabarito: "do gabarito" };
 
 const mensagem = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -172,6 +173,39 @@ export function textoSituacao(d: {
   else partes.push(...s.avisos.map((a) => `Aviso: ${a}`));
   partes.push(`${s.status === "revisao" || s.status === "concluida" ? "Conferência" : "Acompanhar"}: ${d.link}`);
   return partes.join(" ");
+}
+
+/**
+ * Um passo de situacao_importacao enquanto "enviando": desenha a próxima leva e, com tudo pronto, começa
+ * a leitura (o `reservar` do núcleo garante uma vez só). Falha passageira (storage/banco) lança: a
+ * resposta é de erro, a importação continua "enviando" e a próxima consulta refaz a página. Corrida com
+ * outra chamada ("já foi enviada" / "já está sendo lida") vira a situação normal.
+ */
+export async function avancarEnvio(d: {
+  desenhar: () => Promise<{ prontas: number; faltam: number; erro?: string }>;
+  marcarErro: (mensagem: string) => Promise<void>;
+  iniciarLeitura: () => Promise<void>;
+}): Promise<{ desenho?: { prontas: number; total: number }; leituraIniciada: boolean }> {
+  let leva;
+  try {
+    leva = await d.desenhar();
+  } catch (e) {
+    if (mensagem(e) === ERRO_JA_ENVIADA) return { leituraIniciada: false }; // outra chamada já começou a leitura
+    throw e;
+  }
+  if (leva.erro) {
+    await d.marcarErro(leva.erro);
+    return { leituraIniciada: false };
+  }
+  const desenho = { prontas: leva.prontas, total: leva.prontas + leva.faltam };
+  if (leva.faltam > 0) return { desenho, leituraIniciada: false };
+  try {
+    await d.iniciarLeitura();
+    return { desenho, leituraIniciada: true };
+  } catch (e) {
+    if (mensagem(e) === ERRO_JA_LENDO) return { desenho, leituraIniciada: false }; // outra chamada começou antes
+    throw e;
+  }
 }
 
 // ---------- banco e storage (sob demanda) ----------
@@ -385,26 +419,11 @@ export function registrarAcoesImportacao(server: McpServer, obter: ObterCtx, per
           } else if (!selecao) {
             nota = "Essa importação foi começada pela tela e as páginas estão sendo enviadas por lá.";
           } else {
-            let leva: Awaited<ReturnType<typeof lv.desenharProximaLeva>> | null = null;
-            try {
-              // Falha passageira (storage/banco) lança: a resposta é de erro, a importação continua
-              // "enviando" e a próxima chamada refaz a página.
-              leva = await lv.desenharProximaLeva(ator, imp.id, selecao);
-            } catch (e) {
-              if (mensagem(e) !== ERRO_JA_ENVIADA) throw e; // outra chamada já começou a leitura
-            }
-            if (leva?.erro) await marcarErro(ator, imp.id, leva.erro);
-            else if (leva) {
-              desenho = { prontas: leva.prontas, total: leva.prontas + leva.faltam };
-              if (leva.faltam === 0) {
-                try {
-                  await n.iniciarLeituraPor(ator, imp.id); // `reservar` garante uma leitura só
-                  leituraIniciada = true;
-                } catch (e) {
-                  if (mensagem(e) !== "Essa importação já está sendo lida.") throw e; // outra chamada começou antes
-                }
-              }
-            }
+            ({ desenho, leituraIniciada } = await avancarEnvio({
+              desenhar: () => lv.desenharProximaLeva(ator, imp.id, selecao),
+              marcarErro: (msg) => marcarErro(ator, imp.id, msg),
+              iniciarLeitura: () => n.iniciarLeituraPor(ator, imp.id),
+            }));
           }
         }
         const situacao = await n.atualizarImportacaoPor(ator, imp.id);
