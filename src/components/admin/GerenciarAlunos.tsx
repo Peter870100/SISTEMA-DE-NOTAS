@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { estilos } from "@/components/ui/estilos";
 import styles from "./ContasAdmin.module.css";
 import { baixarPlanilha } from "./baixar-acessos";
+import { dadosOuErro } from "@/lib/resposta";
 import { LigacaoConta, ModalCriarDaPlanilha, ModalLigarPorNome } from "./ContasPlanilha";
 import {
   criarContasAluno,
@@ -94,8 +95,8 @@ export function GerenciarAlunos({ contasIniciais, turmas }: Props) {
             </dl>
             <LigacaoConta conta={c} desabilitado={ocupado} onMudou={recarregar} onErro={(m) => { setAviso(null); setErro(m); }} />
             <div className={styles.actions}>
-              <button type="button" disabled={ocupado} onClick={() => executar(async () => { const senha = await novaSenhaAlunoPeloAdmin(c.id); setAviso(`Nova senha de ${c.nome}: ${senha} (aparece só agora; o aluno troca no próximo acesso).`); })} className={styles.secondary}><KeyRound size={17} aria-hidden="true" />Nova senha</button>
-              <button type="button" disabled={ocupado} onClick={() => executar(async () => { await definirContaAtiva(c.id, !c.ativo); setContas(await listarContasAluno()); })} className={c.ativo ? styles.secondary : styles.primary}>{c.ativo ? <><Lock size={17} aria-hidden="true" />Bloquear</> : <><Unlock size={17} aria-hidden="true" />Desbloquear</>}</button>
+              <button type="button" disabled={ocupado} onClick={() => executar(async () => { const senha = dadosOuErro(await novaSenhaAlunoPeloAdmin(c.id)); setAviso(`Nova senha de ${c.nome}: ${senha} (aparece só agora; o aluno troca no próximo acesso).`); })} className={styles.secondary}><KeyRound size={17} aria-hidden="true" />Nova senha</button>
+              <button type="button" disabled={ocupado} onClick={() => executar(async () => { dadosOuErro(await definirContaAtiva(c.id, !c.ativo)); setContas(await listarContasAluno()); })} className={c.ativo ? styles.secondary : styles.primary}>{c.ativo ? <><Lock size={17} aria-hidden="true" />Bloquear</> : <><Unlock size={17} aria-hidden="true" />Desbloquear</>}</button>
             </div>
           </article>)}
         </div>
@@ -168,7 +169,8 @@ export function GerenciarAlunos({ contasIniciais, turmas }: Props) {
                   type="button"
                   disabled={ocupado}
                   onClick={() => executar(async () => {
-                    const credenciais = await criarContasAluno(turmaId, previa);
+                    // Se o lote parar no meio, `executar` recarrega a lista (algumas contas podem ter sido criadas).
+                    const credenciais = dadosOuErro(await criarContasAluno(turmaId, previa));
                     try {
                       await baixarPlanilha(credenciais);
                     } catch {

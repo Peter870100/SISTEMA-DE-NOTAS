@@ -1,5 +1,6 @@
 import { normalizarBusca } from "@/lib/hermes/relatorios";
 import { acharPorNome, dataHoraBR, limitarLinhas, type EscolaInfo } from "../leitura/comum";
+import { perguntaTurmaParcial } from "./ator";
 
 /**
  * Regras puras das ferramentas de contas e de ajuda ao aluno da Hermes (perfil dono): escolha do
@@ -59,9 +60,14 @@ const igual = (nome: string, busca: string) => normalizarBusca(nome) === normali
  * Uma conta entre as achadas pelo nome (ou a do `conta_id`, com `porId`). Nenhuma → erro. Só age
  * com uma conta de nome igual ao pedido: uma só que apenas contém o pedido ("Ana" → "Mariana") ou
  * mais de uma → texto com as opções (turma e conta_id) para a Hermes perguntar; nada é feito.
+ * Entre várias, se exatamente uma tem o nome igual ao pedido ("Ana Souza" × "Ana Souza Lima"), é ela.
  */
 export function escolherConta(achadas: ContaAchada[], busca: string, variasEscolas: boolean, porId = false): { conta: ContaAchada } | { mensagem: string } {
   if (achadas.length === 0) throw new Error(`Aluno "${busca}" não encontrado.`);
+  if (achadas.length > 1 && !porId) {
+    const iguais = achadas.filter((c) => igual(c.nome, busca));
+    if (iguais.length === 1) return { conta: iguais[0] };
+  }
   if (achadas.length === 1) {
     const c = achadas[0];
     if (porId || igual(c.nome, busca)) return { conta: c };
@@ -81,7 +87,8 @@ const porAnoDesc = (a: string, b: string) => b.localeCompare(a, undefined, { num
 
 /**
  * Turma pelo nome entre as escolas do pedido (igual primeiro; senão quem contém). Mesmo nome em mais
- * de uma escola → pede qual. Sem `ano`, vale o ano letivo mais recente. Devolve uma linha qualquer do
+ * de uma escola → pede qual. Uma só turma que apenas contém o pedido ("Ano A" → "1º Ano A") →
+ * `Pergunta` (nada é feito). Sem `ano`, vale o ano letivo mais recente. Devolve uma linha qualquer do
  * grupo (o núcleo acha o bimestre de referência).
  */
 export function escolherTurma(turmas: TurmaLinha[], escolas: EscolaInfo[], nome: string, ano?: string): TurmaLinha {
@@ -94,6 +101,7 @@ export function escolherTurma(turmas: TurmaLinha[], escolas: EscolaInfo[], nome:
     throw new Error(`Mais de uma turma com "${nome}": ${achados.slice(0, 20).map((g) => `${g.nome} [${nomeEscola(g.escola_id)}]`).join(", ")}. Diga qual (ou a escola).`);
   }
   const g = achados[0];
+  if (!igual(g.nome, nome)) throw perguntaTurmaParcial(g.nome, nome);
   const doGrupo = turmas.filter((t) => t.escola_id === g.escola_id && t.nome === g.nome);
   const anos = [...new Set(doGrupo.map((t) => t.ano_letivo))].sort(porAnoDesc);
   const alvo = ano?.trim() || anos[0];
@@ -108,7 +116,7 @@ const rotuloVinculo = (v: VinculoConta) => `${v.turma_nome} · ${v.ano_letivo}`;
 
 /**
  * A turma da conta onde agir. Sem `turma`, só se a conta estiver em exatamente uma; com `turma`, pelo
- * nome (igual primeiro), no ano letivo mais recente.
+ * nome (igual primeiro), no ano letivo mais recente. Nome só parecido com uma turma da conta → `Pergunta`.
  */
 export function escolherVinculo(vinculos: VinculoConta[], turma?: string): VinculoConta {
   const todas = [...vinculos].sort((a, b) => a.turma_nome.localeCompare(b.turma_nome, "pt-BR") || porAnoDesc(a.ano_letivo, b.ano_letivo));
@@ -121,6 +129,7 @@ export function escolherVinculo(vinculos: VinculoConta[], turma?: string): Vincu
   if (achados.length === 0) throw new Error(`A conta não está na turma "${turma.trim()}". Turmas da conta: ${todas.map(rotuloVinculo).join(", ") || "nenhuma"}.`);
   const nomes = new Set(achados.map((v) => v.turma_nome));
   if (nomes.size > 1) throw new Error(`Mais de uma turma da conta com "${turma.trim()}": ${[...nomes].join(", ")}. Diga qual.`);
+  if (!igual(achados[0].turma_nome, turma)) throw perguntaTurmaParcial(achados[0].turma_nome, turma);
   return achados[0];
 }
 

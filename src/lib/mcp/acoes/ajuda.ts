@@ -56,7 +56,7 @@ export function registrarAcoesAjuda(server: McpServer, obter: ObterCtx, perfil: 
       if ("mensagem" in r) return r.mensagem;
       const t = r.tentativa;
       const lixeiraId = await rodar(() => liberarNovaTentativaPor(ator, t.id, args.mesmo_em_andamento === true), { tentativa_id: t.id });
-      return `Tentativa de ${conta.nome} em "${t.titulo}" foi para a Lixeira (item ${lixeiraId}); ele já pode fazer de novo. Dá para restaurar pela Lixeira.`;
+      return `Tentativa de ${conta.nome} em "${t.titulo}" foi para a Lixeira (item ${lixeiraId}); ele já pode fazer de novo. Dá para restaurar pela Lixeira da escola ${conta.escolaNome}.`;
     }),
   );
 
@@ -116,7 +116,7 @@ export function registrarAcoesAjuda(server: McpServer, obter: ObterCtx, perfil: 
       if ("mensagem" in a) return a.mensagem;
       const aula = a.item;
       const lixeiraId = await rodar(() => zerarProgressoAulaPor(ator, conta.id, aula.id), { aula_id: aula.id });
-      return `Progresso de ${conta.nome} na aula "${aula.titulo}" (${curso.titulo}) zerado; o registro foi para a Lixeira (item ${lixeiraId}) e dá para restaurar.`;
+      return `Progresso de ${conta.nome} na aula "${aula.titulo}" (${curso.titulo}) zerado; o registro foi para a Lixeira (item ${lixeiraId}). Dá para restaurar pela Lixeira da escola ${conta.escolaNome}.`;
     }),
   );
 }

@@ -11,7 +11,30 @@ export function limparNome(nome: string): string {
  */
 export function textoJaCriadas(nomes: string[]): string {
   if (nomes.length === 0) return "Nenhuma conta foi criada.";
-  return `${nomes.length} conta(s) já foram criadas antes deste: ${nomes.join(", ")}. Não repita: essas contas já existem; use gerar_senha_provisoria para elas.`;
+  return `${nomes.length} conta(s) já foram criadas antes deste: ${nomes.join(", ")}. Não repita: essas contas já existem; gere uma senha nova para cada uma.`;
+}
+
+/**
+ * Falha no meio do lote de contas: a mensagem já traz `textoJaCriadas`; `criadas` são os nomes das
+ * contas que ficaram gravadas (vazio = nenhuma), para quem chama completar a orientação.
+ */
+export class LoteParcialError extends Error {
+  readonly criadas: string[];
+  constructor(mensagem: string, criadas: string[]) {
+    super(mensagem);
+    this.name = "LoteParcialError";
+    this.criadas = criadas;
+  }
+}
+
+/** Alguma turma (nome + ano letivo) pedida ao mesmo tempo em incluir e em remover. */
+export function turmaEmIncluirERemover(
+  incluir: { turma_nome: string; ano_letivo: string }[],
+  remover: { turma_nome: string; ano_letivo: string }[],
+): boolean {
+  const chave = (t: { turma_nome: string; ano_letivo: string }) => `${normalizarBusca(t.turma_nome)}|${t.ano_letivo.trim()}`;
+  const remove = new Set(remover.map(chave));
+  return incluir.some((t) => remove.has(chave(t)));
 }
 
 /**

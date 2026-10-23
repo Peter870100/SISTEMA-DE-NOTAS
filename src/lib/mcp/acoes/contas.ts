@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { limparNome } from "@/lib/contas/ligacao";
+import { limparNome, LoteParcialError } from "@/lib/contas/ligacao";
+import { normalizarBusca } from "@/lib/hermes/relatorios";
 import {
   aplicarLigacoesPor, alunosSemContaDoGrupoPor, criarContasDaPlanilhaPor, criarContasPor, definirContaAtivaPor, editarContaPor, ligarContaPor,
   novaSenhaPor, previaContasDaPlanilhaPor, previaLigacoesPorNomePor, sugerirUsuarios, turmasDaContaPor,
@@ -142,6 +143,31 @@ function comTurma<A extends { turma: string; ano_letivo?: string; escola?: strin
   };
 }
 
+/**
+ * Roda o lote de contas com registro; se parar no meio com contas já criadas, completa a mensagem
+ * do núcleo com a ferramenta que gera a senha delas (as senhas dessas contas se perderam).
+ */
+async function loteComOrientacao<T>(acao: () => Promise<T>, rodar: Rodar): Promise<T> {
+  try {
+    return await rodar(acao);
+  } catch (e) {
+    if (e instanceof LoteParcialError && e.criadas.length > 0) throw new Error(`${e.message} Use gerar_senha_provisoria para elas.`);
+    throw e;
+  }
+}
+
+/** Nome do aluno da planilha a que a conta está ligada nesta turma (null = sem ligação). */
+async function ligacaoAtual(ctx: Ctx, contaId: string, v: VinculoConta): Promise<string | null> {
+  const { data, error } = await ctx.supabase.from("aluno_turmas").select("aluno_id")
+    .eq("conta_id", contaId).eq("escola_id", v.escola_id).eq("turma_nome", v.turma_nome).eq("ano_letivo", v.ano_letivo).maybeSingle();
+  if (error) throw new Error(error.message);
+  const alunoId = (data as { aluno_id: string | null } | null)?.aluno_id;
+  if (!alunoId) return null;
+  const { data: aluno, error: erroAluno } = await ctx.supabase.from("alunos").select("nome").eq("id", alunoId).maybeSingle();
+  if (erroAluno) throw new Error(erroAluno.message);
+  return limparNome((aluno as { nome: string } | null)?.nome ?? "outro aluno da planilha");
+}
+
 const quem = (c: ContaAchada) => `${c.nome}${c.usuario ? ` (usuário ${c.usuario})` : c.email ? ` (e-mail ${c.email})` : ""}`;
 
 export function registrarAcoesContas(server: McpServer, obter: ObterCtx, perfil: Perfil) {
@@ -155,7 +181,7 @@ export function registrarAcoesContas(server: McpServer, obter: ObterCtx, perfil:
     comTurma(obter, perfil, "criar_contas_aluno", "criar as contas", async (_ctx, ator, turma, args, rodar) => {
       const nomes = args.nomes.map(limparNome);
       const usuarios = await sugerirUsuarios(nomes);
-      const credenciais = await rodar(() => criarContasPor(ator, turma.id, nomes.map((nome, i) => ({ nome, usuario: usuarios[i] }))));
+      const credenciais = await loteComOrientacao(() => criarContasPor(ator, turma.id, nomes.map((nome, i) => ({ nome, usuario: usuarios[i] }))), rodar);
       return textoCredenciais(credenciais);
     }),
   );
@@ -173,7 +199,7 @@ export function registrarAcoesContas(server: McpServer, obter: ObterCtx, perfil:
       const linhas = previa.filter((l) => !l.possivelContaExistente).map((l) => ({ alunoId: l.alunoId, usuario: l.usuario }));
       const fora = previa.filter((l) => l.possivelContaExistente).map((l) => l.nome);
       if (linhas.length === 0) return textoPreviaPlanilha(rotuloTurma(turma), previa);
-      const { credenciais, ignorados } = await rodar(() => criarContasDaPlanilhaPor(ator, turma.id, linhas));
+      const { credenciais, ignorados } = await loteComOrientacao(() => criarContasDaPlanilhaPor(ator, turma.id, linhas), rodar);
       const partes = [textoCredenciais(credenciais, ignorados)];
       if (fora.length > 0) partes.push(`Ficaram de fora (já há conta sem ligação com o mesmo nome): ${fora.join(", ")}. Use ligar_contas_pelo_nome ou ligar_conta.`);
       return partes.join("\n");
@@ -217,6 +243,11 @@ export function registrarAcoesContas(server: McpServer, obter: ObterCtx, perfil:
         return `Conta de ${conta.nome} desligada da planilha de ${rotulo}.`;
       }
       if (!args.aluno_planilha?.trim()) throw new Error("Informe aluno_planilha (o nome na planilha) ou desligar: true.");
+      const atual = await ligacaoAtual(ctx, conta.id, v);
+      if (atual) {
+        if (normalizarBusca(atual) === normalizarBusca(args.aluno_planilha)) return `A conta de ${conta.nome} já está ligada a ${atual} na planilha de ${rotulo}.`;
+        return `Está ligada a ${atual}; desligue antes (desligar: true). Nada foi feito.`;
+      }
       const livres = await alunosSemContaDoGrupoPor(ator, turmaId);
       if (acharPorNome(livres, (a) => a.nome, args.aluno_planilha).length === 0) {
         throw new Error(`"${args.aluno_planilha}" não está entre os alunos sem conta da planilha de ${rotulo}.`);
@@ -301,7 +332,7 @@ export function registrarAcoesContas(server: McpServer, obter: ObterCtx, perfil:
       if (incluirNomes.length === 0 && removerNomes.length === 0) return `${conta.nome} está em: ${conta.turmas.join(", ") || "nenhuma turma"}.`;
       const turmasEscola = await lerTodas<{ nome: string; ano_letivo: string }>((de, ate) =>
         ctx.supabase.from("turmas").select("nome, ano_letivo").eq("escola_id", conta.escolaId).order("nome").order("ano_letivo").range(de, ate));
-      const incluir = incluirNomes.length ? resolverTurmas(incluirNomes, turmasEscola, null) : [];
+      const incluir = incluirNomes.length ? resolverTurmas(incluirNomes, turmasEscola, null, { exato: true }) : [];
       const vinculos = await vinculosDaConta(ctx, conta.id);
       const remover = removerNomes.map((n) => escolherVinculo(vinculos, n)).map((v) => ({ turma_nome: v.turma_nome, ano_letivo: v.ano_letivo }));
       const r = await rodar(() => turmasDaContaPor(ator, conta.id, { incluir, remover }));

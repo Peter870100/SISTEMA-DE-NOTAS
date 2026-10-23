@@ -1,12 +1,32 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { alunosSemConta, escolherLinhasParaCriar, limparNome, linhaDeReferencia, nomesDeContasSemLigacao, pessoasDaReferencia, sugerirLigacoes, textoJaCriadas } from "./ligacao";
+import {
+  alunosSemConta, escolherLinhasParaCriar, limparNome, linhaDeReferencia, LoteParcialError, nomesDeContasSemLigacao, pessoasDaReferencia, sugerirLigacoes,
+  textoJaCriadas, turmaEmIncluirERemover,
+} from "./ligacao";
 
-test("textoJaCriadas: falha no meio do lote lista quem já foi criado e pede para não repetir", () => {
+test("textoJaCriadas: falha no meio do lote lista quem já foi criado e pede para não repetir (sem nome de ferramenta)", () => {
   assert.equal(textoJaCriadas([]), "Nenhuma conta foi criada.");
   const t = textoJaCriadas(["Ana Souza", "Bruno Lima"]);
   assert.match(t, /2 conta\(s\) já foram criadas antes deste: Ana Souza, Bruno Lima\./);
-  assert.match(t, /Não repita: essas contas já existem; use gerar_senha_provisoria para elas\./);
+  assert.match(t, /Não repita: essas contas já existem; gere uma senha nova para cada uma\./);
+  assert.doesNotMatch(t, /gerar_senha_provisoria|_/);
+});
+
+test("LoteParcialError: é um Error com a mensagem e os nomes criados", () => {
+  const e = new LoteParcialError("Falha. 1 conta(s) já foram criadas antes deste: Ana.", ["Ana"]);
+  assert.ok(e instanceof Error);
+  assert.ok(e instanceof LoteParcialError);
+  assert.equal(e.message, "Falha. 1 conta(s) já foram criadas antes deste: Ana.");
+  assert.deepEqual(e.criadas, ["Ana"]);
+});
+
+test("turmaEmIncluirERemover: mesma turma (nome normalizado + ano) nos dois → true", () => {
+  const t = (turma_nome: string, ano_letivo: string) => ({ turma_nome, ano_letivo });
+  assert.equal(turmaEmIncluirERemover([t("1º Ano A", "2026")], [t("1º ano a", "2026")]), true);
+  assert.equal(turmaEmIncluirERemover([t("1º Ano A", "2026")], [t("1º Ano A", "2025")]), false);
+  assert.equal(turmaEmIncluirERemover([t("1º Ano A", "2026")], [t("2º Ano B", "2026")]), false);
+  assert.equal(turmaEmIncluirERemover([], [t("1º Ano A", "2026")]), false);
 });
 
 test("sugerirLigacoes: acento, espaço e maiúsculas casam (João Silva × joao  silva)", () => {

@@ -1,7 +1,8 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
+import type { Resposta } from "@/actions/lixeira";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual } from "@/lib/auth";
@@ -175,43 +176,64 @@ function textoOuVazio(x: unknown): string {
   return typeof x === "string" ? x : "";
 }
 
-export async function criarContasAluno(turmaId: string, alunos: { nome: string; usuario: string }[]): Promise<CredencialGerada[]> {
-  return criarContasPor(await atorAdmin(), turmaId, alunos.map(({ nome, usuario }) => ({ nome: textoOuVazio(nome), usuario: textoOuVazio(usuario) })));
+/**
+ * Roda a ação e devolve o erro como valor (`Resposta`, o padrão de `lixeira.ts`): em produção o Next
+ * troca a mensagem de exceções de server action por uma genérica, e aqui a mensagem orienta o admin
+ * ("já ligada a outra conta", contas já criadas num lote que parou no meio…). Redirect/notFound do
+ * Next continuam sendo relançados.
+ */
+async function responder<T>(acao: () => Promise<T>): Promise<Resposta<T>> {
+  try {
+    return { ok: true, dados: await acao() };
+  } catch (e) {
+    unstable_rethrow(e);
+    return { ok: false, erro: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function criarContasAluno(turmaId: string, alunos: { nome: string; usuario: string }[]): Promise<Resposta<CredencialGerada[]>> {
+  return responder(async () => criarContasPor(await atorAdmin(), turmaId, alunos.map(({ nome, usuario }) => ({ nome: textoOuVazio(nome), usuario: textoOuVazio(usuario) }))));
 }
 
 /** Alunos da planilha da turma (bimestre vigente) ainda sem conta ligada, com o usuário sugerido. */
-export async function previaContasDaPlanilha(turmaId: string): Promise<LinhaPreviaPlanilha[]> {
-  return previaContasDaPlanilhaPor(await atorAdmin(), turmaId);
+export async function previaContasDaPlanilha(turmaId: string): Promise<Resposta<LinhaPreviaPlanilha[]>> {
+  return responder(async () => previaContasDaPlanilhaPor(await atorAdmin(), turmaId));
 }
 
 /** Cria as contas com o nome da planilha e já ligadas; quem já tem conta ligada é ignorado (`ignorados`). */
-export async function criarContasDaPlanilha(turmaId: string, linhas: { alunoId: string; usuario: string }[]): Promise<{ credenciais: CredencialGerada[]; ignorados: string[] }> {
-  return criarContasDaPlanilhaPor(await atorAdmin(), turmaId, linhas.map(({ alunoId, usuario }) => ({ alunoId: textoOuVazio(alunoId), usuario: textoOuVazio(usuario) })));
+export async function criarContasDaPlanilha(turmaId: string, linhas: { alunoId: string; usuario: string }[]): Promise<Resposta<{ credenciais: CredencialGerada[]; ignorados: string[] }>> {
+  return responder(async () => criarContasDaPlanilhaPor(await atorAdmin(), turmaId, linhas.map(({ alunoId, usuario }) => ({ alunoId: textoOuVazio(alunoId), usuario: textoOuVazio(usuario) }))));
 }
 
 /** Prévia de "Ligar pelo nome": só casamentos únicos dos dois lados; os repetidos são ligados à mão. */
-export async function previaLigacoesPorNome(turmaId: string): Promise<PreviaLigacoes> {
-  return previaLigacoesPorNomePor(await atorAdmin(), turmaId);
+export async function previaLigacoesPorNome(turmaId: string): Promise<Resposta<PreviaLigacoes>> {
+  return responder(async () => previaLigacoesPorNomePor(await atorAdmin(), turmaId));
 }
 
 /** Alunos da planilha da turma que ainda não têm conta ligada (para o seletor "Ligar a…"). */
-export async function alunosSemContaDaTurma(turmaId: string): Promise<{ alunoId: string; nome: string }[]> {
-  return alunosSemContaDoGrupoPor(await atorAdmin(), turmaId);
+export async function alunosSemContaDaTurma(turmaId: string): Promise<Resposta<{ alunoId: string; nome: string }[]>> {
+  return responder(async () => alunosSemContaDoGrupoPor(await atorAdmin(), turmaId));
 }
 
-export async function aplicarLigacoes(turmaId: string, pares: { contaId: string; alunoId: string }[]): Promise<{ ligadas: number }> {
-  return aplicarLigacoesPor(await atorAdmin(), turmaId, pares.map(({ contaId, alunoId }) => ({ contaId: textoOuVazio(contaId), alunoId: textoOuVazio(alunoId) })));
+export async function aplicarLigacoes(turmaId: string, pares: { contaId: string; alunoId: string }[]): Promise<Resposta<{ ligadas: number }>> {
+  return responder(async () => aplicarLigacoesPor(await atorAdmin(), turmaId, pares.map(({ contaId, alunoId }) => ({ contaId: textoOuVazio(contaId), alunoId: textoOuVazio(alunoId) }))));
 }
 
 /** Liga a conta à mão a uma linha da planilha da turma, ou desliga só nesta turma com null. */
-export async function ligarConta(contaId: string, turmaId: string, alunoId: string | null): Promise<void> {
-  return ligarContaPor(await atorAdmin(), contaId, turmaId, alunoId);
+export async function ligarConta(contaId: string, turmaId: string, alunoId: string | null): Promise<Resposta<null>> {
+  return responder(async () => {
+    await ligarContaPor(await atorAdmin(), contaId, turmaId, alunoId);
+    return null;
+  });
 }
 
-export async function definirContaAtiva(contaId: string, ativo: boolean): Promise<void> {
-  return definirContaAtivaPor(await atorAdmin(), contaId, ativo);
+export async function definirContaAtiva(contaId: string, ativo: boolean): Promise<Resposta<null>> {
+  return responder(async () => {
+    await definirContaAtivaPor(await atorAdmin(), contaId, ativo);
+    return null;
+  });
 }
 
-export async function novaSenhaAlunoPeloAdmin(contaId: string): Promise<string> {
-  return novaSenhaPor(await atorAdmin(), contaId);
+export async function novaSenhaAlunoPeloAdmin(contaId: string): Promise<Resposta<string>> {
+  return responder(async () => novaSenhaPor(await atorAdmin(), contaId));
 }

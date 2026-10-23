@@ -5,6 +5,7 @@ import {
   escolherConta, escolherPorNome, escolherTentativa, escolherTurma, escolherVinculo, exigirAluno, parametrosParaRegistro, textoCredenciais, textoPreviaLigacoes,
   textoPreviaPlanilha, validarUsuario, type ContaAchada,
 } from "./contas-regras";
+import { falha, Pergunta } from "./ator";
 
 const conta = (id: string, nome: string, turmas: string[], escolaNome = "Colégio Status"): ContaAchada => ({
   id, nome, escolaId: escolaNome === "Colégio Status" ? "e1" : "e2", escolaNome, usuario: nome.toLowerCase().replace(/\s+/g, "."), email: null, ativo: true, turmas,
@@ -90,6 +91,24 @@ test("escolherConta: parcial único ('Ana' → só 'Mariana Silva') → pergunta
   assert.match(r.mensagem, /Achei só Mariana Silva \(1A · 2026\) para "Ana"\. É esse aluno\? Nada foi feito; repita com o conta_id c9\./);
 });
 
+test("escolherConta: entre várias, a única de nome igual ao pedido é escolhida (Física × Física II)", () => {
+  const r = escolherConta([conta("c1", "Física", ["1A · 2026"]), conta("c2", "Física II", ["1A · 2026"])], "fisica", false);
+  assert.ok("conta" in r);
+  assert.equal(r.conta.id, "c1");
+});
+
+test("escolherConta: 'Ana Souza' × 'Ana Souza Lima' → Ana Souza, sem perguntar", () => {
+  const r = escolherConta([conta("c2", "Ana Souza Lima", ["2B · 2026"]), conta("c1", "Ana Souza", ["1A · 2026"])], "Ana Souza", false);
+  assert.ok("conta" in r);
+  assert.equal(r.conta.id, "c1");
+});
+
+test("escolherConta: duas de nome igual (mais uma parecida) → lista, não age", () => {
+  const r = escolherConta([conta("c1", "Ana Souza", ["1A · 2026"]), conta("c2", "Ana Souza", ["2B · 2026"]), conta("c3", "Ana Souza Lima", ["3C · 2026"])], "Ana Souza", false);
+  assert.ok("mensagem" in r);
+  assert.match(r.mensagem, /Achei 3 alunos com "Ana Souza"\. Qual deles\? Nada foi feito/);
+});
+
 test("exigirAluno: precisa do nome ou do conta_id", () => {
   assert.throws(() => exigirAluno({}), /Informe o aluno \(nome\) ou o conta_id\./);
   assert.throws(() => exigirAluno({ aluno: "   " }), /Informe o aluno/);
@@ -126,6 +145,30 @@ test("escolherVinculo: sem turma, só vale se a conta estiver em uma; com turma,
   assert.throws(() => escolherVinculo([v("1A", "2026"), v("2B", "2026")]), /Diga a turma: 1A · 2026, 2B · 2026\./);
   assert.deepEqual(escolherVinculo([v("1A", "2025"), v("1A", "2026"), v("2B", "2026")], "1a"), v("1A", "2026"));
   assert.throws(() => escolherVinculo([v("1A", "2026")], "3C"), /A conta não está na turma "3C"\. Turmas da conta: 1A · 2026\./);
+});
+
+test("escolherTurma: 'Ano A' só acha '1º Ano A' → Pergunta (nada é feito); nome exato → age", () => {
+  const turmas = [{ id: "t1", escola_id: "e1", nome: "1º Ano A", ano_letivo: "2026" }];
+  assert.throws(() => escolherTurma(turmas, escolas, "Ano A"), (e: unknown) => {
+    assert.ok(e instanceof Pergunta);
+    assert.equal(e.message, 'Achei só a turma 1º Ano A para "Ano A". É essa? Nada foi feito; repita com o nome completo.');
+    return true;
+  });
+  assert.equal(escolherTurma(turmas, escolas, "1º ano  a").id, "t1");
+});
+
+test("escolherVinculo: 'Ano A' só acha '1º Ano A' → Pergunta; exato → o vínculo", () => {
+  const v = { escola_id: "e1", turma_nome: "1º Ano A", ano_letivo: "2026" };
+  assert.throws(() => escolherVinculo([v], "Ano A"), (e: unknown) => e instanceof Pergunta && /Achei só a turma 1º Ano A para "Ano A"\. É essa\?/.test(e.message));
+  assert.deepEqual(escolherVinculo([v], "1º ANO A"), v);
+});
+
+test("falha: Pergunta volta como resposta normal (sem isError); erro comum continua com isError", () => {
+  const p = falha("ligar a conta", new Pergunta("É essa?"));
+  assert.deepEqual(p, { content: [{ type: "text", text: "É essa?" }] });
+  const e = falha("ligar a conta", new Error("Conta não encontrada."));
+  assert.equal("isError" in e && e.isError, true);
+  assert.match(e.content[0].text, /^Não foi possível ligar a conta: Conta não encontrada\.$/);
 });
 
 test("escolherPorNome: exato → o item; parcial único ou vários → pergunta; nenhum → erro", () => {

@@ -91,10 +91,27 @@ export function paraIsoSaoPaulo(valor: string): string {
 }
 
 /**
- * Nomes de turma → turma + ano letivo (o mais recente daquele nome na escola). Pura.
- * `permitidas` = turmas liberadas para o professor (null = todas).
+ * Não é falha: a ferramenta precisa de uma confirmação antes de agir (ex.: só um nome parecido com o
+ * pedido). `falha` devolve a mensagem como resposta normal, sem isError; nada foi feito.
  */
-export function resolverTurmas(nomes: string[], turmasEscola: { nome: string; ano_letivo: string }[], permitidas: Set<string> | null): TurmaSimulado[] {
+export class Pergunta extends Error {}
+
+/** Pergunta padrão quando só uma turma contém o nome pedido, sem ser igual a ele. */
+export function perguntaTurmaParcial(achada: string, pedido: string): Pergunta {
+  return new Pergunta(`Achei só a turma ${achada} para "${pedido.trim()}". É essa? Nada foi feito; repita com o nome completo.`);
+}
+
+/**
+ * Nomes de turma → turma + ano letivo (o mais recente daquele nome na escola). Pura.
+ * `permitidas` = turmas liberadas para o professor (null = todas). Com `exato` (ferramentas de
+ * contas), uma só turma que apenas contém o pedido não vale: vira `Pergunta`.
+ */
+export function resolverTurmas(
+  nomes: string[],
+  turmasEscola: { nome: string; ano_letivo: string }[],
+  permitidas: Set<string> | null,
+  opcoes: { exato?: boolean } = {},
+): TurmaSimulado[] {
   const distintos = [...new Set(turmasEscola.map((t) => t.nome))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const saida = new Map<string, TurmaSimulado>();
   for (const pedido of nomes) {
@@ -103,6 +120,7 @@ export function resolverTurmas(nomes: string[], turmasEscola: { nome: string; an
     if (achados.length === 0) throw new Error(`Turma não encontrada: "${pedido}". Turmas da escola: ${distintos.join(", ") || "nenhuma"}.`);
     if (achados.length > 1) throw new Error(`Mais de uma turma com "${pedido}": ${achados.join(", ")}. Diga qual.`);
     const nome = achados[0];
+    if (opcoes.exato && iguais.length === 0) throw perguntaTurmaParcial(nome, pedido);
     if (permitidas && !permitidas.has(nome)) throw new Error(`Você não tem acesso à turma ${nome}.`);
     const ano = turmasEscola.filter((t) => t.nome === nome).map((t) => t.ano_letivo).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0];
     saida.set(`${nome}|${ano}`, { turma_nome: nome, ano_letivo: ano });
@@ -117,8 +135,9 @@ export type Perfil = "dono" | "professor";
 /** Ids do banco (uuid). Recusa texto livre antes de chegar ao PostgREST. */
 export const campoId = (descricao: string) => z.string().trim().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "id inválido").describe(descricao);
 
-/** Erro de ferramenta: texto curto em pt-BR com isError. */
+/** Erro de ferramenta: texto curto em pt-BR com isError. Uma `Pergunta` volta como resposta normal. */
 export function falha(verbo: string, e: unknown) {
+  if (e instanceof Pergunta) return texto(e.message);
   return { ...texto(`Não foi possível ${verbo}: ${e instanceof Error ? e.message : String(e)}`), isError: true };
 }
 

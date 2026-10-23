@@ -16,6 +16,8 @@ import {
   type ContaAlunoAdmin,
   type CredencialGerada,
 } from "@/actions/contas-aluno";
+import type { PreviaLigacoes } from "@/lib/contas/nucleo";
+import { dadosOuErro } from "@/lib/resposta";
 
 type Turma = { id: string; rotulo: string };
 type ModalProps = { open: boolean; onClose: () => void; turmas: Turma[]; onConcluido: (aviso?: string) => Promise<void> };
@@ -114,7 +116,7 @@ function CorpoCriarDaPlanilha({ turmas, onClose, onConcluido, atualizarAoFecharR
               type="button"
               disabled={ocupado || !turmaId}
               onClick={() => executar(async () => {
-                const previa = await previaContasDaPlanilha(turmaId);
+                const previa = dadosOuErro(await previaContasDaPlanilha(turmaId));
                 setLinhas(previa.map((p) => ({ ...p, marcada: !p.possivelContaExistente })));
               })}
               className={styles.primary}
@@ -149,7 +151,10 @@ function CorpoCriarDaPlanilha({ turmas, onClose, onConcluido, atualizarAoFecharR
                   type="button"
                   disabled={ocupado || marcadas.length === 0}
                   onClick={() => executar(async () => {
-                    const { credenciais, ignorados: jaTinham } = await criarContasDaPlanilha(turmaId, marcadas.map(({ alunoId, usuario }) => ({ alunoId, usuario })));
+                    const r = await criarContasDaPlanilha(turmaId, marcadas.map(({ alunoId, usuario }) => ({ alunoId, usuario })));
+                    // Lote que parou no meio pode ter criado contas: a lista atualiza ao fechar.
+                    if (!r.ok) atualizarAoFecharRef.current = true;
+                    const { credenciais, ignorados: jaTinham } = dadosOuErro(r);
                     const sufixo = jaTinham.length > 0 ? ` ${rotuloIgnorados(jaTinham.length)}: ${jaTinham.join(", ")}.` : "";
                     if (credenciais.length === 0) {
                       await concluir(`Nenhuma conta nova.${sufixo}`, ERRO_LISTA_CONTAS);
@@ -197,7 +202,7 @@ export function ModalCriarDaPlanilha({ open, onClose, turmas, onConcluido }: Mod
   );
 }
 
-type Previa = Awaited<ReturnType<typeof previaLigacoesPorNome>>;
+type Previa = PreviaLigacoes;
 
 function CorpoLigarPorNome({ turmas, onClose, onConcluido }: Omit<ModalProps, "open">) {
   const { ocupado, erro, executar } = useAcao();
@@ -214,7 +219,7 @@ function CorpoLigarPorNome({ turmas, onClose, onConcluido }: Omit<ModalProps, "o
         </select>
       </label>
       {previa === null ? (
-        <button type="button" disabled={ocupado || !turmaId} onClick={() => executar(async () => setPrevia(await previaLigacoesPorNome(turmaId)))} className={styles.primary}>
+        <button type="button" disabled={ocupado || !turmaId} onClick={() => executar(async () => setPrevia(dadosOuErro(await previaLigacoesPorNome(turmaId))))} className={styles.primary}>
           Ver prévia
         </button>
       ) : (
@@ -253,7 +258,10 @@ function CorpoLigarPorNome({ turmas, onClose, onConcluido }: Omit<ModalProps, "o
               type="button"
               disabled={ocupado || previa.ligar.length === 0}
               onClick={() => executar(async () => {
-                const { ligadas } = await aplicarLigacoes(turmaId, previa.ligar.map(({ contaId, alunoId }) => ({ contaId, alunoId })));
+                const r = await aplicarLigacoes(turmaId, previa.ligar.map(({ contaId, alunoId }) => ({ contaId, alunoId })));
+                // Parou no meio: algumas ligações podem ter sido gravadas; atualiza a lista antes do erro.
+                if (!r.ok) await onConcluido().catch(() => {});
+                const { ligadas } = dadosOuErro(r);
                 try {
                   await onConcluido(`${ligadas} conta(s) ligada(s) à planilha.`);
                 } catch {
@@ -311,7 +319,7 @@ export function LigacaoConta({ conta, desabilitado, onMudou, onErro }: { conta: 
           </span>
           <span className={styles.linkTurma}>{v.rotulo}</span>
           {v.alunoNome ? (
-            <button type="button" disabled={travado} className={styles.secondary} onClick={() => executar(async () => { await ligarConta(conta.id, v.turmaId, null); await onMudou(); })}>
+            <button type="button" disabled={travado} className={styles.secondary} onClick={() => executar(async () => { dadosOuErro(await ligarConta(conta.id, v.turmaId, null)); await onMudou(); })}>
               <Link2Off size={16} aria-hidden="true" />Desligar
             </button>
           ) : escolhendo?.turmaId === v.turmaId ? (
@@ -320,11 +328,11 @@ export function LigacaoConta({ conta, desabilitado, onMudou, onErro }: { conta: 
                 <option value="">Escolha o aluno da planilha</option>
                 {escolhendo.opcoes.map((o) => <option key={o.alunoId} value={o.alunoId}>{o.nome}</option>)}
               </select>
-              <button type="button" disabled={travado || !escolhendo.alunoId} className={styles.primary} onClick={() => executar(async () => { await ligarConta(conta.id, v.turmaId, escolhendo.alunoId); setEscolhendo(null); await onMudou(); })}>Ligar</button>
+              <button type="button" disabled={travado || !escolhendo.alunoId} className={styles.primary} onClick={() => executar(async () => { dadosOuErro(await ligarConta(conta.id, v.turmaId, escolhendo.alunoId)); setEscolhendo(null); await onMudou(); })}>Ligar</button>
               <button type="button" disabled={travado} className={styles.secondary} onClick={() => setEscolhendo(null)}>Cancelar</button>
             </div>
           ) : (
-            <button type="button" disabled={travado} className={styles.secondary} onClick={() => executar(async () => { setEscolhendo({ turmaId: v.turmaId, opcoes: await alunosSemContaDaTurma(v.turmaId), alunoId: "" }); })}>
+            <button type="button" disabled={travado} className={styles.secondary} onClick={() => executar(async () => { setEscolhendo({ turmaId: v.turmaId, opcoes: dadosOuErro(await alunosSemContaDaTurma(v.turmaId)), alunoId: "" }); })}>
               <Link2 size={16} aria-hidden="true" />Ligar a…
             </button>
           )}

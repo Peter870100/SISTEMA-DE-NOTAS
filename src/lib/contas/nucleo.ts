@@ -9,10 +9,12 @@ import {
   escolherLinhasParaCriar,
   limparNome,
   linhaDeReferencia,
+  LoteParcialError,
   nomesDeContasSemLigacao,
   pessoasDaReferencia,
   sugerirLigacoes,
   textoJaCriadas,
+  turmaEmIncluirERemover,
   type SugestaoLigacoes,
 } from "./ligacao";
 
@@ -154,15 +156,18 @@ export async function criarContasNaTurma(
       })
       .select("id")
       .single();
-    const jaCriadas = () => textoJaCriadas(credenciais.map((c) => c.nome));
-    if (error?.code === "23505") throw new Error(`O usuário ${usuarioLimpo} já existe. Gere a prévia de novo. ${jaCriadas()}`);
-    if (error || !conta) throw new Error(`${error?.message ?? "Falha ao criar conta."} ${jaCriadas()}`);
+    const parcial = (motivo: string) => {
+      const criadas = credenciais.map((c) => c.nome);
+      return new LoteParcialError(`${motivo} ${textoJaCriadas(criadas)}`, criadas);
+    };
+    if (error?.code === "23505") throw parcial(`O usuário ${usuarioLimpo} já existe. Gere a prévia de novo.`);
+    if (error || !conta) throw parcial(error?.message ?? "Falha ao criar conta.");
     const vinculo = { conta_id: conta.id, escola_id: ator.escola_id, turma_nome: turma.nome, ano_letivo: turma.ano_letivo, ...(alunoId ? { aluno_id: alunoId } : {}) };
     const { error: erroVinculo } = await supabase.from("aluno_turmas").insert(vinculo);
     if (erroVinculo) {
       await supabase.from("alunos_contas").delete().eq("id", conta.id);
       const motivo = alunoId && erroVinculo.code === "23505" ? `${nome.trim()} já tem conta ligada na planilha.` : `Falha ao ligar ${nome.trim()} à turma.`;
-      throw new Error(`${motivo} ${jaCriadas()}`);
+      throw parcial(motivo);
     }
     credenciais.push({ nome: nome.trim(), usuario: usuarioLimpo, senha, turma: rotuloTurma(turma) });
   }
@@ -215,7 +220,9 @@ export async function editarContaPor(ator: AtorEscola, contaId: string, campos: 
   if (Object.keys(mudar).length === 0) throw new Error("Nada para alterar: informe o nome ou o usuário.");
   const { data, error } = await supabase.from("alunos_contas").update(mudar).eq("id", contaId).select("nome, usuario").single();
   if (error?.code === "23505") throw new Error("Esse usuário já existe.");
-  if (error || !data) throw new Error(error?.message ?? ERRO_CONTA);
+  // PGRST116 = nenhuma linha alterada (a conta sumiu entre a conferência e o update).
+  if (error?.code === "PGRST116" || (!error && !data)) throw new Error(ERRO_CONTA);
+  if (error) throw new Error(error.message);
   return { nome: data.nome, usuario: data.usuario };
 }
 
@@ -237,6 +244,7 @@ export async function turmasDaContaPor(
   const incluir = (pedido.incluir ?? []).map(limpar);
   const remover = (pedido.remover ?? []).map(limpar);
   if (incluir.length === 0 && remover.length === 0) throw new Error("Nada para alterar: informe as turmas a incluir ou a remover.");
+  if (turmaEmIncluirERemover(incluir, remover)) throw new Error("A mesma turma está em incluir e remover; nada foi alterado.");
 
   for (const t of incluir) {
     const { data, error } = await supabase.from("turmas").select("escola_id, nome").eq("escola_id", ator.escola_id).eq("nome", t.turma_nome).eq("ano_letivo", t.ano_letivo).limit(1);

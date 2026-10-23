@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Escopo } from "../escopo";
 import type { Ctx } from "../leitura/comum";
-import { atorDoEscopo, ERRO_QUESTAO, ERRO_SIMULADO, escolherEscola, paraIsoSaoPaulo, resolverTurmas } from "./ator";
+import { atorDoEscopo, ERRO_QUESTAO, ERRO_SIMULADO, escolherEscola, paraIsoSaoPaulo, Pergunta, resolverTurmas } from "./ator";
 
 const professor: Escopo = { tipo: "professor", escolaId: "e1", professorId: "p1", turmas: null, papel: "professor" };
 
@@ -110,6 +110,14 @@ test("resolverTurmas: nome inexistente lista as turmas da escola", () => {
   assert.throws(() => resolverTurmas(["3ª série C"], turmasEscola, null), {
     message: 'Turma não encontrada: "3ª série C". Turmas da escola: 1ª série A, 2ª série B.',
   });
+});
+
+test("resolverTurmas: sem exato (Etapa B), nome parcial único continua valendo; com exato, vira Pergunta", () => {
+  const turmas = [{ nome: "1º Ano A", ano_letivo: "2026" }];
+  assert.deepEqual(resolverTurmas(["Ano A"], turmas, null), [{ turma_nome: "1º Ano A", ano_letivo: "2026" }]);
+  assert.throws(() => resolverTurmas(["Ano A"], turmas, null, { exato: true }), (e: unknown) =>
+    e instanceof Pergunta && e.message === 'Achei só a turma 1º Ano A para "Ano A". É essa? Nada foi feito; repita com o nome completo.');
+  assert.deepEqual(resolverTurmas(["1º ano a"], turmas, null, { exato: true }), [{ turma_nome: "1º Ano A", ano_letivo: "2026" }]);
 });
 
 test("resolverTurmas: professor restrito não usa turma não liberada", () => {
