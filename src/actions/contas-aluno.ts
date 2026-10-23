@@ -23,6 +23,7 @@ import {
   type PreviaLigacoes,
 } from "@/lib/contas/nucleo";
 import { limparNome } from "@/lib/contas/ligacao";
+import { emBlocos } from "@/lib/simulados/regras";
 import type { AtorEscola } from "@/lib/simulados/ator";
 import type { Professor } from "@/lib/types";
 import { enviarEmailVerificacao } from "@/lib/email";
@@ -137,8 +138,12 @@ export async function listarContasAluno(): Promise<ContaAlunoAdmin[]> {
   const alunoIds = [...new Set((vinculos ?? []).map((v) => v.aluno_id as string | null).filter((id): id is string => !!id))];
   const nomePorAluno = new Map<string, string>();
   if (alunoIds.length > 0) {
-    const { data: alunos } = await supabase.from("alunos").select("id, nome").in("id", alunoIds);
-    for (const a of alunos ?? []) nomePorAluno.set(a.id as string, a.nome as string);
+    // Em blocos: listas longas em `.in()` estouram o limite de URL.
+    for (const bloco of emBlocos(alunoIds, 100)) {
+      const { data: alunos, error } = await supabase.from("alunos").select("id, nome").in("id", bloco);
+      if (error) throw new Error(error.message);
+      for (const a of alunos ?? []) nomePorAluno.set(a.id as string, a.nome as string);
+    }
   }
   const vinculosPorConta = new Map<string, VinculoContaAdmin[]>();
   for (const v of vinculos ?? []) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link2, Link2Off, TriangleAlert } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { estilos } from "@/components/ui/estilos";
@@ -44,8 +44,21 @@ function useAcao() {
 
 type LinhaCriar = { alunoId: string; nome: string; usuario: string; possivelContaExistente: boolean; marcada: boolean };
 
-function CorpoCriarDaPlanilha({ turmas, onClose, onConcluido }: Omit<ModalProps, "open">) {
+const ERRO_LISTA_CONTAS = "As contas foram criadas, mas a lista não atualizou; recarregue a página.";
+
+function CorpoCriarDaPlanilha({ turmas, onClose, onConcluido, atualizarAoFecharRef }: Omit<ModalProps, "open"> & { atualizarAoFecharRef: { current: boolean } }) {
   const { ocupado, erro, setErro, executar } = useAcao();
+
+  /** Contas já criadas: se a lista não atualizar, o erro é desse passo, não da criação. */
+  async function concluir(aviso: string, erroLista: string) {
+    try {
+      await onConcluido(aviso);
+    } catch {
+      throw new Error(erroLista);
+    }
+    atualizarAoFecharRef.current = false;
+    onClose();
+  }
   const [turmaId, setTurmaId] = useState(turmas[0]?.id ?? "");
   const [linhas, setLinhas] = useState<LinhaCriar[] | null>(null);
   const [pendentes, setPendentes] = useState<CredencialGerada[] | null>(null);
@@ -80,12 +93,12 @@ function CorpoCriarDaPlanilha({ turmas, onClose, onConcluido }: Omit<ModalProps,
             <button
               type="button"
               disabled={ocupado}
-              onClick={() => executar(async () => { await baixarPlanilha(pendentes); await onConcluido(`${pendentes.length} conta(s) criada(s).`); onClose(); })}
+              onClick={() => executar(async () => { await baixarPlanilha(pendentes); await concluir(`${pendentes.length} conta(s) criada(s).`, ERRO_LISTA_CONTAS); })}
               className={styles.primary}
             >
               Tentar baixar de novo
             </button>
-            <button type="button" onClick={() => { void onConcluido(); onClose(); }} className={styles.secondary}>Fechar</button>
+            <button type="button" onClick={onClose} className={styles.secondary}>Fechar</button>
           </div>
         </>
       ) : (
@@ -139,21 +152,20 @@ function CorpoCriarDaPlanilha({ turmas, onClose, onConcluido }: Omit<ModalProps,
                     const { credenciais, ignorados: jaTinham } = await criarContasDaPlanilha(turmaId, marcadas.map(({ alunoId, usuario }) => ({ alunoId, usuario })));
                     const sufixo = jaTinham.length > 0 ? ` ${rotuloIgnorados(jaTinham.length)}: ${jaTinham.join(", ")}.` : "";
                     if (credenciais.length === 0) {
-                      await onConcluido(`Nenhuma conta nova.${sufixo}`);
-                      onClose();
+                      await concluir(`Nenhuma conta nova.${sufixo}`, ERRO_LISTA_CONTAS);
                       return;
                     }
                     try {
                       await baixarPlanilha(credenciais);
                     } catch {
+                      atualizarAoFecharRef.current = true;
                       setIgnorados(jaTinham);
                       setPendentes(credenciais);
                       setLinhas(null);
                       setErro("As contas foram criadas, mas a planilha não baixou. Anote as senhas abaixo ou tente baixar de novo.");
                       return;
                     }
-                    await onConcluido(`${credenciais.length} conta(s) criada(s) e ligadas à planilha. A planilha com os usuários e senhas foi baixada — guarde-a, as senhas não aparecem de novo.${sufixo}`);
-                    onClose();
+                    await concluir(`${credenciais.length} conta(s) criada(s) e ligadas à planilha. A planilha com os usuários e senhas foi baixada — guarde-a, as senhas não aparecem de novo.${sufixo}`, ERRO_LISTA_CONTAS);
                   })}
                   className={styles.primary}
                 >
@@ -169,9 +181,18 @@ function CorpoCriarDaPlanilha({ turmas, onClose, onConcluido }: Omit<ModalProps,
 }
 
 export function ModalCriarDaPlanilha({ open, onClose, turmas, onConcluido }: ModalProps) {
+  // Fechar (Esc, X ou botão) com contas já criadas e lista ainda velha: atualiza a lista.
+  const atualizarAoFecharRef = useRef(false);
+  function fechar() {
+    if (atualizarAoFecharRef.current) {
+      atualizarAoFecharRef.current = false;
+      onConcluido().catch(() => {});
+    }
+    onClose();
+  }
   return (
-    <Modal open={open} onClose={onClose} titulo="Criar contas da planilha" descricao="Cria a conta de cada aluno da planilha da turma que ainda não tem conta, já ligada ao nome da planilha." largura="lg">
-      <CorpoCriarDaPlanilha turmas={turmas} onClose={onClose} onConcluido={onConcluido} />
+    <Modal open={open} onClose={fechar} titulo="Criar contas da planilha" descricao="Cria a conta de cada aluno da planilha da turma que ainda não tem conta, já ligada ao nome da planilha." largura="lg">
+      <CorpoCriarDaPlanilha turmas={turmas} onClose={fechar} onConcluido={onConcluido} atualizarAoFecharRef={atualizarAoFecharRef} />
     </Modal>
   );
 }
@@ -233,7 +254,11 @@ function CorpoLigarPorNome({ turmas, onClose, onConcluido }: Omit<ModalProps, "o
               disabled={ocupado || previa.ligar.length === 0}
               onClick={() => executar(async () => {
                 const { ligadas } = await aplicarLigacoes(turmaId, previa.ligar.map(({ contaId, alunoId }) => ({ contaId, alunoId })));
-                await onConcluido(`${ligadas} conta(s) ligada(s) à planilha.`);
+                try {
+                  await onConcluido(`${ligadas} conta(s) ligada(s) à planilha.`);
+                } catch {
+                  throw new Error("As ligações foram feitas, mas a lista não atualizou; recarregue a página.");
+                }
                 onClose();
               })}
               className={styles.primary}
@@ -265,6 +290,8 @@ export function LigacaoConta({ conta, desabilitado, onMudou, onErro }: { conta: 
     try {
       await acao();
     } catch (e) {
+      // Atualiza a lista (a ligação pode ter mudado por outro lado) e só então mostra o erro.
+      await onMudou().catch(() => {});
       onErro(mensagem(e));
     } finally {
       setOcupado(false);
