@@ -5,7 +5,13 @@
 create unique index if not exists uq_aluno_turmas_aluno on aluno_turmas (aluno_id) where aluno_id is not null;
 
 -- Contas de aluno também podem ser criadas pela Hermes
-alter table alunos_contas drop constraint if exists alunos_contas_criado_via_check;
+-- Remove qualquer check antigo sobre criado_via (o nome automático pode variar), depois cria o novo
+do $$ declare c record; begin
+  for c in select conname from pg_constraint
+           where conrelid = 'alunos_contas'::regclass and contype = 'c'
+             and pg_get_constraintdef(oid) ilike '%criado_via%' loop
+    execute format('alter table alunos_contas drop constraint %I', c.conname);
+  end loop; end $$;
 alter table alunos_contas add constraint alunos_contas_criado_via_check
     check (criado_via in ('escola', 'convite', 'hermes'));
 
