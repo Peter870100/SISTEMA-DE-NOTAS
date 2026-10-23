@@ -59,6 +59,8 @@ const mensagem = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /**
  * Desenha a próxima leva: as páginas escolhidas que ainda não têm linha em `importacao_paginas`, a
  * partir do original guardado. Para antes de passar do orçamento (média por página medida nesta chamada).
+ * `erro` só para problemas do próprio PDF, que não se resolvem tentando de novo (seleção inválida, PDF que
+ * não abre, página que não existe ou não desenha). Falhas de storage/banco lançam: são passageiras.
  */
 export async function desenharProximaLeva(
   ator: AtorEscola,
@@ -90,10 +92,16 @@ export async function desenharProximaLeva(
   if (restantes.length === 0) return resultado();
 
   const abertos = new Map<TipoArquivo, PdfServidor>();
-  const abrir = async (tipo: TipoArquivo) => {
+  /** Ler o original (storage) pode falhar por um soluço: lança. Só o PDF que não abre vira `erro`. */
+  const abrir = async (tipo: TipoArquivo): Promise<PdfServidor | { erro: string }> => {
     let pdf = abertos.get(tipo);
     if (!pdf) {
-      pdf = await d.abrirPdf(await d.lerOriginal(importacaoId, tipo));
+      const bytes = await d.lerOriginal(importacaoId, tipo);
+      try {
+        pdf = await d.abrirPdf(bytes);
+      } catch (e) {
+        return { erro: erroDoArquivo(mensagem(e), tipo) };
+      }
       abertos.set(tipo, pdf);
     }
     return pdf;
@@ -114,23 +122,22 @@ export async function desenharProximaLeva(
       for (let k = 0; k < leva && restantes.length > 0; k++) {
         if (!cabeMaisUma()) break;
         const pagina = restantes[0];
-        let pdf: PdfServidor;
-        try {
-          pdf = await abrir(pagina.tipo);
-        } catch (e) {
-          return resultado(erroDoArquivo(mensagem(e), pagina.tipo));
-        }
+        const pdf = await abrir(pagina.tipo);
+        if ("erro" in pdf) return resultado(pdf.erro);
         if (pagina.numero > pdf.numPaginas) {
           return resultado(`O PDF ${NOME[pagina.tipo]} tem ${pdf.numPaginas} páginas; a página ${pagina.numero} não existe.`);
         }
         const antes = agora();
+        let desenho: Awaited<ReturnType<PdfServidor["desenhar"]>>;
         try {
-          const { jpeg, largura, altura } = await pdf.desenhar(pagina.numero);
-          await d.enviarPagina(importacaoId, pagina.tipo, pagina.numero, jpeg);
-          await d.registrarPagina(ator, importacaoId, pagina.tipo, pagina.numero, largura, altura);
+          desenho = await pdf.desenhar(pagina.numero);
         } catch (e) {
           return resultado(`Não consegui desenhar a página ${pagina.numero} ${NOME[pagina.tipo]}: ${mensagem(e)}`);
         }
+        // Storage e banco podem falhar por um soluço: lançam (quem chama trata como passageiro e a
+        // próxima chamada refaz esta página; o upsert torna isso seguro).
+        await d.enviarPagina(importacaoId, pagina.tipo, pagina.numero, desenho.jpeg);
+        await d.registrarPagina(ator, importacaoId, pagina.tipo, pagina.numero, desenho.largura, desenho.altura);
         restantes.shift();
         feitas.add(`${pagina.tipo}-${pagina.numero}`);
         desenhadas++;
@@ -184,11 +191,22 @@ export async function guardarSelecao(importacaoId: string, selecao: Selecao): Pr
   if (error) throw new Error(`Não consegui guardar as páginas escolhidas: ${error.message}`);
 }
 
-/** As páginas escolhidas guardadas, ou null se não houver (importação feita pela tela). */
+/** O storage diz que o arquivo não existe (e não uma falha passageira)? */
+export function ehNaoEncontrado(error: unknown): boolean {
+  const e = error as { status?: unknown; statusCode?: unknown; message?: unknown } | null;
+  if (!e) return false;
+  return Number(e.status) === 404 || String(e.statusCode) === "404" || /not[ _-]?found/i.test(String(e.message ?? ""));
+}
+
+/** As páginas escolhidas guardadas, ou null se não houver (importação feita pela tela). Outras falhas lançam. */
 export async function lerSelecao(importacaoId: string): Promise<Selecao | null> {
   const { bucket } = await armazenamento();
   const { data, error } = await bucket.download(caminhoSelecao(importacaoId));
-  if (error || !data) return null;
+  if (error) {
+    if (ehNaoEncontrado(error)) return null;
+    throw new Error(`Não consegui ler as páginas escolhidas: ${error.message}`);
+  }
+  if (!data) return null;
   try {
     const j = JSON.parse(await data.text()) as Partial<Selecao>;
     const numeros = (v: unknown) => (Array.isArray(v) ? v.filter((n): n is number => Number.isInteger(n)) : []);
@@ -198,7 +216,8 @@ export async function lerSelecao(importacaoId: string): Promise<Selecao | null> 
   }
 }
 
-async function depsPadrao(): Promise<DepsLeva> {
+/** Dependências reais (Supabase, storage, pdfjs). Exportada para trocar uma delas (ex.: original já em memória). */
+export async function depsPadrao(): Promise<DepsLeva> {
   const [{ supabase, bucket }, nucleo, acesso, pdf] = await Promise.all([
     armazenamento(),
     import("@/lib/questoes/importacao-nucleo"),

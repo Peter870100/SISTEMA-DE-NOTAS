@@ -25,8 +25,12 @@ export const ERRO_BANCO_ESCOLA = "Você só pode importar no banco da sua escola
 const MAX_PAGINAS_ARQUIVO = 60; // o mesmo MAX_PAGINAS do núcleo (sem importar o núcleo aqui)
 /** A primeira chamada também baixa e guarda os originais: desenha menos. */
 const ORCAMENTO_PRIMEIRA_LEVA_MS = 25000;
+/** Se baixar e guardar já levou mais que isso, a primeira chamada não desenha (fica para situacao_importacao). */
+const MAX_ANTES_DA_PRIMEIRA_LEVA_MS = 30000;
 /** Tempo de trabalho por chamada, com folga para os 60 s da Vercel. */
 const LIMITE_CHAMADA_MS = 50000;
+/** Outra chamada mudou a importação de "enviando" enquanto esta desenhava (mensagem do núcleo). */
+const ERRO_JA_ENVIADA = "Essa importação já foi enviada.";
 const NOME: Record<TipoArquivo, string> = { prova: "da prova", gabarito: "do gabarito" };
 
 const mensagem = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -175,12 +179,12 @@ export function textoSituacao(d: {
 const nucleo = () => import("@/lib/questoes/importacao-nucleo");
 const levas = () => import("@/lib/questoes/importacao-levas");
 
-type ImportacaoAlvo = { id: string; escopo: "geral" | "escola"; escola_id: string | null; status: StatusImportacao };
+type ImportacaoAlvo = { id: string; escopo: "geral" | "escola"; escola_id: string | null; status: StatusImportacao; criado_via?: string | null };
 type Rodar = <T>(acao: () => Promise<T>) => Promise<T>;
 
 /** Lê só o que decide o alcance; o núcleo confere de novo (`exigirImportacaoPor`). */
 async function lerImportacao(ctx: Ctx, id: string): Promise<ImportacaoAlvo> {
-  const { data, error } = await ctx.supabase.from("importacoes").select("id, escopo, escola_id, status").eq("id", id).maybeSingle();
+  const { data, error } = await ctx.supabase.from("importacoes").select("id, escopo, escola_id, status, criado_via").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error(ERRO_IMPORTACAO);
   return data as ImportacaoAlvo;
@@ -330,12 +334,15 @@ export function registrarAcoesImportacao(server: McpServer, obter: ObterCtx, per
           const total = selecao.prova.length + selecao.gabarito.length;
           let leva = { prontas: 0, faltam: total } as Awaited<ReturnType<typeof lv.desenharProximaLeva>>;
           let nota: string | undefined;
-          const orcamento = Math.min(ORCAMENTO_PRIMEIRA_LEVA_MS, LIMITE_CHAMADA_MS - (Date.now() - inicio));
-          if (orcamento < 2000) {
+          const decorrido = Date.now() - inicio;
+          if (decorrido > MAX_ANTES_DA_PRIMEIRA_LEVA_MS) {
             nota = "O download demorou; o desenho das páginas fica para situacao_importacao.";
           } else {
+            const orcamento = Math.min(ORCAMENTO_PRIMEIRA_LEVA_MS, LIMITE_CHAMADA_MS - decorrido);
+            // Os originais acabaram de ser guardados: a primeira leva usa os bytes em memória.
+            const deps = { ...(await lv.depsPadrao()), lerOriginal: async (_id: string, tipo: TipoArquivo) => (tipo === "gabarito" && gabarito ? gabarito : prova) };
             try {
-              leva = await lv.desenharProximaLeva(ator, id, selecao, Date.now, undefined, orcamento);
+              leva = await lv.desenharProximaLeva(ator, id, selecao, Date.now, deps, orcamento);
             } catch (e) {
               // Falha passageira (ex.: banco): os originais estão guardados e situacao_importacao continua.
               nota = `A primeira leva parou (${mensagem(e)}); situacao_importacao continua de onde parou.`;
@@ -373,12 +380,21 @@ export function registrarAcoesImportacao(server: McpServer, obter: ObterCtx, per
         if (imp.status === "enviando") {
           const lv = await levas();
           const selecao = await lv.lerSelecao(imp.id);
-          if (!selecao) {
+          if (!selecao && imp.criado_via === "hermes") {
+            throw new Error("Não encontrei as páginas escolhidas desta importação. Importe a prova de novo.");
+          } else if (!selecao) {
             nota = "Essa importação foi começada pela tela e as páginas estão sendo enviadas por lá.";
           } else {
-            const leva = await lv.desenharProximaLeva(ator, imp.id, selecao);
-            if (leva.erro) await marcarErro(ator, imp.id, leva.erro);
-            else {
+            let leva: Awaited<ReturnType<typeof lv.desenharProximaLeva>> | null = null;
+            try {
+              // Falha passageira (storage/banco) lança: a resposta é de erro, a importação continua
+              // "enviando" e a próxima chamada refaz a página.
+              leva = await lv.desenharProximaLeva(ator, imp.id, selecao);
+            } catch (e) {
+              if (mensagem(e) !== ERRO_JA_ENVIADA) throw e; // outra chamada já começou a leitura
+            }
+            if (leva?.erro) await marcarErro(ator, imp.id, leva.erro);
+            else if (leva) {
               desenho = { prontas: leva.prontas, total: leva.prontas + leva.faltam };
               if (leva.faltam === 0) {
                 try {
@@ -400,7 +416,7 @@ export function registrarAcoesImportacao(server: McpServer, obter: ObterCtx, per
     "ler_de_novo",
     {
       title: "Ler de novo as páginas com erro",
-      description: "Manda a IA ler de novo as páginas da prova que deram erro na leitura (o mesmo botão da tela). É pago (cerca de US$ 0,05 por página). Depois, acompanhe com situacao_importacao.",
+      description: "Manda a IA ler de novo as páginas da prova que deram erro na leitura (o mesmo botão da tela). É pago (cerca de US$ 0,05 por página com erro): antes, resuma e peça confirmação. Depois, acompanhe com situacao_importacao.",
       inputSchema: { ...campoImportacao, ...campoTelefone },
     },
     comImportacao(obter, perfil, "ler_de_novo", "ler de novo", async (ator, imp, _slug, rodar) => {

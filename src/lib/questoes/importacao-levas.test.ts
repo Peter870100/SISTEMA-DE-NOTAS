@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { caminhoOriginal, caminhoSelecao, desenharProximaLeva, ENVIO_JPEG, ENVIO_JSON, ENVIO_PDF, erroDoArquivo, planejarLeva, validarSelecao, type DepsLeva, type TipoArquivo } from "./importacao-levas";
+import { caminhoOriginal, caminhoSelecao, desenharProximaLeva, ehNaoEncontrado, ENVIO_JPEG, ENVIO_JSON, ENVIO_PDF, erroDoArquivo, planejarLeva, validarSelecao, type DepsLeva, type TipoArquivo } from "./importacao-levas";
 import type { AtorEscola } from "@/lib/simulados/ator";
 
 const ator: AtorEscola = { id: "p1", role: "professor", escola_id: "e1", turmas: null, via: "hermes" };
@@ -206,8 +206,8 @@ test("nova tentativa depois de falhar no registro: reenvia a mesma página por c
       return m.deps.registrarPagina(...a);
     },
   };
-  const r1 = await desenharProximaLeva(ator, "imp", { prova: [1, 2], gabarito: [] }, m.agora, deps);
-  assert.match(r1.erro ?? "", /página 1 da prova: rede caiu/);
+  // Falha no banco é passageira: lança (a importação não vira "erro") e a próxima chamada refaz.
+  await assert.rejects(desenharProximaLeva(ator, "imp", { prova: [1, 2], gabarito: [] }, m.agora, deps), /rede caiu/);
   const r2 = await desenharProximaLeva(ator, "imp", { prova: [1, 2], gabarito: [] }, m.agora, deps);
   assert.deepEqual(r2, { prontas: 2, faltam: 0 });
   assert.equal(storage.get("prova-1"), 2, "o JPEG da página 1 foi escrito por cima");
@@ -216,6 +216,38 @@ test("nova tentativa depois de falhar no registro: reenvia a mesma página por c
   assert.equal(ENVIO_PDF.upsert, true);
   assert.equal(ENVIO_JSON.upsert, true);
   assert.equal(ENVIO_PDF.contentType, "application/pdf");
+});
+
+test("envio ao storage que falha uma vez: lança, e a próxima chamada envia e registra a página", async () => {
+  const m = mundo();
+  let falhar = true;
+  const deps: DepsLeva = {
+    ...m.deps,
+    enviarPagina: async (...a) => {
+      if (falhar) { falhar = false; throw new Error("storage fora do ar"); }
+      return m.deps.enviarPagina(...a);
+    },
+  };
+  const sel = { prova: [1, 2], gabarito: [] };
+  await assert.rejects(desenharProximaLeva(ator, "imp", sel, m.agora, deps), /storage fora do ar/);
+  assert.equal(m.prontas.size, 0, "a página que falhou não foi registrada");
+  const r = await desenharProximaLeva(ator, "imp", sel, m.agora, deps);
+  assert.deepEqual(r, { prontas: 2, faltam: 0 });
+  assert.deepEqual(m.envios, ["prova-1", "prova-2"]);
+  assert.ok(m.prontas.has("prova-1"));
+});
+
+test("ler o original guardado que falha: lança (passageiro), não vira erro do PDF", async () => {
+  const m = mundo();
+  const deps: DepsLeva = { ...m.deps, lerOriginal: async () => { throw new Error("download do storage falhou"); } };
+  await assert.rejects(desenharProximaLeva(ator, "imp", { prova: [1], gabarito: [] }, m.agora, deps), /download do storage falhou/);
+});
+
+test("ehNaoEncontrado: só 'não existe' do storage, não outras falhas", () => {
+  assert.equal(ehNaoEncontrado({ status: 400, statusCode: "404", message: "Object not found" }), true);
+  assert.equal(ehNaoEncontrado({ status: 404, message: "x" }), true);
+  assert.equal(ehNaoEncontrado({ status: 500, statusCode: "500", message: "Internal" }), false);
+  assert.equal(ehNaoEncontrado({ message: "fetch failed" }), false);
 });
 
 test("caminhos do original e da seleção: só com id uuid, na pasta das páginas", () => {
