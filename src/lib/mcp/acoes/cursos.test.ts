@@ -107,3 +107,9 @@ test("turmasFinaisDoCurso: lista vazia é recusada sem desvincular_todas", () =>
   }
   assert.deepEqual(turmasFinaisDoCurso([A26], [], escola, "substituir", true).final, []);
 });
+
+test("turmasFinaisDoCurso: remover que tiraria todas as turmas exige desvincular_todas", () => {
+  assert.throws(() => turmasFinaisDoCurso([A25, A26], [{ nome: "1º Ano A" }], escola, "remover"), /desvincular_todas: true/);
+  assert.deepEqual(turmasFinaisDoCurso([A25, A26], [{ nome: "1º Ano A" }], escola, "remover", true).final, []);
+  assert.deepEqual(turmasFinaisDoCurso([A26, B26], [{ nome: "1º Ano A" }], escola, "remover").final, [B26]);
+});

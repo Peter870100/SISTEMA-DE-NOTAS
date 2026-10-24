@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { configurarProfessorPor, ERRO_PROFESSOR, senhaProvisoriaProfessorPor, telefoneProfessorPor } from "@/lib/professores/nucleo";
-import { acharProfessores, escolherProfessor, podeAlterarProfessor, textoAcesso, turmasDoAcesso, type ProfessorAchado } from "@/lib/professores/regras";
+import { acharProfessores, escolherProfessor, podeAlterarProfessor, protegerGravacao, textoAcesso, turmasDoAcesso, type ProfessorAchado } from "@/lib/professores/regras";
 import type { ProfessorRole } from "@/lib/types";
 import { campoEscola, campoTelefone, escolasDoPedido, lerTodas, texto, type Ctx, type ObterCtx } from "../leitura/comum";
 import { atorDoEscopo, campoId, falha, registrado, resolverTurmas, type Perfil } from "./ator";
@@ -56,8 +56,8 @@ async function turmasLiberadas(ctx: Ctx, professorId: string): Promise<string[]>
 }
 
 /**
- * Resolve o professor, recusa a conta do dono antes de qualquer coisa, monta o ator na escola dele e
- * entrega `rodar` (registro sem telefone nem senha, com o `professor_id` resolvido).
+ * Resolve o professor, monta o ator na escola dele e entrega `rodar` (registro sem telefone nem senha,
+ * com o `professor_id` resolvido). `rodar` recusa a conta do dono antes de gravar; ler não.
  */
 function comProfessor<A extends { professor?: string; professor_id?: string; escola?: string; professor_telefone?: string }>(
   obter: ObterCtx, perfil: Perfil, ferramenta: string, verbo: string,
@@ -69,10 +69,11 @@ function comProfessor<A extends { professor?: string; professor_id?: string; esc
       const achado = await acharProfessor(ctx, args);
       if ("mensagem" in achado) return texto(achado.mensagem);
       const { professor } = achado;
-      const recusa = podeAlterarProfessor(professor.role);
-      if (recusa) throw new Error(recusa);
       const ator = await atorDoEscopo(ctx, professor.escolaId, ERRO_PROFESSOR);
-      const rodar: Rodar = (fn, extras) => registrado(perfil, ator, ferramenta, { ...parametrosParaRegistro(args), professor_id: professor.id, ...extras }, fn);
+      // A recusa da conta do dono fica na gravação (o núcleo também recusa); ler o dono continua valendo.
+      const rodar: Rodar = (fn, extras) =>
+        protegerGravacao(professor.role, () =>
+          registrado(perfil, ator, ferramenta, { ...parametrosParaRegistro(args), professor_id: professor.id, ...extras }, fn));
       return texto(await acao(ctx, ator, professor, args, rodar));
     } catch (e) {
       return falha(verbo, e);
@@ -96,12 +97,12 @@ export function registrarAcoesProfessores(server: McpServer, obter: ObterCtx, pe
     },
     comProfessor(obter, perfil, "configurar_professor", "configurar o professor", async (ctx, ator, prof, args, rodar) => {
       const papel = args.papel ? (args.papel.toLowerCase() as ProfessorRole) : undefined;
-      const recusa = podeAlterarProfessor(prof.role, papel);
-      if (recusa) throw new Error(recusa);
       const acesso = turmasDoAcesso(args.acesso, args.turmas);
       if (papel === undefined && acesso === null) {
         return `${prof.nome} (${prof.escolaNome}): papel ${prof.role}; acesso: ${textoAcesso(prof.role, prof.acessoRestrito, await turmasLiberadas(ctx, prof.id))}.`;
       }
+      const recusa = podeAlterarProfessor(prof.role, papel);
+      if (recusa) throw new Error(recusa);
       let nomes: string[] = [];
       if (acesso?.restrito) {
         const turmasEscola = await lerTodas<{ nome: string; ano_letivo: string }>((de, ate) =>

@@ -60,7 +60,7 @@ export const rotuloTurma = (t: TurmaSimulado) => `${t.turma_nome} · ${t.ano_let
 /**
  * Lista final de turmas do curso. `adicionar` junta aos vínculos atuais; `remover` tira (nome sem ano
  * tira todos os anos daquele nome entre os vínculos atuais); `substituir` usa só as pedidas. Lista
- * pedida vazia só vale com `desvincularTodas` (e então desvincula tudo). `implicitas` = turmas cujo ano
+ * pedida vazia, ou `remover` que tiraria todas as turmas, só vale com `desvincularTodas`. `implicitas` = turmas cujo ano
  * foi escolhido pelo sistema (o mais recente), para avisar na resposta. Pura.
  */
 export function turmasFinaisDoCurso(
@@ -81,6 +81,9 @@ export function turmasFinaisDoCurso(
       const alvos = atuais.filter((t) => normalizarBusca(t.turma_nome) === normalizarBusca(p.nome) && (!ano || t.ano_letivo === ano));
       if (alvos.length === 0) throw new Error(`O curso não está ligado à turma "${p.nome}"${ano ? ` em ${ano}` : ""}. Turmas atuais: ${atuais.map(rotuloTurma).join(", ") || "nenhuma"}.`);
       for (const t of alvos) sobra.delete(chave(t));
+    }
+    if (sobra.size === 0 && !desvincularTodas) {
+      throw new Error("Remover essas turmas desvincularia o curso de todas as turmas e o esconderia dos alunos. Se é isso mesmo, repita com desvincular_todas: true.");
     }
     return { final: [...sobra.values()], implicitas: [] };
   }

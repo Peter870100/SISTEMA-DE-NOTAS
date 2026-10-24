@@ -94,7 +94,14 @@ export function paraIsoSaoPaulo(valor: string): string {
  * Não é falha: a ferramenta precisa de uma confirmação antes de agir (ex.: só um nome parecido com o
  * pedido). `falha` devolve a mensagem como resposta normal, sem isError; nada foi feito.
  */
-export class Pergunta extends Error {}
+export class Pergunta extends Error {
+  /** `achado` = o nome que a busca parcial encontrou (para as mensagens por item das ferramentas em lote). */
+  readonly achado?: string;
+  constructor(message: string, achado?: string) {
+    super(message);
+    this.achado = achado;
+  }
+}
 
 /** Pergunta padrão quando só uma turma contém o nome pedido, sem ser igual a ele. */
 export function perguntaTurmaParcial(achada: string, pedido: string): Pergunta {

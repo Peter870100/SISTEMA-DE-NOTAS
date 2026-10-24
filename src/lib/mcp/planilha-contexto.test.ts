@@ -175,3 +175,26 @@ test("coluna: mensagens de hoje para nenhuma e posição errada", () => {
   assert.throws(() => escolherColuna(colunas, "Prova", 3), /^Error: A coluna na posição 3 não tem título parecido com "Prova"\. Confira as posições com ver_planilha\.$/);
   assert.throws(() => escolherColuna(colunas, "Prov", 2), (e: Error) => e instanceof Pergunta && /Prova 2/.test(e.message));
 });
+
+// ---------- linhas por item dos lotes e criar_turma ----------
+
+import { motivoDoItem, podeCriarTurma } from "../mcp-tools";
+
+test("motivoDoItem: nome parcial diz que só o item não foi lançado, sem 'Nada foi feito'", () => {
+  let erro: unknown;
+  try { escolherAluno(alunos, "bru", true); } catch (e) { erro = e; }
+  const m = motivoDoItem(erro);
+  assert.equal(m, 'achei só "Bruno"; este item não foi lançado, repita com o nome completo');
+  assert.ok(!/Nada foi feito/.test(m));
+  try { escolherColuna(colunas, "trab", undefined); } catch (e) { erro = e; }
+  assert.match(motivoDoItem(erro), /^achei só "Trabalho"; este item não foi lançado/);
+  assert.equal(motivoDoItem(new Pergunta("Achei só X. Nada foi feito; repita.")), "Achei só X. Este item não foi lançado; repita.");
+  assert.equal(motivoDoItem(new Error("status inválido")), "status inválido");
+});
+
+test("podeCriarTurma: professor comum não cria; admin, dono e sem telefone criam", () => {
+  assert.equal(podeCriarTurma({ id: "p", role: "professor" }), false);
+  assert.equal(podeCriarTurma({ id: "a", role: "admin" }), true);
+  assert.equal(podeCriarTurma({ id: "d", role: "dono" }), true);
+  assert.equal(podeCriarTurma(null), true);
+});

@@ -110,7 +110,8 @@ export function escolherAluno<A extends { nome: string }>(alunos: A[], nomeQuery
     if (iguais.length) candidatos = iguais;
     else if (candidatos.length === 1) {
       throw new Pergunta(
-        `Achei só o aluno ${candidatos[0].nome} para "${nomeQuery.trim()}". É esse? Nada foi feito; repita com o nome completo.`
+        `Achei só o aluno ${candidatos[0].nome} para "${nomeQuery.trim()}". É esse? Nada foi feito; repita com o nome completo.`,
+        candidatos[0].nome
       );
     }
   }
@@ -152,11 +153,29 @@ export function escolherColuna<C extends { titulo: string }>(
   if (iguais.length) candidatos = iguais;
   else if (candidatos.length === 1) {
     throw new Pergunta(
-      `Achei só a coluna ${candidatos[0].coluna.titulo} para "${tituloQuery.trim()}". É essa? Nada foi feito; repita com o título completo.`
+      `Achei só a coluna ${candidatos[0].coluna.titulo} para "${tituloQuery.trim()}". É essa? Nada foi feito; repita com o título completo.`,
+      candidatos[0].coluna.titulo
     );
   }
   if (candidatos.length > 1) return { varias: candidatos };
   return { coluna: candidatos[0].coluna };
+}
+
+/**
+ * Motivo da linha "FALHOU" de um item das ferramentas em lote. Pura. Nome parcial (`Pergunta`) diz que
+ * só aquele item não foi lançado (os outros itens do lote seguem valendo), em vez de "Nada foi feito".
+ */
+export function motivoDoItem(e: unknown): string {
+  if (e instanceof Pergunta) {
+    if (e.achado) return `achei só "${e.achado}"; este item não foi lançado, repita com o nome completo`;
+    return e.message.replace("Nada foi feito", "Este item não foi lançado");
+  }
+  return e instanceof Error ? e.message : String(e);
+}
+
+/** Criar turma: só admin/dono, como na tela. Sem telefone (ator null) segue como antes da C2. Pura. */
+export function podeCriarTurma(ator: Ator): boolean {
+  return ator?.role !== "professor";
 }
 
 /**
@@ -367,6 +386,7 @@ export function registrarFerramentas(
       const nomeLimpo = nome.trim();
       if (!nomeLimpo) throw new Error("Informe o nome da turma.");
       return comContexto(args, async (ctx) => {
+        if (!podeCriarTurma(ctx.ator)) return texto("Só administradores criam turmas. Nada foi feito.");
         const insert: { nome: string; bimestre?: string; ano_letivo?: string; criado_via: string; escola_id: string } = {
           nome: nomeLimpo,
           criado_via: "hermes",
@@ -596,7 +616,7 @@ export function registrarFerramentas(
             );
           } catch (e) {
             resultados.push(
-              `FALHOU: ${item.aluno_nome} — ${item.atividade_titulo}: ${e instanceof Error ? e.message : String(e)}`
+              `FALHOU: ${item.aluno_nome} — ${item.atividade_titulo}: ${motivoDoItem(e)}`
             );
           }
         }
@@ -691,7 +711,7 @@ export function registrarFerramentas(
       description: "Corrige o nome de um aluno já cadastrado — use quando o nome foi digitado com erro de digitação.",
       inputSchema: {
         turma_nome: z.string(),
-        aluno_nome: z.string().describe("Nome atual (ou parte dele) do aluno a renomear"),
+        aluno_nome: z.string().describe("Nome atual completo do aluno a renomear (nome parcial não age: a ferramenta pergunta)"),
         novo_nome: z.string(),
         bimestre: z.string().optional(),
         ...quemField,
@@ -825,7 +845,7 @@ export function registrarFerramentas(
         "Renomeia (muda o nome, troca o título, corrige o cabeçalho) de uma coluna da planilha de uma turma — coluna de nota/atividade/prova/trabalho ou de chamada/presença. As notas lançadas nela continuam. Você TEM permissão pra usar esta ferramenta quando o professor pedir. Use ver_planilha antes se não souber o título atual exato. Se houver colunas com o mesmo título, informe coluna_posicao.",
       inputSchema: {
         turma_nome: z.string().describe('Nome da turma, ex: "1ª série C"'),
-        coluna_titulo: z.string().describe("Título atual da coluna (ou parte dele), como aparece no cabeçalho"),
+        coluna_titulo: z.string().describe("Título atual completo da coluna, como aparece no cabeçalho (título parcial não age: a ferramenta pergunta)"),
         novo_titulo: z.string().describe("Nome novo da coluna"),
         bimestre: z.string().optional().describe('Ex: "2º Bimestre" — necessário se a turma tiver mais de um bimestre'),
         ...colunaPosicaoField,
@@ -843,7 +863,7 @@ export function registrarFerramentas(
         "Mesmo que renomear_coluna: corrige o título de uma atividade ou data de chamada já criada — mantém as notas já lançadas nela.",
       inputSchema: {
         turma_nome: z.string(),
-        atividade_titulo: z.string().describe("Título atual (ou parte dele) da atividade a renomear"),
+        atividade_titulo: z.string().describe("Título atual completo da atividade a renomear (título parcial não age: a ferramenta pergunta)"),
         novo_titulo: z.string(),
         bimestre: z.string().optional(),
         ...colunaPosicaoField,
@@ -876,7 +896,7 @@ export function registrarFerramentas(
         'Deleta (exclui, apaga, remove) uma coluna da planilha de uma turma — seja coluna de nota/atividade/prova/trabalho ou coluna de chamada/presença — junto com as notas lançadas nela. A coluna vai para a lixeira e um administrador pode restaurar. Você TEM permissão pra usar esta ferramenta quando o professor pedir pra tirar uma coluna. Use ver_planilha antes se não souber o título exato da coluna. Se houver colunas com o mesmo título, informe coluna_posicao (veja no ver_planilha qual tem notas); ao excluir várias, rode ver_planilha de novo entre uma e outra, porque as posições das colunas seguintes diminuem. Para apagar a planilha/turma inteira, use excluir_turma.',
       inputSchema: {
         turma_nome: z.string().describe('Nome da turma, ex: "1ª série C"'),
-        coluna_titulo: z.string().describe("Título da coluna (ou parte dele), como aparece no cabeçalho da planilha"),
+        coluna_titulo: z.string().describe("Título completo da coluna, como aparece no cabeçalho da planilha (título parcial não age: a ferramenta pergunta)"),
         bimestre: z.string().optional().describe('Ex: "2º Bimestre" — necessário se a turma tiver mais de um bimestre'),
         ...colunaPosicaoField,
         ...quemField,
@@ -967,7 +987,7 @@ export function registrarFerramentas(
             resultados.push(`OK: ${aluno.nome} — ${statusNormalizado}`);
           } catch (e) {
             resultados.push(
-              `FALHOU: ${item.aluno_nome}: ${e instanceof Error ? e.message : String(e)}`
+              `FALHOU: ${item.aluno_nome}: ${motivoDoItem(e)}`
             );
           }
         }

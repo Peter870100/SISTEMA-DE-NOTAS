@@ -98,3 +98,18 @@ test("registro de telefone_professor e senha_provisoria_professor: sem telefone 
 test("escolherProfessor: pelo id → age mesmo com nome diferente", () => {
   assert.deepEqual(escolherProfessor([prof("p1", "Maria Lima")], "p1", false, true), { professor: prof("p1", "Maria Lima") });
 });
+
+// ---------- gravação protegida (a leitura do dono vale; gravar no dono não) ----------
+
+import { protegerGravacao } from "./regras";
+
+test("protegerGravacao: alvo dono recusa sem chamar a gravação", async () => {
+  let chamou = false;
+  await assert.rejects(protegerGravacao("dono", async () => { chamou = true; return 1; }), new RegExp(ERRO_DONO_HERMES));
+  assert.equal(chamou, false);
+});
+
+test("protegerGravacao: admin e professor gravam", async () => {
+  assert.equal(await protegerGravacao("admin", async () => "ok"), "ok");
+  assert.equal(await protegerGravacao("professor", async () => 7), 7);
+});

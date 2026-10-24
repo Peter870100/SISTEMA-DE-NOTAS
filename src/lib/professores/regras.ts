@@ -22,6 +22,16 @@ export function podeAlterarProfessor(alvoRole: ProfessorRole, novoPapel?: Profes
   return null;
 }
 
+/**
+ * Gravação da Hermes num professor: recusa a conta do dono antes de gravar (sem chamar `gravar`).
+ * A leitura (configurar_professor sem papel nem acesso) não passa por aqui e vale também para o dono.
+ */
+export function protegerGravacao<T>(alvoRole: ProfessorRole, gravar: () => Promise<T>): Promise<T> {
+  const recusa = podeAlterarProfessor(alvoRole);
+  if (recusa) return Promise.reject(new Error(recusa));
+  return gravar();
+}
+
 /** Regra da tela (`exigirPoderSobreAlvo`): só o dono mexe em outra conta de dono. */
 export function podeAlterarNaTela(atorRole: ProfessorRole, alvoRole: ProfessorRole): string | null {
   if (atorRole !== "dono" && alvoRole === "dono") return ERRO_DONO_TELA;

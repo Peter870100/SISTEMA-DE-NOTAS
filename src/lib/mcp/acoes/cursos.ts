@@ -70,7 +70,7 @@ export function registrarAcoesCursos(server: McpServer, obter: ObterCtx, perfil:
     "turmas_do_curso",
     {
       title: "Turmas do curso",
-      description: 'Muda as turmas para as quais o curso aparece. modo "adicionar" (padrão) junta as turmas informadas às atuais; "remover" tira; "substituir" troca a lista inteira. Lista vazia é recusada, a menos que desvincular_todas: true (o curso some para os alunos). Só turmas da escola do curso, por nome exato; sem ano_letivo vale o mais recente daquele nome. Curso pelo título exato; título parcial ou repetido só lista as opções. A resposta mostra antes e depois. Antes, resuma e peça confirmação.',
+      description: 'Muda as turmas para as quais o curso aparece. modo "adicionar" (padrão) junta as turmas informadas às atuais; "remover" tira; "substituir" troca a lista inteira. Lista vazia, ou "remover" que tiraria todas as turmas, é recusada, a menos que desvincular_todas: true (o curso some para os alunos). Só turmas da escola do curso, por nome exato; sem ano_letivo vale o mais recente daquele nome. Curso pelo título exato; título parcial ou repetido só lista as opções. A resposta mostra antes e depois. Antes, resuma e peça confirmação.',
       inputSchema: {
         ...campoCurso,
         turmas: z.array(z.object({
@@ -78,7 +78,7 @@ export function registrarAcoesCursos(server: McpServer, obter: ObterCtx, perfil:
           ano_letivo: z.string().trim().max(10).optional(),
         })).max(50).describe("Turmas a adicionar, remover ou que formam a nova lista, conforme o modo."),
         modo: z.enum(["substituir", "adicionar", "remover"]).optional().describe('"adicionar" (padrão), "remover" ou "substituir" (troca a lista inteira).'),
-        desvincular_todas: z.boolean().optional().describe("Só com turmas vazia: confirma desvincular o curso de todas as turmas."),
+        desvincular_todas: z.boolean().optional().describe("Com turmas vazia, ou modo remover que tiraria todas: confirma desvincular o curso de todas as turmas."),
         ...campoTelefone,
       },
     },
