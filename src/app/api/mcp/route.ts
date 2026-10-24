@@ -4,6 +4,7 @@ import { criarSupabaseClient, registrarFerramentas } from "@/lib/mcp-tools";
 import { registrarAcoes } from "@/lib/mcp/acoes";
 import { registrarLeitura } from "@/lib/mcp/leitura";
 import { escopoDoTelefone } from "@/lib/mcp/escopo";
+import { contextoPlanilha, depsDoBanco } from "@/lib/mcp/planilha-contexto";
 import { senhaConfere } from "@/lib/hermes/senha";
 
 export const runtime = "nodejs";
@@ -18,7 +19,9 @@ async function handle(req: Request): Promise<Response> {
 
   const supabase = criarSupabaseClient();
   const server = new McpServer({ name: "planilha-viva", version: "1.0.0" }, { instructions: INSTRUCOES });
-  registrarFerramentas(server, supabase);
+  // Planilha: com telefone, a escola e as turmas do professor; sem telefone, Colégio Status (como antes).
+  const depsPlanilha = depsDoBanco(supabase);
+  registrarFerramentas(server, supabase, (args) => contextoPlanilha("professor", args, depsPlanilha), "professor");
   const obterEscopo = ({ professor_telefone }: { professor_telefone?: string }) => escopoDoTelefone(supabase, professor_telefone);
   registrarLeitura(server, supabase, obterEscopo, { consultaLivre: false });
   registrarAcoes(server, async (args) => ({ supabase, escopo: await obterEscopo(args) }), "professor");

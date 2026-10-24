@@ -52,7 +52,11 @@ export async function escolasDoPedido(ctx: Ctx, escola?: string): Promise<Escola
   }
   const { data, error } = await supabase.from("escolas").select("id, nome, slug").order("nome");
   if (error) throw new Error(error.message);
-  const todas = (data ?? []) as EscolaInfo[];
+  return filtrarEscolas((data ?? []) as EscolaInfo[], escola);
+}
+
+/** Escolas pelo nome ou slug (igual primeiro; senão quem contém). Sem nome, todas. Nenhuma achada → erro. Pura. */
+export function filtrarEscolas(todas: EscolaInfo[], escola?: string): EscolaInfo[] {
   if (!escola?.trim()) return todas;
   const alvo = normalizarBusca(escola);
   const exatas = todas.filter((e) => normalizarBusca(e.slug) === alvo || normalizarBusca(e.nome) === alvo);

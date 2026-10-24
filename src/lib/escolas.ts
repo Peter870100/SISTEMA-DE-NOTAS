@@ -4,7 +4,9 @@ import { supabase } from "@/lib/supabase/client";
 import { escolaDoHost, urlDaEscola } from "@/lib/dominio";
 import type { Escola } from "@/lib/types";
 
-export const ESCOLA_PADRAO_ID = "00000000-0000-0000-0000-000000000001";
+import { ESCOLA_PADRAO_ID } from "@/lib/escola-padrao";
+
+export { ESCOLA_PADRAO_ID };
 
 export const obterEscola = cache(async (id: string): Promise<Escola> => {
   const { data, error } = await supabase.from("escolas").select("*").eq("id", id).single();
