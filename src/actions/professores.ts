@@ -3,7 +3,15 @@
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase/client";
 import { exigirAdminDaEscola } from "@/lib/escola-acesso";
+import { configurarProfessorPor, definirSenhaProfessorPor, telefoneProfessorPor } from "@/lib/professores/nucleo";
+import type { AtorEscola } from "@/lib/simulados/ator";
 import type { Professor, ProfessorRole } from "@/lib/types";
+
+/** O admin logado como ator do núcleo de professores (só admin da escola). */
+async function atorDoAdmin(): Promise<AtorEscola> {
+  const admin = await exigirAdminDaEscola();
+  return { id: admin.id, role: admin.role, escola_id: admin.escola_id, turmas: null, via: "app" };
+}
 
 /** Carrega o professor-alvo e recusa se não for da escola do admin. */
 async function exigirAlvoDaEscola(id: string, escolaId: string): Promise<{ id: string; role: ProfessorRole; escola_id: string }> {
@@ -58,46 +66,12 @@ export async function atualizarAcessoTurmas(
   restrito: boolean,
   turmaNomes: string[]
 ): Promise<void> {
-  const admin = await exigirAdminDaEscola();
-  await exigirPoderSobreAlvo(admin, id);
-
-  if (restrito && turmaNomes.length > 0) {
-    const { data: turmas, error: erroTurmas } = await supabase.from("turmas").select("nome").eq("escola_id", admin.escola_id);
-    if (erroTurmas) throw new Error(erroTurmas.message);
-    const nomesDaEscola = new Set((turmas ?? []).map((t) => t.nome));
-    if (turmaNomes.some((n) => !nomesDaEscola.has(n))) throw new Error("Turma não encontrada.");
-  }
-
-  const { error: erroUpdate } = await supabase
-    .from("professores")
-    .update({ acesso_restrito: restrito })
-    .eq("id", id);
-  if (erroUpdate) throw new Error(erroUpdate.message);
-
-  const { error: erroDelete } = await supabase.from("professor_turma_acesso").delete().eq("professor_id", id);
-  if (erroDelete) throw new Error(erroDelete.message);
-
-  if (restrito && turmaNomes.length > 0) {
-    const { error: erroInsert } = await supabase
-      .from("professor_turma_acesso")
-      .insert(turmaNomes.map((turma_nome) => ({ professor_id: id, turma_nome })));
-    if (erroInsert) throw new Error(erroInsert.message);
-  }
+  await configurarProfessorPor(await atorDoAdmin(), id, { restrito, turmas: turmaNomes });
 }
 
 /** Telefone usado pra identificar o professor no agente do Telegram. */
 export async function atualizarTelefoneProfessor(id: string, telefone: string): Promise<void> {
-  const admin = await exigirAdminDaEscola();
-  await exigirAlvoDaEscola(id, admin.escola_id);
-  const telefoneLimpo = telefone.trim();
-  const { error } = await supabase
-    .from("professores")
-    .update({ telefone: telefoneLimpo || null })
-    .eq("id", id);
-  if (error) {
-    if (error.code === "23505") throw new Error("Esse telefone já está em uso por outro professor.");
-    throw new Error(error.message);
-  }
+  await telefoneProfessorPor(await atorDoAdmin(), id, telefone);
 }
 
 /**
@@ -105,23 +79,7 @@ export async function atualizarTelefoneProfessor(id: string, telefone: string): 
  * e também serve pra resetar a senha de quem já tem conta). Ele é forçado a trocar no próximo login.
  */
 export async function definirSenhaProvisoria(id: string, senha: string): Promise<void> {
-  const admin = await exigirAdminDaEscola();
-  await exigirPoderSobreAlvo(admin, id);
-  if (senha.length < 6) {
-    throw new Error("A senha provisória precisa ter pelo menos 6 caracteres.");
-  }
-  const senhaHash = await bcrypt.hash(senha, 10);
-  const { error } = await supabase
-    .from("professores")
-    .update({
-      senha_hash: senhaHash,
-      senha_provisoria: true,
-      email_verificado: true,
-      token_verificacao: null,
-      token_verificacao_expira: null,
-    })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+  await definirSenhaProfessorPor(await atorDoAdmin(), id, senha);
 }
 
 export async function excluirProfessor(id: string): Promise<void> {
