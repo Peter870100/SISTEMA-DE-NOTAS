@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { executarRegistrado, type GravadorRegistro } from "@/lib/hermes/registro";
 import {
-  escolherConta, escolherPorNome, escolherTentativa, escolherTurma, escolherVinculo, exigirAluno, parametrosParaRegistro, textoCredenciais, textoPreviaLigacoes,
+  escolherAlunoPlanilha, escolherConta, escolherPorNome, escolherTentativa, escolherTurma, escolherVinculo, exigirAluno, parametrosParaRegistro, textoCredenciais, textoPreviaLigacoes,
   textoPreviaPlanilha, validarUsuario, type ContaAchada,
 } from "./contas-regras";
 import { falha, Pergunta } from "./ator";
@@ -184,6 +184,24 @@ test("escolherPorNome: exato → o item; parcial único ou vários → pergunta;
   const aula = escolherPorNome([{ titulo: "Aula 1 — Átomos" }], (a) => a.titulo, "átomos", "Aula", "a");
   assert.ok("mensagem" in aula && /Achei só a aula "Aula 1 — Átomos"/.test(aula.mensagem));
   assert.throws(() => escolherPorNome(cursos, (c) => c.titulo, "Biologia", "Aula", "a"), /Aula "Biologia" não encontrada\./);
+});
+
+test("escolherAlunoPlanilha: nome repetido lista os ids; pelo aluno_planilha_id escolhe; id fora → erro", () => {
+  const livres = [{ alunoId: "a1", nome: "Ana Souza" }, { alunoId: "a2", nome: "João Silva" }, { alunoId: "a3", nome: "João Silva" }];
+  const repetido = escolherAlunoPlanilha(livres, { nome: "joão silva" }, "1A · 2026");
+  assert.ok("mensagem" in repetido);
+  assert.match(repetido.mensagem, /Mais de um aluno da planilha com "joão silva"\. Qual deles\? Nada foi feito; repita com o aluno_planilha_id\./);
+  assert.match(repetido.mensagem, /- João Silva · aluno_planilha_id a2/);
+  assert.match(repetido.mensagem, /- João Silva · aluno_planilha_id a3/);
+  const porId = escolherAlunoPlanilha(livres, { nome: "João Silva", id: "a3" }, "1A · 2026");
+  assert.ok("item" in porId && porId.item.alunoId === "a3");
+  const exato = escolherAlunoPlanilha(livres, { nome: "ana souza" }, "1A · 2026");
+  assert.ok("item" in exato && exato.item.alunoId === "a1");
+  const parcial = escolherAlunoPlanilha(livres, { nome: "Ana" }, "1A · 2026");
+  assert.ok("mensagem" in parcial && /Achei só o aluno da planilha "Ana Souza"/.test(parcial.mensagem));
+  assert.throws(() => escolherAlunoPlanilha(livres, { id: "zz" }, "1A · 2026"), /Esse aluno não está entre os alunos sem conta da planilha de 1A · 2026\./);
+  assert.throws(() => escolherAlunoPlanilha(livres, { nome: "Carla" }, "1A · 2026"), /"Carla" não está entre os alunos sem conta da planilha de 1A · 2026\./);
+  assert.throws(() => escolherAlunoPlanilha(livres, {}, "1A · 2026"), /Informe aluno_planilha/);
 });
 
 // ---------- escolha da tentativa ----------

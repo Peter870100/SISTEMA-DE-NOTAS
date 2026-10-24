@@ -9,7 +9,7 @@ import {
 import { acharPorNome, campoEscola, campoTelefone, escolasDoPedido, lerPorIds, lerTodas, texto, type Ctx, type EscolaInfo, type ObterCtx } from "../leitura/comum";
 import { atorDoEscopo, campoId, falha, registrado, resolverTurmas, type Perfil } from "./ator";
 import {
-  escolherConta, escolherPorNome, escolherTurma, escolherVinculo, exigirAluno, parametrosParaRegistro, textoCredenciais, textoPreviaLigacoes, textoPreviaPlanilha,
+  escolherAlunoPlanilha, escolherConta, escolherTurma, escolherVinculo, exigirAluno, parametrosParaRegistro, textoCredenciais, textoPreviaLigacoes, textoPreviaPlanilha,
   validarUsuario, type ContaAchada, type TurmaLinha, type VinculoConta,
 } from "./contas-regras";
 
@@ -156,8 +156,8 @@ async function loteComOrientacao<T>(acao: () => Promise<T>, rodar: Rodar): Promi
   }
 }
 
-/** Nome do aluno da planilha a que a conta está ligada nesta turma (null = sem ligação). */
-async function ligacaoAtual(ctx: Ctx, contaId: string, v: VinculoConta): Promise<string | null> {
+/** Aluno da planilha a que a conta está ligada nesta turma (null = sem ligação). */
+async function ligacaoAtual(ctx: Ctx, contaId: string, v: VinculoConta): Promise<{ alunoId: string; nome: string } | null> {
   const { data, error } = await ctx.supabase.from("aluno_turmas").select("aluno_id")
     .eq("conta_id", contaId).eq("escola_id", v.escola_id).eq("turma_nome", v.turma_nome).eq("ano_letivo", v.ano_letivo).maybeSingle();
   if (error) throw new Error(error.message);
@@ -165,7 +165,7 @@ async function ligacaoAtual(ctx: Ctx, contaId: string, v: VinculoConta): Promise
   if (!alunoId) return null;
   const { data: aluno, error: erroAluno } = await ctx.supabase.from("alunos").select("nome").eq("id", alunoId).maybeSingle();
   if (erroAluno) throw new Error(erroAluno.message);
-  return limparNome((aluno as { nome: string } | null)?.nome ?? "outro aluno da planilha");
+  return { alunoId, nome: limparNome((aluno as { nome: string } | null)?.nome ?? "outro aluno da planilha") };
 }
 
 const quem = (c: ContaAchada) => `${c.nome}${c.usuario ? ` (usuário ${c.usuario})` : c.email ? ` (e-mail ${c.email})` : ""}`;
@@ -225,11 +225,12 @@ export function registrarAcoesContas(server: McpServer, obter: ObterCtx, perfil:
     "ligar_conta",
     {
       title: "Ligar conta a um aluno da planilha",
-      description: "Liga, à mão, a conta do aluno a uma linha da planilha da turma (bimestre vigente), ou desliga com desligar: true. A turma só é necessária se a conta estiver em mais de uma.",
+      description: "Liga, à mão, a conta do aluno a uma linha da planilha da turma (bimestre vigente), ou desliga com desligar: true. A turma só é necessária se a conta estiver em mais de uma. Nome repetido na planilha: a resposta lista os aluno_planilha_id; repita com o escolhido.",
       inputSchema: {
         ...campoAluno,
         turma: z.string().trim().max(100).optional().describe("Turma da conta onde ligar. Padrão: a única turma da conta."),
         aluno_planilha: z.string().trim().max(120).optional().describe("Nome do aluno na planilha (entre os que ainda não têm conta)."),
+        aluno_planilha_id: campoId("Id do aluno da planilha (use quando o nome se repetir na planilha).").optional(),
         desligar: z.boolean().optional().describe("true = desfaz a ligação nesta turma."),
         ...campoTelefone,
       },
@@ -242,17 +243,15 @@ export function registrarAcoesContas(server: McpServer, obter: ObterCtx, perfil:
         await rodar(() => ligarContaPor(ator, conta.id, turmaId, null), { turma_id: turmaId });
         return `Conta de ${conta.nome} desligada da planilha de ${rotulo}.`;
       }
-      if (!args.aluno_planilha?.trim()) throw new Error("Informe aluno_planilha (o nome na planilha) ou desligar: true.");
+      if (!args.aluno_planilha?.trim() && !args.aluno_planilha_id) throw new Error("Informe aluno_planilha (o nome na planilha) ou desligar: true.");
       const atual = await ligacaoAtual(ctx, conta.id, v);
       if (atual) {
-        if (normalizarBusca(atual) === normalizarBusca(args.aluno_planilha)) return `A conta de ${conta.nome} já está ligada a ${atual} na planilha de ${rotulo}.`;
-        return `Está ligada a ${atual}; desligue antes (desligar: true). Nada foi feito.`;
+        const mesmo = args.aluno_planilha_id ? atual.alunoId === args.aluno_planilha_id : normalizarBusca(atual.nome) === normalizarBusca(args.aluno_planilha ?? "");
+        if (mesmo) return `A conta de ${conta.nome} já está ligada a ${atual.nome} na planilha de ${rotulo}.`;
+        return `Está ligada a ${atual.nome}; desligue antes (desligar: true). Nada foi feito.`;
       }
       const livres = await alunosSemContaDoGrupoPor(ator, turmaId);
-      if (acharPorNome(livres, (a) => a.nome, args.aluno_planilha).length === 0) {
-        throw new Error(`"${args.aluno_planilha}" não está entre os alunos sem conta da planilha de ${rotulo}.`);
-      }
-      const escolha = escolherPorNome(livres, (a) => a.nome, args.aluno_planilha, "Aluno da planilha", "o");
+      const escolha = escolherAlunoPlanilha(livres, { nome: args.aluno_planilha, id: args.aluno_planilha_id }, rotulo);
       if ("mensagem" in escolha) return escolha.mensagem;
       const aluno = escolha.item;
       await rodar(() => ligarContaPor(ator, conta.id, turmaId, aluno.alunoId), { turma_id: turmaId, aluno_id: aluno.alunoId });

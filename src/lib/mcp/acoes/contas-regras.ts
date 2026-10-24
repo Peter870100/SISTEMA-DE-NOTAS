@@ -151,6 +151,31 @@ export function escolherPorNome<T>(lista: T[], nome: (x: T) => string, busca: st
   return { mensagem: `Achei só ${genero} ${minusculo} "${nome(item)}" para "${pedido}". É esse? Nada foi feito; repita com o título completo.` };
 }
 
+/**
+ * Aluno da planilha (entre os sem conta) para `ligar_conta`: pelo id, ou pelo nome. Nome repetido
+ * na planilha (dois "João Silva") lista os `aluno_planilha_id`, senão não haveria como escolher.
+ */
+export function escolherAlunoPlanilha<T extends { alunoId: string; nome: string }>(livres: T[], pedido: { nome?: string; id?: string }, rotulo: string): { item: T } | { mensagem: string } {
+  if (pedido.id) {
+    const item = livres.find((a) => a.alunoId === pedido.id);
+    if (!item) throw new Error(`Esse aluno não está entre os alunos sem conta da planilha de ${rotulo}.`);
+    return { item };
+  }
+  const nome = pedido.nome?.trim() ?? "";
+  if (!nome) throw new Error("Informe aluno_planilha (o nome na planilha) ou desligar: true.");
+  const achados = acharPorNome(livres, (a) => a.nome, nome);
+  if (achados.length === 0) throw new Error(`"${nome}" não está entre os alunos sem conta da planilha de ${rotulo}.`);
+  if (achados.length > 1) {
+    return {
+      mensagem: [
+        `Mais de um aluno da planilha com "${nome}". Qual deles? Nada foi feito; repita com o aluno_planilha_id.`,
+        ...achados.slice(0, 20).map((a) => `- ${a.nome} · aluno_planilha_id ${a.alunoId}`),
+      ].join("\n"),
+    };
+  }
+  return escolherPorNome(achados, (a) => a.nome, nome, "Aluno da planilha", "o");
+}
+
 // ---------- tentativa ----------
 
 export type TentativaAchada = { id: string; simuladoId: string; titulo: string; status: string; iniciadaEm: string };
