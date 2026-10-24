@@ -52,7 +52,47 @@ export const escolherCurso = (lista: CursoLido[], pedido: { nome?: string; id?: 
 export const escolherAula = (lista: AulaLida[], pedido: { nome?: string; id?: string }) =>
   escolherPorTitulo(lista, pedido, { rotulo: "Aula", genero: "a", titulo: (a) => a.titulo, detalhe: (a) => `módulo ${a.moduloTitulo}`, campoId: "aula_id" });
 
-export type PedidoTurmaCurso = { nome: string; ano_letivo?: string };
+export type ModoTurmas = "substituir" | "adicionar" | "remover";
+
+const chave = (t: TurmaSimulado) => `${t.turma_nome}|${t.ano_letivo}`;
+export const rotuloTurma = (t: TurmaSimulado) => `${t.turma_nome} · ${t.ano_letivo}`;
+
+/**
+ * Lista final de turmas do curso. `adicionar` junta aos vínculos atuais; `remover` tira (nome sem ano
+ * tira todos os anos daquele nome entre os vínculos atuais); `substituir` usa só as pedidas. Lista
+ * pedida vazia só vale com `desvincularTodas` (e então desvincula tudo). `implicitas` = turmas cujo ano
+ * foi escolhido pelo sistema (o mais recente), para avisar na resposta. Pura.
+ */
+export function turmasFinaisDoCurso(
+  atuais: TurmaSimulado[],
+  pedidos: PedidoTurmaCurso[],
+  turmasEscola: { nome: string; ano_letivo: string }[],
+  modo: ModoTurmas,
+  desvincularTodas = false,
+): { final: TurmaSimulado[]; implicitas: TurmaSimulado[] } {
+  if (pedidos.length === 0) {
+    if (!desvincularTodas) throw new Error("Lista de turmas vazia desvincularia o curso de todas as turmas e o esconderia dos alunos. Se é isso mesmo, repita com desvincular_todas: true.");
+    return { final: [], implicitas: [] };
+  }
+  if (modo === "remover") {
+    const sobra = new Map(atuais.map((t) => [chave(t), t]));
+    for (const p of pedidos) {
+      const ano = p.ano_letivo?.trim();
+      const alvos = atuais.filter((t) => normalizarBusca(t.turma_nome) === normalizarBusca(p.nome) && (!ano || t.ano_letivo === ano));
+      if (alvos.length === 0) throw new Error(`O curso não está ligado à turma "${p.nome}"${ano ? ` em ${ano}` : ""}. Turmas atuais: ${atuais.map(rotuloTurma).join(", ") || "nenhuma"}.`);
+      for (const t of alvos) sobra.delete(chave(t));
+    }
+    return { final: [...sobra.values()], implicitas: [] };
+  }
+  const resolvidas = turmasDoCursoPedidas(pedidos, turmasEscola);
+  const implicitas = pedidos.filter((p) => !p.ano_letivo?.trim())
+    .flatMap((p) => resolvidas.filter((t) => normalizarBusca(t.turma_nome) === normalizarBusca(p.nome)));
+  const base = modo === "adicionar" ? atuais : [];
+  const mapa = new Map([...base, ...resolvidas].map((t) => [chave(t), t]));
+  return { final: [...mapa.values()], implicitas };
+}
+
+export type PedidoTurmaCurso ={ nome: string; ano_letivo?: string };
 
 /**
  * Turmas pedidas → turma + ano letivo, só da escola do curso. Nome exato (um nome só parecido vira

@@ -40,7 +40,8 @@ export async function gravarTurmasDoCursoPor(ator: AtorEscola, cursoId: string, 
     ...(atuais ?? []).map((t) => `${t.turma_nome}|${t.ano_letivo}`),
   ]);
   const aceitas = turmas.filter((t) => permitidas.has(`${t.turma_nome}|${t.ano_letivo}`));
-  await supabase.from("curso_turmas").delete().eq("curso_id", cursoId);
+  const { error: erroApagar } = await supabase.from("curso_turmas").delete().eq("curso_id", cursoId);
+  if (erroApagar) throw new Error(erroApagar.message);
   const unicas = [...new Map(aceitas.map((t) => [`${t.turma_nome}|${t.ano_letivo}`, t])).values()];
   if (unicas.length === 0) return;
   const { error } = await supabase

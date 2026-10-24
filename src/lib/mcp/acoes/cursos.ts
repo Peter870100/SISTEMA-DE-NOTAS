@@ -4,7 +4,7 @@ import { publicarAulaPor, turmasDoCursoPor } from "@/lib/aulas/cursos-nucleo";
 import { campoEscola, campoTelefone, escolasDoPedido, lerTodas, texto, type Ctx, type ObterCtx } from "../leitura/comum";
 import { atorDoEscopo, campoId, falha, registrado, type Perfil } from "./ator";
 import { parametrosParaRegistro } from "./contas-regras";
-import { escolherAula, escolherCurso, turmasDoCursoPedidas, type AulaLida, type CursoLido } from "./cursos-regras";
+import { escolherAula, escolherCurso, rotuloTurma, turmasFinaisDoCurso, type AulaLida, type CursoLido } from "./cursos-regras";
 
 /**
  * Ferramentas de cursos da Hermes (só no perfil dono): publicar/despublicar aula e escolher as turmas
@@ -70,13 +70,15 @@ export function registrarAcoesCursos(server: McpServer, obter: ObterCtx, perfil:
     "turmas_do_curso",
     {
       title: "Turmas do curso",
-      description: "Define para quais turmas o curso aparece: a lista informada SUBSTITUI a atual (lista vazia desvincula todas). Só turmas da escola do curso, por nome exato; sem ano_letivo vale o mais recente daquele nome. Curso pelo título exato; título parcial ou repetido só lista as opções. Antes, resuma e peça confirmação.",
+      description: 'Muda as turmas para as quais o curso aparece. modo "adicionar" (padrão) junta as turmas informadas às atuais; "remover" tira; "substituir" troca a lista inteira. Lista vazia é recusada, a menos que desvincular_todas: true (o curso some para os alunos). Só turmas da escola do curso, por nome exato; sem ano_letivo vale o mais recente daquele nome. Curso pelo título exato; título parcial ou repetido só lista as opções. A resposta mostra antes e depois. Antes, resuma e peça confirmação.',
       inputSchema: {
         ...campoCurso,
         turmas: z.array(z.object({
           nome: z.string().trim().min(1).max(100),
           ano_letivo: z.string().trim().max(10).optional(),
-        })).max(50).describe("Turmas do curso (substitui a lista atual)."),
+        })).max(50).describe("Turmas a adicionar, remover ou que formam a nova lista, conforme o modo."),
+        modo: z.enum(["substituir", "adicionar", "remover"]).optional().describe('"adicionar" (padrão), "remover" ou "substituir" (troca a lista inteira).'),
+        desvincular_todas: z.boolean().optional().describe("Só com turmas vazia: confirma desvincular o curso de todas as turmas."),
         ...campoTelefone,
       },
     },
@@ -88,11 +90,17 @@ export function registrarAcoesCursos(server: McpServer, obter: ObterCtx, perfil:
         const { curso } = achado;
         const turmasEscola = await lerTodas<{ nome: string; ano_letivo: string }>((de, ate) =>
           ctx.supabase.from("turmas").select("nome, ano_letivo").eq("escola_id", curso.escolaId).order("nome").order("ano_letivo").range(de, ate));
-        const turmas = turmasDoCursoPedidas(args.turmas, turmasEscola);
+        const atuaisLidas = await lerTodas<{ turma_nome: string; ano_letivo: string }>((de, ate) =>
+          ctx.supabase.from("curso_turmas").select("turma_nome, ano_letivo").eq("curso_id", curso.id).order("turma_nome").order("ano_letivo").range(de, ate));
+        const atuais = atuaisLidas.map((t) => ({ turma_nome: t.turma_nome, ano_letivo: t.ano_letivo }));
+        const modo = args.modo ?? "adicionar";
+        const { final, implicitas } = turmasFinaisDoCurso(atuais, args.turmas, turmasEscola, modo, args.desvincular_todas);
         const ator = await atorDoEscopo(ctx, curso.escolaId);
-        await registrado(perfil, ator, "turmas_do_curso", { ...parametrosParaRegistro(args), curso_id: curso.id }, () => turmasDoCursoPor(ator, curso.id, turmas));
-        const lista = turmas.map((t) => `${t.turma_nome} · ${t.ano_letivo}`).join(", ");
-        return texto(turmas.length ? `Curso ${curso.titulo} (${curso.escolaNome}) agora aparece para: ${lista}.` : `Curso ${curso.titulo} (${curso.escolaNome}) desvinculado de todas as turmas.`);
+        // `turmas_antes` no registro permite restaurar a lista anterior.
+        await registrado(perfil, ator, "turmas_do_curso", { ...parametrosParaRegistro(args), curso_id: curso.id, modo, turmas_antes: atuais }, () => turmasDoCursoPor(ator, curso.id, final));
+        const lista = (ts: { turma_nome: string; ano_letivo: string }[]) => ts.map(rotuloTurma).join(", ") || "nenhuma";
+        const aviso = implicitas.length ? `\nAno letivo mais recente usado em: ${lista(implicitas)}.` : "";
+        return texto(`Curso ${curso.titulo} (${curso.escolaNome}), modo ${modo}.\nAntes: ${lista(atuais)}.\nDepois: ${lista(final)}.${aviso}`);
       } catch (e) {
         return falha("definir as turmas do curso", e);
       }

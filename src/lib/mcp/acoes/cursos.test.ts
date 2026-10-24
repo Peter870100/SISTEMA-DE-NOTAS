@@ -73,3 +73,37 @@ test("turmasDoCursoPedidas: nome só parecido vira pergunta", () => {
 test("turmasDoCursoPedidas: lista vazia desvincula tudo", () => {
   assert.deepEqual(turmasDoCursoPedidas([], escola), []);
 });
+
+// ---------- modos: adicionar, remover, substituir ----------
+
+import { turmasFinaisDoCurso } from "./cursos-regras";
+
+const A25 = { turma_nome: "1º Ano A", ano_letivo: "2025" };
+const A26 = { turma_nome: "1º Ano A", ano_letivo: "2026" };
+const B26 = { turma_nome: "2º Ano B", ano_letivo: "2026" };
+
+test("turmasFinaisDoCurso: adicionar junta às atuais sem duplicar e avisa o ano implícito", () => {
+  const r = turmasFinaisDoCurso([A25], [{ nome: "2º Ano B" }, { nome: "1º Ano A", ano_letivo: "2025" }], escola, "adicionar");
+  assert.deepEqual(r.final, [A25, B26]);
+  assert.deepEqual(r.implicitas, [B26]);
+});
+
+test("turmasFinaisDoCurso: substituir troca a lista inteira", () => {
+  assert.deepEqual(turmasFinaisDoCurso([A25, B26], [{ nome: "1º Ano A" }], escola, "substituir").final, [A26]);
+});
+
+test("turmasFinaisDoCurso: remover tira todos os anos do nome, ou só o ano dado", () => {
+  assert.deepEqual(turmasFinaisDoCurso([A25, A26, B26], [{ nome: "1º ano a" }], escola, "remover").final, [B26]);
+  assert.deepEqual(turmasFinaisDoCurso([A25, A26, B26], [{ nome: "1º Ano A", ano_letivo: "2025" }], escola, "remover").final, [A26, B26]);
+});
+
+test("turmasFinaisDoCurso: remover turma não ligada é erro com as atuais", () => {
+  assert.throws(() => turmasFinaisDoCurso([B26], [{ nome: "1º Ano A" }], escola, "remover"), /não está ligado à turma "1º Ano A".*2º Ano B · 2026/);
+});
+
+test("turmasFinaisDoCurso: lista vazia é recusada sem desvincular_todas", () => {
+  for (const modo of ["substituir", "adicionar", "remover"] as const) {
+    assert.throws(() => turmasFinaisDoCurso([A26], [], escola, modo), /desvincular_todas: true/);
+  }
+  assert.deepEqual(turmasFinaisDoCurso([A26], [], escola, "substituir", true).final, []);
+});
