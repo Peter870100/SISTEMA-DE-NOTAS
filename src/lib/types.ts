@@ -317,7 +317,9 @@ export type Questao = {
   motivo_revisao: string | null;
   falta_imagem: boolean;
   conferida_em: string | null;
-  origem: "pdf" | "enemdev" | "manual";
+  origem: "pdf" | "enemdev" | "manual" | "ia";
+  resolucao: string | null;
+  geracao_id: string | null;
   importacao_id: string | null;
   pagina_id: string | null;
   fonte_id: string | null;
@@ -325,6 +327,28 @@ export type Questao = {
   criado_via: OrigemRegistro;
   created_at: string;
   updated_at: string;
+};
+
+export type Dificuldade = "facil" | "media" | "dificil";
+
+export type GeracaoIA = {
+  id: string;
+  escola_id: string;
+  professor_id: string | null;
+  escopo: Escopo;
+  materia: string;
+  assunto_id: string | null;
+  dificuldade: Dificuldade;
+  orientacao: string;
+  questao_base_id: string | null;
+  quantidade_pedida: number;
+  quantidade_gerada: number;
+  status: "gerando" | "concluida" | "erro";
+  erro: string | null;
+  tokens_entrada: number | null;
+  tokens_saida: number | null;
+  custo_usd: number | null;
+  created_at: string;
 };
 
 export type QuestaoImagem = {
@@ -591,8 +615,14 @@ export type Database = {
       };
       questoes: {
         Row: Questao;
-        Insert: Partial<Omit<Questao, "id" | "created_at" | "updated_at">> & { escopo: Escopo; banca: string; area: Area; materia: string; origem: "pdf" | "enemdev" | "manual" };
+        Insert: Partial<Omit<Questao, "id" | "created_at" | "updated_at">> & { escopo: Escopo; banca: string; area: Area; materia: string; origem: "pdf" | "enemdev" | "manual" | "ia" };
         Update: Partial<Omit<Questao, "id" | "created_at">>;
+        Relationships: [];
+      };
+      geracoes_ia: {
+        Row: GeracaoIA;
+        Insert: Partial<Omit<GeracaoIA, "id" | "created_at">> & { escola_id: string; escopo: Escopo; materia: string; dificuldade: Dificuldade; quantidade_pedida: number };
+        Update: Partial<Omit<GeracaoIA, "id" | "created_at">>;
         Relationships: [];
       };
       questao_imagens: {

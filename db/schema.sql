@@ -1268,3 +1268,45 @@ begin
 end $$;
 
 NOTIFY pgrst, 'reload schema';
+
+-- ===== Gerador de questões por IA (2026-10-24) =====
+create table if not exists geracoes_ia (
+    id uuid primary key default gen_random_uuid(),
+    escola_id uuid not null references escolas(id),          -- escola da conta (conta para o limite)
+    professor_id uuid references professores(id) on delete set null,
+    escopo varchar(6) not null check (escopo in ('geral', 'escola')),
+    materia text not null,
+    assunto_id uuid references assuntos(id) on delete set null,
+    dificuldade varchar(7) not null check (dificuldade in ('facil', 'media', 'dificil')),
+    orientacao text not null default '',
+    questao_base_id uuid references questoes(id) on delete set null,
+    quantidade_pedida integer not null check (quantidade_pedida between 1 and 10),
+    quantidade_gerada integer not null default 0,
+    status varchar(9) not null default 'gerando' check (status in ('gerando', 'concluida', 'erro')),
+    erro text,
+    tokens_entrada integer,
+    tokens_saida integer,
+    custo_usd numeric(8,4),
+    created_at timestamptz not null default now()
+);
+create index if not exists idx_geracoes_ia_escola_data on geracoes_ia (escola_id, created_at);
+alter table geracoes_ia enable row level security;
+drop policy if exists "acesso_total_geracoes_ia" on geracoes_ia;
+create policy "acesso_total_geracoes_ia" on geracoes_ia for all using (true) with check (true);
+
+alter table questoes add column if not exists resolucao text;
+alter table questoes add column if not exists geracao_id uuid references geracoes_ia(id) on delete set null;
+
+-- origem passa a aceitar 'ia'
+do $$
+declare c text;
+begin
+    for c in select conname from pg_constraint
+             where conrelid = 'questoes'::regclass and contype = 'c'
+               and pg_get_constraintdef(oid) ilike '%origem%' loop
+        execute format('alter table questoes drop constraint %I', c);
+    end loop;
+end $$;
+alter table questoes add constraint questoes_origem_check
+    check (origem in ('pdf', 'enemdev', 'manual', 'ia'));
+NOTIFY pgrst, 'reload schema';
