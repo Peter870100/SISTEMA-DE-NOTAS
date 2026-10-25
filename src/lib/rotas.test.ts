@@ -6,7 +6,7 @@ const P = { tipo: "p" as const, id: "1" };
 const A = { tipo: "a" as const, id: "2" };
 
 test("rotas públicas passam para qualquer um", () => {
-  for (const r of ["/login", "/cadastro", "/verificar-email", "/esqueci-senha", "/redefinir-senha", "/api/mcp", "/aluno/entrar-com-codigo", "/logo.png"]) {
+  for (const r of ["/login", "/cadastro", "/verificar-email", "/esqueci-senha", "/redefinir-senha", "/api/mcp", "/api/questoes", "/api/questoes/resumo", "/aluno/entrar-com-codigo", "/logo.png"]) {
     assert.equal(ehRotaPublica(r), true, r);
     assert.equal(destinoDaRota(r, null), "seguir", r);
   }

@@ -7,6 +7,7 @@ const PREFIXOS_PUBLICOS = [
   "/esqueci-senha",
   "/redefinir-senha",
   "/api/mcp",
+  "/api/questoes",
   "/aluno/entrar-com-codigo",
 ];
 
