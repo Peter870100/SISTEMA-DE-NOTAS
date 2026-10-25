@@ -1,8 +1,8 @@
 // src/lib/questoes/geracao.ts
 // Funções puras do gerador de questões por IA (sem imports de servidor).
 import { z } from "zod";
-import type { Database, Escopo } from "@/lib/types";
-import { LETRAS, areaDaMateria, type Materia } from "./materias";
+import type { Database, Dificuldade, Escopo, Letra, ProfessorRole } from "@/lib/types";
+import { LETRAS, areaDaMateria, ehMateria, type Materia } from "./materias";
 
 const LETRA = z.enum(["A", "B", "C", "D", "E"]);
 
@@ -70,7 +70,8 @@ export function respostaParaGeradas(r: RespostaGeracao, ctx: ContextoGeradas): {
       q.enunciado.trim() !== "" &&
       q.alternativas.length === LETRAS.length &&
       letras === LETRAS.join("") &&
-      q.alternativas.every((a) => a.texto.trim() !== "");
+      q.alternativas.every((a) => a.texto.trim() !== "") &&
+      new Set(q.alternativas.map((a) => a.texto.trim().toLowerCase())).size === LETRAS.length;
     if (!valida) {
       descartadas++;
       continue;
@@ -110,4 +111,161 @@ export function respostaParaGeradas(r: RespostaGeracao, ctx: ContextoGeradas): {
     });
   }
   return { linhas, descartadas };
+}
+
+// ---------- Pedido ----------
+
+const MSG_QUANTIDADE = "Escolha de 1 a 10 questões.";
+const idOuNulo = (v: unknown) => (v === "" || v === undefined ? null : v);
+
+export const PedidoGeracaoSchema = z.object({
+  materia: z.string({ error: "Escolha uma matéria." }).refine(ehMateria, "Escolha uma matéria."),
+  assunto_id: z.preprocess(idOuNulo, z.string().nullable()),
+  quantidade: z.number({ error: MSG_QUANTIDADE }).int(MSG_QUANTIDADE).min(1, MSG_QUANTIDADE).max(10, MSG_QUANTIDADE),
+  dificuldade: z.enum(["facil", "media", "dificil"], { error: "Escolha a dificuldade." }),
+  orientacao: z.string().trim().max(500, "A orientação pode ter até 500 caracteres."),
+  escopo: z.enum(["geral", "escola"], { error: "Escolha onde guardar as questões." }),
+  base_id: z.preprocess(idOuNulo, z.string().nullable()),
+});
+export type PedidoGeracao = {
+  materia: string;
+  assunto_id: string | null;
+  quantidade: number;
+  dificuldade: Dificuldade;
+  orientacao: string;
+  escopo: Escopo;
+  base_id: string | null;
+};
+
+export function validarPedido(bruto: unknown, ator: { role: ProfessorRole }, assuntosDaMateria: Set<string>): PedidoGeracao {
+  const r = PedidoGeracaoSchema.safeParse(bruto);
+  if (!r.success) throw new Error(r.error.issues[0]?.message ?? "Pedido inválido.");
+  const pedido = r.data as PedidoGeracao;
+  if (pedido.assunto_id !== null && !assuntosDaMateria.has(pedido.assunto_id)) {
+    throw new Error("Esse assunto não é da matéria escolhida.");
+  }
+  return { ...pedido, escopo: ator.role === "dono" ? pedido.escopo : "escola" };
+}
+
+// ---------- Limite diário ----------
+
+export const LIMITE_DIARIO = 60;
+const FUSO = "America/Campo_Grande";
+
+// 00:00 do dia de `agora` no fuso de Campo Grande, como instante UTC.
+export function inicioDoDia(agora: Date): Date {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: FUSO, hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(agora);
+  const n = (t: string) => Number(partes.find((p) => p.type === t)?.value);
+  const localComoUtc = Date.UTC(n("year"), n("month") - 1, n("day"), n("hour"), n("minute"), n("second"));
+  const desvio = localComoUtc - Math.floor(agora.getTime() / 1000) * 1000;
+  return new Date(Date.UTC(n("year"), n("month") - 1, n("day")) - desvio);
+}
+
+// null = sem limite (dono).
+export function restanteHoje(pedidasHoje: number, role: ProfessorRole): number | null {
+  if (role === "dono") return null;
+  return Math.max(0, LIMITE_DIARIO - pedidasHoje);
+}
+
+// ---------- Exemplos ----------
+
+export type CandidataExemplo = {
+  id: string;
+  rotulo: string;
+  assunto_id: string | null;
+  enunciado: string;
+  comando: string;
+  alternativas: { letra: Letra; texto: string }[];
+  resposta: Letra | null;
+  temImagem: boolean;
+};
+
+const MAX_EXEMPLOS = 6;
+const MIN_DO_ASSUNTO = 3;
+const MAX_ENUNCIADO = 2500;
+
+// Tira itens ao acaso, um a um (com sortear = 0 mantém a ordem).
+function embaralhar<T>(lista: T[], sortear: (n: number) => number): T[] {
+  const resto = [...lista];
+  const out: T[] = [];
+  while (resto.length > 0) out.push(resto.splice(sortear(resto.length), 1)[0]);
+  return out;
+}
+
+export function escolherExemplos(
+  candidatas: CandidataExemplo[],
+  assuntoId: string | null,
+  sortear: (n: number) => number = (n) => Math.floor(Math.random() * n),
+): CandidataExemplo[] {
+  const doAssunto = candidatas.filter((c) => assuntoId === null || c.assunto_id === assuntoId);
+  const outros = candidatas.filter((c) => assuntoId !== null && c.assunto_id !== assuntoId);
+  const grupo = (lista: CandidataExemplo[], imagem: boolean) => embaralhar(lista.filter((c) => c.temImagem === imagem), sortear);
+
+  const ordem = [grupo(doAssunto, false), grupo(doAssunto, true)];
+  if (doAssunto.length < MIN_DO_ASSUNTO) ordem.push(grupo(outros, false), grupo(outros, true));
+
+  return ordem.flat().slice(0, MAX_EXEMPLOS).map((c) => ({ ...c, enunciado: c.enunciado.slice(0, MAX_ENUNCIADO) }));
+}
+
+// ---------- Instruções para a IA ----------
+
+const ROTULO_DIFICULDADE: Record<Dificuldade, string> = { facil: "fácil", media: "média", dificil: "difícil" };
+
+function blocoQuestao(titulo: string, c: CandidataExemplo): string {
+  const alternativas = c.alternativas.map((a) => `${a.letra}) ${a.texto}`).join("\n");
+  return [
+    `### ${titulo}`,
+    `Enunciado: ${c.enunciado.slice(0, MAX_ENUNCIADO)}`,
+    `Comando: ${c.comando}`,
+    alternativas,
+    `Resposta correta: ${c.resposta ?? "não informada"}`,
+  ].join("\n");
+}
+
+export function instrucoesGeracao(p: {
+  pedido: PedidoGeracao;
+  materiaRotulo: string;
+  assuntoNome: string | null;
+  assuntos: { id: string; nome: string }[];
+  exemplos: CandidataExemplo[];
+  base: CandidataExemplo | null;
+  recentes: string[];
+}): string {
+  const { pedido } = p;
+  const partes: string[] = [
+    "Você é um professor elaborador de itens de múltipla escolha no padrão do ENEM e dos vestibulares brasileiros.",
+    `Crie ${pedido.quantidade} ${pedido.quantidade === 1 ? "questão" : "questões"} de ${p.materiaRotulo}` +
+      (p.assuntoNome ? `, assunto "${p.assuntoNome}"` : "") +
+      `, com dificuldade ${ROTULO_DIFICULDADE[pedido.dificuldade]}.`,
+    [
+      "Regras:",
+      "- As questões devem ser inéditas: não copie nem parafraseie os exemplos; use outro contexto, outros números e outros textos.",
+      "- Texto-base autoral ou de domínio público; nunca invente citações atribuídas a autores reais, obras ou dados de fontes reais.",
+      "- Exatamente 5 alternativas (A a E), plausíveis, com uma única correta. Não use \"todas as anteriores\" nem \"nenhuma das anteriores\".",
+      "- Distribua a letra da resposta correta entre as questões, sem favorecer uma letra.",
+      "- Não dependa de figura, gráfico ou tabela em imagem; se precisar de dados, descreva-os em texto.",
+      "- Escreva fórmulas e símbolos em Unicode (por exemplo x², H₂O, √, ≤), sem LaTeX.",
+      "- Escreva em português do Brasil.",
+      "- Em \"resolucao\", explique de forma breve por que a alternativa correta está certa.",
+      "- Classifique cada questão com um assunto_id da lista abaixo, ou null se nenhum servir.",
+    ].join("\n"),
+  ];
+
+  if (pedido.orientacao) partes.push(`Orientação do professor: ${pedido.orientacao}`);
+  if (p.assuntos.length > 0) {
+    partes.push(["Assuntos da matéria (id | nome):", ...p.assuntos.map((a) => `${a.id} | ${a.nome}`)].join("\n"));
+  }
+  if (p.base) {
+    partes.push("Use esta questão como MODELO PRINCIPAL: siga o estilo e a estrutura, sem copiá-la.\n" + blocoQuestao("MODELO PRINCIPAL", p.base));
+  }
+  if (p.exemplos.length > 0) {
+    partes.push(["Exemplos do banco (só referência de estilo; não reproduza):", ...p.exemplos.map((e, i) => blocoQuestao(`Exemplo ${i + 1} (${e.rotulo})`, e))].join("\n\n"));
+  }
+  if (p.recentes.length > 0) {
+    partes.push(["Já geradas (não repita):", ...p.recentes.map((r) => `- ${r}`)].join("\n"));
+  }
+  return partes.join("\n\n");
 }
