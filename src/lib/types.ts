@@ -317,7 +317,7 @@ export type Questao = {
   motivo_revisao: string | null;
   falta_imagem: boolean;
   conferida_em: string | null;
-  origem: "pdf" | "enemdev" | "manual" | "ia";
+  origem: "pdf" | "enemdev" | "manual" | "ia" | "dataset";
   resolucao: string | null;
   geracao_id: string | null;
   importacao_id: string | null;
@@ -615,7 +615,7 @@ export type Database = {
       };
       questoes: {
         Row: Questao;
-        Insert: Partial<Omit<Questao, "id" | "created_at" | "updated_at">> & { escopo: Escopo; banca: string; area: Area; materia: string; origem: "pdf" | "enemdev" | "manual" | "ia" };
+        Insert: Partial<Omit<Questao, "id" | "created_at" | "updated_at">> & { escopo: Escopo; banca: string; area: Area; materia: string; origem: "pdf" | "enemdev" | "manual" | "ia" | "dataset" };
         Update: Partial<Omit<Questao, "id" | "created_at">>;
         Relationships: [];
       };

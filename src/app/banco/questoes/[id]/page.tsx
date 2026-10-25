@@ -5,7 +5,7 @@ import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { podeEditarQuestao, podeVerQuestao } from "@/lib/questoes/acesso";
 import { imagensParaTela } from "@/lib/questoes/consultas";
-import { LETRAS } from "@/lib/questoes/materias";
+import { letrasVisiveis } from "@/lib/questoes/materias";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { EditorQuestao } from "@/components/questoes/EditorQuestao";
 import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
@@ -38,7 +38,7 @@ export default async function QuestaoPage({ params }: { params: Promise<{ id: st
           <div className="flex flex-col gap-3">
             <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={q.enunciado} imagens={imgs} />
             <p className="text-sm font-medium text-ink">{q.comando}</p>
-            <ol className="flex flex-col gap-2">{LETRAS.map((l) => (
+            <ol className="flex flex-col gap-2">{letrasVisiveis(q.alternativas, new Set(imgs.map((i) => i.alvo))).map((l) => (
               <li key={l} className={`rounded-control border p-2 text-sm ${q.resposta === l ? "border-ok bg-ok/10" : "border-line"}`}>
                 <strong>{l})</strong> {(() => { const alt = q.alternativas.find((a) => a.letra === l); return <TextoAlternativa doc={alt?.conteudo ?? null} texto={alt?.texto ?? ""} />; })()}
                 {imgs.filter((i) => i.alvo === l).map((i) => <ImagemQuestao key={i.id} imagem={i} />)}

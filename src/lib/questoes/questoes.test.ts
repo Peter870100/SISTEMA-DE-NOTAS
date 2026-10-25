@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MATERIAS, areaDaMateria, ehMateria, LETRAS } from "./materias";
+import { MATERIAS, areaDaMateria, ehMateria, LETRAS, letrasVisiveis } from "./materias";
 import { ASSUNTOS_INICIAIS } from "./assuntos-iniciais";
 import { estiloRecorte, limitarQuadro } from "./quadro";
 import { lerPaginas } from "./paginas";
@@ -281,4 +281,13 @@ test("lerPaginas: vazio = todas; números, faixas e erros", () => {
 test("padraoExato: escapa curingas e apara espaços", () => {
   assert.equal(padraoExato(" ufms "), "ufms");
   assert.equal(padraoExato("50%_x"), String.raw`50\%\_x`);
+});
+
+test("letrasVisiveis: prova de 4 alternativas esconde a E vazia", () => {
+  const alts = (textos: string[]) => LETRAS.map((letra, i) => ({ letra, texto: textos[i] ?? "" }));
+  assert.deepEqual(letrasVisiveis(alts(["a", "b", "c", "d", "e"])), ["A", "B", "C", "D", "E"]);
+  assert.deepEqual(letrasVisiveis(alts(["a", "b", "c", "d", "  "])), ["A", "B", "C", "D"]);
+  assert.deepEqual(letrasVisiveis(alts(["a", "b", "c", "d", ""]), new Set(["E"])), ["A", "B", "C", "D", "E"]);
+  assert.deepEqual(letrasVisiveis(alts(["a", "", "c", "d", "e"])), ["A", "B", "C", "D", "E"]);
+  assert.deepEqual(letrasVisiveis(alts([])), ["A", "B"]);
 });

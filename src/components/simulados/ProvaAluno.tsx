@@ -6,6 +6,7 @@ import { entregar, pausarTreino, pulsoTreino, responder, type ProvaAluno as Prov
 import { fecharSaidaPendente, mesclarPresenca, type Presenca } from "@/lib/hermes/presenca";
 import { formatarDuracao, PULSO_SEG, type TemposQuestoes } from "@/lib/simulados/regras";
 import type { Letra } from "@/lib/types";
+import { letrasVisiveis } from "@/lib/questoes/materias";
 import { ImagemIndisponivel, ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { ConteudoQuestao, TextoAlternativa } from "@/components/questoes/ConteudoQuestao";
 import { estilos } from "@/components/ui/estilos";
@@ -13,7 +14,6 @@ import { Modal } from "@/components/ui/Modal";
 
 import css from "./ProvaAluno.module.css";
 
-const LETRAS: Letra[] = ["A", "B", "C", "D", "E"];
 type Pendente = { questaoId: string; alternativa: Letra | null };
 const chaveLocal = (t: string) => `prova:${t}`;
 const chaveTempo = (t: string) => `prova-tempo:${t}`;
@@ -258,7 +258,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
         {q.comando && <p className={css.comando}>{q.comando}</p>}
         <fieldset className={css.alternativas}>
           <legend className="sr-only">Alternativas</legend>
-          {LETRAS.map((l) => (
+          {letrasVisiveis(q.alternativas, new Set(q.imagens.map((i) => i.alvo))).map((l) => (
             <label key={l} className={css.alternativa}>
               <input type="radio" name={`q-${q.id}`} value={l} aria-label={`Alternativa ${l}`} checked={respostas[q.id] === l} onChange={() => marcar(q.id, l)} className={css.radio} />
               <span className={css.letra} aria-hidden="true">{l}</span>

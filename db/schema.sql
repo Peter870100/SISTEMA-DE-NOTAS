@@ -1310,3 +1310,10 @@ end $$;
 alter table questoes add constraint questoes_origem_check
     check (origem in ('pdf', 'enemdev', 'manual', 'ia'));
 NOTIFY pgrst, 'reload schema';
+
+-- ===== Importação de datasets de vestibulares (Alvorada-Bench) (2026-10-25) =====
+-- Questões vindas de datasets públicos: origem 'dataset', fonte_id 'alvorada:<question_id>'.
+alter table questoes drop constraint if exists questoes_origem_check;
+alter table questoes add constraint questoes_origem_check
+    check (origem in ('pdf', 'enemdev', 'manual', 'ia', 'dataset'));
+NOTIFY pgrst, 'reload schema';
