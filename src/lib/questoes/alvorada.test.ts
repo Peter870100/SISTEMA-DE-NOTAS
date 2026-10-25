@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { anoDaProva, converterLinha, idiomaDoTexto, lerCsv, separarRepetidas, type LinhaAlvorada } from "./alvorada";
+import { anoDaProva, converterLinha, decidirClassificacao, idiomaDoTexto, lerCsv, separarRepetidas, type LinhaAlvorada } from "./alvorada";
 
 const base: LinhaAlvorada = {
   question_id: "exams_pt-br_fuvest_2008_q_18",
@@ -86,4 +86,16 @@ test("separarRepetidas: segunda com o mesmo número fica sem número, em revisã
 
 test("converterLinha: banca fora da lista é ignorada", () => {
   assert.equal(converterLinha(linha({ exam_type: "outra" })), null);
+});
+
+test("decidirClassificacao: mesma área refina a matéria; outra área mantém a do dataset sem assunto", () => {
+  const ia = (materia: string, area: "linguagens" | "humanas") => ({ materia, area, assunto_id: "as-1", assuntoNovo: null });
+  const port = { materia: "portugues", area: "linguagens" as const, motivo_revisao: null };
+  assert.deepEqual(decidirClassificacao(port, ia("literatura", "linguagens")), { ...ia("literatura", "linguagens"), aviso: null });
+  const outra = decidirClassificacao(port, ia("historia", "humanas"));
+  assert.equal(outra.materia, "portugues");
+  assert.equal(outra.assunto_id, null);
+  assert.match(outra.aviso!, /historia/);
+  const generica = { materia: "historia", area: "humanas" as const, motivo_revisao: 'Matéria genérica no dataset ("Ciências Humanas"): confira a matéria.' };
+  assert.equal(decidirClassificacao(generica, ia("sociologia", "humanas")).materia, "sociologia");
 });

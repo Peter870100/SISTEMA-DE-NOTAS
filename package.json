@@ -14,7 +14,8 @@
     "seed": "tsx --env-file=.env.local scripts/seed-from-xlsx.ts",
     "mcp": "tsx --env-file=.env.local mcp/server.ts",
     "criar-professor": "tsx --env-file=.env.local scripts/criar-professor.ts",
-    "importar-alvorada": "tsx --env-file=.env.local scripts/importar-alvorada.ts"
+    "importar-alvorada": "tsx --env-file=.env.local scripts/importar-alvorada.ts",
+    "classificar-alvorada": "tsx --env-file=.env.local scripts/classificar-alvorada.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

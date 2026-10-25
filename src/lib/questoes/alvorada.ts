@@ -110,7 +110,7 @@ export function converterLinha(l: LinhaAlvorada): Convertida | null {
   if (!materia) {
     const generica = AREA_GENERICA.find(([re]) => re.test(l.subject));
     [area, materia] = generica ? [generica[1], generica[2]] : ["linguagens", "portugues"];
-    motivos.push(`Matéria genérica no dataset ("${limpar(l.subject)}"): confira a matéria.`);
+    motivos.push(`${MOTIVO_MATERIA_GENERICA} ("${limpar(l.subject)}"): confira a matéria.`);
   }
 
   let caderno = cadernoDoNome(l.exam_name);
@@ -156,6 +156,22 @@ export function converterLinha(l: LinhaAlvorada): Convertida | null {
     fonte_id: `alvorada:${l.question_id}`,
   };
   return { linha, chave: `${banca}|${ano}|${caderno}|${linha.numero ?? ""}`, motivos };
+}
+
+export const MOTIVO_MATERIA_GENERICA = "Matéria genérica no dataset";
+
+/**
+ * Classificação da IA sobre uma questão do dataset. A matéria do dataset vale, mas a IA pode
+ * refiná-la dentro da mesma área (ex.: Português → Literatura, Inglês ↔ Espanhol); se o dataset só
+ * tinha a área, vale a matéria da IA. Se a IA aponta outra área, a matéria fica e o assunto não é gravado.
+ */
+export function decidirClassificacao(
+  atual: { materia: string; area: Area; motivo_revisao: string | null },
+  ia: { materia: string; area: Area; assunto_id: string | null; assuntoNovo: string | null },
+): { materia: string; area: Area; assunto_id: string | null; assuntoNovo: string | null; aviso: string | null } {
+  const generica = (atual.motivo_revisao ?? "").includes(MOTIVO_MATERIA_GENERICA);
+  if (generica || ia.area === atual.area) return { ...ia, aviso: null };
+  return { materia: atual.materia, area: atual.area, assunto_id: null, assuntoNovo: null, aviso: `A IA classificou como ${ia.materia}: confira a matéria.` };
 }
 
 /**
