@@ -4,7 +4,7 @@ import { exigirImportacaoPor, podeImportar } from "@/lib/questoes/acesso";
 import type { AtorEscola } from "@/lib/simulados/ator";
 import { clienteIA, custoDoUso, estimarCustoPaginas, instrucoesLeitura, pedidoPagina } from "@/lib/questoes/ia";
 import { BUCKET, linkParaIA } from "@/lib/questoes/storage";
-import { RespostaPaginaSchema, respostaParaQuestoes } from "@/lib/questoes/formato-ia";
+import { chaveQuestao, RespostaPaginaSchema, respostaParaQuestoes } from "@/lib/questoes/formato-ia";
 import type { Escopo, StatusImportacao } from "@/lib/types";
 
 export const MAX_PAGINAS = 60;
@@ -170,10 +170,10 @@ async function assuntoProposto(materia: string, nome: string): Promise<string | 
 async function gravarResultados(importacaoId: string, batchId: string): Promise<string[]> {
   const { data: importacao } = await supabase.from("importacoes").select("*").eq("id", importacaoId).single();
   const { data: paginas } = await supabase.from("importacao_paginas").select("*").eq("importacao_id", importacaoId);
-  const { data: existentes } = await supabase.from("questoes").select("numero").eq("importacao_id", importacaoId);
+  const { data: jaGravadas } = await supabase.from("questoes").select("caderno, numero").eq("importacao_id", importacaoId);
   const assuntos = await assuntosAprovados();
   const mapaAssuntos = new Map(assuntos.map((a) => [a.id, a.materia]));
-  const numerosExistentes = new Set((existentes ?? []).map((e) => e.numero).filter((n): n is number => n !== null));
+  const existentes = new Set((jaGravadas ?? []).map((e) => chaveQuestao(e.caderno, e.numero)));
   const avisos: string[] = [];
   let custo = Number(importacao!.custo_real_usd ?? 0);
 
@@ -201,7 +201,7 @@ async function gravarResultados(importacaoId: string, batchId: string): Promise<
     }
     const { questoes, avisos: av } = respostaParaQuestoes(resposta, {
       escopo: importacao!.escopo, escola_id: importacao!.escola_id, banca: importacao!.banca, ano: importacao!.ano, caderno: importacao!.caderno,
-      importacao_id: importacaoId, pagina_id: pagina.id, numerosExistentes, assuntos: mapaAssuntos,
+      importacao_id: importacaoId, pagina_id: pagina.id, existentes, assuntos: mapaAssuntos,
     });
     avisos.push(...av.map((a) => `Página ${pagina.numero}: ${a}`));
     for (const q of questoes) {

@@ -38,6 +38,7 @@ export function instrucoesLeitura(banca: string, ano: number | null, caderno: st
     "Extraia APENAS as questões cujo número começa na primeira imagem. Copie o texto fielmente, em português, sem resumir; use **negrito** e *itálico* só onde a prova usa; mantenha quebras de parágrafo.",
     "enunciado = textos de apoio + enunciado. comando = a frase imediatamente antes das alternativas (\"\" se não houver). alternativas = A a E.",
     "resposta = letra do gabarito para esse número, ou null se não encontrar. anulada = true se o gabarito indicar anulação.",
+    "Se a prova tiver questões de língua estrangeira com a mesma numeração (ex.: Espanhol 01–05 e Inglês 01–05), use a coluna do gabarito do idioma da questão.",
     "figuras = cada figura, gráfico, mapa, tabela-imagem ou tirinha da primeira imagem, com o quadro em frações da página (x, y do canto superior esquerdo; w, h), e alvo = enunciado ou a letra da alternativa a que pertence.",
     `Matérias permitidas: ${listaMaterias()}.`,
     "assunto_id = o id de um assunto da lista abaixo que corresponda à matéria escolhida; se nenhum servir, assunto_id = null e assunto_novo = um nome curto de assunto.",

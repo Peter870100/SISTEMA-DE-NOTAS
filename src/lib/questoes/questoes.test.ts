@@ -8,7 +8,7 @@ import { padraoExato } from "./busca";
 import { markdownParaBlocos } from "./markdown";
 import { urlImagemPermitida } from "./enemdev";
 import { progressoDoLote } from "./ia";
-import { respostaParaQuestoes, RespostaPaginaSchema, classificacaoParaAtualizacoes } from "./formato-ia";
+import { respostaParaQuestoes, RespostaPaginaSchema, classificacaoParaAtualizacoes, chaveQuestao } from "./formato-ia";
 
 test("matérias e áreas", () => {
   assert.equal(Object.keys(MATERIAS).length, 14);
@@ -62,7 +62,7 @@ function questaoIA(extra: Record<string, unknown> = {}) {
 }
 function ctx() {
   return { escopo: "geral" as const, escola_id: null, banca: "UFMS", ano: 2024, caderno: "", importacao_id: "imp", pagina_id: "pag",
-    numerosExistentes: new Set<number>(), assuntos: new Map([["as-1", "fisica"], ["as-2", "quimica"]]) };
+    existentes: new Set<string>(), assuntos: new Map([["as-1", "fisica"], ["as-2", "quimica"]]) };
 }
 
 test("IA: questão completa vira linha publicável sem revisão", () => {
@@ -111,10 +111,23 @@ test("IA: figura em alternativa e quadro fora da página são limitados", () => 
 
 test("IA: número repetido na importação vira aviso, não duplica", () => {
   const c = ctx();
-  c.numerosExistentes.add(37);
+  c.existentes.add(chaveQuestao("", 37));
   const r = respostaParaQuestoes(RespostaPaginaSchema.parse({ questoes: [questaoIA(), questaoIA({ numero: 38 }), questaoIA({ numero: 38 })] }), c);
   assert.deepEqual(r.questoes.map((q) => q.linha.numero), [38]);
   assert.equal(r.avisos.length, 2);
+});
+
+test("IA: língua estrangeira vai para o caderno do idioma; espanhol e inglês com o mesmo número convivem", () => {
+  const c = ctx();
+  const r = respostaParaQuestoes(RespostaPaginaSchema.parse({ questoes: [
+    questaoIA({ numero: 1, area: "linguagens", materia: "espanhol", assunto_id: null }),
+    questaoIA({ numero: 1, area: "linguagens", materia: "ingles", assunto_id: null }),
+    questaoIA({ numero: 1, area: "linguagens", materia: "ingles", assunto_id: null }),
+    questaoIA({ numero: 6, area: "linguagens", materia: "portugues", assunto_id: null }),
+  ] }), c);
+  assert.deepEqual(r.questoes.map((q) => [q.linha.numero, q.linha.caderno]), [[1, "espanhol"], [1, "ingles"], [6, ""]]);
+  assert.equal(r.avisos.length, 1);
+  assert.ok(c.existentes.has(chaveQuestao("ingles", 1)) && c.existentes.has(chaveQuestao("", 6)));
 });
 
 test("IA: schema recusa alternativas fora de A–E e matéria inválida", () => {

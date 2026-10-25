@@ -38,7 +38,8 @@ export type ContextoPagina = {
   caderno: string;
   importacao_id: string;
   pagina_id: string;
-  numerosExistentes: Set<number>;
+  /** Questões já gravadas nesta importação, por `chaveQuestao` (atualizado conforme as novas entram). */
+  existentes: Set<string>;
   assuntos: Map<string, string>; // id → matéria (só aprovados)
 };
 
@@ -48,15 +49,25 @@ export type NovaQuestao = {
   assuntoNovo: { materia: string; nome: string } | null;
 };
 
+/** Chave de uma questão dentro da importação: caderno + número (o mesmo par do índice único do banco). */
+export const chaveQuestao = (caderno: string, numero: number | null) => `${caderno}|${numero ?? ""}`;
+
+/**
+ * Língua estrangeira vai para o caderno do idioma (como no ENEM): espanhol 01 e inglês 01 da mesma prova
+ * são questões diferentes.
+ */
+export const cadernoDaQuestao = (caderno: string, materia: string) => (materia === "ingles" || materia === "espanhol" ? materia : caderno);
+
 export function respostaParaQuestoes(resposta: RespostaPagina, ctx: ContextoPagina): { questoes: NovaQuestao[]; avisos: string[] } {
   const questoes: NovaQuestao[] = [];
   const avisos: string[] = [];
   for (const q of resposta.questoes) {
-    if (ctx.numerosExistentes.has(q.numero)) {
-      avisos.push(`Questão ${q.numero} já existe e foi ignorada.`);
+    const caderno = cadernoDaQuestao(ctx.caderno, q.materia);
+    if (ctx.existentes.has(chaveQuestao(caderno, q.numero))) {
+      avisos.push(`Questão ${q.numero}${caderno !== ctx.caderno ? ` (${caderno})` : ""} já existe e foi ignorada.`);
       continue;
     }
-    ctx.numerosExistentes.add(q.numero);
+    ctx.existentes.add(chaveQuestao(caderno, q.numero));
 
     const motivos: string[] = [...q.duvidas];
     if (!q.enunciado.trim()) motivos.push("Enunciado vazio.");
@@ -85,7 +96,7 @@ export function respostaParaQuestoes(resposta: RespostaPagina, ctx: ContextoPagi
         escola_id: ctx.escola_id,
         banca: ctx.banca,
         ano: ctx.ano,
-        caderno: ctx.caderno,
+        caderno,
         numero: q.numero,
         area,
         materia,
