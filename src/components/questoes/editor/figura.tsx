@@ -4,6 +4,7 @@ import { createContext, useContext } from "react";
 import { Node, mergeAttributes, ReactNodeViewRenderer, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { PanelLeft, PanelRight, Square, Trash2 } from "lucide-react";
 import { LIMITE_LEGENDA } from "@/lib/questoes/conteudo";
+import { faixaParaFigura, linhaVaziaAntesDeFigura } from "@/lib/questoes/figura-editor";
 import { ImagemQuestao, type ImagemTela } from "../ImagemQuestao";
 import estilos from "../EditorConteudo.module.css";
 
@@ -97,8 +98,16 @@ export const Figura = Node.create({
     return {
       inserirFigura:
         (imagemId) =>
-        ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs: { imagemId, alinhamento: "centro", legenda: "" } }),
+        ({ state, commands }) =>
+          commands.insertContentAt(faixaParaFigura(state), { type: this.name, attrs: { imagemId, alinhamento: "centro", legenda: "" } }),
     };
+  },
+  addKeyboardShortcuts() {
+    // Linha vazia antes de uma figura (ex.: questões salvas antes da correção) sai com Backspace/Delete.
+    const apagarLinhaVazia = () => {
+      const faixa = linhaVaziaAntesDeFigura(this.editor.state, this.name);
+      return faixa ? this.editor.commands.deleteRange(faixa) : false;
+    };
+    return { Backspace: apagarLinhaVazia, Delete: apagarLinhaVazia };
   },
 });
