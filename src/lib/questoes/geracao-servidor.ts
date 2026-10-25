@@ -147,7 +147,9 @@ function lerResposta(conteudo: Anthropic.Beta.BetaContentBlock[]): RespostaGerac
   }
 }
 
-// Abaixo do maxDuration (300 s) da página: o erro precisa cair no catch antes de a Vercel encerrar a função.
+// Prazo da chamada inteira (cabeçalhos + corpo do stream), abaixo do maxDuration (300 s) da página:
+// o erro precisa cair no catch antes de a Vercel encerrar a função. O `timeout` do SDK só cobre até
+// chegarem os cabeçalhos; quem corta o stream lento é o `signal`.
 const TEMPO_IA_MS = 270_000;
 
 async function pedirIA(instrucoes: string) {
@@ -159,10 +161,16 @@ async function pedirIA(instrucoes: string) {
       fallbacks: "default",
       output_config: { effort: "high", format: FORMATO },
       messages: [{ role: "user", content: instrucoes }],
-    }, { timeout: TEMPO_IA_MS, maxRetries: 0 });
+    }, { timeout: TEMPO_IA_MS, maxRetries: 0, signal: AbortSignal.timeout(TEMPO_IA_MS) });
     return await stream.finalMessage();
   } catch (e) {
-    if (e instanceof Anthropic.APIConnectionTimeoutError) throw new ErroGeracao(MSG_DEMORA, { cause: e });
+    if (
+      e instanceof Anthropic.APIConnectionTimeoutError ||
+      e instanceof Anthropic.APIUserAbortError ||
+      (e instanceof Error && e.name === "TimeoutError")
+    ) {
+      throw new ErroGeracao(MSG_DEMORA, { cause: e });
+    }
     if (e instanceof Anthropic.APIError) throw new ErroGeracao(MSG_API, { cause: e });
     throw e;
   }
