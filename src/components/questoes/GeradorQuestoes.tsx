@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { CheckCircle2, Loader2, Pencil, Sparkles, Trash2, TriangleAlert } from "lucide-react";
 import { gerarQuestoes } from "@/actions/geracao";
@@ -31,6 +32,7 @@ export function GeradorQuestoes({ assuntos, iaOk, restante, ehDono, base }: Prop
   const [dificuldade, setDificuldade] = useState<"facil" | "media" | "dificil">("media");
   const [orientacao, setOrientacao] = useState("");
   const [escopo, setEscopo] = useState<"geral" | "escola">("escola");
+  const router = useRouter();
   const [resultado, setResultado] = useState<ResultadoGeracao | null>(null);
   const [estados, setEstados] = useState<Record<string, Estado>>({});
   const [erro, setErro] = useState<string | null>(null);
@@ -49,6 +51,8 @@ export function GeradorQuestoes({ assuntos, iaOk, restante, ehDono, base }: Prop
         const r = await gerarQuestoes({ materia, assunto_id: assuntoId || null, quantidade, dificuldade, orientacao, escopo: ehDono ? escopo : "escola", base_id: base?.id ?? null });
         setResultado(r);
         setEstados({});
+        // Atualiza a cota do dia (prop do servidor); o refresh mantém o estado do cliente.
+        router.refresh();
       } catch (x) {
         setErro(x instanceof Error ? x.message : "Não foi possível gerar as questões.");
       }

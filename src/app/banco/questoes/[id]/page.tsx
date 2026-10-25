@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Sparkles } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
@@ -29,6 +30,7 @@ export default async function QuestaoPage({ params }: { params: Promise<{ id: st
     <PageLayout crumb="Banco de questões" titulo={`${q.banca} ${q.ano ?? ""} · Nº ${q.numero ?? "—"}`} largura="max-w-6xl"
       acoes={<>
         <Link href="/banco" className={estilos.botaoSecundario}>← Banco</Link>
+        <Link href={`/banco/gerar?base=${id}`} className={estilos.botaoSecundario}><Sparkles size={16} aria-hidden="true" /> Gerar parecidas</Link>
         {professor.role === "dono" && q.escopo === "escola" && <PromoverQuestao questaoId={id} />}
       </>}>
       <section className={edita ? undefined : `${estilos.card} p-4`}>
@@ -43,6 +45,7 @@ export default async function QuestaoPage({ params }: { params: Promise<{ id: st
               </li>
             ))}</ol>
             {q.anulada && <p className="text-sm text-danger">Questão anulada.</p>}
+            {q.resolucao && <div className="rounded-control border border-line p-3"><h3 className="text-sm font-semibold text-ink">Resolução comentada</h3><p className="mt-1 whitespace-pre-wrap text-sm text-ink">{q.resolucao}</p></div>}
           </div>
         )}
       </section>

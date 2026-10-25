@@ -23,6 +23,14 @@ export function exigirMateria(materia: string): Materia {
   return materia;
 }
 
+/** Resolução comentada: ausente = não mexe; vazia = apaga (null); até 5.000 caracteres. */
+export function limparResolucao(v: string | undefined): string | null | undefined {
+  if (v === undefined) return undefined;
+  const t = v.trim();
+  if (t.length > 5000) throw new Error("A resolução pode ter até 5.000 caracteres.");
+  return t || null;
+}
+
 /** Mesma regra da tela (`limpar`): letra de A a E, ou nenhuma. */
 export function exigirResposta(resposta: Letra | null | undefined): Letra | null {
   if (resposta && !LETRAS.includes(resposta)) throw new Error("Resposta inválida.");

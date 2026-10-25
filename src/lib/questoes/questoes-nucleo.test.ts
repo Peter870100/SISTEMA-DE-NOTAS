@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { conteudoDeMarkdown, type DocConteudo } from "./conteudo";
-import { AVISO_FORMATACAO_REINICIADA, aplicarEdicao, documentosAposEdicao, type QuestaoEditavel } from "./edicao";
+import { AVISO_FORMATACAO_REINICIADA, aplicarEdicao, documentosAposEdicao, limparResolucao, type QuestaoEditavel } from "./edicao";
 
 const docComFigura: DocConteudo = {
   type: "doc",
@@ -94,4 +94,12 @@ test("aplicarEdicao: mesmas validações da tela", () => {
   assert.throws(() => aplicarEdicao(base, {}), { message: "Nada para alterar." });
   assert.throws(() => aplicarEdicao({ ...base, status: "publicada" }, { resposta: null }), { message: "Questão publicada precisa de resposta (ou ser anulada)." });
   assert.deepEqual(aplicarEdicao({ ...base, status: "publicada" }, { resposta: null, anulada: true }).campos, { resposta: null, anulada: true });
+});
+
+test("limparResolucao: ausente mantém, vazio vira null, apara e limita a 5.000", () => {
+  assert.equal(limparResolucao(undefined), undefined);
+  assert.equal(limparResolucao("  "), null);
+  assert.equal(limparResolucao(" x "), "x");
+  assert.equal(limparResolucao("a".repeat(5000)), "a".repeat(5000));
+  assert.throws(() => limparResolucao("a".repeat(5001)), /até 5\.000 caracteres/);
 });

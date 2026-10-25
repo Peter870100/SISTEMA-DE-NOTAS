@@ -75,6 +75,7 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
     resposta: questao?.resposta ?? null,
     anulada: questao?.anulada ?? false,
     escopo: questao?.escopo ?? "escola",
+    resolucao: questao?.resolucao ?? "",
   }));
   const [ocupado, setOcupado] = useState(false);
   // Entradas de imagem por parte (enunciado, A..E): recebem imagens coladas nos textos.
@@ -310,6 +311,9 @@ Adicione as imagens novamente nesta página.`);
             {blocoImagens(letra)}
           </div>
         ))}
+        <label className="flex flex-col gap-1 text-xs text-ink">Resolução comentada (opcional)
+          <textarea value={d.resolucao ?? ""} onChange={(ev) => set("resolucao", ev.target.value)} rows={5} maxLength={5000} className={estilos.input} />
+        </label>
         <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={d.anulada} onChange={(e) => set("anulada", e.target.checked)} /> Questão anulada</label>
       </fieldset>
 

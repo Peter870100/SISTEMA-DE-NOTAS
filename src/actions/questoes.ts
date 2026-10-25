@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase/client";
 import { exigirEditorQuestao, exigirEditorQuestaoPor, exigirProfessor } from "@/lib/questoes/acesso";
 import { areaDaMateria, LETRAS } from "@/lib/questoes/materias";
-import { exigirMateria, exigirResposta, exigirRespostaSePublicada } from "@/lib/questoes/edicao";
+import { exigirMateria, exigirResposta, exigirRespostaSePublicada, limparResolucao } from "@/lib/questoes/edicao";
 import { concluirImportacaoSeVazia, excluirQuestaoPor, publicarQuestaoPor } from "@/lib/questoes/nucleo";
 import { limitarQuadro, type Quadro } from "@/lib/questoes/quadro";
 import { BUCKET } from "@/lib/questoes/storage";
@@ -28,6 +28,8 @@ export type DadosQuestao = {
   escopo?: Escopo;
   /** Documento formatado do enunciado (entrada não confiável). Ausente: mantém o comportamento de texto puro. */
   conteudo?: unknown;
+  /** Resolução comentada. Ausente: não altera a coluna; vazia: apaga. */
+  resolucao?: string;
 };
 
 const MIME: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
@@ -37,6 +39,7 @@ function limpar(d: DadosQuestao) {
   const banca = d.banca.trim();
   if (!banca) throw new Error("Informe a banca.");
   const materia = exigirMateria(d.materia);
+  const resolucao = limparResolucao(d.resolucao);
   const alternativas = LETRAS.map((letra) => {
     const alt = d.alternativas.find((a) => a.letra === letra);
     if (alt?.conteudo !== undefined) {
@@ -58,6 +61,7 @@ function limpar(d: DadosQuestao) {
     alternativas,
     resposta: exigirResposta(d.resposta),
     anulada: d.anulada,
+    ...(resolucao !== undefined && { resolucao }),
   };
 }
 
