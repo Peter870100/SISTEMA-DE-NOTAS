@@ -7,7 +7,7 @@ import { podeVerQuestao } from "./acesso";
 import { clienteIA, iaDisponivel, MODELO, PRECO_ENTRADA, PRECO_SAIDA } from "./ia";
 import { MATERIAS, type Materia } from "./materias";
 import {
-  anoLocal, escolherExemplos, GeracaoSchema, inicioDoDia, instrucoesGeracao, LIMITE_DIARIO, respostaParaGeradas, restanteHoje, validarPedido,
+  anoLocal, assuntoDaBase, contaNaCota, escolherExemplos, GeracaoSchema, inicioDoDia, instrucoesGeracao, LIMITE_DIARIO, respostaParaGeradas, restanteHoje, rotuloQuestao, validarPedido,
   type CandidataExemplo, type PedidoGeracao, type Referencia, type RespostaGeracao,
 } from "./geracao";
 
@@ -21,20 +21,21 @@ const MAX_CANDIDATAS = 200;
 const MAX_RECENTES = 20;
 const MAX_COM_BASE = 3;
 
-/** Questões pedidas hoje pela escola (gerações em andamento ou concluídas; as com erro não contam). */
+/** Questões pedidas hoje pela escola (em andamento ou concluídas; erros, travadas e as do dono não contam). */
 export async function pedidasHoje(escolaId: string, agora: Date = new Date()): Promise<number> {
-  const { data, error } = await supabase
-    .from("geracoes_ia")
-    .select("quantidade_pedida")
-    .eq("escola_id", escolaId)
-    .in("status", ["gerando", "concluida"])
-    .gte("created_at", inicioDoDia(agora).toISOString());
+  const [{ data, error }, { data: donos, error: erroDonos }] = await Promise.all([
+    supabase
+      .from("geracoes_ia")
+      .select("quantidade_pedida, status, created_at, professor_id")
+      .eq("escola_id", escolaId)
+      .in("status", ["gerando", "concluida"])
+      .gte("created_at", inicioDoDia(agora).toISOString()),
+    supabase.from("professores").select("id").eq("role", "dono"),
+  ]);
   if (error) throw new Error(error.message);
-  return (data ?? []).reduce((soma, g) => soma + g.quantidade_pedida, 0);
-}
-
-function rotuloQuestao(q: Pick<Questao, "banca" | "ano" | "numero">): string {
-  return [q.banca, q.ano ? String(q.ano) : "", q.numero !== null ? `nº ${q.numero}` : ""].filter(Boolean).join(" ");
+  if (erroDonos) throw new Error(erroDonos.message);
+  const donoIds = new Set((donos ?? []).map((d) => d.id));
+  return (data ?? []).filter((g) => contaNaCota(g, donoIds, agora)).reduce((soma, g) => soma + g.quantidade_pedida, 0);
 }
 
 type LinhaCandidata = Pick<Questao, "id" | "banca" | "ano" | "numero" | "assunto_id" | "enunciado" | "comando" | "alternativas" | "resposta">;
@@ -70,7 +71,7 @@ async function candidatasExemplo(ator: Professor, materia: string, assuntoId: st
       .or(filtroVisivel(ator.escola_id))
       .eq("materia", materia);
     if (assunto) c = c.eq("assunto_id", assunto);
-    const { data, error } = await c.limit(MAX_CANDIDATAS);
+    const { data, error } = await c.order("created_at", { ascending: false }).limit(MAX_CANDIDATAS);
     if (error) throw new Error(error.message);
     return (data ?? []) satisfies LinhaCandidata[];
   };
@@ -110,6 +111,8 @@ async function prepararPedido(ator: Professor, bruto: unknown) {
     if (error) throw new Error(error.message);
     if (!data || !podeVerQuestao(ator, data)) throw new Error("Questão modelo não encontrada.");
     base = data;
+    const pedida = texto(entrada.materia);
+    if (pedida && pedida !== base.materia) throw new Error("A matéria precisa ser a mesma da questão modelo.");
     entrada = { ...entrada, materia: base.materia };
   }
 
@@ -121,9 +124,10 @@ async function prepararPedido(ator: Professor, bruto: unknown) {
     assuntos = data ?? [];
   }
   const aprovados = new Set(assuntos.map((a) => a.id));
-  // Sem assunto no pedido, vale o da base (se for um assunto aprovado da matéria).
-  if (base && !texto(entrada.assunto_id)) {
-    entrada = { ...entrada, assunto_id: base.assunto_id && aprovados.has(base.assunto_id) ? base.assunto_id : null };
+  // Com base: sem assunto no pedido vale o da base, e um assunto não aprovado vira "qualquer assunto".
+  if (base) {
+    const pedido = texto(entrada.assunto_id);
+    entrada = { ...entrada, assunto_id: assuntoDaBase(pedido ?? base.assunto_id, aprovados) };
   }
 
   const pedido = validarPedido(entrada, ator, aprovados);

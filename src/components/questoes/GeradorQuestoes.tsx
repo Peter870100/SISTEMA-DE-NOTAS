@@ -80,7 +80,7 @@ export function GeradorQuestoes({ assuntos, iaOk, restante, ehDono, base }: Prop
       <form className={css.form} onSubmit={gerar}>
         <div className={css.grade}>
           <label className={css.campo}>Matéria
-            <select required value={materia} onChange={(e) => { setMateria(e.target.value); setAssuntoId(""); }} className={estilos.input}>
+            <select required disabled={!!base} value={materia} onChange={(e) => { setMateria(e.target.value); setAssuntoId(""); }} className={estilos.input}>
               <option value="">Escolha a matéria</option>
               {Object.entries(MATERIAS).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}
             </select>

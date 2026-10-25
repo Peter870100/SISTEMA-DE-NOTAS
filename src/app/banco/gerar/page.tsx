@@ -4,7 +4,7 @@ import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { podeVerQuestao } from "@/lib/questoes/acesso";
 import { iaDisponivel } from "@/lib/questoes/ia";
-import { restanteHoje } from "@/lib/questoes/geracao";
+import { assuntoDaBase, restanteHoje, rotuloQuestao } from "@/lib/questoes/geracao";
 import { pedidasHoje } from "@/lib/questoes/geracao-servidor";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { GeradorQuestoes } from "@/components/questoes/GeradorQuestoes";
@@ -27,7 +27,7 @@ export default async function GerarQuestoesPage({ searchParams }: { searchParams
   ]);
   const b = baseRes.data;
   const base = b && podeVerQuestao(professor, b)
-    ? { id: b.id, rotulo: `${b.banca} ${b.ano ?? ""} nº ${b.numero ?? "—"}`.replace(/\s+/g, " "), resumo: b.enunciado.replace(/[*]/g, "").slice(0, 140), materia: b.materia, assunto_id: b.assunto_id }
+    ? { id: b.id, rotulo: rotuloQuestao(b) || "Questão modelo", resumo: b.enunciado.replace(/[*]/g, "").slice(0, 140), materia: b.materia, assunto_id: assuntoDaBase(b.assunto_id, new Set((assuntos ?? []).map((a) => a.id))) }
     : null;
 
   return (

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  LIMIAR_PARECENCA, LIMITE_DIARIO, anoLocal, escolherExemplos, inicioDoDia, instrucoesGeracao, parecenca, respostaParaGeradas, restanteHoje, validarPedido,
+  LIMIAR_PARECENCA, LIMITE_DIARIO, anoLocal, assuntoDaBase, contaNaCota, rotuloQuestao, escolherExemplos, inicioDoDia, instrucoesGeracao, parecenca, respostaParaGeradas, restanteHoje, validarPedido,
   type CandidataExemplo, type ContextoGeradas, type PedidoGeracao, type RespostaGeracao,
 } from "./geracao";
 
@@ -194,4 +194,27 @@ test("instrucoesGeracao: sem base, sem recentes e sem assunto", () => {
 test("anoLocal: 02:00 UTC de 1º/1 ainda é o ano anterior em Campo Grande", () => {
   assert.equal(anoLocal(new Date("2027-01-01T02:00:00Z")), 2026);
   assert.equal(anoLocal(new Date("2027-01-01T05:00:00Z")), 2027);
+});
+
+test("rotuloQuestao omite as partes vazias", () => {
+  assert.equal(rotuloQuestao({ banca: "ENEM", ano: 2019, numero: 12 }), "ENEM 2019 nº 12");
+  assert.equal(rotuloQuestao({ banca: "Banca", ano: 2019, numero: null }), "Banca 2019");
+  assert.equal(rotuloQuestao({ banca: "", ano: null, numero: null }), "");
+});
+
+test("assuntoDaBase só aceita assunto aprovado", () => {
+  assert.equal(assuntoDaBase("a", new Set(["a"])), "a");
+  assert.equal(assuntoDaBase("p", new Set(["a"])), null);
+  assert.equal(assuntoDaBase(null, new Set(["a"])), null);
+});
+
+test("contaNaCota ignora dono, erro e geração travada", () => {
+  const agora = new Date("2026-10-24T15:00:00Z");
+  const g = (o: object) => ({ status: "concluida", created_at: "2026-10-24T14:00:00Z", professor_id: "p1", ...o });
+  const donos = new Set(["d1"]);
+  assert.equal(contaNaCota(g({}), donos, agora), true);
+  assert.equal(contaNaCota(g({ professor_id: "d1" }), donos, agora), false);
+  assert.equal(contaNaCota(g({ status: "erro" }), donos, agora), false);
+  assert.equal(contaNaCota(g({ status: "gerando", created_at: "2026-10-24T14:55:00Z" }), donos, agora), true);
+  assert.equal(contaNaCota(g({ status: "gerando", created_at: "2026-10-24T14:40:00Z" }), donos, agora), false);
 });

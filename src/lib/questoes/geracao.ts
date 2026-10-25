@@ -274,3 +274,28 @@ export function instrucoesGeracao(p: {
   }
   return partes.join("\n\n");
 }
+
+/** Rótulo curto de uma questão (banca, ano e número), sem as partes vazias. */
+export function rotuloQuestao(q: { banca: string; ano: number | null; numero: number | null }): string {
+  return [q.banca, q.ano ? String(q.ano) : "", q.numero !== null ? `nº ${q.numero}` : ""].filter(Boolean).join(" ");
+}
+
+/** Gerações "gerando" há mais que isso são tidas como mortas (função encerrada) e não seguram a cota. */
+export const MAX_GERANDO_MS = 10 * 60 * 1000;
+
+/** Se uma linha de geracoes_ia entra na cota do dia: não é do dono, não deu erro e não está travada. */
+export function contaNaCota(
+  g: { status: string; created_at: string; professor_id: string | null },
+  donoIds: Set<string>,
+  agora: Date,
+): boolean {
+  if (g.professor_id && donoIds.has(g.professor_id)) return false;
+  if (g.status === "concluida") return true;
+  if (g.status !== "gerando") return false;
+  return agora.getTime() - new Date(g.created_at).getTime() <= MAX_GERANDO_MS;
+}
+
+/** Assunto inicial vindo da questão modelo: só vale se for um assunto aprovado da matéria. */
+export function assuntoDaBase(assuntoId: string | null, aprovados: Set<string>): string | null {
+  return assuntoId && aprovados.has(assuntoId) ? assuntoId : null;
+}
