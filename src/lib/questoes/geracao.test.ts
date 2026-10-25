@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  LIMIAR_PARECENCA, LIMITE_DIARIO, escolherExemplos, inicioDoDia, instrucoesGeracao, parecenca, respostaParaGeradas, restanteHoje, validarPedido,
+  LIMIAR_PARECENCA, LIMITE_DIARIO, anoLocal, escolherExemplos, inicioDoDia, instrucoesGeracao, parecenca, respostaParaGeradas, restanteHoje, validarPedido,
   type CandidataExemplo, type ContextoGeradas, type PedidoGeracao, type RespostaGeracao,
 } from "./geracao";
 
@@ -189,4 +189,9 @@ test("instrucoesGeracao: sem base, sem recentes e sem assunto", () => {
   assert.ok(t.includes("fácil"));
   assert.ok(!t.includes("MODELO PRINCIPAL"));
   assert.ok(!t.includes("Já geradas"));
+});
+
+test("anoLocal: 02:00 UTC de 1º/1 ainda é o ano anterior em Campo Grande", () => {
+  assert.equal(anoLocal(new Date("2027-01-01T02:00:00Z")), 2026);
+  assert.equal(anoLocal(new Date("2027-01-01T05:00:00Z")), 2027);
 });

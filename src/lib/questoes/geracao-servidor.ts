@@ -7,7 +7,7 @@ import { podeVerQuestao } from "./acesso";
 import { clienteIA, iaDisponivel, MODELO, PRECO_ENTRADA, PRECO_SAIDA } from "./ia";
 import { MATERIAS, type Materia } from "./materias";
 import {
-  escolherExemplos, GeracaoSchema, inicioDoDia, instrucoesGeracao, LIMITE_DIARIO, respostaParaGeradas, restanteHoje, validarPedido,
+  anoLocal, escolherExemplos, GeracaoSchema, inicioDoDia, instrucoesGeracao, LIMITE_DIARIO, respostaParaGeradas, restanteHoje, validarPedido,
   type CandidataExemplo, type PedidoGeracao, type Referencia, type RespostaGeracao,
 } from "./geracao";
 
@@ -147,6 +147,9 @@ function lerResposta(conteudo: Anthropic.Beta.BetaContentBlock[]): RespostaGerac
   }
 }
 
+// Abaixo do maxDuration (300 s) da página: o erro precisa cair no catch antes de a Vercel encerrar a função.
+const TEMPO_IA_MS = 270_000;
+
 async function pedirIA(instrucoes: string) {
   try {
     const stream = clienteIA().beta.messages.stream({
@@ -156,9 +159,10 @@ async function pedirIA(instrucoes: string) {
       fallbacks: "default",
       output_config: { effort: "high", format: FORMATO },
       messages: [{ role: "user", content: instrucoes }],
-    });
+    }, { timeout: TEMPO_IA_MS, maxRetries: 0 });
     return await stream.finalMessage();
   } catch (e) {
+    if (e instanceof Anthropic.APIConnectionTimeoutError) throw new ErroGeracao(MSG_DEMORA, { cause: e });
     if (e instanceof Anthropic.APIError) throw new ErroGeracao(MSG_API, { cause: e });
     throw e;
   }
@@ -168,6 +172,7 @@ const MSG_RECUSA = "A IA recusou esse pedido. Tente reformular a orientação.";
 const MSG_INCOMPLETA = "A resposta da IA veio incompleta. Tente uma quantidade menor.";
 const MSG_FORMATO = "A IA devolveu um formato inválido. Tente de novo.";
 const MSG_NENHUMA = "Nenhuma questão gerada passou na conferência. Tente de novo.";
+const MSG_DEMORA = "A IA demorou demais. Tente uma quantidade menor.";
 const MSG_API = "Não foi possível falar com a IA agora. Tente de novo em alguns minutos.";
 
 export async function gerarQuestoesPor(ator: Professor, bruto: unknown): Promise<ResultadoGeracao> {
@@ -205,9 +210,7 @@ export async function gerarQuestoesPor(ator: Professor, bruto: unknown): Promise
 
   let questoes: Questao[];
   let descartadas: number;
-  let usoEntrada: number;
-  let usoSaida: number;
-  let custoUsd: number;
+  let uso: { tokens_entrada: number; tokens_saida: number; custo_usd: number } | null = null;
   try {
     const materia = pedido.materia as Materia;
     const candidatas = await candidatasExemplo(ator, materia, pedido.assunto_id, base?.id ?? null);
@@ -230,6 +233,13 @@ export async function gerarQuestoesPor(ator: Professor, bruto: unknown): Promise
     });
 
     const msg = await pedirIA(instrucoes);
+    const u = msg.usage;
+    const entrada = u.input_tokens + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
+    uso = {
+      tokens_entrada: entrada,
+      tokens_saida: u.output_tokens,
+      custo_usd: Math.round((entrada * PRECO_ENTRADA + u.output_tokens * PRECO_SAIDA) * 10000) / 10000,
+    };
     if (msg.stop_reason === "refusal") throw new ErroGeracao(MSG_RECUSA);
     if (msg.stop_reason === "max_tokens") throw new ErroGeracao(MSG_INCOMPLETA);
     const lida = lerResposta(msg.content);
@@ -250,14 +260,9 @@ export async function gerarQuestoesPor(ator: Professor, bruto: unknown): Promise
       referencias,
       geracao_id: geracaoId,
       criado_por: ator.id,
-      ano: agora.getFullYear(),
+      ano: anoLocal(agora),
     });
     if (convertidas.linhas.length === 0) throw new ErroGeracao(MSG_NENHUMA);
-
-    const u = msg.usage;
-    usoEntrada = u.input_tokens + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
-    usoSaida = u.output_tokens;
-    custoUsd = Math.round((usoEntrada * PRECO_ENTRADA + usoSaida * PRECO_SAIDA) * 10000) / 10000;
 
     const { data: gravadas, error: erroGravar } = await supabase.from("questoes").insert(convertidas.linhas).select("*");
     if (erroGravar) throw new Error(erroGravar.message);
@@ -266,16 +271,16 @@ export async function gerarQuestoesPor(ator: Professor, bruto: unknown): Promise
   } catch (e) {
     const erro = e instanceof Error ? e.message : String(e);
     const motivo = e instanceof ErroGeracao && e.cause instanceof Error ? `${erro} (${e.cause.message})` : erro;
-    await supabase.from("geracoes_ia").update({ status: "erro", erro: motivo }).eq("id", geracaoId);
+    await supabase.from("geracoes_ia").update({ status: "erro", erro: motivo, ...(uso ?? {}) }).eq("id", geracaoId);
     throw e instanceof Error ? e : new Error(erro);
   }
 
   // As questões já estão gravadas: uma falha aqui só deixa a geração sem o resumo.
   const { error: erroConcluir } = await supabase
     .from("geracoes_ia")
-    .update({ status: "concluida", quantidade_gerada: questoes.length, tokens_entrada: usoEntrada, tokens_saida: usoSaida, custo_usd: custoUsd })
+    .update({ status: "concluida", quantidade_gerada: questoes.length, ...uso })
     .eq("id", geracaoId);
   if (erroConcluir) console.error("Gerador IA: não foi possível concluir a geração", geracaoId, erroConcluir.message);
 
-  return { geracaoId, questoes, descartadas, custoUsd };
+  return { geracaoId, questoes, descartadas, custoUsd: uso?.custo_usd ?? 0 };
 }

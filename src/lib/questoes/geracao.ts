@@ -164,6 +164,11 @@ export function inicioDoDia(agora: Date): Date {
   return new Date(Date.UTC(n("year"), n("month") - 1, n("day")) - desvio);
 }
 
+// Ano de `agora` no fuso de Campo Grande.
+export function anoLocal(agora: Date): number {
+  return Number(new Intl.DateTimeFormat("en-CA", { timeZone: FUSO, year: "numeric" }).format(agora));
+}
+
 // null = sem limite (dono).
 export function restanteHoje(pedidasHoje: number, role: ProfessorRole): number | null {
   if (role === "dono") return null;
