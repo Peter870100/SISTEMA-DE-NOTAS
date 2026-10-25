@@ -38,7 +38,7 @@ function trigramas(texto: string): Set<string> {
   const palavras = texto
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/\p{M}/gu, "")
     .replace(/[^a-z0-9 ]+/g, " ")
     .split(/\s+/)
     .filter(Boolean);
