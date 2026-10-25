@@ -6,6 +6,8 @@ import { MATERIAS } from "./materias";
 export const MODELO = "claude-opus-5-5";
 export const PRECO_ENTRADA_LOTE = 2 / 1_000_000;
 export const PRECO_SAIDA_LOTE = 10 / 1_000_000;
+export const PRECO_ENTRADA = 4 / 1_000_000;
+export const PRECO_SAIDA = 20 / 1_000_000;
 
 /** Há chave da Anthropic configurada? Sem ela, o ENEM é importado sem classificação. */
 export function iaDisponivel(): boolean {
