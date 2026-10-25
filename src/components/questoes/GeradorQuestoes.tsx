@@ -155,7 +155,7 @@ export function GeradorQuestoes({ assuntos, iaOk, restante, ehDono, base }: Prop
             })}
           </ul>
           <p className={css.rodape}>
-            {resultado.questoes.length} {resultado.questoes.length === 1 ? "questão gerada" : "questões geradas"} · custo US$ {resultado.custoUsd.toFixed(2)}
+            {resultado.questoes.length} {resultado.questoes.length === 1 ? "questão gerada" : "questões geradas"} · custo US$ {resultado.custoUsd.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             {resultado.descartadas > 0 && ` · ${resultado.descartadas} ${resultado.descartadas === 1 ? "descartada" : "descartadas"}`}
           </p>
         </section>
