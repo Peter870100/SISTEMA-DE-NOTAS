@@ -34,3 +34,4 @@
 @media (min-width: 1700px) { .lista { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (hover: hover) and (pointer: fine) { .filtrar:hover { border-color: var(--color-brand); background: var(--color-brand); color: white; transform: translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { .lista > li { animation: none; } .filtrar { transition: none; } .filtrar:hover { transform: none; } }
+.selo { display: inline-flex; align-items: center; padding: .15rem .55rem; border-radius: 999px; background: color-mix(in srgb, var(--color-brand) 12%, #fff); color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: .78rem; font-weight: 700; text-transform: uppercase; }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FilePlus2, Upload, Tags, Database, CheckCircle2, ClipboardList, School, Search, SlidersHorizontal, TriangleAlert, ArrowRight } from "lucide-react";
+import { FilePlus2, Upload, Tags, Database, CheckCircle2, ClipboardList, School, Sparkles, Search, SlidersHorizontal, TriangleAlert, ArrowRight } from "lucide-react";
 import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { podeImportar } from "@/lib/questoes/acesso";
@@ -15,12 +15,12 @@ import css from "./Banco.module.css";
 export const dynamic = "force-dynamic";
 const POR_PAGINA = 50;
 
-type Filtros = { texto?: string; banca?: string; ano?: string; area?: string; materia?: string; escopo?: string; status?: string; pagina?: string };
+type Filtros = { texto?: string; banca?: string; ano?: string; area?: string; materia?: string; escopo?: string; status?: string; origem?: string; pagina?: string };
 const um = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function BancoPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const bruto = await searchParams;
-  const f: Filtros = { texto: um(bruto.texto), banca: um(bruto.banca), ano: um(bruto.ano), area: um(bruto.area), materia: um(bruto.materia), escopo: um(bruto.escopo), status: um(bruto.status), pagina: um(bruto.pagina) };
+  const f: Filtros = { texto: um(bruto.texto), banca: um(bruto.banca), ano: um(bruto.ano), area: um(bruto.area), materia: um(bruto.materia), escopo: um(bruto.escopo), status: um(bruto.status), origem: um(bruto.origem), pagina: um(bruto.pagina) };
   const professor = await getProfessorAtual();
   if (!professor) redirect("/login");
   const pagina = Math.max(1, Number(f.pagina) || 1);
@@ -30,7 +30,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
   // Sintaxe PostgREST: or=(and(a,b),and(c,d,or(e,f))). Ids vêm do servidor (uuid), nunca do usuário.
   const visibilidade = professor.role === "dono" ? null
     : `and(escopo.eq.geral,status.eq.publicada),${professor.role === "admin" ? `and(escopo.eq.escola,escola_id.eq.${professor.escola_id})` : `and(escopo.eq.escola,escola_id.eq.${professor.escola_id},or(status.eq.publicada,criado_por.eq.${professor.id}))`}`;
-  let c = supabase.from("questoes").select("id, banca, ano, caderno, numero, area, materia, enunciado, status, escopo, precisa_revisao, criado_por, escola_id", { count: "exact" });
+  let c = supabase.from("questoes").select("id, banca, ano, caderno, numero, area, materia, enunciado, status, escopo, precisa_revisao, criado_por, escola_id, origem", { count: "exact" });
   if (visibilidade) c = c.or(visibilidade);
   // Números do painel: tudo o que este professor pode ver (sem os filtros da busca).
   const contar = () => {
@@ -44,6 +44,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
   if (f.materia) c = c.eq("materia", f.materia);
   if (f.escopo === "geral" || f.escopo === "escola") c = c.eq("escopo", f.escopo);
   if (f.status === "publicada" || f.status === "revisao") c = c.eq("status", f.status);
+  if (f.origem === "ia") c = c.eq("origem", "ia");
   const [{ data: questoes, count }, publicadas, emRevisao, daEscola] = await Promise.all([
     c.order("ano", { ascending: false }).order("numero").range((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA - 1),
     contar().eq("status", "publicada"),
@@ -69,6 +70,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
     <PageLayout crumb="Banco de questões" titulo="Questões" subtitulo={`${total} questão(ões)`} largura="max-w-7xl"
       acoes={<>
         <Link href="/banco/nova" className={estilos.botaoPrimario}><FilePlus2 size={16} aria-hidden="true" /> Nova questão</Link>
+        <Link href="/banco/gerar" className={estilos.botaoSecundario}><Sparkles size={16} aria-hidden="true" /> Gerar com IA</Link>
         {(podeImportar(professor, "geral") || podeImportar(professor, "escola")) && <Link href="/banco/importar" className={estilos.botaoSecundario}><Upload size={16} aria-hidden="true" /> Importar prova</Link>}
         {professor.role === "dono" && <Link href="/banco/importar-enem" className={estilos.botaoSecundario}><Database size={16} aria-hidden="true" /> Importar ENEM</Link>}
         {professor.role === "dono" && <Link href="/banco/assuntos" className={estilos.botaoSecundario}><Tags size={16} aria-hidden="true" /> Assuntos</Link>}
@@ -83,6 +85,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
           <select name="area" defaultValue={f.area ?? ""} aria-label="Área" className={estilos.input}><option value="">Área</option>{Object.entries(AREAS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
           <select name="materia" defaultValue={f.materia ?? ""} aria-label="Matéria" className={estilos.input}><option value="">Matéria</option>{Object.entries(MATERIAS).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}</select>
           <select name="status" defaultValue={f.status ?? ""} aria-label="Situação" className={estilos.input}><option value="">Situação</option><option value="publicada">Publicadas</option><option value="revisao">Em revisão</option></select>
+          <select name="origem" defaultValue={f.origem ?? ""} aria-label="Origem" className={estilos.input}><option value="">Origem</option><option value="ia">Geradas por IA</option></select>
           <button type="submit" className={css.filtrar}><Search size={17} aria-hidden="true" />Filtrar</button>
         </div>
       </form>
@@ -97,6 +100,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
                     <span className={css.numero} data-icone>Nº {q.numero ?? "—"}</span>
                     <span className={css.origem}>{q.banca} {q.ano ?? ""}{q.caderno ? ` · ${q.caderno}` : ""}</span>
                     {daHermes.has(q.id) && <SeloHermes />}
+                    {q.origem === "ia" && <span className={css.selo}>IA</span>}
                     {q.status === "revisao" && <span className={css.revisao}>Em revisão</span>}
                     {q.precisa_revisao && <span className={css.alerta} title="Marcada para conferir"><TriangleAlert size={15} aria-hidden="true" />Conferir</span>}
                   </div>
