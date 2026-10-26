@@ -19,7 +19,11 @@ export const RespostaPaginaSchema = z.object({
     materia: MATERIA,
     assunto_id: z.string().nullable(),
     assunto_novo: z.string().nullable(),
-    figuras: z.array(z.object({ alvo: z.enum(["enunciado", "A", "B", "C", "D", "E"]), x: z.number(), y: z.number(), w: z.number(), h: z.number() })),
+    figuras: z.array(z.object({
+      alvo: z.enum(["enunciado", "A", "B", "C", "D", "E"]),
+      pagina: z.enum(["atual", "anterior", "seguinte"]),
+      x: z.number(), y: z.number(), w: z.number(), h: z.number(),
+    })),
     duvidas: z.array(z.string()),
   })),
 });
@@ -38,6 +42,8 @@ export type ContextoPagina = {
   caderno: string;
   importacao_id: string;
   pagina_id: string;
+  /** Páginas da prova enviadas junto (anterior e seguinte), de onde também podem vir figuras. */
+  vizinhas: { anterior: string | null; seguinte: string | null };
   /** Questões já gravadas nesta importação, por `chaveQuestao` (atualizado conforme as novas entram). */
   existentes: Set<string>;
   assuntos: Map<string, string>; // id → matéria (só aprovados)
@@ -45,7 +51,7 @@ export type ContextoPagina = {
 
 export type NovaQuestao = {
   linha: Database["public"]["Tables"]["questoes"]["Insert"];
-  imagens: { alvo: AlvoImagem; x: number; y: number; w: number; h: number }[];
+  imagens: { alvo: AlvoImagem; pagina_id: string; x: number; y: number; w: number; h: number }[];
   assuntoNovo: { materia: string; nome: string } | null;
 };
 
@@ -78,6 +84,13 @@ export function respostaParaQuestoes(resposta: RespostaPagina, ctx: ContextoPagi
     const letras = q.alternativas.map((a) => a.letra).join("");
     if (q.alternativas.length !== 5 || letras !== "ABCDE") motivos.push("A questão precisa ter 5 alternativas (A a E).");
     if (!q.resposta && !q.anulada) motivos.push("Resposta não encontrada no gabarito.");
+
+    const imagens: NovaQuestao["imagens"] = [];
+    for (const f of q.figuras) {
+      const pagina_id = f.pagina === "atual" ? ctx.pagina_id : ctx.vizinhas[f.pagina];
+      if (pagina_id) imagens.push({ alvo: f.alvo, pagina_id, ...limitarQuadro(f) });
+      else motivos.push(`Figura na página ${f.pagina} não foi enviada: recorte manualmente.`);
+    }
 
     let assunto_id: string | null = null;
     if (q.assunto_id) {
@@ -113,7 +126,7 @@ export function respostaParaQuestoes(resposta: RespostaPagina, ctx: ContextoPagi
         importacao_id: ctx.importacao_id,
         pagina_id: ctx.pagina_id,
       },
-      imagens: q.figuras.map((f) => ({ alvo: f.alvo, ...limitarQuadro(f) })),
+      imagens,
       assuntoNovo: novo,
     });
   }

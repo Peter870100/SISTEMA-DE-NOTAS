@@ -82,9 +82,11 @@ async function criarLote(importacaoId: string, somentePaginas: number[] | null) 
   const alvo = provas.filter((p) => !somentePaginas || somentePaginas.includes(p.numero));
   const pedidos = await Promise.all(alvo.map(async (p) => {
     const proxima = provas.find((q) => q.numero === p.numero + 1);
+    const anterior = provas.find((q) => q.numero === p.numero - 1);
     return pedidoPagina({
       customId: p.id,
       paginaUrl: await linkParaIA(p.storage_path),
+      anteriorUrl: anterior ? await linkParaIA(anterior.storage_path) : null,
       proximaUrl: proxima ? await linkParaIA(proxima.storage_path) : null,
       gabaritoUrls,
       instrucoes,
@@ -202,6 +204,10 @@ async function gravarResultados(importacaoId: string, batchId: string): Promise<
     const { questoes, avisos: av } = respostaParaQuestoes(resposta, {
       escopo: importacao!.escopo, escola_id: importacao!.escola_id, banca: importacao!.banca, ano: importacao!.ano, caderno: importacao!.caderno,
       importacao_id: importacaoId, pagina_id: pagina.id, existentes, assuntos: mapaAssuntos,
+      vizinhas: {
+        anterior: (paginas ?? []).find((p) => p.tipo === "prova" && p.numero === pagina.numero - 1)?.id ?? null,
+        seguinte: (paginas ?? []).find((p) => p.tipo === "prova" && p.numero === pagina.numero + 1)?.id ?? null,
+      },
     });
     avisos.push(...av.map((a) => `Página ${pagina.numero}: ${a}`));
     for (const q of questoes) {
@@ -215,7 +221,7 @@ async function gravarResultados(importacaoId: string, batchId: string): Promise<
         continue;
       }
       if (q.imagens.length) {
-        await supabase.from("questao_imagens").insert(q.imagens.map((f, i) => ({ questao_id: criada.id, alvo: f.alvo, ordem: i, tipo: "recorte" as const, pagina_id: pagina.id, x: f.x, y: f.y, w: f.w, h: f.h })));
+        await supabase.from("questao_imagens").insert(q.imagens.map((f, i) => ({ questao_id: criada.id, alvo: f.alvo, ordem: i, tipo: "recorte" as const, pagina_id: f.pagina_id, x: f.x, y: f.y, w: f.w, h: f.h })));
       }
     }
     await supabase.from("importacao_paginas").update({ status: "lida", erro: null }).eq("id", pagina.id);

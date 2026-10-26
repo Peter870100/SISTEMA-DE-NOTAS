@@ -62,7 +62,7 @@ function questaoIA(extra: Record<string, unknown> = {}) {
 }
 function ctx() {
   return { escopo: "geral" as const, escola_id: null, banca: "UFMS", ano: 2024, caderno: "", importacao_id: "imp", pagina_id: "pag",
-    existentes: new Set<string>(), assuntos: new Map([["as-1", "fisica"], ["as-2", "quimica"]]) };
+    vizinhas: { anterior: "pag-ant", seguinte: "pag-seg" } as { anterior: string | null; seguinte: string | null }, existentes: new Set<string>(), assuntos: new Map([["as-1", "fisica"], ["as-2", "quimica"]]) };
 }
 
 test("IA: questão completa vira linha publicável sem revisão", () => {
@@ -100,13 +100,25 @@ test("IA: anulada sem resposta não pede revisão por gabarito", () => {
 
 test("IA: figura em alternativa e quadro fora da página são limitados", () => {
   const r = respostaParaQuestoes(RespostaPaginaSchema.parse({ questoes: [questaoIA({ figuras: [
-    { alvo: "enunciado", x: 0.1, y: 0.1, w: 0.5, h: 0.2 },
-    { alvo: "B", x: 0.9, y: 0.95, w: 0.5, h: 0.5 },
+    { alvo: "enunciado", pagina: "atual", x: 0.1, y: 0.1, w: 0.5, h: 0.2 },
+    { alvo: "B", pagina: "atual", x: 0.9, y: 0.95, w: 0.5, h: 0.5 },
   ] })] }), ctx());
   const [f1, f2] = r.questoes[0].imagens;
   assert.equal(f1.alvo, "enunciado");
   assert.equal(f2.alvo, "B");
   assert.ok(f2.x + f2.w <= 1 && f2.y + f2.h <= 1);
+});
+
+test("IA: figura na página vizinha é recortada da página certa; sem a página, vira revisão", () => {
+  const fig = (pagina: string) => ({ alvo: "enunciado", pagina, x: 0.1, y: 0.1, w: 0.5, h: 0.2 });
+  const r = respostaParaQuestoes(RespostaPaginaSchema.parse({ questoes: [questaoIA({ figuras: [fig("atual"), fig("seguinte"), fig("anterior")] })] }), ctx());
+  assert.deepEqual(r.questoes[0].imagens.map((i) => i.pagina_id), ["pag", "pag-seg", "pag-ant"]);
+  assert.equal(r.questoes[0].linha.precisa_revisao, false);
+  const c = { ...ctx(), vizinhas: { anterior: null, seguinte: null } };
+  const sem = respostaParaQuestoes(RespostaPaginaSchema.parse({ questoes: [questaoIA({ figuras: [fig("seguinte")] })] }), c).questoes[0];
+  assert.equal(sem.imagens.length, 0);
+  assert.match(sem.linha.motivo_revisao!, /página seguinte/);
+  assert.equal(RespostaPaginaSchema.safeParse({ questoes: [questaoIA({ figuras: [{ ...fig("atual"), pagina: "outra" }] })] }).success, false);
 });
 
 test("IA: número repetido na importação vira aviso, não duplica", () => {
@@ -158,7 +170,7 @@ test("IA: enunciado vazio, número inválido, alternativa vazia e falta de assun
   assert.match(rev({ numero: 0 })[1]!, /Número da questão inválido/);
   const altB = ALT.map((a) => (a.letra === "B" ? { ...a, texto: " " } : a));
   assert.match(rev({ alternativas: altB })[1]!, /Alternativa B sem conteúdo/);
-  assert.deepEqual(rev({ alternativas: altB, figuras: [{ alvo: "B", x: 0, y: 0, w: 0.5, h: 0.5 }] }), [false, null]);
+  assert.deepEqual(rev({ alternativas: altB, figuras: [{ alvo: "B", pagina: "atual", x: 0, y: 0, w: 0.5, h: 0.5 }] }), [false, null]);
   assert.match(rev({ assunto_id: null })[1]!, /Sem assunto/);
   assert.deepEqual(rev({ comando: "" }), [false, null]);
 });

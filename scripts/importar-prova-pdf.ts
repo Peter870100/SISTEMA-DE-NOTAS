@@ -67,9 +67,9 @@ function lerPedido(): Pedido {
   return { banca, ano, prova, gabarito: opcao("gabarito") ?? null, observacoes: "" };
 }
 
-/** Estimativa no preço de lote: cada página da prova vai com a seguinte e com as páginas do gabarito. */
+/** Estimativa no preço de lote: cada página da prova vai com a anterior, a seguinte e as páginas do gabarito. */
 function estimarCusto(paginasProva: number, paginasGabarito: number): number {
-  const entrada = 9000 + paginasGabarito * 1600;
+  const entrada = 10600 + paginasGabarito * 1600;
   return paginasProva * (entrada * PRECO_ENTRADA_LOTE + 3000 * PRECO_SAIDA_LOTE);
 }
 

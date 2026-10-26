@@ -34,12 +34,12 @@ function listaAssuntos(assuntos: AssuntoIA[]): string {
 export function instrucoesLeitura(banca: string, ano: number | null, caderno: string, assuntos: AssuntoIA[]): string {
   return [
     `Você está digitalizando uma prova objetiva (${banca}${ano ? ` ${ano}` : ""}${caderno ? `, ${caderno}` : ""}) para um banco de questões escolar.`,
-    "A primeira imagem é a página a ler. A segunda (se houver) é a página seguinte, só para completar uma questão que continue nela. As demais são o gabarito oficial.",
-    "Extraia APENAS as questões cujo número começa na primeira imagem. Copie o texto fielmente, em português, sem resumir; use **negrito** e *itálico* só onde a prova usa; mantenha quebras de parágrafo.",
-    "enunciado = textos de apoio + enunciado. comando = a frase imediatamente antes das alternativas (\"\" se não houver). alternativas = A a E.",
+    "Cada imagem vem depois de um rótulo: PÁGINA ATUAL (a página a ler), PÁGINA ANTERIOR e PÁGINA SEGUINTE (quando houver, só para completar questões) e GABARITO (o gabarito oficial).",
+    "Extraia APENAS as questões cujo número começa na PÁGINA ATUAL. Copie o texto fielmente, em português, sem resumir; use **negrito** e *itálico* só onde a prova usa; mantenha quebras de parágrafo.",
+    "enunciado = textos de apoio + enunciado. Se o texto de apoio da questão estiver (no todo ou em parte) na PÁGINA ANTERIOR, ou for o mesmo texto de outra questão (\"leia o texto para responder às questões 08 e 09\"), transcreva-o completo no enunciado desta questão. Se a questão continuar na PÁGINA SEGUINTE, transcreva o resto dela de lá. comando = a frase imediatamente antes das alternativas (\"\" se não houver). alternativas = A a E.",
     "resposta = letra do gabarito para esse número, ou null se não encontrar. anulada = true se o gabarito indicar anulação.",
     "Se a prova tiver questões de língua estrangeira com a mesma numeração (ex.: Espanhol 01–05 e Inglês 01–05), use a coluna do gabarito do idioma da questão.",
-    "figuras = cada figura, gráfico, mapa, tabela-imagem ou tirinha da primeira imagem, com o quadro em frações da página (x, y do canto superior esquerdo; w, h), e alvo = enunciado ou a letra da alternativa a que pertence.",
+    "figuras = cada figura, gráfico, mapa, tabela-imagem, foto, charge ou tirinha de que a questão precisa, esteja ela na PÁGINA ATUAL, na ANTERIOR ou na SEGUINTE: pagina = \"atual\", \"anterior\" ou \"seguinte\"; quadro em frações daquela página (x, y do canto superior esquerdo; w, h); alvo = enunciado ou a letra da alternativa a que pertence. Nunca descreva uma figura em texto no lugar de recortá-la.",
     `Matérias permitidas: ${listaMaterias()}.`,
     "assunto_id = o id de um assunto da lista abaixo que corresponda à matéria escolhida; se nenhum servir, assunto_id = null e assunto_novo = um nome curto de assunto.",
     "duvidas = frases curtas sobre qualquer incerteza (texto ilegível, figura cortada, questão incompleta); [] se nenhuma.",
@@ -48,8 +48,13 @@ export function instrucoesLeitura(banca: string, ano: number | null, caderno: st
   ].join("\n");
 }
 
-export function pedidoPagina(p: { customId: string; paginaUrl: string; proximaUrl: string | null; gabaritoUrls: string[]; instrucoes: string }) {
-  const imagens = [p.paginaUrl, ...(p.proximaUrl ? [p.proximaUrl] : []), ...p.gabaritoUrls];
+export function pedidoPagina(p: { customId: string; paginaUrl: string; anteriorUrl: string | null; proximaUrl: string | null; gabaritoUrls: string[]; instrucoes: string }) {
+  const imagens: [string, string][] = [
+    ["PÁGINA ATUAL", p.paginaUrl],
+    ...(p.anteriorUrl ? [["PÁGINA ANTERIOR", p.anteriorUrl] as [string, string]] : []),
+    ...(p.proximaUrl ? [["PÁGINA SEGUINTE", p.proximaUrl] as [string, string]] : []),
+    ...p.gabaritoUrls.map((url) => ["GABARITO", url] as [string, string]),
+  ];
   return {
     custom_id: p.customId,
     params: {
@@ -59,7 +64,10 @@ export function pedidoPagina(p: { customId: string; paginaUrl: string; proximaUr
       messages: [{
         role: "user" as const,
         content: [
-          ...imagens.map((url) => ({ type: "image" as const, source: { type: "url" as const, url } })),
+          ...imagens.flatMap(([rotulo, url]) => [
+            { type: "text" as const, text: rotulo },
+            { type: "image" as const, source: { type: "url" as const, url } },
+          ]),
           { type: "text" as const, text: p.instrucoes },
         ],
       }],
@@ -101,5 +109,5 @@ export function progressoDoLote(c: { processing: number; succeeded: number; erro
 }
 
 export function estimarCustoPaginas(paginas: number): number {
-  return Math.round(paginas * (9000 * PRECO_ENTRADA_LOTE + 3000 * PRECO_SAIDA_LOTE) * 100) / 100;
+  return Math.round(paginas * (10600 * PRECO_ENTRADA_LOTE + 3000 * PRECO_SAIDA_LOTE) * 100) / 100;
 }
