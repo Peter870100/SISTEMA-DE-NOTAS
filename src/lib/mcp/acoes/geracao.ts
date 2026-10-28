@@ -98,7 +98,7 @@ export function registrarAcoesGeracao(server: McpServer, obter: ObterCtx, perfil
           materia = (data as { materia: string }).materia;
         }
         if (!materia) throw new Error("Diga a matéria (ou a questão modelo).");
-        const assuntoId = pedido.assunto ? await assuntoDaMateria(ctx, pedido.assunto, materia) : null;
+        const assuntoId = pedido.assunto ? await assuntoDaMateria(ctx, pedido.assunto, materia, true) : null;
 
         const bruto = {
           materia, assunto_id: assuntoId, quantidade: pedido.quantidade, dificuldade: pedido.dificuldade,
@@ -123,7 +123,9 @@ export function registrarAcoesGeracao(server: McpServer, obter: ObterCtx, perfil
             }
             await atualizarTelas();
           });
-          return textoGeracaoIniciada({ id: g.geracaoId, rotulo, quantidade: g.pedido.quantidade, restante: await restanteHojePara(ator) });
+          // A geração já foi registrada: falha ao ler a cota não pode virar erro na resposta.
+          const restante = await restanteHojePara(ator).catch(() => null);
+          return textoGeracaoIniciada({ id: g.geracaoId, rotulo, quantidade: g.pedido.quantidade, restante });
         });
         return texto(resposta);
       } catch (e) {
@@ -168,8 +170,8 @@ export function registrarAcoesGeracao(server: McpServer, obter: ObterCtx, perfil
             erroMsg = MSG_PAROU;
           }
           if (status !== "concluida") {
-            if (args.numero !== undefined) return "A geração ainda não terminou.";
             if (status === "erro") return textoSituacaoGeracao({ id: g.id, status, erro: erroMsg });
+            if (args.numero !== undefined) return "A geração ainda não terminou.";
             const minutos = Math.floor((agora - Date.parse(g.created_at)) / 60000);
             return textoSituacaoGeracao({ id: g.id, status, minutos: Number.isNaN(minutos) ? undefined : Math.max(0, minutos) });
           }

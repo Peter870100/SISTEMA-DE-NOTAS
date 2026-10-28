@@ -54,8 +54,10 @@ function comQuestao<A extends { questao_id: string; professor_telefone?: string 
 }
 
 /** Assunto pelo nome dentro da matéria. */
-export async function assuntoDaMateria(ctx: Ctx, nome: string, materia: string): Promise<string> {
-  const { data, error } = await ctx.supabase.from("assuntos").select("id, nome").eq("materia", materia).order("nome").limit(1000);
+export async function assuntoDaMateria(ctx: Ctx, nome: string, materia: string, soAprovados = false): Promise<string> {
+  let consulta = ctx.supabase.from("assuntos").select("id, nome").eq("materia", materia);
+  if (soAprovados) consulta = consulta.eq("situacao", "aprovado");
+  const { data, error } = await consulta.order("nome").limit(1000);
   if (error) throw new Error(error.message);
   const lista = (data ?? []) as { id: string; nome: string }[];
   const achados = acharPorNome(lista, (a) => a.nome, nome);
