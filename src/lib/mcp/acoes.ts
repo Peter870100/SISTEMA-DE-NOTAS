@@ -3,6 +3,7 @@ import type { ObterCtx } from "./leitura/comum";
 import { registrarAcoesAjuda } from "./acoes/ajuda";
 import { registrarAcoesContas } from "./acoes/contas";
 import { registrarAcoesCursos } from "./acoes/cursos";
+import { registrarAcoesGeracao } from "./acoes/geracao";
 import { registrarAcoesImportacao } from "./acoes/importacao";
 import { registrarAcoesProfessores } from "./acoes/professores";
 import { registrarAcoesQuestoes } from "./acoes/questoes";
@@ -21,6 +22,7 @@ export function registrarAcoes(server: McpServer, obter: ObterCtx, perfil: Perfi
   registrarAcoesSimulados(server, obter, perfil);
   registrarAcoesQuestoes(server, obter, perfil);
   registrarAcoesImportacao(server, obter, perfil);
+  registrarAcoesGeracao(server, obter, perfil);
   if (perfil === "dono") {
     registrarAcoesContas(server, obter, perfil);
     registrarAcoesAjuda(server, obter, perfil);
