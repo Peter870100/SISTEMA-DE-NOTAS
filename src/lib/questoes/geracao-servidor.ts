@@ -15,6 +15,9 @@ import {
  * Gerador de questões por IA com o ator explícito (sem cookie). Atualizar as telas fica com quem chama.
  */
 
+/** Quem pede a geração: só o que o gerador usa do professor (a Hermes passa o ator da escola). */
+export type AtorGeracao = Pick<Professor, "id" | "role" | "escola_id">;
+
 export type ResultadoGeracao = { geracaoId: string; questoes: Questao[]; descartadas: number; custoUsd: number };
 
 const MAX_CANDIDATAS = 200;
@@ -61,7 +64,7 @@ async function idsComImagem(ids: string[]): Promise<Set<string>> {
 }
 
 /** Publicadas, não anuladas e visíveis ao ator, da matéria; com assunto, as dele vêm primeiro na leitura. */
-async function candidatasExemplo(ator: Professor, materia: string, assuntoId: string | null, excluir: string | null): Promise<CandidataExemplo[]> {
+async function candidatasExemplo(ator: AtorGeracao, materia: string, assuntoId: string | null, excluir: string | null): Promise<CandidataExemplo[]> {
   const ler = async (assunto: string | null) => {
     let c = supabase
       .from("questoes")
@@ -86,7 +89,7 @@ async function candidatasExemplo(ator: Professor, materia: string, assuntoId: st
 }
 
 /** Começo do enunciado das últimas questões geradas no mesmo lugar (escola ou geral). */
-async function recentesGeradas(ator: Professor, pedido: PedidoGeracao): Promise<string[]> {
+async function recentesGeradas(ator: AtorGeracao, pedido: PedidoGeracao): Promise<string[]> {
   let c = supabase.from("questoes").select("enunciado").eq("origem", "ia").eq("materia", pedido.materia).eq("escopo", pedido.escopo);
   if (pedido.escopo === "escola") c = c.eq("escola_id", ator.escola_id);
   if (pedido.assunto_id) c = c.eq("assunto_id", pedido.assunto_id);
@@ -100,7 +103,7 @@ function texto(v: unknown): string | null {
 }
 
 /** Lê a base (se houver), os assuntos aprovados da matéria e valida o pedido. */
-async function prepararPedido(ator: Professor, bruto: unknown) {
+async function prepararPedido(ator: AtorGeracao, bruto: unknown) {
   const cru = (bruto && typeof bruto === "object" ? bruto : {}) as Record<string, unknown>;
   let entrada: Record<string, unknown> = { ...cru };
   let base: Questao | null = null;
@@ -187,7 +190,23 @@ const MSG_NENHUMA = "Nenhuma questão gerada passou na conferência. Tente de no
 const MSG_DEMORA = "A IA demorou demais. Tente uma quantidade menor.";
 const MSG_API = "Não foi possível falar com a IA agora. Tente de novo em alguns minutos.";
 
-export async function gerarQuestoesPor(ator: Professor, bruto: unknown): Promise<ResultadoGeracao> {
+/** Geração já registrada como "gerando": o que `concluirGeracaoPor` precisa para terminar o trabalho. */
+export type GeracaoIniciada = {
+  geracaoId: string;
+  pedido: PedidoGeracao;
+  base: Questao | null;
+  assuntos: { id: string; nome: string }[];
+  aprovados: Set<string>;
+  agora: Date;
+};
+
+/** Quanto ainda dá para pedir hoje na escola do ator (null = sem limite). */
+export async function restanteHojePara(ator: AtorGeracao): Promise<number | null> {
+  return restanteHoje(await pedidasHoje(ator.escola_id), ator.role);
+}
+
+/** Valida o pedido, confere a cota e registra a geração como "gerando". Não chama a IA. */
+export async function comecarGeracaoPor(ator: AtorGeracao, bruto: unknown): Promise<GeracaoIniciada> {
   if (!iaDisponivel()) throw new Error("A IA não está configurada (ANTHROPIC_API_KEY na Vercel).");
   const { pedido, base, assuntos, aprovados } = await prepararPedido(ator, bruto);
 
@@ -218,7 +237,12 @@ export async function gerarQuestoesPor(ator: Professor, bruto: unknown): Promise
     .select("id")
     .single();
   if (erroGeracao || !geracao) throw new Error(erroGeracao?.message ?? "Não foi possível começar a geração.");
-  const geracaoId = geracao.id;
+  return { geracaoId: geracao.id, pedido, base, assuntos, aprovados, agora };
+}
+
+/** Chama a IA, grava as questões geradas e fecha a geração (em erro, marca "erro" e relança). */
+export async function concluirGeracaoPor(ator: AtorGeracao, g: GeracaoIniciada): Promise<ResultadoGeracao> {
+  const { geracaoId, pedido, base, assuntos, aprovados, agora } = g;
 
   let questoes: Questao[];
   let descartadas: number;
@@ -295,4 +319,8 @@ export async function gerarQuestoesPor(ator: Professor, bruto: unknown): Promise
   if (erroConcluir) console.error("Gerador IA: não foi possível concluir a geração", geracaoId, erroConcluir.message);
 
   return { geracaoId, questoes, descartadas, custoUsd: uso?.custo_usd ?? 0 };
+}
+
+export async function gerarQuestoesPor(ator: AtorGeracao, bruto: unknown): Promise<ResultadoGeracao> {
+  return concluirGeracaoPor(ator, await comecarGeracaoPor(ator, bruto));
 }
