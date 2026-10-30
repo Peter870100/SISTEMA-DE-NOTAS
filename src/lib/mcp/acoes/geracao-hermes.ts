@@ -24,9 +24,9 @@ export type PedidoHermes = {
   orientacao: string; modeloId: string | null; escopo: "escola" | "geral";
 };
 
-/** Confere os parâmetros de gerar_questoes (sem rede). Professor só no banco da escola. Pura. */
+/** Confere os parâmetros de gerar_questoes (sem rede). Padrão: geral para o dono, escola para os demais; professor só no da escola. Pura. */
 export function lerPedidoGeracao(args: ArgsGerar, perfil: Perfil): PedidoHermes {
-  const escopo = args.banco ?? "escola";
+  const escopo = args.banco ?? (perfil === "dono" ? "geral" : "escola");
   if (escopo === "geral" && perfil === "professor") throw new Error(ERRO_BANCO_ESCOLA_GERACAO);
   const materiaTexto = (args.materia ?? "").trim();
   const modeloId = (args.questao_modelo_id ?? "").trim() || null;

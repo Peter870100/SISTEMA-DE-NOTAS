@@ -10,8 +10,10 @@ const base = { dificuldade: "media" as const, quantidade: 5 };
 test("lerPedidoGeracao: professor no banco geral é recusado", () => {
   assert.throws(() => lerPedidoGeracao({ ...base, materia: "Matemática", banco: "geral" }, "professor"), { message: ERRO_BANCO_ESCOLA_GERACAO });
 });
-test("lerPedidoGeracao: dono no geral; padrão escola", () => {
+test("lerPedidoGeracao: padrão geral para o dono, escola para o professor", () => {
   assert.equal(lerPedidoGeracao({ ...base, materia: "Matemática", banco: "geral" }, "dono").escopo, "geral");
+  assert.equal(lerPedidoGeracao({ ...base, materia: "Matemática" }, "dono").escopo, "geral");
+  assert.equal(lerPedidoGeracao({ ...base, materia: "Matemática", banco: "escola" }, "dono").escopo, "escola");
   assert.equal(lerPedidoGeracao({ ...base, materia: "Matemática" }, "professor").escopo, "escola");
 });
 test("lerPedidoGeracao: matéria vira chave; sem matéria e sem modelo falha", () => {

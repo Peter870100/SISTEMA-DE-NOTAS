@@ -62,7 +62,7 @@ export function registrarAcoesGeracao(server: McpServer, obter: ObterCtx, perfil
     "gerar_questoes",
     {
       title: "Gerar questões por IA",
-      description: "Gera questões novas com a IA, como a tela \"Gerar questões\" (de 1 a 10 por pedido, com matéria e dificuldade; assunto, orientação e questão modelo são opcionais). As questões entram em revisão. A IA é paga (alguns centavos de dólar por pedido) e há cota diária por escola: antes, resuma o pedido (matéria, assunto, dificuldade, quantidade, banco) e peça confirmação. A resposta volta na hora e a IA leva alguns minutos: depois, chame situacao_geracao com o geracao_id.",
+      description: "Gera questões novas com a IA, como a tela \"Gerar questões\" (de 1 a 10 por pedido, com matéria e dificuldade; assunto, orientação e questão modelo são opcionais). As questões entram em revisão. A IA é paga (alguns centavos de dólar por pedido) e há cota diária por escola: antes, resuma o pedido (matéria, assunto, dificuldade, quantidade) e peça confirmação. A resposta volta na hora e a IA leva alguns minutos: depois, chame situacao_geracao com o geracao_id.",
       inputSchema: {
         materia: z.string().trim().max(40).optional().describe('Matéria pelo nome, ex: "Química". Pode faltar se vier questao_modelo_id.'),
         assunto: z.string().trim().max(120).optional().describe("Assunto pelo nome (opcional)."),
@@ -70,7 +70,7 @@ export function registrarAcoesGeracao(server: McpServer, obter: ObterCtx, perfil
         quantidade: z.number().int().min(1).max(10).describe("Quantas questões (1 a 10)."),
         orientacao: z.string().trim().max(500).optional().describe("Orientação extra para a IA (opcional, até 500 caracteres)."),
         questao_modelo_id: campoId("Questão modelo: a IA gera parecidas com ela (opcional).").optional(),
-        banco: z.enum(["escola", "geral"]).optional().describe('"escola" (padrão) = banco da escola; "geral" = banco geral (só o dono).'),
+        banco: z.enum(["escola", "geral"]).optional().describe('Omita: o padrão já é o certo ("geral" para o dono, "escola" para professor) — não pergunte ao usuário. "escola" = banco da escola; "geral" = banco geral (só o dono).'),
         ...campoEscola,
         ...campoTelefone,
       },
