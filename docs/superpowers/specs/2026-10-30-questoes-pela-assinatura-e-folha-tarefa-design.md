@@ -38,8 +38,8 @@ atual continua igual e volta a funcionar quando houver crédito na API — as du
 - Só no MCP do dono (`/api/mcp/dono`). Não entra no MCP do professor.
 - Entrada:
   - `materia` (texto, como em `gerar_questoes`: aceita rótulo ou chave, via `materiaDoTexto`);
-  - `assunto` opcional (nome; casado com os assuntos **aprovados** da matéria; sem casamento → sem
-    assunto, como o gerador faz);
+  - `assunto` opcional (nome; casado com os assuntos **aprovados** da matéria, como em
+    `gerar_questoes`: sem casamento ou ambíguo → erro que lista os assuntos, para corrigir e repetir);
   - `dificuldade` (`facil` | `media` | `dificil`);
   - `questoes`: lista de **1 a 10** itens `{ enunciado, comando, alternativas: [{letra, texto}] A–E,
     resposta, resolucao }`. (Limite 10 = mesmo do gerador e da coluna `quantidade_pedida`.)
