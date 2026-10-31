@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { MATERIAS } from "../src/lib/questoes/materias";
 import { avisosDaQuestao } from "../src/lib/folha/avisos";
 import { folhaAluno, folhaGabarito, type QuestaoFolha } from "../src/lib/folha/docx";
 
@@ -52,7 +53,8 @@ async function main() {
       .from("questoes")
       .select("id")
       .eq("geracao_id", geracao!)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
     if (error) throw new Error(error.message);
     ids = (data ?? []).map((r: { id: string }) => r.id);
   }
@@ -84,7 +86,7 @@ async function main() {
       alternativas: r.alternativas ?? [],
       resposta: r.resposta ?? null,
       resolucao: r.resolucao ?? null,
-      materia: r.materia ?? "",
+      materia: MATERIAS[r.materia as string]?.rotulo ?? r.materia ?? "",
     });
     for (const a of avisosDaQuestao({ id, temImagem: comImagem.has(id), temConteudo: r.conteudo != null }, i + 1)) {
       console.warn(`AVISO: ${a}`);

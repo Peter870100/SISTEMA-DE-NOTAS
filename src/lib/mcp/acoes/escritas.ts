@@ -4,7 +4,7 @@ import { SLUG_PADRAO, urlDaEscola } from "@/lib/dominio";
 import { textoQuestoesSalvas } from "@/lib/questoes/escritas";
 import { salvarQuestoesEscritasPor } from "@/lib/questoes/geracao-servidor";
 import type { Materia } from "@/lib/questoes/materias";
-import { campoEscola, campoTelefone, texto, type ObterCtx } from "../leitura/comum";
+import { campoTelefone, texto, type ObterCtx } from "../leitura/comum";
 import { materiaDoTexto } from "../leitura/banco";
 import { atorDoEscopo, contaDoDono, falha, registrado, type Perfil } from "./ator";
 import { assuntoDaMateria } from "./questoes";
@@ -39,7 +39,6 @@ export function registrarAcoesEscritas(server: McpServer, obter: ObterCtx, perfi
           resposta: LETRA.describe("Letra da alternativa certa."),
           resolucao: TEXTO.describe("Resolução comentada."),
         })).min(1).max(10).describe("De 1 a 10 questões."),
-        ...campoEscola,
         ...campoTelefone,
       },
     },
