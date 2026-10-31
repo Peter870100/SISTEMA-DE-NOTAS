@@ -22,6 +22,7 @@ npx tsx scripts/folha-tarefa.ts --titulo "Tarefa de Matemática — Porcentagem"
 - `--ids`: ids das questões, na ordem desejada.
 - `--geracao`: todas as questões de uma geração por IA (a ordem de criação é só aproximada; quando a ordem importar, use `--ids` na ordem devolvida por `salvar_questoes`).
 - Grava em `folhas/` (ignorada pelo git): `AAAA-MM-DD-<titulo>.docx` (data local) e `AAAA-MM-DD-<titulo>-gabarito.docx`, e imprime os dois caminhos.
+- As bolinhas das alternativas (padrão do caderno do ENEM) vêm de `public/folha/alternativa-A.png` … `-E.png`, regeneráveis com `npx tsx scripts/gerar-bolinhas-folha.ts`.
 - Avisa quando uma questão tem figura ou formatação especial que o .docx não reproduz.
 - Lê `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` do `.env.local` (somente leitura no banco).
 

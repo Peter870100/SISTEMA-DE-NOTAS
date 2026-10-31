@@ -16,6 +16,7 @@ import {
   Table,
   TableBorders,
   TableCell,
+  TableLayoutType,
   TableRow,
   TabStopType,
   TextRun,
@@ -36,6 +37,8 @@ export type QuestaoFolha = {
   materia: string;
 };
 
+export type LetraBolinha = "A" | "B" | "C" | "D" | "E";
+
 export type DadosFolha = {
   titulo: string;
   /** Linha abaixo do título (ex.: "9º ano · Ensino Fundamental"). */
@@ -43,6 +46,8 @@ export type DadosFolha = {
   escola: string;
   logo: Buffer | null;
   questoes: QuestaoFolha[];
+  /** PNGs das bolinhas das alternativas (padrão ENEM); sem a da letra, usa a letra em caixinha. */
+  bolinhas?: Partial<Record<LetraBolinha, Buffer>> | null;
 };
 
 // Medidas em twips (1 cm = 567 twips). Tamanhos de fonte em meio-pontos.
@@ -56,17 +61,22 @@ const LARGURA_UTIL = LARGURA_A4 - 2 * MARGEM_LADO;
 const ESPACO_COLUNAS = cm(0.8);
 const LARGURA_COLUNA = Math.floor((LARGURA_UTIL - ESPACO_COLUNAS) / 2);
 const RECUO = cm(0.6);
-const RECUO_ALTERNATIVA = cm(0.55);
+const RECUO_ALTERNATIVA = cm(0.6);
 
 const AZUL = "0E3562";
 const FUNDO = "E8EEF6";
 const CINZA = "595959";
 const FIO_CLARO = "B9CBE4";
+const PRETO = "000000";
+const FAIXA_QUESTAO = "D9D9D9";
 
-const SERIFA = "Cambria"; // texto das questões
-const SEM_SERIFA = "Calibri"; // títulos e rótulos
+const FONTE_QUESTAO = "Arial"; // questões no padrão do caderno do ENEM
+const SEM_SERIFA = "Calibri"; // cabeçalho, faixas e rodapé
 
 const CORPO = 19; // 9,5 pt
+const CORPO_QUESTAO = 20; // 10 pt
+const TITULO_QUESTAO = 21; // 10,5 pt
+const BOLINHA_PX = 14; // ~0,36 cm a 96 dpi
 const PEQUENO = 15; // 7,5 pt
 const LINHA = 252; // entrelinha 1,05
 
@@ -82,8 +92,9 @@ function runs(segmentos: Segmento[], extra: { size?: number; bold?: boolean } = 
         text: s.texto,
         bold: extra.bold || s.negrito,
         italics: s.italico,
-        size: extra.size,
-        font: SERIFA,
+        size: extra.size ?? CORPO_QUESTAO,
+        color: PRETO,
+        font: FONTE_QUESTAO,
       }),
   );
 }
@@ -103,13 +114,36 @@ function blocosNaoVazios(blocos: Segmento[][]): Segmento[][] {
   return blocos.filter((b) => b.some((s) => s.texto.trim()));
 }
 
-function paragrafoTexto(segmentos: Segmento[]): Paragraph {
+/** Parágrafo do texto-base: justificado, recuo de 1ª linha; o 1º ganha respiro sob o título. */
+function paragrafoTexto(segmentos: Segmento[], i: number): Paragraph {
   return new Paragraph({
     children: runs(segmentos),
     alignment: AlignmentType.JUSTIFIED,
     indent: { firstLine: RECUO },
-    spacing: { after: 30 },
+    spacing: { before: i === 0 ? 100 : 0, after: 40 },
   });
+}
+
+/** Texto em Arial preto (partes da questão que não vêm do markdown). */
+function textoQuestao(text: string, o: { size?: number; bold?: boolean } = {}): TextRun {
+  return new TextRun({ text, font: FONTE_QUESTAO, color: PRETO, size: CORPO_QUESTAO, ...o });
+}
+
+/** Bolinha preta com a letra branca (PNG inline, levemente abaixada para centrar na linha). */
+function bolinha(letra: string, bolinhas: DadosFolha["bolinhas"]): ImageRun | null {
+  const png = bolinhas?.[letra.trim().toUpperCase() as LetraBolinha];
+  if (!png) return null;
+  return new ImageRun({
+    type: "png",
+    data: png,
+    transformation: { width: BOLINHA_PX, height: BOLINHA_PX },
+    altText: { name: `Alternativa ${letra}`, description: `Alternativa ${letra}`, title: letra },
+    run: { position: "-1.5pt" },
+  });
+}
+
+function marcaLetra(letra: string, bolinhas: DadosFolha["bolinhas"]): ImageRun | TextRun {
+  return bolinha(letra, bolinhas) ?? caixaLetra(letra);
 }
 
 /** Letra dentro de uma caixinha de contorno fino (borda do próprio texto; cantos retos). */
@@ -299,7 +333,12 @@ function pagina() {
   };
 }
 
-async function montar(d: DadosFolha, rotuloRodape: string, topo: (Paragraph | Table)[], corpo: Paragraph[]): Promise<Buffer> {
+async function montar(
+  d: DadosFolha,
+  rotuloRodape: string,
+  topo: (Paragraph | Table)[],
+  corpo: (Paragraph | Table)[],
+): Promise<Buffer> {
   const footer = rodape(`${tituloCurto(d.titulo)} · ${rotuloRodape}`);
   const header = topoSeguintes(d.titulo);
   const secoes: ISectionOptions[] = [
@@ -328,7 +367,7 @@ async function montar(d: DadosFolha, rotuloRodape: string, topo: (Paragraph | Ta
     styles: {
       default: {
         document: {
-          run: { font: SERIFA, size: CORPO },
+          run: { font: FONTE_QUESTAO, size: CORPO_QUESTAO },
           paragraph: { spacing: { after: 30, line: LINHA, lineRule: LineRuleType.AUTO } },
         },
       },
@@ -359,21 +398,70 @@ function faixaMateria(materia: string, de: number, ate: number, primeira: boolea
   });
 }
 
-function tituloQuestao(n: number, primeiraDoBloco: boolean): Paragraph {
-  return new Paragraph({
-    keepNext: true,
-    keepLines: true,
-    children: [rotulo(`QUESTÃO ${numero2(n)}`, { bold: true, color: AZUL, size: CORPO })],
-    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: FIO_CLARO, space: 1 } },
-    spacing: { before: primeiraDoBloco ? 60 : 180, after: 60 },
+/**
+ * "QUESTÃO 01" + faixa cinza até o fim da coluna, com linha preta embaixo (caderno do ENEM).
+ * Tabela 1 × 2 sem bordas, exceto a inferior; a faixa é um parágrafo sombreado de altura fixa.
+ */
+function tituloQuestao(n: number, primeiraDoBloco: boolean): Table {
+  const texto = `QUESTÃO ${numero2(n)}`;
+  const esquerda = n >= 100 ? cm(2.85) : cm(2.6);
+  const direita = LARGURA_COLUNA - esquerda;
+  const linha = { style: BorderStyle.SINGLE, size: 8, color: PRETO } as const; // 1 pt
+  return new Table({
+    width: { size: LARGURA_COLUNA, type: WidthType.DXA },
+    columnWidths: [esquerda, direita],
+    layout: TableLayoutType.FIXED,
+    borders: {
+      top: SEM_BORDA,
+      left: SEM_BORDA,
+      right: SEM_BORDA,
+      insideHorizontal: SEM_BORDA,
+      insideVertical: SEM_BORDA,
+      bottom: linha,
+    },
+    rows: [
+      new TableRow({
+        cantSplit: true,
+        children: [
+          new TableCell({
+            width: { size: esquerda, type: WidthType.DXA },
+            verticalAlign: VerticalAlignTable.BOTTOM,
+            margins: { left: 0, right: cm(0.15), top: 0, bottom: 20 },
+            children: [
+              new Paragraph({
+                keepNext: true,
+                keepLines: true,
+                spacing: { before: primeiraDoBloco ? 60 : 200, after: 0 },
+                children: [textoQuestao(texto, { bold: true, size: TITULO_QUESTAO })],
+              }),
+            ],
+          }),
+          new TableCell({
+            width: { size: direita, type: WidthType.DXA },
+            verticalAlign: VerticalAlignTable.BOTTOM,
+            margins: { left: 0, right: 0, top: 0, bottom: 20 },
+            children: [
+              new Paragraph({
+                keepNext: true,
+                keepLines: true,
+                shading: { type: ShadingType.CLEAR, fill: FAIXA_QUESTAO, color: "auto" },
+                spacing: { before: 0, after: 40, line: 160, lineRule: LineRuleType.EXACT },
+                children: [textoQuestao(" ", { size: 12 })],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
   });
 }
 
-type PorQuestao = (q: QuestaoFolha, n: number, primeiraDoBloco: boolean) => Paragraph[];
+type Bloco = Paragraph | Table;
+type PorQuestao = (q: QuestaoFolha, n: number, primeiraDoBloco: boolean) => Bloco[];
 
 /** Põe a faixa da matéria antes de cada bloco de questões seguidas da mesma matéria. */
-function comFaixas(questoes: QuestaoFolha[], porQuestao: PorQuestao): Paragraph[] {
-  const saida: Paragraph[] = [];
+function comFaixas(questoes: QuestaoFolha[], porQuestao: PorQuestao): Bloco[] {
+  const saida: Bloco[] = [];
   let i = 0;
   while (i < questoes.length) {
     let fim = i;
@@ -387,14 +475,14 @@ function comFaixas(questoes: QuestaoFolha[], porQuestao: PorQuestao): Paragraph[
 
 // ---------- folha do aluno ----------
 
-function alternativa(letra: string, texto: string): Paragraph {
+function alternativa(letra: string, texto: string, bolinhas: DadosFolha["bolinhas"]): Paragraph {
   return new Paragraph({
-    alignment: AlignmentType.JUSTIFIED,
+    alignment: AlignmentType.LEFT,
     indent: { left: RECUO_ALTERNATIVA, hanging: RECUO_ALTERNATIVA },
     tabStops: [{ type: TabStopType.LEFT, position: RECUO_ALTERNATIVA }],
-    spacing: { after: 40 },
+    spacing: { after: 60 },
     children: [
-      caixaLetra(letra),
+      marcaLetra(letra, bolinhas),
       tab(),
       // Texto da alternativa numa linha só (quebras viram espaço).
       ...runs(markdownParaBlocos(texto.replace(/\r?\n/g, " "))[0] ?? []),
@@ -402,48 +490,69 @@ function alternativa(letra: string, texto: string): Paragraph {
   });
 }
 
-function paragrafosQuestao(q: QuestaoFolha, n: number, primeiraDoBloco: boolean): Paragraph[] {
-  const { corpo, credito } = separarCredito(q.enunciado);
-  const saida: Paragraph[] = [tituloQuestao(n, primeiraDoBloco)];
-  for (const bloco of blocosNaoVazios(corpo)) saida.push(paragrafoTexto(bloco));
-  if (credito) {
-    saida.push(
-      new Paragraph({
-        alignment: AlignmentType.RIGHT,
-        children: runs(markdownParaBlocos(credito)[0] ?? [], { size: PEQUENO }),
-        spacing: { after: 60 },
-      }),
-    );
-  }
-  for (const bloco of blocosNaoVazios(markdownParaBlocos(q.comando))) {
-    saida.push(new Paragraph({ children: runs(bloco), alignment: AlignmentType.JUSTIFIED, spacing: { before: 40, after: 60 } }));
-  }
-  for (const a of q.alternativas) saida.push(alternativa(a.letra, a.texto));
-  return saida;
+function paragrafosQuestao(bolinhas: DadosFolha["bolinhas"]): PorQuestao {
+  return (q, n, primeiraDoBloco) => {
+    const { corpo, credito } = separarCredito(q.enunciado);
+    const saida: Bloco[] = [tituloQuestao(n, primeiraDoBloco)];
+    const textos = blocosNaoVazios(corpo).map(paragrafoTexto);
+    saida.push(...textos);
+    if (credito) {
+      saida.push(
+        new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          children: runs(markdownParaBlocos(credito)[0] ?? [], { size: PEQUENO }),
+          spacing: { after: 60 },
+        }),
+      );
+    }
+    blocosNaoVazios(markdownParaBlocos(q.comando)).forEach((bloco, i) => {
+      saida.push(
+        new Paragraph({
+          children: runs(bloco),
+          alignment: AlignmentType.JUSTIFIED,
+          spacing: { before: i === 0 ? (textos.length ? 60 : 100) : 0, after: 60 },
+        }),
+      );
+    });
+    for (const a of q.alternativas) saida.push(alternativa(a.letra, a.texto, bolinhas));
+    return saida;
+  };
 }
 
 export async function folhaAluno(d: DadosFolha): Promise<Buffer> {
   const topo = cabecalho(d, d.subtitulo?.trim() || null, true);
-  return montar(d, "caderno de questões", topo, comFaixas(d.questoes, paragrafosQuestao));
+  return montar(d, "caderno de questões", topo, comFaixas(d.questoes, paragrafosQuestao(d.bolinhas)));
 }
 
 // ---------- gabarito (resoluções) ----------
 
-function paragrafosResolucao(q: QuestaoFolha, n: number, primeiraDoBloco: boolean): Paragraph[] {
-  const saida: Paragraph[] = [tituloQuestao(n, primeiraDoBloco)];
-  for (const bloco of blocosNaoVazios(markdownParaBlocos(q.resolucao ?? ""))) {
-    saida.push(new Paragraph({ children: runs(bloco), alignment: AlignmentType.JUSTIFIED, spacing: { after: 30 } }));
-  }
-  saida.push(
-    new Paragraph({
-      spacing: { before: 40, after: 40 },
-      children: [rotulo("Resposta: ", { bold: true, color: AZUL, size: CORPO }), caixaLetra(q.resposta ?? "—")],
-    }),
-  );
-  return saida;
+function paragrafosResolucao(bolinhas: DadosFolha["bolinhas"]): PorQuestao {
+  return (q, n, primeiraDoBloco) => {
+    const saida: Bloco[] = [tituloQuestao(n, primeiraDoBloco)];
+    blocosNaoVazios(markdownParaBlocos(q.resolucao ?? "")).forEach((bloco, i) => {
+      saida.push(
+        new Paragraph({
+          children: runs(bloco),
+          alignment: AlignmentType.JUSTIFIED,
+          spacing: { before: i === 0 ? 100 : 0, after: 40 },
+        }),
+      );
+    });
+    const resposta = q.resposta?.trim() || null;
+    saida.push(
+      new Paragraph({
+        spacing: { before: 60, after: 40 },
+        children: [
+          textoQuestao("Resposta: ", { bold: true }),
+          resposta ? marcaLetra(resposta, bolinhas) : textoQuestao("—"),
+        ],
+      }),
+    );
+    return saida;
+  };
 }
 
 export async function folhaGabarito(d: DadosFolha): Promise<Buffer> {
   const topo = cabecalho(d, "Gabarito comentado", false);
-  return montar(d, "gabarito comentado", topo, comFaixas(d.questoes, paragrafosResolucao));
+  return montar(d, "gabarito comentado", topo, comFaixas(d.questoes, paragrafosResolucao(d.bolinhas)));
 }

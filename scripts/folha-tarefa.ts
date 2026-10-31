@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MATERIAS } from "../src/lib/questoes/materias";
 import { avisosDaQuestao } from "../src/lib/folha/avisos";
-import { folhaAluno, folhaGabarito, type QuestaoFolha } from "../src/lib/folha/docx";
+import { folhaAluno, folhaGabarito, type LetraBolinha, type QuestaoFolha } from "../src/lib/folha/docx";
 
 // Carrega .env.local sem imprimir nada (só linhas CHAVE=valor).
 const envPath = join(process.cwd(), ".env.local");
@@ -96,7 +96,13 @@ async function main() {
 
   const logoPath = join(process.cwd(), "public", "logo-folha.png");
   const logo = existsSync(logoPath) ? readFileSync(logoPath) : null;
-  const dados = { titulo, subtitulo, escola: "Colégio Status", logo, questoes };
+  // Bolinhas das alternativas (regeneráveis com scripts/gerar-bolinhas-folha.ts).
+  const bolinhas: Partial<Record<LetraBolinha, Buffer>> = {};
+  for (const letra of ["A", "B", "C", "D", "E"] as const) {
+    const caminho = join(process.cwd(), "public", "folha", `alternativa-${letra}.png`);
+    if (existsSync(caminho)) bolinhas[letra] = readFileSync(caminho);
+  }
+  const dados = { titulo, subtitulo, escola: "Colégio Status", logo, questoes, bolinhas };
 
   const pasta = join(process.cwd(), "folhas");
   mkdirSync(pasta, { recursive: true });

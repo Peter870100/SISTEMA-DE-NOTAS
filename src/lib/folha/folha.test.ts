@@ -58,10 +58,44 @@ test("folha do aluno: questão numerada, identificação e fontes", async () => 
     questoes: [qf("Quanto é 2²?"), qf("Quanto é 3²?")],
   };
   const xml = await documentoXml(await folhaAluno(d));
-  for (const t of ["QUESTÃO 01", "QUESTÃO 02", "Aluno(a)", "Cambria", "Calibri", "MATEMÁTICA", "questões 01 a 02", "9º ano"]) {
+  for (const t of ["QUESTÃO 01", "QUESTÃO 02", "Aluno(a)", "Arial", "Calibri", "MATEMÁTICA", "questões 01 a 02", "9º ano"]) {
     assert.ok(xml.includes(t), `faltou "${t}"`);
   }
   assert.ok(xml.includes("TAREFA DE MATEMÁTICA — PORCENTAGEM"));
+});
+
+// PNG mínimo válido (1×1) para as bolinhas nos testes.
+const PNG_1X1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+const BOLINHAS = { A: PNG_1X1, B: PNG_1X1, C: PNG_1X1, D: PNG_1X1, E: PNG_1X1 };
+
+test("folha do aluno com bolinhas: 5 imagens por questão e faixa cinza do título", async () => {
+  const questoes = [qf("Quanto é 2²?"), qf("Quanto é 3²?")];
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes, bolinhas: BOLINHAS };
+  const xml = await documentoXml(await folhaAluno(d));
+  const imagens = xml.split("<pic:pic").length - 1;
+  assert.ok(imagens >= 5 * questoes.length, `esperava ≥ ${5 * questoes.length} imagens, veio ${imagens}`);
+  assert.ok(xml.includes("D9D9D9"));
+  assert.ok(xml.includes("QUESTÃO 02"));
+  assert.ok(!xml.includes("Cambria"));
+});
+
+test("folha sem bolinhas continua gerando (letra em caixinha)", async () => {
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")], bolinhas: null };
+  const b = await folhaAluno(d);
+  assert.equal(b.subarray(0, 2).toString(), "PK");
+  const xml = await documentoXml(b);
+  assert.ok(xml.includes("QUESTÃO 01"));
+  assert.equal(xml.split("<pic:pic").length - 1, 0);
+});
+
+test("gabarito com bolinhas: resposta com a bolinha da letra certa", async () => {
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")], bolinhas: BOLINHAS };
+  const xml = await documentoXml(await folhaGabarito(d));
+  assert.ok(xml.includes("Resposta"));
+  assert.equal(xml.split("<pic:pic").length - 1, 1);
 });
 
 test("gabarito: resposta e sem linhas de identificação", async () => {
