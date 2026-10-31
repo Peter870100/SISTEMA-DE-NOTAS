@@ -93,7 +93,7 @@ async function main() {
     }
   });
 
-  const logoPath = join(process.cwd(), "public", "LOGO2025_CURVAS.png");
+  const logoPath = join(process.cwd(), "public", "logo-folha.png");
   const logo = existsSync(logoPath) ? readFileSync(logoPath) : null;
   const dados = { titulo, escola: "Colégio Status", logo, questoes };
 
