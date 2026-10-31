@@ -2,9 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { supabase } from "@/lib/supabase/client";
 import { filtroVisivel } from "@/lib/simulados/servidor";
-import type { Professor, Questao } from "@/lib/types";
+import type { Dificuldade, Professor, Questao } from "@/lib/types";
 import { podeVerQuestao } from "./acesso";
 import { clienteIA, iaDisponivel, MODELO, PRECO_ENTRADA, PRECO_SAIDA } from "./ia";
+import { escritasParaResposta, ORIENTACAO_ESCRITAS, type QuestaoEscrita } from "./escritas";
 import { MATERIAS, type Materia } from "./materias";
 import {
   anoLocal, assuntoDaBase, contaNaCota, escolherExemplos, GeracaoSchema, inicioDoDia, instrucoesGeracao, LIMITE_DIARIO, respostaParaGeradas, restanteHoje, rotuloQuestao, validarPedido,
@@ -323,4 +324,72 @@ export async function concluirGeracaoPor(ator: AtorGeracao, g: GeracaoIniciada):
 
 export async function gerarQuestoesPor(ator: AtorGeracao, bruto: unknown): Promise<ResultadoGeracao> {
   return concluirGeracaoPor(ator, await comecarGeracaoPor(ator, bruto));
+}
+
+/**
+ * Grava questões que o Claude escreveu (sem IA paga e sem cota) no banco geral, em revisão.
+ * Mesma sequência do gerador: registra a geração, converte pelas mesmas regras, grava e fecha.
+ */
+export async function salvarQuestoesEscritasPor(
+  ator: AtorGeracao,
+  d: { materia: Materia; assunto_id: string | null; dificuldade: Dificuldade; questoes: QuestaoEscrita[] },
+): Promise<{ geracaoId: string; ids: string[]; descartadas: number }> {
+  const { data: geracao, error: erroGeracao } = await supabase
+    .from("geracoes_ia")
+    .insert({
+      escola_id: ator.escola_id,
+      professor_id: ator.id,
+      escopo: "geral",
+      materia: d.materia,
+      assunto_id: d.assunto_id,
+      dificuldade: d.dificuldade,
+      orientacao: ORIENTACAO_ESCRITAS,
+      quantidade_pedida: d.questoes.length,
+      status: "gerando",
+    })
+    .select("id")
+    .single();
+  if (erroGeracao || !geracao) throw new Error(erroGeracao?.message ?? "Não foi possível registrar o lote.");
+  const geracaoId = geracao.id;
+
+  try {
+    const referencias = (
+      await recentesGeradas(ator, {
+        materia: d.materia, assunto_id: d.assunto_id, quantidade: d.questoes.length, dificuldade: d.dificuldade,
+        orientacao: ORIENTACAO_ESCRITAS, escopo: "geral", base_id: null,
+      })
+    ).map((r) => ({ rotulo: "uma questão gerada antes", texto: r }));
+
+    const convertidas = respostaParaGeradas(escritasParaResposta(d.questoes), {
+      escopo: "geral",
+      escola_id: null,
+      materia: d.materia,
+      assuntoPedido: d.assunto_id,
+      assuntosValidos: new Set(),
+      referencias,
+      geracao_id: geracaoId,
+      criado_por: ator.id,
+      ano: anoLocal(new Date()),
+    });
+    if (convertidas.linhas.length === 0) {
+      throw new Error("Nenhuma questão passou na conferência (confira as 5 alternativas, todas diferentes).");
+    }
+
+    const { data: gravadas, error: erroGravar } = await supabase.from("questoes").insert(convertidas.linhas).select("id");
+    if (erroGravar) throw new Error(erroGravar.message);
+    const ids = (gravadas ?? []).map((g) => g.id);
+
+    // As questões já estão gravadas: uma falha aqui só deixa o lote sem o resumo.
+    const { error: erroConcluir } = await supabase
+      .from("geracoes_ia")
+      .update({ status: "concluida", quantidade_gerada: ids.length, custo_usd: 0 })
+      .eq("id", geracaoId);
+    if (erroConcluir) console.error("Questões escritas: não foi possível concluir o lote", geracaoId, erroConcluir.message);
+
+    return { geracaoId, ids, descartadas: convertidas.descartadas };
+  } catch (e) {
+    const erro = e instanceof Error ? e.message : String(e);
+    await supabase.from("geracoes_ia").update({ status: "erro", erro }).eq("id", geracaoId);
+    throw e instanceof Error ? e : new Error(erro);
+  }
 }
