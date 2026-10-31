@@ -202,8 +202,13 @@ function logoRun(logo: Buffer): ImageRun | null {
 
 const LARGURA_TEXTO_CAB = LARGURA_UTIL - COLUNA_LOGO;
 const MARGEM_CELULA = cm(0.3);
-/** Fim útil das linhas de preencher, medido a partir do início do texto da célula. */
-const FIM_LINHA = LARGURA_TEXTO_CAB - 2 * MARGEM_CELULA;
+/** Folga antes da borda da célula: um tab no limite exato faz o Word quebrar a linha. */
+const FOLGA_LINHA = cm(0.3);
+/**
+ * Fim útil das linhas de preencher, medido a partir do início do texto da célula:
+ * largura da célula menos as margens internas e a folga.
+ */
+const FIM_LINHA = LARGURA_TEXTO_CAB - 2 * MARGEM_CELULA - FOLGA_LINHA;
 
 type Campo = { rotulo: string; ate: number | null; depois?: string };
 
