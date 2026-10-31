@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ehCredito, numero2, separarCredito } from "./texto";
+import { avisosDaQuestao } from "./avisos";
 import { folhaAluno, folhaGabarito, type QuestaoFolha } from "./docx";
 
 function qf(enunciado: string): QuestaoFolha {
@@ -38,4 +39,10 @@ test("numero2", () => { assert.equal(numero2(1), "01"); assert.equal(numero2(12)
 test("folhaAluno e folhaGabarito geram .docx (zip)", async () => {
   const d = { titulo: "Tarefa de Matemática", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")] };
   for (const b of [await folhaAluno(d), await folhaGabarito(d)]) assert.equal(b.subarray(0, 2).toString(), "PK");
+});
+
+test("avisosDaQuestao", () => {
+  assert.deepEqual(avisosDaQuestao({ id: "a", temImagem: false, temConteudo: false }, 1), []);
+  assert.match(avisosDaQuestao({ id: "a", temImagem: true, temConteudo: false }, 3)[0], /Questão 3 .*figura/);
+  assert.match(avisosDaQuestao({ id: "a", temImagem: false, temConteudo: true }, 2)[0], /Questão 2 .*formatação/);
 });
