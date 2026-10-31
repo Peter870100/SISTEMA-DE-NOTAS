@@ -86,28 +86,18 @@ test("textoQuestoesSalvas: ids na ordem, descartadas e link", () => {
 
 **Files:**
 - Modify: `src/lib/questoes/geracao-servidor.ts` (nova função exportada no fim)
-- Modify: `src/lib/mcp/acoes/geracao.ts` (registrar a ferramenta dentro de `if (perfil === "dono")`)
-- Test: `src/lib/mcp/acoes/geracao-registro.test.ts` (+ incluir no script `test`)
+- Create: `src/lib/mcp/acoes/escritas.ts` (`registrarAcoesEscritas(server, obter, perfil)`)
+- Modify: `src/lib/mcp/acoes.ts` (chamar `registrarAcoesEscritas` **dentro** do bloco `if (perfil === "dono")` já existente)
 
 **Interfaces:**
-- Consumes: Tarefa 1; `respostaParaGeradas`, `anoLocal`, `recentesGeradas` (privada, mesmo arquivo); `contaDoDono`, `atorDoEscopo`, `registrado`, `falha`, `campoTelefone` (não precisa), `texto`; `assuntoDaMateria(ctx, nome, materia, true)`; `materiaDoTexto` de `../leitura/banco`; `urlDaEscola`, `slugDaEscola` (já no arquivo).
+- Consumes: Tarefa 1; `respostaParaGeradas`, `anoLocal`, `recentesGeradas` (privada, mesmo arquivo; montar um `PedidoGeracao` com `escopo: "geral"`); `contaDoDono`, `atorDoEscopo`, `registrado`, `falha` de `./ator`; `texto`, `ObterCtx`, `Ctx` de `../leitura/comum`; `assuntoDaMateria(ctx, nome, materia, true)` de `./questoes`; `materiaDoTexto` de `../leitura/banco` (já lança erro listando as matérias); `urlDaEscola`, `SLUG_PADRAO` de `@/lib/dominio`.
 - Produces:
   - `export async function salvarQuestoesEscritasPor(ator: AtorGeracao, d: { materia: Materia; assunto_id: string | null; dificuldade: Dificuldade; questoes: QuestaoEscrita[] }): Promise<{ geracaoId: string; ids: string[]; descartadas: number }>`
   - Ferramenta MCP `salvar_questoes` com entrada `{ materia: string; assunto?: string; dificuldade: "facil"|"media"|"dificil"; questoes: QuestaoEscrita[] (min 1, max 10) }`.
 
-- [ ] **Step 1: Teste de registro**
+Sem teste unitário de registro: importar módulos de servidor (`geracao-servidor`, cliente Supabase, `next/server`) num teste `tsx --test` deixa o processo pendurado. A conferência "só no dono" é feita na Tarefa 5 pelo `tools/list` dos dois MCPs.
 
-```ts
-function servidorFalso() { const nomes: string[] = []; return { nomes, server: { registerTool: (n: string) => { nomes.push(n); } } as unknown as McpServer }; }
-test("salvar_questoes só existe para o dono", () => {
-  const dono = servidorFalso(); registrarAcoesGeracao(dono.server, async () => { throw new Error("x"); }, "dono");
-  const prof = servidorFalso(); registrarAcoesGeracao(prof.server, async () => { throw new Error("x"); }, "professor");
-  assert.ok(dono.nomes.includes("salvar_questoes"));
-  assert.ok(!prof.nomes.includes("salvar_questoes"));
-  assert.ok(prof.nomes.includes("gerar_questoes"));
-});
-```
-- [ ] **Step 2: Rodar e ver falhar.**
+- [ ] **Step 1/2:** (sem teste novo nesta tarefa — ver acima.)
 - [ ] **Step 3: `salvarQuestoesEscritasPor`** — mesma sequência de `comecarGeracaoPor`/`concluirGeracaoPor`, sem IA e sem cota: insere `geracoes_ia` (`escola_id: ator.escola_id`, `professor_id: ator.id`, `escopo: "geral"`, `materia`, `assunto_id`, `dificuldade`, `orientacao: ORIENTACAO_ESCRITAS`, `quantidade_pedida: questoes.length`, `status: "gerando"`); referências = `recentesGeradas` (pedido com escopo geral); `respostaParaGeradas(escritasParaResposta(qs), { escopo: "geral", escola_id: null, materia, assuntoPedido: d.assunto_id, assuntosValidos: new Set(), referencias, geracao_id, criado_por: ator.id, ano: anoLocal(new Date()) })`; nenhuma linha → erro "Nenhuma questão passou na conferência (confira as 5 alternativas, todas diferentes)."; insere em `questoes` com `.select("id")` preservando a ordem; fecha `status "concluida"`, `quantidade_gerada`, `custo_usd: 0`. Qualquer erro → `update status "erro", erro: mensagem` e relança.
 - [ ] **Step 4: Ferramenta** — descrição exata:
   `"Grava questões que VOCÊ já escreveu (não chama IA, sem custo) no banco geral, em revisão. Use só quando o Peter pedir questões escritas por você; para a IA do site use gerar_questoes. De 1 a 10 por chamada, cada uma com enunciado, comando, 5 alternativas (A a E, todas diferentes), resposta e resolução. Fórmulas em texto Unicode (x², ½, √, ×), nunca LaTeX; negrito **assim** e itálico *assim*; créditos do texto (autor, \"Disponível em:\") no último parágrafo do enunciado. Devolve os ids na ordem enviada."`
@@ -190,7 +180,7 @@ test("avisosDaQuestao", () => {
 
 ### Task 5: Publicar e testar de ponta a ponta (sessão principal, não subagente)
 
-- [ ] Rebase em `origin/master`, push para `master`; esperar `tools/list` do `/api/mcp/dono` (com a senha do `.env.local`) conter `salvar_questoes`.
+- [ ] Rebase em `origin/master`, push para `master`; esperar `tools/list` do `/api/mcp/dono` (com a senha do `.env.local`) conter `salvar_questoes`, e conferir que o `tools/list` do `/api/mcp` (professor, `MCP_SECRET_TOKEN`) **não** contém.
 - [ ] Ligar o Claude Code com `claude mcp add` (lendo a senha do `.env.local` sem imprimir).
 - [ ] Escrever 3 questões de teste de Matemática (porcentagem), chamar `salvar_questoes` (por JSON-RPC com curl, já que a ferramenta só aparece no Claude Code depois de reiniciar a sessão), conferir no banco (só leitura) as 3 linhas em revisão e a geração `concluida` com custo 0.
 - [ ] Rodar o script com `--geracao <id>` e entregar os dois `.docx` ao Peter para ele avaliar o visual.
