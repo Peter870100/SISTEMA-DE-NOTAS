@@ -74,7 +74,7 @@ const FONTE_QUESTAO = "Arial"; // questões no padrão do caderno do ENEM
 const SEM_SERIFA = "Calibri"; // cabeçalho, faixas e rodapé
 
 const CORPO = 19; // 9,5 pt
-const CORPO_QUESTAO = 20; // 10 pt
+const CORPO_QUESTAO = 18; // 9 pt
 const TITULO_QUESTAO = 21; // 10,5 pt
 const BOLINHA_PX = 14; // ~0,36 cm a 96 dpi
 const PEQUENO = 15; // 7,5 pt
