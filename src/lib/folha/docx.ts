@@ -3,13 +3,16 @@ import {
   BorderStyle,
   Document,
   Footer,
+  Header,
   ImageRun,
   LeaderType,
+  LineRuleType,
   Packer,
   PageNumber,
   Paragraph,
   SectionType,
   ShadingType,
+  Tab,
   Table,
   TableBorders,
   TableCell,
@@ -33,38 +36,101 @@ export type QuestaoFolha = {
   materia: string;
 };
 
-export type DadosFolha = { titulo: string; escola: string; logo: Buffer | null; questoes: QuestaoFolha[] };
+export type DadosFolha = {
+  titulo: string;
+  /** Linha abaixo do título (ex.: "9º ano · Ensino Fundamental"). */
+  subtitulo?: string | null;
+  escola: string;
+  logo: Buffer | null;
+  questoes: QuestaoFolha[];
+};
 
-// Medidas em twips (1 cm = 567 twips).
+// Medidas em twips (1 cm = 567 twips). Tamanhos de fonte em meio-pontos.
 const CM = 567;
-const MARGEM = Math.round(1.27 * CM);
+const cm = (v: number) => Math.round(v * CM);
 const LARGURA_A4 = 11906;
 const ALTURA_A4 = 16838;
-const LARGURA_UTIL = LARGURA_A4 - 2 * MARGEM;
-const RECUO = Math.round(0.6 * CM);
-const FONTE = "Arial";
-const CORPO = 22; // meio-pontos: 11 pt
-const CREDITO = 16; // 8 pt
-const TITULO = 28; // 14 pt
-const LOGO_LARGURA_PX = 170; // ~4,5 cm a 96 dpi
+const MARGEM_LADO = cm(1.5);
+const MARGEM_TOPO = cm(1.2);
+const LARGURA_UTIL = LARGURA_A4 - 2 * MARGEM_LADO;
+const ESPACO_COLUNAS = cm(0.8);
+const LARGURA_COLUNA = Math.floor((LARGURA_UTIL - ESPACO_COLUNAS) / 2);
+const RECUO = cm(0.6);
+const RECUO_ALTERNATIVA = cm(0.55);
+
+const AZUL = "0E3562";
+const FUNDO = "E8EEF6";
+const CINZA = "595959";
+const FIO_CLARO = "B9CBE4";
+
+const SERIFA = "Cambria"; // texto das questões
+const SEM_SERIFA = "Calibri"; // títulos e rótulos
+
+const CORPO = 19; // 9,5 pt
+const PEQUENO = 15; // 7,5 pt
+const LINHA = 252; // entrelinha 1,05
+
+const LOGO_LARGURA_PX = 83; // ~2,2 cm a 96 dpi
+const COLUNA_LOGO = cm(2.4);
+
+const TRAVESSAO = /\s+[—–-]\s+/;
 
 function runs(segmentos: Segmento[], extra: { size?: number; bold?: boolean } = {}): TextRun[] {
   return segmentos.map(
-    (s) => new TextRun({ text: s.texto, bold: extra.bold || s.negrito, italics: s.italico, size: extra.size }),
+    (s) =>
+      new TextRun({
+        text: s.texto,
+        bold: extra.bold || s.negrito,
+        italics: s.italico,
+        size: extra.size,
+        font: SERIFA,
+      }),
   );
+}
+
+type OpcoesRotulo = { size?: number; bold?: boolean; color?: string; characterSpacing?: number };
+
+/** Texto em Calibri (títulos, rótulos, faixas, rodapé). */
+function rotulo(text: string, o: OpcoesRotulo = {}): TextRun {
+  return new TextRun({ text, font: SEM_SERIFA, ...o });
+}
+
+function tab(): TextRun {
+  return new TextRun({ children: [new Tab()] });
 }
 
 function blocosNaoVazios(blocos: Segmento[][]): Segmento[][] {
   return blocos.filter((b) => b.some((s) => s.texto.trim()));
 }
 
-function paragrafoTexto(segmentos: Segmento[], primeiraLinha = true): Paragraph {
+function paragrafoTexto(segmentos: Segmento[]): Paragraph {
   return new Paragraph({
     children: runs(segmentos),
     alignment: AlignmentType.JUSTIFIED,
-    indent: primeiraLinha ? { firstLine: RECUO } : undefined,
-    spacing: { after: 40 },
+    indent: { firstLine: RECUO },
+    spacing: { after: 30 },
   });
+}
+
+/** Letra dentro de uma caixinha de contorno fino (borda do próprio texto; cantos retos). */
+function caixaLetra(letra: string): TextRun {
+  return new TextRun({
+    text: ` ${letra} `,
+    font: SEM_SERIFA,
+    bold: true,
+    size: 16,
+    color: AZUL,
+    border: { style: BorderStyle.SINGLE, size: 4, color: AZUL, space: 0 },
+  });
+}
+
+/** "Tarefa de Matemática — Porcentagem" → "Tarefa de Matemática" (parte antes do travessão). */
+function tituloCurto(titulo: string): string {
+  return titulo.split(TRAVESSAO)[0].trim() || titulo;
+}
+
+function maiusculas(s: string): string {
+  return s.toLocaleUpperCase("pt-BR");
 }
 
 // ---------- logo ----------
@@ -98,88 +164,121 @@ function logoRun(logo: Buffer): ImageRun | null {
   return new ImageRun({ type: info.tipo, data: logo, transformation: { width: LOGO_LARGURA_PX, height: altura } });
 }
 
-// ---------- partes comuns ----------
+// ---------- cabeçalho da 1ª página ----------
 
-function cabecalho(d: DadosFolha, titulo: string): (Paragraph | Table)[] {
-  const textos = [
+const LARGURA_TEXTO_CAB = LARGURA_UTIL - COLUNA_LOGO;
+const MARGEM_CELULA = cm(0.3);
+/** Fim útil das linhas de preencher, medido a partir do início do texto da célula. */
+const FIM_LINHA = LARGURA_TEXTO_CAB - 2 * MARGEM_CELULA;
+
+type Campo = { rotulo: string; ate: number | null; depois?: string };
+
+/** Linha "Rótulo: ____  Rótulo: ____" com tabs de leader sublinhado (fim de cada campo em `ate`). */
+function linhaPreencher(campos: Campo[]): Paragraph {
+  const tabStops = campos
+    .filter((c) => c.ate !== null)
+    .map((c) => ({ type: TabStopType.LEFT, position: c.ate as number, leader: LeaderType.UNDERSCORE }));
+  const children: TextRun[] = [];
+  campos.forEach((c, i) => {
+    children.push(rotulo(`${i ? "  " : ""}${c.rotulo}: `, { bold: true, color: AZUL, size: 18 }));
+    if (c.ate !== null) children.push(tab());
+    if (c.depois) children.push(rotulo(c.depois, { size: 18 }));
+  });
+  return new Paragraph({ tabStops, children, spacing: { before: 100, after: 0 } });
+}
+
+const SEM_BORDA = { style: BorderStyle.NONE, size: 0, color: "auto" } as const;
+const FIO_VERTICAL = { style: BorderStyle.SINGLE, size: 12, color: AZUL } as const; // 1,5 pt
+
+function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: boolean): (Paragraph | Table)[] {
+  const textos: Paragraph[] = [
     new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: titulo, bold: true, size: TITULO })],
-      spacing: { after: 60 },
+      children: [rotulo(maiusculas(d.titulo), { bold: true, color: AZUL, size: 22 })],
+      spacing: { after: 20 },
     }),
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: d.escola })] }),
   ];
+  if (subtitulo) {
+    textos.push(new Paragraph({ children: [rotulo(subtitulo, { color: CINZA, size: CORPO })], spacing: { after: 20 } }));
+  }
+  if (comIdentificacao) {
+    textos.push(
+      linhaPreencher([
+        { rotulo: "Aluno(a)", ate: FIM_LINHA - cm(5.2) },
+        { rotulo: "Nº", ate: FIM_LINHA - cm(2.6) },
+        { rotulo: "Turma", ate: FIM_LINHA },
+      ]),
+      linhaPreencher([
+        { rotulo: "Professor(a)", ate: FIM_LINHA - cm(7.4) },
+        { rotulo: "Data", ate: null, depois: "____/____/______" },
+        { rotulo: "Nota", ate: FIM_LINHA },
+      ]),
+    );
+  }
+
   const imagem = d.logo ? logoRun(d.logo) : null;
-  if (!imagem) return [...textos, new Paragraph({ children: [], spacing: { after: 120 } })];
-  const colunaLogo = Math.round(5 * CM);
+  const conteudoLogo = imagem
+    ? new Paragraph({ alignment: AlignmentType.CENTER, children: [imagem] })
+    : new Paragraph({ alignment: AlignmentType.CENTER, children: [rotulo(d.escola, { bold: true, color: AZUL, size: 16 })] });
+
   return [
     new Table({
       width: { size: LARGURA_UTIL, type: WidthType.DXA },
-      columnWidths: [colunaLogo, LARGURA_UTIL - 2 * colunaLogo, colunaLogo],
+      columnWidths: [COLUNA_LOGO, LARGURA_TEXTO_CAB],
       borders: TableBorders.NONE,
       rows: [
         new TableRow({
           children: [
             new TableCell({
-              width: { size: colunaLogo, type: WidthType.DXA },
+              width: { size: COLUNA_LOGO, type: WidthType.DXA },
               verticalAlign: VerticalAlignTable.CENTER,
-              children: [new Paragraph({ children: [imagem] })],
+              margins: { left: 0, right: MARGEM_CELULA, top: 0, bottom: 0 },
+              borders: { top: SEM_BORDA, bottom: SEM_BORDA, left: SEM_BORDA, right: FIO_VERTICAL },
+              children: [conteudoLogo],
             }),
             new TableCell({
-              width: { size: LARGURA_UTIL - 2 * colunaLogo, type: WidthType.DXA },
+              width: { size: LARGURA_TEXTO_CAB, type: WidthType.DXA },
               verticalAlign: VerticalAlignTable.CENTER,
+              margins: { left: MARGEM_CELULA, right: MARGEM_CELULA, top: 0, bottom: 0 },
+              borders: { top: SEM_BORDA, bottom: SEM_BORDA, right: SEM_BORDA, left: FIO_VERTICAL },
               children: textos,
             }),
-            // Coluna vazia do mesmo tamanho do logo: mantém o título no centro da página.
-            new TableCell({ width: { size: colunaLogo, type: WidthType.DXA }, children: [new Paragraph({})] }),
           ],
         }),
       ],
     }),
-    new Paragraph({ children: [], spacing: { after: 120 } }),
+    new Paragraph({ children: [], spacing: { after: 160 } }),
   ];
 }
 
-function linhaHorizontal(): Paragraph {
-  return new Paragraph({
-    children: [],
-    border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: "000000", space: 1 } },
-    spacing: { after: 160 },
-  });
-}
+// ---------- topo das páginas seguintes e rodapé ----------
 
-function linhasIdentificacao(): Paragraph {
-  const p = (cm: number) => Math.round(cm * CM);
-  return new Paragraph({
-    tabStops: [
-      { type: TabStopType.LEFT, position: p(8.6), leader: LeaderType.UNDERSCORE },
-      { type: TabStopType.LEFT, position: p(11.8), leader: LeaderType.UNDERSCORE },
-      { type: TabStopType.LEFT, position: p(13.4), leader: LeaderType.UNDERSCORE },
-    ],
+function topoSeguintes(titulo: string): Header {
+  return new Header({
     children: [
-      new TextRun({ text: "Nome: ", bold: true }),
-      new TextRun({ text: "\t" }),
-      new TextRun({ text: "  Turma: ", bold: true }),
-      new TextRun({ text: "\t" }),
-      new TextRun({ text: "  Nº: ", bold: true }),
-      new TextRun({ text: "\t" }),
-      new TextRun({ text: "  Data: ", bold: true }),
-      new TextRun({ text: "___/___/____" }),
+      new Paragraph({
+        border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: FIO_CLARO, space: 2 } },
+        children: [
+          rotulo(maiusculas(titulo.replace(new RegExp(TRAVESSAO.source, "g"), " · ")), {
+            size: PEQUENO,
+            color: CINZA,
+            characterSpacing: 30,
+          }),
+        ],
+      }),
     ],
-    spacing: { before: 120, after: 60 },
   });
 }
 
-function rodape(titulo: string): Footer {
+function rodape(texto: string): Footer {
   return new Footer({
     children: [
       new Paragraph({
-        border: { top: { style: BorderStyle.SINGLE, size: 8, color: "000000", space: 4 } },
+        border: { top: { style: BorderStyle.SINGLE, size: 4, color: FIO_CLARO, space: 4 } },
         tabStops: [{ type: TabStopType.RIGHT, position: LARGURA_UTIL }],
         children: [
-          new TextRun({ text: titulo, size: 18 }),
-          new TextRun({ text: "\t", size: 18 }),
-          new TextRun({ children: [PageNumber.CURRENT], size: 18 }),
+          rotulo(texto, { size: PEQUENO, color: CINZA }),
+          tab(),
+          new TextRun({ children: [PageNumber.CURRENT], font: SEM_SERIFA, size: PEQUENO, color: CINZA }),
         ],
       }),
     ],
@@ -189,144 +288,162 @@ function rodape(titulo: string): Footer {
 function pagina() {
   return {
     size: { width: LARGURA_A4, height: ALTURA_A4 },
-    margin: { top: MARGEM, right: MARGEM, bottom: MARGEM, left: MARGEM, header: MARGEM / 2, footer: MARGEM / 2 },
+    margin: {
+      top: MARGEM_TOPO,
+      right: MARGEM_LADO,
+      bottom: MARGEM_TOPO,
+      left: MARGEM_LADO,
+      header: cm(0.6),
+      footer: cm(0.6),
+    },
   };
 }
 
-async function montar(titulo: string, topo: (Paragraph | Table)[], corpo: Paragraph[]): Promise<Buffer> {
-  const footers = { default: rodape(titulo) };
+async function montar(d: DadosFolha, rotuloRodape: string, topo: (Paragraph | Table)[], corpo: Paragraph[]): Promise<Buffer> {
+  const footer = rodape(`${tituloCurto(d.titulo)} · ${rotuloRodape}`);
+  const header = topoSeguintes(d.titulo);
   const secoes: ISectionOptions[] = [
-    { properties: { page: pagina() }, footers, children: topo },
+    // 1ª seção: cabeçalho grande no corpo; o topo de página da 1ª página fica vazio (titlePage).
+    {
+      properties: { page: pagina(), titlePage: true },
+      headers: { default: header, first: new Header({ children: [new Paragraph({})] }) },
+      footers: { default: footer, first: footer },
+      children: topo,
+    },
+    // 2ª seção (contínua): questões em duas colunas com fio entre elas; as páginas 2+ usam este topo.
     {
       properties: {
         type: SectionType.CONTINUOUS,
         page: pagina(),
-        column: { count: 2, space: Math.round(0.8 * CM), separate: true, equalWidth: true },
+        column: { count: 2, space: ESPACO_COLUNAS, separate: true, equalWidth: true },
       },
-      footers,
+      headers: { default: header },
+      footers: { default: footer },
       children: corpo.length ? corpo : [new Paragraph({})],
     },
   ];
   const doc = new Document({
     creator: "Status Avalia",
-    title: titulo,
-    styles: { default: { document: { run: { font: FONTE, size: CORPO } } } },
+    title: d.titulo,
+    styles: {
+      default: {
+        document: {
+          run: { font: SERIFA, size: CORPO },
+          paragraph: { spacing: { after: 30, line: LINHA, lineRule: LineRuleType.AUTO } },
+        },
+      },
+    },
     sections: secoes,
   });
   return Packer.toBuffer(doc);
 }
 
-// ---------- folha do aluno ----------
+// ---------- partes do corpo ----------
 
-function tituloQuestao(n: number): Paragraph {
+/** Faixa da matéria: traço azul à esquerda, fundo suave, "questões 01 a 08" à direita. */
+function faixaMateria(materia: string, de: number, ate: number, primeira: boolean): Paragraph {
+  const intervalo = de === ate ? `questão ${numero2(de)}` : `questões ${numero2(de)} a ${numero2(ate)}`;
   return new Paragraph({
     keepNext: true,
     keepLines: true,
-    children: [new TextRun({ text: `QUESTÃO ${n}`, bold: true })],
-    border: { bottom: { style: BorderStyle.DOUBLE, size: 12, color: "000000", space: 1 } },
-    spacing: { before: 200, after: 100 },
+    shading: { type: ShadingType.CLEAR, fill: FUNDO, color: "auto" },
+    border: { left: { style: BorderStyle.SINGLE, size: 24, color: AZUL, space: 4 } },
+    indent: { left: cm(0.15) },
+    tabStops: [{ type: TabStopType.RIGHT, position: LARGURA_COLUNA - cm(0.3) }],
+    spacing: { before: primeira ? 0 : 200, after: 80, line: 276, lineRule: LineRuleType.AUTO },
+    children: [
+      rotulo(maiusculas(materia || "Questões"), { bold: true, color: AZUL, size: 18, characterSpacing: 10 }),
+      tab(),
+      rotulo(intervalo, { color: CINZA, size: PEQUENO }),
+    ],
   });
 }
+
+function tituloQuestao(n: number, primeiraDoBloco: boolean): Paragraph {
+  return new Paragraph({
+    keepNext: true,
+    keepLines: true,
+    children: [rotulo(`QUESTÃO ${numero2(n)}`, { bold: true, color: AZUL, size: CORPO })],
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: FIO_CLARO, space: 1 } },
+    spacing: { before: primeiraDoBloco ? 60 : 180, after: 60 },
+  });
+}
+
+type PorQuestao = (q: QuestaoFolha, n: number, primeiraDoBloco: boolean) => Paragraph[];
+
+/** Põe a faixa da matéria antes de cada bloco de questões seguidas da mesma matéria. */
+function comFaixas(questoes: QuestaoFolha[], porQuestao: PorQuestao): Paragraph[] {
+  const saida: Paragraph[] = [];
+  let i = 0;
+  while (i < questoes.length) {
+    let fim = i;
+    while (fim + 1 < questoes.length && questoes[fim + 1].materia === questoes[i].materia) fim++;
+    saida.push(faixaMateria(questoes[i].materia, i + 1, fim + 1, i === 0));
+    for (let k = i; k <= fim; k++) saida.push(...porQuestao(questoes[k], k + 1, k === i));
+    i = fim + 1;
+  }
+  return saida;
+}
+
+// ---------- folha do aluno ----------
 
 function alternativa(letra: string, texto: string): Paragraph {
   return new Paragraph({
     alignment: AlignmentType.JUSTIFIED,
-    indent: { left: RECUO, hanging: RECUO },
-    tabStops: [{ type: TabStopType.LEFT, position: RECUO }],
+    indent: { left: RECUO_ALTERNATIVA, hanging: RECUO_ALTERNATIVA },
+    tabStops: [{ type: TabStopType.LEFT, position: RECUO_ALTERNATIVA }],
     spacing: { after: 40 },
     children: [
-      new TextRun({
-        text: ` ${letra} `,
-        bold: true,
-        color: "FFFFFF",
-        shading: { type: ShadingType.CLEAR, fill: "000000", color: "auto" },
-        size: 18,
-      }),
-      new TextRun({ text: "\t" }),
+      caixaLetra(letra),
+      tab(),
       // Texto da alternativa numa linha só (quebras viram espaço).
       ...runs(markdownParaBlocos(texto.replace(/\r?\n/g, " "))[0] ?? []),
     ],
   });
 }
 
-function paragrafosQuestao(q: QuestaoFolha, n: number): Paragraph[] {
+function paragrafosQuestao(q: QuestaoFolha, n: number, primeiraDoBloco: boolean): Paragraph[] {
   const { corpo, credito } = separarCredito(q.enunciado);
-  const saida: Paragraph[] = [tituloQuestao(n)];
+  const saida: Paragraph[] = [tituloQuestao(n, primeiraDoBloco)];
   for (const bloco of blocosNaoVazios(corpo)) saida.push(paragrafoTexto(bloco));
   if (credito) {
     saida.push(
       new Paragraph({
         alignment: AlignmentType.RIGHT,
-        children: runs(markdownParaBlocos(credito)[0] ?? [], { size: CREDITO }),
-        spacing: { after: 80 },
+        children: runs(markdownParaBlocos(credito)[0] ?? [], { size: PEQUENO }),
+        spacing: { after: 60 },
       }),
     );
   }
   for (const bloco of blocosNaoVazios(markdownParaBlocos(q.comando))) {
-    saida.push(new Paragraph({ children: runs(bloco), alignment: AlignmentType.JUSTIFIED, spacing: { before: 60, after: 60 } }));
+    saida.push(new Paragraph({ children: runs(bloco), alignment: AlignmentType.JUSTIFIED, spacing: { before: 40, after: 60 } }));
   }
   for (const a of q.alternativas) saida.push(alternativa(a.letra, a.texto));
   return saida;
 }
 
 export async function folhaAluno(d: DadosFolha): Promise<Buffer> {
-  const topo = [...cabecalho(d, d.titulo), linhasIdentificacao(), linhaHorizontal()];
-  const corpo = d.questoes.flatMap((q, i) => paragrafosQuestao(q, i + 1));
-  return montar(d.titulo, topo, corpo);
+  const topo = cabecalho(d, d.subtitulo?.trim() || null, true);
+  return montar(d, "caderno de questões", topo, comFaixas(d.questoes, paragrafosQuestao));
 }
 
 // ---------- gabarito (resoluções) ----------
 
-function paragrafosResolucao(q: QuestaoFolha, n: number, primeiraDaMateria: boolean): Paragraph[] {
-  const saida: Paragraph[] = [];
-  const blocos = blocosNaoVazios(markdownParaBlocos(q.resolucao ?? ""));
-  const numero = new TextRun({ text: `${numero2(n)} `, bold: true });
-  const espacoAntes = primeiraDaMateria ? 60 : 200;
-  if (!blocos.length) {
-    saida.push(new Paragraph({ children: [numero], keepNext: true, spacing: { before: espacoAntes, after: 40 } }));
-  } else {
-    blocos.forEach((bloco, i) => {
-      saida.push(
-        new Paragraph({
-          children: i === 0 ? [numero, ...runs(bloco)] : runs(bloco),
-          alignment: AlignmentType.JUSTIFIED,
-          keepNext: true,
-          keepLines: true,
-          spacing: { before: i === 0 ? espacoAntes : 0, after: 40 },
-        }),
-      );
-    });
+function paragrafosResolucao(q: QuestaoFolha, n: number, primeiraDoBloco: boolean): Paragraph[] {
+  const saida: Paragraph[] = [tituloQuestao(n, primeiraDoBloco)];
+  for (const bloco of blocosNaoVazios(markdownParaBlocos(q.resolucao ?? ""))) {
+    saida.push(new Paragraph({ children: runs(bloco), alignment: AlignmentType.JUSTIFIED, spacing: { after: 30 } }));
   }
   saida.push(
     new Paragraph({
-      children: [new TextRun({ text: `Resposta: ${q.resposta ?? "—"}`, bold: true })],
-      spacing: { after: 40 },
+      spacing: { before: 40, after: 40 },
+      children: [rotulo("Resposta: ", { bold: true, color: AZUL, size: CORPO }), caixaLetra(q.resposta ?? "—")],
     }),
   );
   return saida;
 }
 
 export async function folhaGabarito(d: DadosFolha): Promise<Buffer> {
-  const titulo = `${d.titulo} — Resoluções`;
-  const topo = [...cabecalho(d, titulo), linhaHorizontal()];
-  const variasMaterias = new Set(d.questoes.map((q) => q.materia)).size > 1;
-  const corpo: Paragraph[] = [];
-  let materiaAtual: string | null = null;
-  d.questoes.forEach((q, i) => {
-    let primeira = false;
-    if (variasMaterias && q.materia !== materiaAtual) {
-      materiaAtual = q.materia;
-      primeira = true;
-      corpo.push(
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          keepNext: true,
-          children: [new TextRun({ text: q.materia, bold: true, size: 24 })],
-          spacing: { before: corpo.length ? 240 : 0, after: 60 },
-        }),
-      );
-    }
-    corpo.push(...paragrafosResolucao(q, i + 1, primeira));
-  });
-  return montar(titulo, topo, corpo);
+  const topo = cabecalho(d, "Gabarito comentado", false);
+  return montar(d, "gabarito comentado", topo, comFaixas(d.questoes, paragrafosResolucao));
 }

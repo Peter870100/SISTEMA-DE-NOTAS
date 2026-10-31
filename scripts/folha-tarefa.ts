@@ -38,10 +38,11 @@ async function main() {
   const supabase = createClient(url, chave);
 
   const titulo = arg("titulo");
+  const subtitulo = arg("subtitulo") ?? null;
   const idsArg = arg("ids");
   const geracao = arg("geracao");
   if (!titulo || (!idsArg && !geracao)) {
-    console.error('Uso: npx tsx scripts/folha-tarefa.ts --titulo "Título" (--ids id1,id2,... | --geracao <id>)');
+    console.error('Uso: npx tsx scripts/folha-tarefa.ts --titulo "Título" [--subtitulo "9º ano"] (--ids id1,id2,... | --geracao <id>)');
     process.exit(1);
   }
 
@@ -95,11 +96,13 @@ async function main() {
 
   const logoPath = join(process.cwd(), "public", "logo-folha.png");
   const logo = existsSync(logoPath) ? readFileSync(logoPath) : null;
-  const dados = { titulo, escola: "Colégio Status", logo, questoes };
+  const dados = { titulo, subtitulo, escola: "Colégio Status", logo, questoes };
 
   const pasta = join(process.cwd(), "folhas");
   mkdirSync(pasta, { recursive: true });
-  const base = `${new Date().toISOString().slice(0, 10)}-${slug(titulo)}`;
+  const hoje = new Date();
+  const dataLocal = [hoje.getFullYear(), String(hoje.getMonth() + 1).padStart(2, "0"), String(hoje.getDate()).padStart(2, "0")].join("-");
+  const base = `${dataLocal}-${slug(titulo)}`;
   const caminhoAluno = join(pasta, `${base}.docx`);
   const caminhoGabarito = join(pasta, `${base}-gabarito.docx`);
   writeFileSync(caminhoAluno, await folhaAluno(dados));

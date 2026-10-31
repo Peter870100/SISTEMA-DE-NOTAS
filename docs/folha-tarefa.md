@@ -14,12 +14,14 @@ O Claude escolhe as questões pelo MCP do dono (`statusavalia-dono`) e roda o sc
 
 ```
 npx tsx scripts/folha-tarefa.ts --titulo "Tarefa de Matemática — Porcentagem" --ids id1,id2,id3
+npx tsx scripts/folha-tarefa.ts --titulo "Tarefa de Matemática — Porcentagem" --subtitulo "9º ano" --ids id1,id2,id3
 npx tsx scripts/folha-tarefa.ts --titulo "Tarefa de Matemática — Porcentagem" --geracao <id-da-geracao>
 ```
 
+- `--subtitulo` (opcional): linha abaixo do título no cabeçalho, ex.: `--subtitulo "9º ano · Ensino Fundamental"`.
 - `--ids`: ids das questões, na ordem desejada.
 - `--geracao`: todas as questões de uma geração por IA (a ordem de criação é só aproximada; quando a ordem importar, use `--ids` na ordem devolvida por `salvar_questoes`).
-- Grava em `folhas/` (ignorada pelo git): `AAAA-MM-DD-<titulo>.docx` e `AAAA-MM-DD-<titulo>-gabarito.docx`, e imprime os dois caminhos.
+- Grava em `folhas/` (ignorada pelo git): `AAAA-MM-DD-<titulo>.docx` (data local) e `AAAA-MM-DD-<titulo>-gabarito.docx`, e imprime os dois caminhos.
 - Avisa quando uma questão tem figura ou formatação especial que o .docx não reproduz.
 - Lê `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` do `.env.local` (somente leitura no banco).
 

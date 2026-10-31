@@ -41,6 +41,38 @@ test("folhaAluno e folhaGabarito geram .docx (zip)", async () => {
   for (const b of [await folhaAluno(d), await folhaGabarito(d)]) assert.equal(b.subarray(0, 2).toString(), "PK");
 });
 
+async function documentoXml(b: Buffer): Promise<string> {
+  const { default: JSZip } = await import("jszip");
+  const zip = await JSZip.loadAsync(b);
+  const arquivo = zip.file("word/document.xml");
+  assert.ok(arquivo, "word/document.xml ausente");
+  return arquivo.async("string");
+}
+
+test("folha do aluno: questão numerada, identificação e fontes", async () => {
+  const d = {
+    titulo: "Tarefa de Matemática — Porcentagem",
+    subtitulo: "9º ano",
+    escola: "Colégio Status",
+    logo: null,
+    questoes: [qf("Quanto é 2²?"), qf("Quanto é 3²?")],
+  };
+  const xml = await documentoXml(await folhaAluno(d));
+  for (const t of ["QUESTÃO 01", "QUESTÃO 02", "Aluno(a)", "Cambria", "Calibri", "MATEMÁTICA", "questões 01 a 02", "9º ano"]) {
+    assert.ok(xml.includes(t), `faltou "${t}"`);
+  }
+  assert.ok(xml.includes("TAREFA DE MATEMÁTICA — PORCENTAGEM"));
+});
+
+test("gabarito: resposta e sem linhas de identificação", async () => {
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")] };
+  const xml = await documentoXml(await folhaGabarito(d));
+  assert.ok(xml.includes("Resposta"));
+  assert.ok(xml.includes("Gabarito comentado"));
+  assert.ok(xml.includes("QUESTÃO 01"));
+  assert.ok(!xml.includes("Aluno(a)"));
+});
+
 test("avisosDaQuestao", () => {
   assert.deepEqual(avisosDaQuestao({ id: "a", temImagem: false, temConteudo: false }, 1), []);
   assert.match(avisosDaQuestao({ id: "a", temImagem: true, temConteudo: false }, 3)[0], /Questão 3 .*figura/);
