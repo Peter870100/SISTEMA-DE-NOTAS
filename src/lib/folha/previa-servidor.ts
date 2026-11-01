@@ -9,9 +9,14 @@ function dataUrl(png: Buffer): string {
 }
 
 /** Reduz para no máximo 1100 px de largura (sem ampliar) e devolve PNG em data URL. */
-async function reduzida(png: Buffer): Promise<string> {
-  const saida = await sharp(png).resize({ width: LARGURA_MAX, withoutEnlargement: true }).png().toBuffer();
-  return dataUrl(saida);
+async function reduzida(png: Buffer): Promise<string | null> {
+  try {
+    const saida = await sharp(png).resize({ width: LARGURA_MAX, withoutEnlargement: true }).png().toBuffer();
+    return dataUrl(saida);
+  } catch (e) {
+    console.error("dadosPrevia: figura ilegível, vai como indisponível", e);
+    return null;
+  }
 }
 
 /** Converte os dados da folha (Buffers) em dados serializáveis para a pré-visualização. */
