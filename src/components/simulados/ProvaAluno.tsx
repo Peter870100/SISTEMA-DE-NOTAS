@@ -215,7 +215,6 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
   }, [restante, prova.simulado.tipo]);
 
   const q = prova.questoes[atual];
-  const tela = enunciadoNaTela(q.enunciado, q.comando, Array.isArray(q.conteudo?.content), q.imagens.some((i) => i.alvo === "enunciado"));
   const emBranco = prova.questoes.filter((x) => !respostas[x.id]).length;
   const alerta = restante !== null && restante <= 300;
 
@@ -226,6 +225,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
   }
 
   if (!q) return <p className={css.textoPainel}>Nenhuma questão.</p>;
+  const tela = enunciadoNaTela(q.enunciado, q.comando, Array.isArray(q.conteudo?.content), q.imagens.some((i) => i.alvo === "enunciado"));
   return (
     <div className={css.prova} data-prova-aluno>
       {confirmacaoAberta && (
