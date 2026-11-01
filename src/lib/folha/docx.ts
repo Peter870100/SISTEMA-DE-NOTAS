@@ -26,35 +26,16 @@ import {
   type ISectionOptions,
 } from "docx";
 import { markdownParaBlocos, type Segmento } from "@/lib/questoes/markdown";
-import { imagensDoConteudo, type DocConteudo, type NoConteudo } from "@/lib/questoes/conteudo";
-import { celulasTabela, comandoRepetido, numero2, separarCredito } from "./texto";
+import type { NoConteudo } from "@/lib/questoes/conteudo";
+import { itensGabarito, itensProva, temTexto, type FiguraRef, type ItemFolha, type QuestaoBase } from "./estrutura";
+import { numero2 } from "./texto";
 
-export type AlvoFigura = "enunciado" | "A" | "B" | "C" | "D" | "E";
+export type { AlvoFigura } from "./estrutura";
 
 /** Figura já carregada (PNG); `png: null` = indisponível. Largura e altura em px. */
-export type FiguraFolha = {
-  id: string;
-  alvo: AlvoFigura;
-  png: Buffer | null;
-  largura: number;
-  altura: number;
-  alinhamento: "esquerda" | "centro" | "direita";
-};
+export type FiguraFolha = FiguraRef & { png: Buffer | null; largura: number; altura: number };
 
-export type QuestaoFolha = {
-  id: string;
-  enunciado: string;
-  /** Enunciado formatado (TipTap); quando há, substitui o `enunciado` em markdown. */
-  conteudo?: DocConteudo | null;
-  comando: string;
-  alternativas: { letra: string; texto: string; conteudo?: DocConteudo | null }[];
-  resposta: string | null;
-  resolucao: string | null;
-  materia: string;
-  figuras?: FiguraFolha[];
-  /** Ex.: "UFMS 2024". */
-  origem?: string | null;
-};
+export type QuestaoFolha = QuestaoBase<FiguraFolha>;
 
 export type LetraBolinha = "A" | "B" | "C" | "D" | "E";
 
@@ -130,10 +111,6 @@ function rotulo(text: string, o: OpcoesRotulo = {}): TextRun {
 
 function tab(): TextRun {
   return new TextRun({ children: [new Tab()] });
-}
-
-function blocosNaoVazios(blocos: Segmento[][]): Segmento[][] {
-  return blocos.filter((b) => b.some((s) => s.texto.trim()));
 }
 
 /** Parágrafo do texto-base: justificado, recuo de 1ª linha; o 1º ganha respiro sob o título. */
@@ -486,21 +463,6 @@ function tituloQuestao(n: number, primeiraDoBloco: boolean): Table {
 }
 
 type Bloco = Paragraph | Table;
-type PorQuestao = (q: QuestaoFolha, n: number, primeiraDoBloco: boolean) => Bloco[];
-
-/** Põe a faixa da matéria antes de cada bloco de questões seguidas da mesma matéria. */
-function comFaixas(questoes: QuestaoFolha[], porQuestao: PorQuestao): Bloco[] {
-  const saida: Bloco[] = [];
-  let i = 0;
-  while (i < questoes.length) {
-    let fim = i;
-    while (fim + 1 < questoes.length && questoes[fim + 1].materia === questoes[i].materia) fim++;
-    saida.push(faixaMateria(questoes[i].materia, i + 1, fim + 1, i === 0));
-    for (let k = i; k <= fim; k++) saida.push(...porQuestao(questoes[k], k + 1, k === i));
-    i = fim + 1;
-  }
-  return saida;
-}
 
 // ---------- conteúdo formatado (TipTap) e figuras ----------
 
@@ -539,10 +501,6 @@ function runsConteudo(nos: NoConteudo[] | undefined, quebraViraEspaco = false): 
     }
   }
   return saida;
-}
-
-function temTexto(no: NoConteudo): boolean {
-  return (no.content ?? []).some((n) => n.type === "text" && !!n.text?.trim());
 }
 
 function paragrafoConteudo(no: NoConteudo, primeiro: boolean): Paragraph {
@@ -617,51 +575,34 @@ function paragrafosFigura(
   return saida;
 }
 
-/** Blocos do enunciado formatado: parágrafos, linha, caixa (tabela 1 × 1) e figuras. */
-function blocosDoConteudo(doc: DocConteudo, figuras: FiguraFolha[]): Bloco[] {
-  const saida: Bloco[] = [];
-  let primeiro = true;
-  for (const n of doc.content ?? []) {
-    if (n.type === "paragraph") {
-      if (!temTexto(n)) continue;
-      saida.push(paragrafoConteudo(n, primeiro));
-    } else if (n.type === "horizontalRule") {
-      saida.push(new Paragraph({ border: { bottom: { ...FIO_FINO, space: 1 } }, spacing: { before: 40, after: 80 }, children: [] }));
-    } else if (n.type === "caixa") {
-      const ps = (n.content ?? []).filter((p) => p.type === "paragraph" && temTexto(p));
-      if (!ps.length) continue;
-      saida.push(
-        new Table({
-          width: { size: LARGURA_COLUNA, type: WidthType.DXA },
-          columnWidths: [LARGURA_COLUNA],
-          layout: TableLayoutType.FIXED,
-          borders: { top: FIO_FINO, bottom: FIO_FINO, left: FIO_FINO, right: FIO_FINO, insideHorizontal: SEM_BORDA, insideVertical: SEM_BORDA },
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({
-                  width: { size: LARGURA_COLUNA, type: WidthType.DXA },
-                  margins: { left: cm(0.15), right: cm(0.15), top: 40, bottom: 40 },
-                  children: ps.map((p) => paragrafoConteudo(p, false)),
-                }),
-              ],
-            }),
-          ],
-        }),
-        new Paragraph({ children: [], spacing: { after: 40 } }),
-      );
-    } else if (n.type === "figura") {
-      const id = n.attrs?.imagemId;
-      const f = typeof id === "string" ? figuras.find((x) => x.id === id) : undefined;
-      const al = n.attrs?.alinhamento;
-      const legenda = typeof n.attrs?.legenda === "string" ? n.attrs.legenda.trim() : "";
-      saida.push(...paragrafosFigura(f, { alinhamento: typeof al === "string" ? al : undefined, legenda }));
-    } else {
-      continue;
-    }
-    primeiro = false;
+/** Parágrafo, linha ou caixa (tabela 1 × 1) do enunciado formatado. */
+function blocosNoConteudo(no: NoConteudo, primeiro: boolean): Bloco[] {
+  if (no.type === "horizontalRule") {
+    return [new Paragraph({ border: { bottom: { ...FIO_FINO, space: 1 } }, spacing: { before: 40, after: 80 }, children: [] })];
   }
-  return saida;
+  if (no.type === "caixa") {
+    return [
+      new Table({
+        width: { size: LARGURA_COLUNA, type: WidthType.DXA },
+        columnWidths: [LARGURA_COLUNA],
+        layout: TableLayoutType.FIXED,
+        borders: { top: FIO_FINO, bottom: FIO_FINO, left: FIO_FINO, right: FIO_FINO, insideHorizontal: SEM_BORDA, insideVertical: SEM_BORDA },
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({
+                width: { size: LARGURA_COLUNA, type: WidthType.DXA },
+                margins: { left: cm(0.15), right: cm(0.15), top: 40, bottom: 40 },
+                children: (no.content ?? []).map((p) => paragrafoConteudo(p, false)),
+              }),
+            ],
+          }),
+        ],
+      }),
+      new Paragraph({ children: [], spacing: { after: 40 } }),
+    ];
+  }
+  return [paragrafoConteudo(no, primeiro)];
 }
 
 /** "UFMS 2024" em cinza, pequeno, à direita (sozinho; com crédito vai no parágrafo dele). */
@@ -669,10 +610,8 @@ function runOrigem(origem: string, quebraAntes: boolean): TextRun {
   return new TextRun({ text: origem, font: FONTE_QUESTAO, size: PEQUENO, color: CINZA, break: quebraAntes ? 1 : undefined });
 }
 
-function avisoFinal(texto: string | null | undefined): Paragraph[] {
-  const t = texto?.trim();
-  if (!t) return [];
-  return [new Paragraph({ spacing: { before: 240, after: 0 }, children: [rotulo(t, { size: PEQUENO, italics: true, color: CINZA })] })];
+function avisoFinal(texto: string): Paragraph {
+  return new Paragraph({ spacing: { before: 240, after: 0 }, children: [rotulo(texto, { size: PEQUENO, italics: true, color: CINZA })] });
 }
 
 // ---------- folha do aluno ----------
@@ -694,46 +633,6 @@ function alternativa(a: Alternativa, bolinhas: DadosFolha["bolinhas"]): Paragrap
     spacing: { after: 60 },
     children: [marcaLetra(a.letra, bolinhas), tab(), ...runsAlternativa(a)],
   });
-}
-
-/** Enunciado: formatado (`conteudo`) ou markdown com crédito separado; figuras soltas vão depois do texto. */
-function blocosEnunciado(q: QuestaoFolha): { textos: Bloco[]; credito: string | null; soltas: FiguraFolha[] } {
-  const doEnunciado = (q.figuras ?? []).filter((f) => f.alvo === "enunciado");
-  if (q.conteudo?.content) {
-    const usadas = new Set(imagensDoConteudo(q.conteudo));
-    return {
-      textos: blocosDoConteudo(q.conteudo, doEnunciado),
-      credito: null,
-      soltas: doEnunciado.filter((f) => !usadas.has(f.id)),
-    };
-  }
-  const { corpo, credito } = separarCredito(q.enunciado);
-  return { textos: blocosComTabelas(blocosNaoVazios(corpo), doEnunciado.length > 0), credito, soltas: doEnunciado };
-}
-
-/**
- * Parágrafos do texto antigo; linhas seguidas de tabela em markdown viram uma tabela do Word. Com figura no
- * enunciado a tabela sai: na importação ela costuma ser a própria figura recortada, e sairia duas vezes.
- */
-function blocosComTabelas(linhas: Segmento[][], temFigura: boolean): Bloco[] {
-  const saida: Bloco[] = [];
-  let tabela: string[][] = [];
-  let paragrafos = 0;
-  const fecharTabela = () => {
-    if (tabela.length && !temFigura) saida.push(tabelaMarkdown(tabela), new Paragraph({ children: [], spacing: { after: 40 } }));
-    tabela = [];
-  };
-  for (const linha of linhas) {
-    const celulas = celulasTabela(linha.map((seg) => seg.texto).join(""));
-    if (celulas) {
-      if (celulas.length) tabela.push(celulas);
-      continue;
-    }
-    fecharTabela();
-    saida.push(paragrafoTexto(linha, paragrafos++));
-  }
-  fecharTabela();
-  return saida;
 }
 
 /** Tabela simples com fio fino; a primeira linha (cabeçalho) em negrito. */
@@ -762,82 +661,82 @@ function tabelaMarkdown(linhas: string[][]): Table {
   });
 }
 
-function paragrafosQuestao(bolinhas: DadosFolha["bolinhas"]): PorQuestao {
-  return (q, n, primeiraDoBloco) => {
-    const { textos, credito, soltas } = blocosEnunciado(q);
-    const origem = q.origem?.trim() || null;
-    const saida: Bloco[] = [tituloQuestao(n, primeiraDoBloco)];
-    saida.push(...textos);
-    for (const f of soltas) saida.push(...paragrafosFigura(f));
-    if (credito || origem) {
-      saida.push(
+function credito(texto: string | null, origem: string | null): Paragraph {
+  return new Paragraph({
+    alignment: AlignmentType.RIGHT,
+    children: [
+      ...(texto ? runs(markdownParaBlocos(texto)[0] ?? [], { size: PEQUENO }) : []),
+      ...(origem ? [runOrigem(origem, !!texto)] : []),
+    ],
+    spacing: { after: 60 },
+  });
+}
+
+function resposta(letra: string | null, bolinhas: DadosFolha["bolinhas"]): Paragraph {
+  return new Paragraph({
+    spacing: { before: 60, after: 40 },
+    children: [textoQuestao("Resposta: ", { bold: true }), letra ? marcaLetra(letra, bolinhas) : textoQuestao("—")],
+  });
+}
+
+/** Desenha um item da estrutura comum (`./estrutura`) com os blocos do Word. */
+function blocosItem(item: ItemFolha<FiguraFolha>, bolinhas: DadosFolha["bolinhas"]): Bloco[] {
+  switch (item.tipo) {
+    case "faixa":
+      return [faixaMateria(item.materia, item.de, item.ate, item.primeira)];
+    case "titulo":
+      return [tituloQuestao(item.numero, item.primeiraDoBloco)];
+    case "paragrafo":
+      return [paragrafoTexto(item.segmentos, item.indice)];
+    case "tabela":
+      return [tabelaMarkdown(item.linhas), new Paragraph({ children: [], spacing: { after: 40 } })];
+    case "noConteudo":
+      return blocosNoConteudo(item.no, item.primeiro);
+    case "figura":
+      return paragrafosFigura(item.figura, {
+        alinhamento: item.alinhamento,
+        legenda: item.legenda,
+        recuo: item.naAlternativa ? RECUO_ALTERNATIVA : undefined,
+      });
+    case "credito":
+      return [credito(item.credito, item.origem)];
+    case "comando":
+      return [
         new Paragraph({
-          alignment: AlignmentType.RIGHT,
-          children: [
-            ...(credito ? runs(markdownParaBlocos(credito)[0] ?? [], { size: PEQUENO }) : []),
-            ...(origem ? [runOrigem(origem, !!credito)] : []),
-          ],
-          spacing: { after: 60 },
-        }),
-      );
-    }
-    const comando = comandoRepetido(q.enunciado, q.comando) ? "" : q.comando;
-    blocosNaoVazios(markdownParaBlocos(comando)).forEach((bloco, i) => {
-      saida.push(
-        new Paragraph({
-          children: runs(bloco),
+          children: runs(item.segmentos),
           alignment: AlignmentType.JUSTIFIED,
-          spacing: { before: i === 0 ? (textos.length ? 60 : 100) : 0, after: 60 },
+          spacing: { before: item.indice === 0 ? (item.comTexto ? 60 : 100) : 0, after: 60 },
         }),
-      );
-    });
-    for (const a of q.alternativas) {
-      saida.push(alternativa(a, bolinhas));
-      const letra = a.letra.trim().toUpperCase();
-      for (const f of q.figuras ?? []) {
-        if (f.alvo === letra) saida.push(...paragrafosFigura(f, { alinhamento: "esquerda", recuo: RECUO_ALTERNATIVA }));
-      }
-    }
-    return saida;
-  };
+      ];
+    case "alternativa":
+      return [alternativa(item, bolinhas)];
+    case "resolucao":
+      return [
+        new Paragraph({
+          children: runs(item.segmentos),
+          alignment: AlignmentType.JUSTIFIED,
+          spacing: { before: item.indice === 0 ? 100 : 0, after: 40 },
+        }),
+      ];
+    case "resposta":
+      return [resposta(item.letra, bolinhas)];
+    case "aviso":
+      return [avisoFinal(item.texto)];
+  }
+}
+
+function desenhar(itens: ItemFolha<FiguraFolha>[], bolinhas: DadosFolha["bolinhas"]): Bloco[] {
+  return itens.flatMap((item) => blocosItem(item, bolinhas));
 }
 
 export async function folhaAluno(d: DadosFolha): Promise<Buffer> {
   const topo = cabecalho(d, d.subtitulo?.trim() || null, true);
-  const corpo = [...comFaixas(d.questoes, paragrafosQuestao(d.bolinhas)), ...avisoFinal(d.avisoFinal)];
-  return montar(d, "caderno de questões", topo, corpo);
+  return montar(d, "caderno de questões", topo, desenhar(itensProva(d.questoes, d.avisoFinal), d.bolinhas));
 }
 
 // ---------- gabarito (resoluções) ----------
 
-function paragrafosResolucao(bolinhas: DadosFolha["bolinhas"]): PorQuestao {
-  return (q, n, primeiraDoBloco) => {
-    const saida: Bloco[] = [tituloQuestao(n, primeiraDoBloco)];
-    blocosNaoVazios(markdownParaBlocos(q.resolucao ?? "")).forEach((bloco, i) => {
-      saida.push(
-        new Paragraph({
-          children: runs(bloco),
-          alignment: AlignmentType.JUSTIFIED,
-          spacing: { before: i === 0 ? 100 : 0, after: 40 },
-        }),
-      );
-    });
-    const resposta = q.resposta?.trim() || null;
-    saida.push(
-      new Paragraph({
-        spacing: { before: 60, after: 40 },
-        children: [
-          textoQuestao("Resposta: ", { bold: true }),
-          resposta ? marcaLetra(resposta, bolinhas) : textoQuestao("—"),
-        ],
-      }),
-    );
-    return saida;
-  };
-}
-
 export async function folhaGabarito(d: DadosFolha): Promise<Buffer> {
   const topo = cabecalho(d, "Gabarito comentado", false);
-  const corpo = [...comFaixas(d.questoes, paragrafosResolucao(d.bolinhas)), ...avisoFinal(d.avisoFinal)];
-  return montar(d, "gabarito comentado", topo, corpo);
+  return montar(d, "gabarito comentado", topo, desenhar(itensGabarito(d.questoes, d.avisoFinal), d.bolinhas));
 }
