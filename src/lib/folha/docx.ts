@@ -27,7 +27,7 @@ import {
 } from "docx";
 import { markdownParaBlocos, type Segmento } from "@/lib/questoes/markdown";
 import { imagensDoConteudo, type DocConteudo, type NoConteudo } from "@/lib/questoes/conteudo";
-import { numero2, separarCredito } from "./texto";
+import { celulasTabela, comandoRepetido, numero2, separarCredito } from "./texto";
 
 export type AlvoFigura = "enunciado" | "A" | "B" | "C" | "D" | "E";
 
@@ -708,7 +708,58 @@ function blocosEnunciado(q: QuestaoFolha): { textos: Bloco[]; credito: string | 
     };
   }
   const { corpo, credito } = separarCredito(q.enunciado);
-  return { textos: blocosNaoVazios(corpo).map(paragrafoTexto), credito, soltas: doEnunciado };
+  return { textos: blocosComTabelas(blocosNaoVazios(corpo), doEnunciado.length > 0), credito, soltas: doEnunciado };
+}
+
+/**
+ * Parágrafos do texto antigo; linhas seguidas de tabela em markdown viram uma tabela do Word. Com figura no
+ * enunciado a tabela sai: na importação ela costuma ser a própria figura recortada, e sairia duas vezes.
+ */
+function blocosComTabelas(linhas: Segmento[][], temFigura: boolean): Bloco[] {
+  const saida: Bloco[] = [];
+  let tabela: string[][] = [];
+  let paragrafos = 0;
+  const fecharTabela = () => {
+    if (tabela.length && !temFigura) saida.push(tabelaMarkdown(tabela), new Paragraph({ children: [], spacing: { after: 40 } }));
+    tabela = [];
+  };
+  for (const linha of linhas) {
+    const celulas = celulasTabela(linha.map((seg) => seg.texto).join(""));
+    if (celulas) {
+      if (celulas.length) tabela.push(celulas);
+      continue;
+    }
+    fecharTabela();
+    saida.push(paragrafoTexto(linha, paragrafos++));
+  }
+  fecharTabela();
+  return saida;
+}
+
+/** Tabela simples com fio fino; a primeira linha (cabeçalho) em negrito. */
+function tabelaMarkdown(linhas: string[][]): Table {
+  const colunas = Math.max(...linhas.map((l) => l.length));
+  const largura = Math.floor(LARGURA_COLUNA / colunas);
+  return new Table({
+    width: { size: largura * colunas, type: WidthType.DXA },
+    columnWidths: Array(colunas).fill(largura),
+    layout: TableLayoutType.FIXED,
+    borders: TableBorders.NONE,
+    rows: linhas.map(
+      (l, i) =>
+        new TableRow({
+          children: Array.from({ length: colunas }, (_, c) =>
+            new TableCell({
+              width: { size: largura, type: WidthType.DXA },
+              borders: { top: FIO_FINO, bottom: FIO_FINO, left: FIO_FINO, right: FIO_FINO },
+              shading: i === 0 ? { type: ShadingType.CLEAR, color: "auto", fill: FUNDO } : undefined,
+              margins: { left: cm(0.1), right: cm(0.1), top: 20, bottom: 20 },
+              children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [textoQuestao(l[c] ?? "", { size: PEQUENO + 1, bold: i === 0 })] })],
+            }),
+          ),
+        }),
+    ),
+  });
 }
 
 function paragrafosQuestao(bolinhas: DadosFolha["bolinhas"]): PorQuestao {
@@ -730,7 +781,8 @@ function paragrafosQuestao(bolinhas: DadosFolha["bolinhas"]): PorQuestao {
         }),
       );
     }
-    blocosNaoVazios(markdownParaBlocos(q.comando)).forEach((bloco, i) => {
+    const comando = comandoRepetido(q.enunciado, q.comando) ? "" : q.comando;
+    blocosNaoVazios(markdownParaBlocos(comando)).forEach((bloco, i) => {
       saida.push(
         new Paragraph({
           children: runs(bloco),

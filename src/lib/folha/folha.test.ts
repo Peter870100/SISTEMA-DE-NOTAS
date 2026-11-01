@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ehCredito, numero2, separarCredito } from "./texto";
+import { celulasTabela, comandoRepetido, ehCredito, numero2, separarCredito } from "./texto";
 import { avisosDaQuestao } from "./avisos";
 import { folhaAluno, folhaGabarito, type FiguraFolha, type QuestaoFolha } from "./docx";
 
@@ -203,3 +203,36 @@ test("origem e aviso final", async () => {
   assert.ok(aluno.includes("Prova gerada pelo Status Avalia"));
   assert.ok(gabarito.includes("Prova gerada pelo Status Avalia"));
 });
+
+test("comandoRepetido: enunciado que já termina com o comando", () => {
+  assert.equal(comandoRepetido("Texto longo. Dessa forma, é **correto** afirmar que", "Dessa forma, é correto  afirmar que"), true);
+  assert.equal(comandoRepetido("Texto sobre a ferrovia?**", "a ferrovia?"), true);
+  assert.equal(comandoRepetido("Texto qualquer.", "Assinale a alternativa correta."), false);
+  assert.equal(comandoRepetido("Texto.", ""), false);
+});
+test("celulasTabela: linha de tabela em markdown", () => {
+  assert.deepEqual(celulasTabela("| Trecho | Tempo (min) |"), ["Trecho", "Tempo (min)"]);
+  assert.deepEqual(celulasTabela("|---|:---:|"), []);
+  assert.equal(celulasTabela("Texto com | barra no meio"), null);
+});
+const TABELA = ["A tabela mostra os dados.", "| Trecho | Tempo |", "|---|---|", "| 0 a 1 km | 06:30 |", "Texto depois."].join("\n");
+test("tabela em markdown vira tabela do Word, sem as barras", async () => {
+  const xml = await xmlAluno({ ...qf(TABELA), comando: "" });
+  assert.ok(xml.includes("06:30"));
+  assert.ok(!xml.includes("|"), "sobrou barra da tabela");
+  assert.ok(!xml.includes("---"));
+  assert.ok(xml.indexOf("A tabela mostra") < xml.indexOf("06:30") && xml.indexOf("06:30") < xml.indexOf("Texto depois."));
+});
+test("tabela em markdown some quando a questão já tem a figura do enunciado", async () => {
+  const xml = await xmlAluno({ ...qf(TABELA), figuras: [{ id: "f1", alvo: "enunciado", png: PNG_1X1, largura: 100, altura: 50, alinhamento: "centro" }] });
+  assert.ok(!xml.includes("06:30"));
+  assert.ok(xml.includes("Texto depois."));
+});
+test("comando repetido no fim do enunciado não sai duas vezes", async () => {
+  const xml = await xmlAluno({ ...qf("Um texto. Assinale a alternativa correta."), comando: "Assinale a alternativa correta." });
+  assert.equal(xml.split("Assinale a alternativa correta.").length - 1, 1);
+});
+
+async function xmlAluno(q: QuestaoFolha): Promise<string> {
+  return documentoXml(await folhaAluno({ titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [q] }));
+}
