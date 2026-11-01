@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase/client";
 import { podeEditarQuestao, podeVerQuestao } from "@/lib/questoes/acesso";
 import { imagensParaTela } from "@/lib/questoes/consultas";
 import { letrasVisiveis } from "@/lib/questoes/materias";
-import { comandoParaMostrar } from "@/lib/questoes/markdown";
+import { enunciadoNaTela } from "@/lib/questoes/markdown";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { EditorQuestao } from "@/components/questoes/EditorQuestao";
 import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
@@ -26,6 +26,7 @@ export default async function QuestaoPage({ params }: { params: Promise<{ id: st
   const [imagens, { data: assuntos }] = await Promise.all([imagensParaTela([id]), supabase.from("assuntos").select("*").order("nome")]);
   const imgs = imagens.get(id) ?? [];
   const edita = podeEditarQuestao(professor, q);
+  const tela = enunciadoNaTela(q.enunciado, q.comando, Array.isArray(q.conteudo?.content), imgs.some((i) => i.alvo === "enunciado"));
 
   return (
     <PageLayout crumb="Banco de questões" titulo={`${q.banca} ${q.ano ?? ""} · Nº ${q.numero ?? "—"}`} largura="max-w-6xl"
@@ -37,8 +38,8 @@ export default async function QuestaoPage({ params }: { params: Promise<{ id: st
       <section className={edita ? undefined : `${estilos.card} p-4`}>
         {edita ? <EditorQuestao questao={q} imagens={imgs} assuntos={assuntos ?? []} podeEscolherGeral={false} /> : (
           <div className="flex flex-col gap-3">
-            <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={q.enunciado} imagens={imgs} />
-            {comandoParaMostrar(q.enunciado, q.comando) && <p className="text-sm font-medium text-ink">{q.comando}</p>}
+            <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={tela.texto} imagens={imgs} />
+            {tela.comando && <p className="text-sm font-medium text-ink">{tela.comando}</p>}
             <ol className="flex flex-col gap-2">{letrasVisiveis(q.alternativas, new Set(imgs.map((i) => i.alvo))).map((l) => (
               <li key={l} className={`rounded-control border p-2 text-sm ${q.resposta === l ? "border-ok bg-ok/10" : "border-line"}`}>
                 <strong>{l})</strong> {(() => { const alt = q.alternativas.find((a) => a.letra === l); return <TextoAlternativa doc={alt?.conteudo ?? null} texto={alt?.texto ?? ""} />; })()}

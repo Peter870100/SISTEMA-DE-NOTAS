@@ -7,7 +7,7 @@ import { CheckCircle2, Loader2, Pencil, Sparkles, Trash2, TriangleAlert } from "
 import { gerarQuestoes } from "@/actions/geracao";
 import { excluirQuestao, publicarQuestao } from "@/actions/questoes";
 import type { ResultadoGeracao } from "@/lib/questoes/geracao-servidor";
-import { comandoParaMostrar } from "@/lib/questoes/markdown";
+import { enunciadoNaTela } from "@/lib/questoes/markdown";
 import { LETRAS, MATERIAS } from "@/lib/questoes/materias";
 import type { Assunto } from "@/lib/types";
 import { estilos } from "@/components/ui/estilos";
@@ -126,6 +126,8 @@ export function GeradorQuestoes({ assuntos, iaOk, restante, ehDono, base }: Prop
           <ul className={css.lista}>
             {resultado.questoes.map((q, i) => {
               const estado = estados[q.id] ?? "gerada";
+              // Sem imagens na tela do gerador: comando como antes (some quando repetido).
+              const tela = enunciadoNaTela(q.enunciado, q.comando, Array.isArray(q.conteudo?.content), false);
               return (
                 <li key={q.id} className={css.cartao} data-estado={estado}>
                   <div className={css.topo}>
@@ -135,8 +137,8 @@ export function GeradorQuestoes({ assuntos, iaOk, restante, ehDono, base }: Prop
                     {estado === "gerada" && <span className={css.selo}>Em revisão</span>}
                   </div>
                   {q.precisa_revisao && <p className={css.alerta}><TriangleAlert size={16} aria-hidden="true" />{q.motivo_revisao || "Conferir esta questão antes de publicar."}</p>}
-                  <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={q.enunciado} imagens={[]} />
-                  {comandoParaMostrar(q.enunciado, q.comando) && <p className={css.comando}>{q.comando}</p>}
+                  <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={tela.texto} imagens={[]} />
+                  {tela.comando && <p className={css.comando}>{tela.comando}</p>}
                   <ol className={css.alts}>
                     {LETRAS.map((l) => {
                       const alt = q.alternativas.find((a) => a.letra === l);

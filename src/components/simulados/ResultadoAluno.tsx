@@ -4,7 +4,7 @@ import { BookOpen, Target } from "lucide-react";
 import type { ResultadoAluno as Resultado } from "@/actions/simulados-aluno";
 import type { QuestaoAluno } from "@/lib/simulados/servidor";
 import { AREAS, letrasVisiveis } from "@/lib/questoes/materias";
-import { comandoParaMostrar } from "@/lib/questoes/markdown";
+import { enunciadoNaTela } from "@/lib/questoes/markdown";
 import { formatarDuracao } from "@/lib/simulados/regras";
 import type { Area } from "@/lib/types";
 import { ImagemIndisponivel, ImagemQuestao } from "@/components/questoes/ImagemQuestao";
@@ -107,6 +107,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
         <ol className={css.lista}>
           {resultado.itens.map((it, i) => {
             const q = porId.get(it.questaoId);
+            const tela = q && enunciadoNaTela(q.enunciado, q.comando, Array.isArray(q.conteudo?.content), q.imagens.some((im) => im.alvo === "enunciado"));
             const estado = it.anulada ? "anulada" : it.correta ? "certa" : "errada";
             return (
               <li key={it.questaoId} className={`${css.item} cartao-interativo`} data-estado={estado} style={vars({ "--i": Math.min(i, 15) })}>
@@ -125,12 +126,12 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
                     </span>
                   )}
                 </div>
-                {q && (
+                {q && tela && (
                   <details className={css.detalhes}>
                     <summary>Ver questão</summary>
                     <div className={css.corpo}>
-                      <ConteudoQuestao doc={q.conteudo} textoAntigo={q.enunciado} imagens={q.imagens} aviso={q.faltaImagem ? <ImagemIndisponivel /> : null} />
-                      {comandoParaMostrar(q.enunciado, q.comando) && <p className={css.comando}>{q.comando}</p>}
+                      <ConteudoQuestao doc={q.conteudo} textoAntigo={tela.texto} imagens={q.imagens} aviso={q.faltaImagem ? <ImagemIndisponivel /> : null} />
+                      {tela.comando && <p className={css.comando}>{tela.comando}</p>}
                       <ul className={css.alternativas}>
                         {letrasVisiveis(q.alternativas, new Set(q.imagens.map((im) => im.alvo))).map((l) => {
                           const tipo = it.certa === l ? css.altCerta : it.marcada === l ? css.altErrada : "";

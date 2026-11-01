@@ -104,3 +104,31 @@ test("gabarito: título, resoluções e resposta", () => {
   assert.deepEqual(itens.at(-1), { tipo: "resposta", letra: "B" });
   assert.deepEqual(itensGabarito([questao("a", { resposta: " ", resolucao: null })]).at(-1), { tipo: "resposta", letra: null });
 });
+
+test("comando repetido com figura no enunciado: texto, figura, crédito e só então o comando", () => {
+  const f: FiguraRef = { id: "f1", alvo: "enunciado", alinhamento: "centro" };
+  const q = questao("Um texto.\nSILVA, J. Livro. Acesso em: 1 jan. 2024.\n**Assinale a alternativa correta.**", {
+    figuras: [f], origem: "UFGD 2023",
+  });
+  const itens = itensProva([q]);
+  assert.deepEqual(tipos(itens), ["faixa", "titulo", "paragrafo", "figura", "credito", "comando", ...ALTERNATIVAS]);
+  assert.deepEqual(itens[2], { tipo: "paragrafo", segmentos: [{ texto: "Um texto.", negrito: false, italico: false }], indice: 0 });
+  assert.deepEqual(itens[5], { tipo: "comando", segmentos: [{ texto: "Assinale a alternativa correta.", negrito: false, italico: false }], indice: 0, comTexto: true });
+});
+
+test("comando repetido em parágrafo em negrito com figura: o resto do parágrafo continua em negrito", () => {
+  const f: FiguraRef = { id: "f1", alvo: "enunciado", alinhamento: "centro" };
+  const q = questao("Uma ferrovia.\n**Se cada trilho mede 12 m, quantos trilhos?**", { comando: "quantos trilhos?", figuras: [f] });
+  const itens = itensProva([q]);
+  assert.deepEqual(tipos(itens), ["faixa", "titulo", "paragrafo", "paragrafo", "figura", "comando", ...ALTERNATIVAS]);
+  assert.deepEqual(itens[3], { tipo: "paragrafo", segmentos: [{ texto: "Se cada trilho mede 12 m,", negrito: true, italico: false }], indice: 1 });
+});
+
+test("comando repetido com conteúdo formatado continua sem item comando", () => {
+  const f: FiguraRef = { id: "f1", alvo: "enunciado", alinhamento: "centro" };
+  const q = questao("Um texto. Assinale a alternativa correta.", {
+    conteudo: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Um texto. Assinale a alternativa correta." }] }] },
+    figuras: [f],
+  });
+  assert.deepEqual(tipos(itensProva([q])), ["faixa", "titulo", "noConteudo", "figura", ...ALTERNATIVAS]);
+});

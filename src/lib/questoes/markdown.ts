@@ -48,6 +48,69 @@ export function comandoParaMostrar(enunciado: string, comando: string): string {
   return comandoRepetido(enunciado, comando) ? "" : comando;
 }
 
+/** Texto normalizado como em `normalizar`, com a posição no texto original de cada caractere. */
+function normalizarComPosicoes(s: string): { texto: string; posicoes: number[] } {
+  let texto = "";
+  const posicoes: number[] = [];
+  let espaco = -1;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === "*") continue;
+    if (/\s/.test(ch)) {
+      if (espaco < 0) espaco = i;
+      continue;
+    }
+    if (espaco >= 0 && texto) {
+      texto += " ";
+      posicoes.push(espaco);
+    }
+    espaco = -1;
+    for (const c of ch.toLocaleLowerCase("pt-BR")) {
+      texto += c;
+      posicoes.push(i);
+    }
+  }
+  return { texto, posicoes };
+}
+
+/** Fecha (ou, sem jeito, tira) as marcas `**` e `*` que ficaram abertas na linha. */
+function fecharMarcas(linha: string): string {
+  let l = linha.replace(/[\s*]+$/, "");
+  for (let i = 0; i < 3; i++) {
+    const sobra = l.replace(/\*\*([^*]+)\*\*|\*([^*]+)\*/g, "x");
+    if (!sobra.includes("*")) return l;
+    l = l.replace(/\s+$/, "") + (sobra.includes("**") ? "**" : "*");
+  }
+  return l.replace(/\*/g, "");
+}
+
+/**
+ * Enunciado que termina com o comando (mesma comparação de `comandoRepetido`): devolve o texto sem
+ * essa parte final, com as marcas de negrito/itálico fechadas, e o comando. Senão, null.
+ */
+export function separarComando(enunciado: string, comando: string): { texto: string; comando: string } | null {
+  const c = normalizar(comando ?? "");
+  if (!c) return null;
+  const bruto = enunciado ?? "";
+  const { texto, posicoes } = normalizarComPosicoes(bruto);
+  if (!texto.endsWith(c)) return null;
+  const corte = posicoes[texto.length - c.length];
+  const linhas = bruto.slice(0, corte).replace(/\s+$/, "").split(/\r?\n/);
+  linhas[linhas.length - 1] = fecharMarcas(linhas[linhas.length - 1]);
+  return { texto: linhas.join("\n").replace(/\s+$/, ""), comando: comando.trim() };
+}
+
+/**
+ * Texto e comando a mostrar na tela. Sem enunciado formatado e com figura do enunciado (que vem depois
+ * do texto), o comando repetido no fim sai do texto e vai depois da figura; nos outros casos, como antes.
+ */
+export function enunciadoNaTela(
+  enunciado: string, comando: string, temConteudo: boolean, temFiguraEnunciado: boolean,
+): { texto: string; comando: string } {
+  const separado = !temConteudo && temFiguraEnunciado ? separarComando(enunciado, comando) : null;
+  return separado ?? { texto: enunciado, comando: comandoParaMostrar(enunciado, comando) };
+}
+
 export type ParteTexto = { tipo: "linha"; segmentos: Segmento[] } | { tipo: "tabela"; linhas: string[][] };
 
 /** Linhas do markdown com as linhas seguidas de tabela ("| a | b |") juntas numa tabela; `semTabelas` as descarta. */

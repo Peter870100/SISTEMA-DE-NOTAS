@@ -1,6 +1,6 @@
 // O que vai na folha (prova e gabarito), em ordem, sem desenhar nada: o .docx (`./docx`) e a
 // pré-visualização no navegador desenham a mesma lista. Puro: sem a biblioteca `docx` nem `Buffer`.
-import { markdownParaBlocos, type Segmento } from "@/lib/questoes/markdown";
+import { enunciadoNaTela, markdownParaBlocos, type Segmento } from "@/lib/questoes/markdown";
 import { imagensDoConteudo, type DocConteudo, type NoConteudo } from "@/lib/questoes/conteudo";
 import { celulasTabela, comandoRepetido, separarCredito } from "./texto";
 
@@ -131,24 +131,32 @@ function itensComTabelas<F>(linhas: Segmento[][], temFigura: boolean): ItemFolha
   return saida;
 }
 
-/** Enunciado: formatado (`conteudo`) ou markdown com crédito separado; figuras soltas vão depois do texto. */
-function enunciado<F extends FiguraRef>(q: QuestaoBase<F>): { textos: ItemFolha<F>[]; credito: string | null; soltas: F[] } {
+/**
+ * Enunciado: formatado (`conteudo`) ou markdown com crédito separado; figuras soltas vão depois do texto.
+ * No markdown com figura, o comando repetido no fim do texto sai dele e vai depois da figura.
+ */
+function enunciado<F extends FiguraRef>(q: QuestaoBase<F>): { textos: ItemFolha<F>[]; credito: string | null; soltas: F[]; comando: string } {
   const doEnunciado = (q.figuras ?? []).filter((f) => f.alvo === "enunciado");
   if (q.conteudo?.content) {
     const usadas = new Set(imagensDoConteudo(q.conteudo));
-    return { textos: itensDoConteudo(q.conteudo, doEnunciado), credito: null, soltas: doEnunciado.filter((f) => !usadas.has(f.id)) };
+    return {
+      textos: itensDoConteudo(q.conteudo, doEnunciado),
+      credito: null,
+      soltas: doEnunciado.filter((f) => !usadas.has(f.id)),
+      comando: comandoRepetido(q.enunciado, q.comando) ? "" : q.comando,
+    };
   }
-  const { corpo, credito } = separarCredito(q.enunciado);
-  return { textos: itensComTabelas<F>(blocosNaoVazios(corpo), doEnunciado.length > 0), credito, soltas: doEnunciado };
+  const tela = enunciadoNaTela(q.enunciado, q.comando, false, doEnunciado.length > 0);
+  const { corpo, credito } = separarCredito(tela.texto);
+  return { textos: itensComTabelas<F>(blocosNaoVazios(corpo), doEnunciado.length > 0), credito, soltas: doEnunciado, comando: tela.comando };
 }
 
 function itensQuestao<F extends FiguraRef>(q: QuestaoBase<F>, n: number, primeiraDoBloco: boolean): ItemFolha<F>[] {
-  const { textos, credito, soltas } = enunciado(q);
+  const { textos, credito, soltas, comando } = enunciado(q);
   const origem = q.origem?.trim() || null;
   const saida: ItemFolha<F>[] = [{ tipo: "titulo", numero: n, primeiraDoBloco }, ...textos];
   for (const f of soltas) saida.push({ tipo: "figura", figura: f, naAlternativa: false });
   if (credito || origem) saida.push({ tipo: "credito", credito, origem });
-  const comando = comandoRepetido(q.enunciado, q.comando) ? "" : q.comando;
   blocosNaoVazios(markdownParaBlocos(comando)).forEach((segmentos, indice) => {
     saida.push({ tipo: "comando", segmentos, indice, comTexto: textos.length > 0 });
   });

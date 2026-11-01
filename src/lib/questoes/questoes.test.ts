@@ -5,7 +5,7 @@ import { ASSUNTOS_INICIAIS } from "./assuntos-iniciais";
 import { estiloRecorte, limitarQuadro } from "./quadro";
 import { lerPaginas } from "./paginas";
 import { padraoExato } from "./busca";
-import { comandoParaMostrar, markdownParaBlocos, partesDoTexto } from "./markdown";
+import { comandoParaMostrar, enunciadoNaTela, markdownParaBlocos, partesDoTexto, separarComando } from "./markdown";
 import { urlImagemPermitida } from "./enemdev";
 import { progressoDoLote } from "./ia";
 import { respostaParaQuestoes, RespostaPaginaSchema, classificacaoParaAtualizacoes, chaveQuestao } from "./formato-ia";
@@ -327,4 +327,43 @@ test("partesDoTexto: linhas de tabela viram uma tabela", () => {
   assert.deepEqual(p.map((x) => x.tipo), ["linha", "tabela", "linha"]);
   assert.deepEqual(p[1], { tipo: "tabela", linhas: [["A", "B"], ["1", "2"]] });
   assert.deepEqual(partesDoTexto(texto, true).map((x) => x.tipo), ["linha", "linha"]);
+});
+
+test("separarComando: corta o comando repetido no fim do enunciado", () => {
+  assert.deepEqual(
+    separarComando("Um texto longo.\nDessa forma, é **correto** afirmar que,  aproximadamente,", "Dessa forma, é correto afirmar que, aproximadamente,"),
+    { texto: "Um texto longo.", comando: "Dessa forma, é correto afirmar que, aproximadamente," },
+  );
+  assert.deepEqual(separarComando("Texto. ASSINALE a correta.", "Assinale a correta."), { texto: "Texto.", comando: "Assinale a correta." });
+});
+
+test("separarComando: comando dentro de um parágrafo em negrito deixa as marcas fechadas", () => {
+  const r = separarComando(
+    "Uma ferrovia tem 3 km.\n**Se cada trilho mede 12 m, quantos trilhos são necessários para a ferrovia?**",
+    "quantos trilhos são necessários para a ferrovia?",
+  );
+  assert.deepEqual(r, { texto: "Uma ferrovia tem 3 km.\n**Se cada trilho mede 12 m,**", comando: "quantos trilhos são necessários para a ferrovia?" });
+  // Comando que começa logo depois da marca de abertura: a marca solta sai.
+  assert.deepEqual(separarComando("Texto.\n**Quantos trilhos?**", "Quantos trilhos?"), { texto: "Texto.", comando: "Quantos trilhos?" });
+  assert.deepEqual(separarComando("Texto *em itálico, quantos?*", "quantos?"), { texto: "Texto *em itálico,*", comando: "quantos?" });
+  for (const r2 of [r, separarComando("Texto *em itálico, quantos?*", "quantos?")]) {
+    for (const linha of markdownParaBlocos(r2!.texto)) assert.ok(linha.every((s) => !s.texto.includes("*")));
+  }
+});
+
+test("separarComando: sem o comando no fim ou comando vazio devolve null", () => {
+  assert.equal(separarComando("Texto qualquer.", "Assinale a alternativa correta."), null);
+  assert.equal(separarComando("Texto.", ""), null);
+  assert.equal(separarComando("Texto.", "  ** "), null);
+});
+
+test("enunciadoNaTela: com figura e sem conteúdo o comando vai depois da figura", () => {
+  const e = "Texto.\nAssinale a correta.";
+  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", false, true), { texto: "Texto.", comando: "Assinale a correta." });
+  // Sem figura: como antes (comando some quando repetido).
+  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", false, false), { texto: e, comando: "" });
+  // Com conteúdo formatado: como antes.
+  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", true, true), { texto: e, comando: "" });
+  // Comando não repetido: mostra os dois.
+  assert.deepEqual(enunciadoNaTela("Texto.", "Assinale.", false, true), { texto: "Texto.", comando: "Assinale." });
 });

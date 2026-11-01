@@ -7,7 +7,7 @@ import { fecharSaidaPendente, mesclarPresenca, type Presenca } from "@/lib/herme
 import { formatarDuracao, PULSO_SEG, type TemposQuestoes } from "@/lib/simulados/regras";
 import type { Letra } from "@/lib/types";
 import { letrasVisiveis } from "@/lib/questoes/materias";
-import { comandoParaMostrar } from "@/lib/questoes/markdown";
+import { enunciadoNaTela } from "@/lib/questoes/markdown";
 import { ImagemIndisponivel, ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { ConteudoQuestao, TextoAlternativa } from "@/components/questoes/ConteudoQuestao";
 import { estilos } from "@/components/ui/estilos";
@@ -215,6 +215,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
   }, [restante, prova.simulado.tipo]);
 
   const q = prova.questoes[atual];
+  const tela = enunciadoNaTela(q.enunciado, q.comando, Array.isArray(q.conteudo?.content), q.imagens.some((i) => i.alvo === "enunciado"));
   const emBranco = prova.questoes.filter((x) => !respostas[x.id]).length;
   const alerta = restante !== null && restante <= 300;
 
@@ -254,9 +255,9 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       {aviso && <p role="status" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{aviso}</p>}
       <div className={css.layout}><div className="min-w-0"><section id="caderno-questao" className={css.caderno} aria-label={`Questão ${atual + 1}`}>
         <div className={css.cabecalho}><span>Simulado · questões objetivas</span><span>{atual + 1} / {prova.questoes.length}</span></div><div className={css.titulo}><h2>QUESTÃO {String(atual + 1).padStart(2, "0")}</h2><span aria-hidden="true" /></div>
-        <ConteudoQuestao doc={q.conteudo} textoAntigo={q.enunciado} imagens={q.imagens} classeTexto={css.texto} classeFigura={css.figura}
+        <ConteudoQuestao doc={q.conteudo} textoAntigo={tela.texto} imagens={q.imagens} classeTexto={css.texto} classeFigura={css.figura}
           aviso={q.faltaImagem ? <div className={css.figura}><ImagemIndisponivel /></div> : null} />
-        {comandoParaMostrar(q.enunciado, q.comando) && <p className={css.comando}>{q.comando}</p>}
+        {tela.comando && <p className={css.comando}>{tela.comando}</p>}
         <fieldset className={css.alternativas}>
           <legend className="sr-only">Alternativas</legend>
           {letrasVisiveis(q.alternativas, new Set(q.imagens.map((i) => i.alvo))).map((l) => (
