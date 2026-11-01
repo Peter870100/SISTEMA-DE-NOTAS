@@ -1317,3 +1317,31 @@ alter table questoes drop constraint if exists questoes_origem_check;
 alter table questoes add constraint questoes_origem_check
     check (origem in ('pdf', 'enemdev', 'manual', 'ia', 'dataset'));
 NOTIFY pgrst, 'reload schema';
+
+-- ===== Provas em Word (2026-10-31) =====
+create table if not exists provas_word (
+    id uuid primary key default gen_random_uuid(),
+    escola_id uuid not null references escolas(id),
+    professor_id uuid not null references professores(id) on delete cascade,
+    titulo text not null,
+    tipo varchar(8) not null check (tipo in ('fixacao', 'simulado')),
+    filtros jsonb not null default '{}',
+    origem varchar(6) not null check (origem in ('hermes', 'site')),
+    created_at timestamptz not null default now(),
+    excluida_em timestamptz
+);
+create index if not exists idx_provas_word_professor on provas_word (professor_id, created_at desc);
+create table if not exists prova_word_questoes (
+    prova_id uuid not null references provas_word(id) on delete cascade,
+    questao_id uuid not null,            -- sem FK: a lixeira apaga a questão e a prova precisa lembrar
+    ordem integer not null,
+    primary key (prova_id, questao_id)
+);
+create index if not exists idx_prova_word_questoes_questao on prova_word_questoes (questao_id);
+alter table provas_word enable row level security;
+alter table prova_word_questoes enable row level security;
+drop policy if exists "acesso_total_provas_word" on provas_word;
+create policy "acesso_total_provas_word" on provas_word for all using (true) with check (true);
+drop policy if exists "acesso_total_prova_word_questoes" on prova_word_questoes;
+create policy "acesso_total_prova_word_questoes" on prova_word_questoes for all using (true) with check (true);
+NOTIFY pgrst, 'reload schema';
