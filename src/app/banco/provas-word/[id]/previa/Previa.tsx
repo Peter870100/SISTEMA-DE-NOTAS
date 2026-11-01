@@ -311,7 +311,7 @@ export function Previa({
       {pronto && (
         <div className={css.zoom} role="group" aria-label="Zoom da pré-visualização">
           <button type="button" className={css.zoomBotao} aria-label="Diminuir zoom" disabled={porcento <= ZOOM_MIN} onClick={() => setZoom(passoZoom(escala, -1))}>
-            <Minus size={16} aria-hidden="true" />
+            <Minus size={14} aria-hidden="true" />
           </button>
           <input
             type="range"
@@ -325,12 +325,11 @@ export function Previa({
             onChange={(e) => setZoom(Number(e.target.value))}
           />
           <button type="button" className={css.zoomBotao} aria-label="Aumentar zoom" disabled={porcento >= ZOOM_MAX} onClick={() => setZoom(passoZoom(escala, 1))}>
-            <Plus size={16} aria-hidden="true" />
+            <Plus size={14} aria-hidden="true" />
           </button>
           <output className={css.zoomValor} aria-live="polite">{porcento}%</output>
           <button type="button" className={css.zoomAjustar} aria-label="Ajustar à tela" title="Ajustar à tela" aria-pressed={zoom === "ajustar"} onClick={() => setZoom("ajustar")}>
-            <Maximize2 size={16} aria-hidden="true" />
-            <span className={css.zoomAjustarTexto}>Ajustar à tela</span>
+            <Maximize2 size={14} aria-hidden="true" />
           </button>
         </div>
       )}
