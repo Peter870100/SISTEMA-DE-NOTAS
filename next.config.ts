@@ -7,13 +7,18 @@ const DADOS_PDFJS = [
   "./node_modules/pdfjs-dist/wasm/**/*",
 ];
 
+// Logo e bolinhas lidos do disco ao montar as provas em Word (src/lib/folha/provas-word-servidor.ts).
+const ARQUIVOS_FOLHA = ["./public/logo-folha.png", "./public/folha/**/*"];
+
 const nextConfig: NextConfig = {
   // pdfjs (carrega o worker e o @napi-rs/canvas por import/require dinâmico) e o módulo nativo
   // do canvas precisam do require do Node, sem passar pelo bundler.
   serverExternalPackages: ["pdfjs-dist", "@napi-rs/canvas"],
   outputFileTracingIncludes: {
-    "/api/mcp": DADOS_PDFJS,
-    "/api/mcp/dono": DADOS_PDFJS,
+    "/api/mcp": [...DADOS_PDFJS, ...ARQUIVOS_FOLHA],
+    "/api/mcp/dono": [...DADOS_PDFJS, ...ARQUIVOS_FOLHA],
+    "/api/provas-word/**": ARQUIVOS_FOLHA,
+    "/banco/provas-word": ARQUIVOS_FOLHA,
   },
   images: {
     remotePatterns: [

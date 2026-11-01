@@ -401,6 +401,18 @@ export type Simulado = {
 };
 export type SimuladoTurma = { simulado_id: string; escola_id: string; turma_nome: string; ano_letivo: string };
 export type SimuladoQuestao = { simulado_id: string; questao_id: string; ordem: number };
+export type ProvaWord = {
+  id: string;
+  escola_id: string;
+  professor_id: string;
+  titulo: string;
+  tipo: "fixacao" | "simulado";
+  filtros: Record<string, unknown>;
+  origem: "hermes" | "site";
+  created_at: string;
+  excluida_em: string | null;
+};
+export type ProvaWordQuestao = { prova_id: string; questao_id: string; ordem: number };
 export type PorArea = Partial<Record<Area, { acertos: number; total: number }>>;
 export type EventoSaida = { questao: number | null; saiu_em: string; voltou_em: string | null };
 
@@ -639,6 +651,13 @@ export type Database = {
       };
       simulado_turmas: { Row: SimuladoTurma; Insert: SimuladoTurma; Update: Partial<SimuladoTurma>; Relationships: [] };
       simulado_questoes: { Row: SimuladoQuestao; Insert: SimuladoQuestao; Update: Partial<SimuladoQuestao>; Relationships: [] };
+      provas_word: {
+        Row: ProvaWord;
+        Insert: Partial<Omit<ProvaWord, "id" | "created_at">> & { escola_id: string; professor_id: string; titulo: string; tipo: ProvaWord["tipo"]; origem: ProvaWord["origem"] };
+        Update: Partial<Omit<ProvaWord, "id" | "created_at">>;
+        Relationships: [];
+      };
+      prova_word_questoes: { Row: ProvaWordQuestao; Insert: ProvaWordQuestao; Update: Partial<ProvaWordQuestao>; Relationships: [] };
       tentativas: {
         Row: Tentativa;
         Insert: Partial<Omit<Tentativa, "created_at">> & { simulado_id: string; conta_id: string; ordem: string[] };
