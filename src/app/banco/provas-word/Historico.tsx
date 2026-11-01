@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Download, FileText, Send, Globe, School, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Eye, FileText, Send, Globe, School, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { estilos } from "@/components/ui/estilos";
 import { excluirProvaWord, limparProvasWord } from "./acoes";
+import { MenuBaixar } from "./MenuBaixar";
 import css from "./ProvasWord.module.css";
 
 export type ItemHistorico = { id: string; data: string; titulo: string; total: number; origem: "hermes" | "site"; escola: string | null };
@@ -62,8 +64,8 @@ export function Historico({ provas }: { provas: ItemHistorico[] }) {
                 </div>
                 <h3 className={css.nome}>{p.titulo}</h3>
                 <div className={css.rodape}>
-                  <a href={`/api/provas-word/${p.id}/prova`} className={estilos.botaoPrimario}><Download size={16} aria-hidden="true" />Baixar prova</a>
-                  <a href={`/api/provas-word/${p.id}/gabarito`} className={estilos.botaoSecundario}><Download size={16} aria-hidden="true" />Baixar gabarito</a>
+                  <Link href={`/banco/provas-word/${p.id}/previa`} className={estilos.botaoPrimario}><Eye size={16} aria-hidden="true" />Pré-visualizar</Link>
+                  <MenuBaixar provaId={p.id} classeBotao={estilos.botaoSecundario} />
                   <button type="button" disabled={ocupado} onClick={() => setConfirmar({ tipo: "uma", item: p })} className={`${estilos.botaoFantasma} ${css.excluir}`}>
                     <Trash2 size={16} aria-hidden="true" />Excluir
                   </button>

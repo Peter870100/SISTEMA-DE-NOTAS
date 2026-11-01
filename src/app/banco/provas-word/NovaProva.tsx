@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, Download, FileText, Loader2, Search } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Eye, FileText, Loader2, Search } from "lucide-react";
 import { MATERIAS } from "@/lib/questoes/materias";
 // Só tipos: o módulo usa node:crypto e não pode ir para o navegador.
 import type { Cenario, TipoProva } from "@/lib/folha/provas-word";
 import { estilos } from "@/components/ui/estilos";
 import { gerarProvaWord, previaProvaWord } from "./acoes";
+import { MenuBaixar } from "./MenuBaixar";
 import css from "./ProvasWord.module.css";
 
 type Pedido = { banca: string; materia: string; assunto: string; anoDe: number | null; anoAte: number | null; quantidade: number };
@@ -151,8 +153,8 @@ export function NovaProva({ limite }: { limite: number }) {
             {gerada.total < gerada.pedidas && ` — pedidas ${gerada.pedidas}; não havia mais`}.
           </p>
           <div className={css.botoes}>
-            <a href={`/api/provas-word/${gerada.id}/prova`} className={estilos.botaoPrimario}><Download size={16} aria-hidden="true" />Baixar prova</a>
-            <a href={`/api/provas-word/${gerada.id}/gabarito`} className={estilos.botaoSecundario}><Download size={16} aria-hidden="true" />Baixar gabarito</a>
+            <Link href={`/banco/provas-word/${gerada.id}/previa`} className={estilos.botaoPrimario}><Eye size={16} aria-hidden="true" />Pré-visualizar</Link>
+            <MenuBaixar provaId={gerada.id} classeBotao={estilos.botaoSecundario} />
           </div>
         </div>
       )}

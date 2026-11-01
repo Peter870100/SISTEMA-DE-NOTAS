@@ -74,3 +74,12 @@ figuras recortadas da prova original e o texto formatado. Sai em dois arquivos .
   Logo do Colégio Status só na escola Status; nas outras, o nome da escola no cabeçalho.
 - Tabelas: `provas_word` e `prova_word_questoes` (`db/schema.sql`). Questão que foi para a lixeira depois some da
   prova, com o aviso "N questões desta prova não estão mais no banco".
+
+## Pré-visualizar, imprimir e PDF
+
+- No histórico de `/banco/provas-word` (e logo após gerar uma prova), clique em **Pré-visualizar**. A prova abre
+  em tela cheia, paginada como folha A4; há a aba do gabarito.
+- **Imprimir** abre a janela de impressão do navegador com a folha atual.
+- **Baixar ▾** oferece Word (.docx) e PDF. Nos itens "(PDF)" abre-se a janela de impressão: escolha
+  "Salvar como PDF" como impressora.
+- As quebras de página da prévia e do PDF podem diferir um pouco das do Word.

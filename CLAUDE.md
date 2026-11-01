@@ -48,6 +48,7 @@ O Peter fala português; respostas em pt-BR.
    `gerar_prova_word`, `listar_provas_word`, `links_prova_word`) e pelo site (`/banco/provas-word`). Histórico em
    `provas_word`/`prova_word_questoes`; "inéditas" = ainda não usadas pelo professor. Download em
    `/api/provas-word/<id>/<prova|gabarito>` (link com `?c=` HMAC ou sessão). Uso em `docs/folha-tarefa.md`.
+   Pré-visualização em `/banco/provas-word/<id>/previa` (Imprimir, Baixar Word/PDF; `?qual=gabarito`, `?imprimir=1`).
 
 ## Próximo passo
 - **Loja com Stripe** (alunos de fora: curso avulso ou pacote completo com treinos; Pix e cartão 12x):
