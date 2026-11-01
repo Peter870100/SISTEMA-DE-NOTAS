@@ -38,7 +38,7 @@ async function turmasDaEscola(ctx: Ctx, escolaId: string) {
 const nomesTurmas = (ts: TurmaSimulado[]) => ts.map((t) => `${t.turma_nome} · ${t.ano_letivo}`).join(", ") || "nenhuma";
 
 const ROTULO_AREA = AREAS as Record<string, string>;
-function areaDoTexto(t: string): Area {
+export function areaDoTexto(t: string): Area {
   const alvo = normalizarBusca(t);
   const chave = Object.keys(AREAS).find((k) => k === alvo || normalizarBusca(ROTULO_AREA[k]) === alvo || normalizarBusca(ROTULO_AREA[k]).endsWith(alvo));
   if (!chave) throw new Error(`Área "${t}" não existe. Use: ${Object.values(AREAS).join(", ")}.`);
@@ -46,7 +46,7 @@ function areaDoTexto(t: string): Area {
 }
 
 /** Assunto pelo nome (dentro da matéria, se informada). Devolve o id e a matéria do assunto. */
-async function assuntoDoTexto(ctx: Ctx, nome: string, materia?: string): Promise<{ id: string; materia: string }> {
+export async function assuntoDoTexto(ctx: Ctx, nome: string, materia?: string): Promise<{ id: string; nome: string; materia: string }> {
   let q = ctx.supabase.from("assuntos").select("id, nome, materia");
   if (materia) q = q.eq("materia", materia);
   const { data, error } = await q.order("nome").limit(1000);
@@ -59,27 +59,37 @@ async function assuntoDoTexto(ctx: Ctx, nome: string, materia?: string): Promise
   return achados[0];
 }
 
-const camposFiltro = {
+export const camposFiltro = {
   banca: z.string().trim().max(60).optional().describe('Banca, ex: "ENEM" (sem diferenciar maiúsculas).'),
   ano_de: z.number().int().min(1900).max(2100).optional(),
   ano_ate: z.number().int().min(1900).max(2100).optional(),
   area: z.string().trim().max(40).optional().describe('Área: "Linguagens", "Ciências Humanas", "Ciências da Natureza" ou "Matemática".'),
   materia: z.string().trim().max(40).optional().describe('Matéria pelo nome, ex: "Química".'),
   assunto: z.string().trim().max(120).optional().describe("Assunto pelo nome (de preferência junto com a matéria)."),
+};
+const camposSorteio = {
+  ...camposFiltro,
   permitir_repetidas: z.boolean().optional().describe("true = aceita questões já aplicadas em simulados publicados destas turmas. Padrão: não repetir."),
 };
-type ArgsFiltro = { banca?: string; ano_de?: number; ano_ate?: number; area?: string; materia?: string; assunto?: string };
+export type ArgsFiltro = { banca?: string; ano_de?: number; ano_ate?: number; area?: string; materia?: string; assunto?: string };
 
-async function filtrosDe(ctx: Ctx, a: ArgsFiltro): Promise<FiltrosSorteio> {
+/** Filtros do banco a partir dos textos do pedido, com o nome oficial do assunto (quando houver). */
+export async function filtrosComAssunto(ctx: Ctx, a: ArgsFiltro): Promise<{ filtros: FiltrosSorteio; assuntoNome: string | null }> {
   const f: FiltrosSorteio = { banca: a.banca || undefined, anoDe: a.ano_de, anoAte: a.ano_ate };
   if (a.area) f.area = areaDoTexto(a.area);
   if (a.materia) f.materia = materiaDoTexto(a.materia);
+  let assuntoNome: string | null = null;
   if (a.assunto) {
     const assunto = await assuntoDoTexto(ctx, a.assunto, f.materia);
     f.assunto_id = assunto.id;
     f.materia ??= assunto.materia;
+    assuntoNome = assunto.nome;
   }
-  return f;
+  return { filtros: f, assuntoNome };
+}
+
+export async function filtrosDe(ctx: Ctx, a: ArgsFiltro): Promise<FiltrosSorteio> {
+  return (await filtrosComAssunto(ctx, a)).filtros;
 }
 
 const camposConfig = {
@@ -185,7 +195,7 @@ export function registrarAcoesSimulados(server: McpServer, obter: ObterCtx, perf
     {
       title: "Sortear questões para o simulado",
       description: "Sorteia questões publicadas do banco (geral + da escola) e acrescenta ao simulado. Por padrão não repete questões já aplicadas em simulados publicados das mesmas turmas.",
-      inputSchema: { ...campoSimulado, quantidade: z.number().int().min(1).max(200).describe("Quantas questões (1 a 200)."), ...camposFiltro, ...campoTelefone },
+      inputSchema: { ...campoSimulado, quantidade: z.number().int().min(1).max(200).describe("Quantas questões (1 a 200)."), ...camposSorteio, ...campoTelefone },
     },
     comSimulado(obter, perfil, "sortear_questoes", "sortear as questões", async (ctx, ator, { sim }, args, rodar) => {
       const filtros = await filtrosDe(ctx, args);
@@ -225,7 +235,7 @@ export function registrarAcoesSimulados(server: McpServer, obter: ObterCtx, perf
     {
       title: "Trocar questão do simulado",
       description: "Troca uma questão do simulado por outra sorteada com os filtros dados (mesma posição).",
-      inputSchema: { ...campoSimulado, ...campoQuestao, ...camposFiltro, ...campoTelefone },
+      inputSchema: { ...campoSimulado, ...campoQuestao, ...camposSorteio, ...campoTelefone },
     },
     comSimulado(obter, perfil, "trocar_questao", "trocar a questão", async (ctx, ator, { sim }, args, rodar) => {
       const filtros = await filtrosDe(ctx, args);
