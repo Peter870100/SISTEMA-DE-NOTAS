@@ -132,10 +132,13 @@ function itensComTabelas<F>(linhas: Segmento[][], temFigura: boolean): ItemFolha
 }
 
 /**
- * Enunciado: formatado (`conteudo`) ou markdown com crédito separado; figuras soltas vão depois do texto.
- * No markdown com figura, o comando repetido no fim do texto sai dele e vai depois da figura.
+ * Enunciado: formatado (`conteudo`) ou markdown com crédito separado. Figuras soltas vão depois do texto,
+ * menos no markdown com figura (`enunciadoNaTela`): a figura vem antes do texto, salvo quando o enunciado
+ * pede a leitura de um texto — aí o comando repetido no fim sai do texto e vai depois da figura.
  */
-function enunciado<F extends FiguraRef>(q: QuestaoBase<F>): { textos: ItemFolha<F>[]; credito: string | null; soltas: F[]; comando: string } {
+function enunciado<F extends FiguraRef>(q: QuestaoBase<F>): {
+  textos: ItemFolha<F>[]; credito: string | null; soltas: F[]; comando: string; figurasAntes: boolean;
+} {
   const doEnunciado = (q.figuras ?? []).filter((f) => f.alvo === "enunciado");
   if (q.conteudo?.content) {
     const usadas = new Set(imagensDoConteudo(q.conteudo));
@@ -144,18 +147,22 @@ function enunciado<F extends FiguraRef>(q: QuestaoBase<F>): { textos: ItemFolha<
       credito: null,
       soltas: doEnunciado.filter((f) => !usadas.has(f.id)),
       comando: comandoRepetido(q.enunciado, q.comando) ? "" : q.comando,
+      figurasAntes: false,
     };
   }
   const tela = enunciadoNaTela(q.enunciado, q.comando, false, doEnunciado.length > 0);
   const { corpo, credito } = separarCredito(tela.texto);
-  return { textos: itensComTabelas<F>(blocosNaoVazios(corpo), doEnunciado.length > 0), credito, soltas: doEnunciado, comando: tela.comando };
+  return { textos: itensComTabelas<F>(blocosNaoVazios(corpo), doEnunciado.length > 0), credito, soltas: doEnunciado, comando: tela.comando, figurasAntes: tela.figurasAntes };
 }
 
 function itensQuestao<F extends FiguraRef>(q: QuestaoBase<F>, n: number, primeiraDoBloco: boolean): ItemFolha<F>[] {
-  const { textos, credito, soltas, comando } = enunciado(q);
+  const { textos, credito, soltas, comando, figurasAntes } = enunciado(q);
   const origem = q.origem?.trim() || null;
-  const saida: ItemFolha<F>[] = [{ tipo: "titulo", numero: n, primeiraDoBloco }, ...textos];
-  for (const f of soltas) saida.push({ tipo: "figura", figura: f, naAlternativa: false });
+  const figuras: ItemFolha<F>[] = soltas.map((f) => ({ tipo: "figura", figura: f, naAlternativa: false }));
+  const saida: ItemFolha<F>[] = [
+    { tipo: "titulo", numero: n, primeiraDoBloco },
+    ...(figurasAntes ? [...figuras, ...textos] : [...textos, ...figuras]),
+  ];
   if (credito || origem) saida.push({ tipo: "credito", credito, origem });
   blocosNaoVazios(markdownParaBlocos(comando)).forEach((segmentos, indice) => {
     saida.push({ tipo: "comando", segmentos, indice, comTexto: textos.length > 0 });

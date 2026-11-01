@@ -137,7 +137,7 @@ export function GeradorQuestoes({ assuntos, iaOk, restante, ehDono, base }: Prop
                     {estado === "gerada" && <span className={css.selo}>Em revisão</span>}
                   </div>
                   {q.precisa_revisao && <p className={css.alerta}><TriangleAlert size={16} aria-hidden="true" />{q.motivo_revisao || "Conferir esta questão antes de publicar."}</p>}
-                  <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={tela.texto} imagens={[]} />
+                  <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={tela.texto} imagens={[]} figurasAntes={tela.figurasAntes} />
                   {tela.comando && <p className={css.comando}>{tela.comando}</p>}
                   <ol className={css.alts}>
                     {LETRAS.map((l) => {

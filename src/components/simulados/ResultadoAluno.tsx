@@ -130,7 +130,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
                   <details className={css.detalhes}>
                     <summary>Ver questão</summary>
                     <div className={css.corpo}>
-                      <ConteudoQuestao doc={q.conteudo} textoAntigo={tela.texto} imagens={q.imagens} aviso={q.faltaImagem ? <ImagemIndisponivel /> : null} />
+                      <ConteudoQuestao doc={q.conteudo} textoAntigo={tela.texto} imagens={q.imagens} figurasAntes={tela.figurasAntes} aviso={q.faltaImagem ? <ImagemIndisponivel /> : null} />
                       {tela.comando && <p className={css.comando}>{tela.comando}</p>}
                       <ul className={css.alternativas}>
                         {letrasVisiveis(q.alternativas, new Set(q.imagens.map((im) => im.alvo))).map((l) => {

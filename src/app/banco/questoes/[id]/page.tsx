@@ -38,7 +38,7 @@ export default async function QuestaoPage({ params }: { params: Promise<{ id: st
       <section className={edita ? undefined : `${estilos.card} p-4`}>
         {edita ? <EditorQuestao questao={q} imagens={imgs} assuntos={assuntos ?? []} podeEscolherGeral={false} /> : (
           <div className="flex flex-col gap-3">
-            <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={tela.texto} imagens={imgs} />
+            <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={tela.texto} imagens={imgs} figurasAntes={tela.figurasAntes} />
             {tela.comando && <p className="text-sm font-medium text-ink">{tela.comando}</p>}
             <ol className="flex flex-col gap-2">{letrasVisiveis(q.alternativas, new Set(imgs.map((i) => i.alvo))).map((l) => (
               <li key={l} className={`rounded-control border p-2 text-sm ${q.resposta === l ? "border-ok bg-ok/10" : "border-line"}`}>

@@ -101,14 +101,28 @@ export function separarComando(enunciado: string, comando: string): { texto: str
 }
 
 /**
- * Texto e comando a mostrar na tela. Sem enunciado formatado e com figura do enunciado (que vem depois
- * do texto), o comando repetido no fim sai do texto e vai depois da figura; nos outros casos, como antes.
+ * O enunciado começa pedindo a leitura de um texto ("Leia o texto abaixo", "Leia os textos a seguir",
+ * "Leia com atenção o texto abaixo"…)? Ignora maiúsculas, acentos, `*` e espaços.
+ */
+export function pedeLeituraDoTexto(enunciado: string): boolean {
+  const t = normalizar(enunciado ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return /^leia (com atencao )?(o texto|os textos) (abaixo|a seguir)/.test(t);
+}
+
+/**
+ * Texto e comando a mostrar na tela, e se as figuras soltas do enunciado vão antes do texto.
+ * Sem enunciado formatado e com figura do enunciado, a figura vem antes do texto inteiro (o comando
+ * repetido no fim fica no texto). Se o enunciado pede a leitura de um texto ("Leia o texto abaixo"),
+ * a figura vem depois do texto e o comando repetido no fim sai do texto e vai depois da figura.
+ * Nos outros casos, como antes.
  */
 export function enunciadoNaTela(
   enunciado: string, comando: string, temConteudo: boolean, temFiguraEnunciado: boolean,
-): { texto: string; comando: string } {
-  const separado = !temConteudo && temFiguraEnunciado ? separarComando(enunciado, comando) : null;
-  return separado ?? { texto: enunciado, comando: comandoParaMostrar(enunciado, comando) };
+): { texto: string; comando: string; figurasAntes: boolean } {
+  const comoAntes = { texto: enunciado, comando: comandoParaMostrar(enunciado, comando) };
+  if (temConteudo || !temFiguraEnunciado) return { ...comoAntes, figurasAntes: false };
+  if (!pedeLeituraDoTexto(enunciado)) return { ...comoAntes, figurasAntes: true };
+  return { ...(separarComando(enunciado, comando) ?? comoAntes), figurasAntes: false };
 }
 
 export type ParteTexto = { tipo: "linha"; segmentos: Segmento[] } | { tipo: "tabela"; linhas: string[][] };

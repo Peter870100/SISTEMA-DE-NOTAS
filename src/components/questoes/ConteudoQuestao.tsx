@@ -58,7 +58,7 @@ function FiguraInline({ no, doEnunciado, classeFigura }: { no: NoConteudo; doEnu
 }
 
 export function ConteudoQuestao({
-  doc, textoAntigo, imagens, classeTexto, classeFigura, aviso,
+  doc, textoAntigo, imagens, classeTexto, classeFigura, aviso, figurasAntes = false,
 }: {
   doc: DocConteudo | null;
   textoAntigo: string;
@@ -69,14 +69,26 @@ export function ConteudoQuestao({
   classeFigura?: string;
   /** Aviso mostrado depois do texto e antes das figuras soltas (ex.: figura faltando). */
   aviso?: ReactNode;
+  /** Só no texto antigo: figuras do enunciado (e o aviso logo depois delas) antes do texto (`enunciadoNaTela`). */
+  figurasAntes?: boolean;
 }) {
   const doEnunciado = imagens.filter((i) => i.alvo === "enunciado");
   const figura = (i: ImagemTela) => (classeFigura ? <div key={i.id} className={classeFigura}><ImagemQuestao imagem={i} /></div> : <ImagemQuestao key={i.id} imagem={i} />);
 
   if (!doc || !Array.isArray(doc.content)) {
+    const texto = <div className={classeTexto}><TextoQuestao texto={textoAntigo} semTabelas={doEnunciado.length > 0} /></div>;
+    if (figurasAntes) {
+      return (
+        <>
+          {doEnunciado.map(figura)}
+          {aviso}
+          {texto}
+        </>
+      );
+    }
     return (
       <>
-        <div className={classeTexto}><TextoQuestao texto={textoAntigo} semTabelas={doEnunciado.length > 0} /></div>
+        {texto}
         {aviso}
         {doEnunciado.map(figura)}
       </>

@@ -37,11 +37,11 @@ test("crédito e origem viram um item antes do comando", () => {
   assert.deepEqual(itens[3], { tipo: "credito", credito: "SILVA, J. Livro. Acesso em: 1 jan. 2024.", origem: "UFMS 2024" });
 });
 
-test("com figura do enunciado a tabela sai e a figura vem depois dos parágrafos", () => {
+test("com figura do enunciado a tabela sai e a figura vem antes dos parágrafos", () => {
   const f: FiguraRef = { id: "f1", alvo: "enunciado", alinhamento: "centro" };
   const itens = itensProva([questao(TABELA, { figuras: [f] })]);
-  assert.deepEqual(tipos(itens), ["faixa", "titulo", "paragrafo", "paragrafo", "figura", "comando", ...ALTERNATIVAS]);
-  assert.deepEqual(itens[4], { tipo: "figura", figura: f, naAlternativa: false });
+  assert.deepEqual(tipos(itens), ["faixa", "titulo", "figura", "paragrafo", "paragrafo", "comando", ...ALTERNATIVAS]);
+  assert.deepEqual(itens[2], { tipo: "figura", figura: f, naAlternativa: false });
 });
 
 test("comando repetido no fim do enunciado não gera item comando", () => {
@@ -105,23 +105,43 @@ test("gabarito: título, resoluções e resposta", () => {
   assert.deepEqual(itensGabarito([questao("a", { resposta: " ", resolucao: null })]).at(-1), { tipo: "resposta", letra: null });
 });
 
-test("comando repetido com figura no enunciado: texto, figura, crédito e só então o comando", () => {
+test("markdown com figura no enunciado: figura antes do texto inteiro, crédito e sem comando repetido", () => {
   const f: FiguraRef = { id: "f1", alvo: "enunciado", alinhamento: "centro" };
-  const q = questao("Um texto.\nSILVA, J. Livro. Acesso em: 1 jan. 2024.\n**Assinale a alternativa correta.**", {
+  const q = questao("Um texto.\n**Assinale a alternativa correta.**", { figuras: [f], origem: "UFGD 2023" });
+  const itens = itensProva([q]);
+  assert.deepEqual(tipos(itens), ["faixa", "titulo", "figura", "paragrafo", "paragrafo", "credito", ...ALTERNATIVAS]);
+  assert.deepEqual(itens[5], { tipo: "credito", credito: null, origem: "UFGD 2023" });
+  assert.deepEqual(itens[2], { tipo: "figura", figura: f, naAlternativa: false });
+  assert.deepEqual(itens[3], { tipo: "paragrafo", segmentos: [{ texto: "Um texto.", negrito: false, italico: false }], indice: 0 });
+  assert.deepEqual(itens[4], { tipo: "paragrafo", segmentos: [{ texto: "Assinale a alternativa correta.", negrito: true, italico: false }], indice: 1 });
+});
+
+test("markdown com figura e comando não repetido: figura, texto, comando", () => {
+  const f: FiguraRef = { id: "f1", alvo: "enunciado", alinhamento: "centro" };
+  const itens = itensProva([questao("Observe a figura.", { figuras: [f] })]);
+  assert.deepEqual(tipos(itens), ["faixa", "titulo", "figura", "paragrafo", "comando", ...ALTERNATIVAS]);
+});
+
+test("enunciado que pede a leitura do texto: texto, figura, crédito e só então o comando", () => {
+  const f: FiguraRef = { id: "f1", alvo: "enunciado", alinhamento: "centro" };
+  const q = questao("**Leia o texto a seguir.**\nUm texto.\nSILVA, J. Livro. Acesso em: 1 jan. 2024.\n**Assinale a alternativa correta.**", {
     figuras: [f], origem: "UFGD 2023",
   });
   const itens = itensProva([q]);
-  assert.deepEqual(tipos(itens), ["faixa", "titulo", "paragrafo", "figura", "credito", "comando", ...ALTERNATIVAS]);
-  assert.deepEqual(itens[2], { tipo: "paragrafo", segmentos: [{ texto: "Um texto.", negrito: false, italico: false }], indice: 0 });
-  assert.deepEqual(itens[5], { tipo: "comando", segmentos: [{ texto: "Assinale a alternativa correta.", negrito: false, italico: false }], indice: 0, comTexto: true });
+  assert.deepEqual(tipos(itens), ["faixa", "titulo", "paragrafo", "paragrafo", "figura", "credito", "comando", ...ALTERNATIVAS]);
+  assert.deepEqual(itens[6], { tipo: "comando", segmentos: [{ texto: "Assinale a alternativa correta.", negrito: false, italico: false }], indice: 0, comTexto: true });
 });
 
-test("comando repetido em parágrafo em negrito com figura: o resto do parágrafo continua em negrito", () => {
+test("enunciado que pede a leitura com comando em parágrafo em negrito: o resto continua em negrito", () => {
   const f: FiguraRef = { id: "f1", alvo: "enunciado", alinhamento: "centro" };
-  const q = questao("Uma ferrovia.\n**Se cada trilho mede 12 m, quantos trilhos?**", { comando: "quantos trilhos?", figuras: [f] });
+  const q = questao("Leia o texto abaixo.\n**Se cada trilho mede 12 m, quantos trilhos?**", { comando: "quantos trilhos?", figuras: [f] });
   const itens = itensProva([q]);
   assert.deepEqual(tipos(itens), ["faixa", "titulo", "paragrafo", "paragrafo", "figura", "comando", ...ALTERNATIVAS]);
   assert.deepEqual(itens[3], { tipo: "paragrafo", segmentos: [{ texto: "Se cada trilho mede 12 m,", negrito: true, italico: false }], indice: 1 });
+});
+
+test("markdown sem figura no enunciado: como antes", () => {
+  assert.deepEqual(tipos(itensProva([questao("Um texto.")])), ["faixa", "titulo", "paragrafo", "comando", ...ALTERNATIVAS]);
 });
 
 test("comando repetido com conteúdo formatado continua sem item comando", () => {

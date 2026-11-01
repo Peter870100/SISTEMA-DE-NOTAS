@@ -5,7 +5,7 @@ import { ASSUNTOS_INICIAIS } from "./assuntos-iniciais";
 import { estiloRecorte, limitarQuadro } from "./quadro";
 import { lerPaginas } from "./paginas";
 import { padraoExato } from "./busca";
-import { comandoParaMostrar, enunciadoNaTela, markdownParaBlocos, partesDoTexto, separarComando } from "./markdown";
+import { comandoParaMostrar, enunciadoNaTela, markdownParaBlocos, partesDoTexto, pedeLeituraDoTexto, separarComando } from "./markdown";
 import { urlImagemPermitida } from "./enemdev";
 import { progressoDoLote } from "./ia";
 import { respostaParaQuestoes, RespostaPaginaSchema, classificacaoParaAtualizacoes, chaveQuestao } from "./formato-ia";
@@ -357,13 +357,50 @@ test("separarComando: sem o comando no fim ou comando vazio devolve null", () =>
   assert.equal(separarComando("Texto.", "  ** "), null);
 });
 
-test("enunciadoNaTela: com figura e sem conteúdo o comando vai depois da figura", () => {
+test("enunciadoNaTela: com figura e sem conteúdo a figura vem antes do texto inteiro", () => {
   const e = "Texto.\nAssinale a correta.";
-  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", false, true), { texto: "Texto.", comando: "Assinale a correta." });
+  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", false, true), { texto: e, comando: "", figurasAntes: true });
+  // Comando não repetido: mostra os dois, figura antes.
+  assert.deepEqual(enunciadoNaTela("Texto.", "Assinale.", false, true), { texto: "Texto.", comando: "Assinale.", figurasAntes: true });
   // Sem figura: como antes (comando some quando repetido).
-  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", false, false), { texto: e, comando: "" });
+  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", false, false), { texto: e, comando: "", figurasAntes: false });
   // Com conteúdo formatado: como antes.
-  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", true, true), { texto: e, comando: "" });
-  // Comando não repetido: mostra os dois.
-  assert.deepEqual(enunciadoNaTela("Texto.", "Assinale.", false, true), { texto: "Texto.", comando: "Assinale." });
+  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", true, true), { texto: e, comando: "", figurasAntes: false });
+});
+
+test("enunciadoNaTela: enunciado que pede a leitura do texto mantém texto, figura e comando", () => {
+  const e = "Leia o texto abaixo.\nUm texto.\nAssinale a correta.";
+  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", false, true), {
+    texto: "Leia o texto abaixo.\nUm texto.", comando: "Assinale a correta.", figurasAntes: false,
+  });
+  // Comando não repetido: texto inteiro, figura e comando.
+  assert.deepEqual(enunciadoNaTela("Leia o texto a seguir. Um texto.", "Assinale.", false, true), {
+    texto: "Leia o texto a seguir. Um texto.", comando: "Assinale.", figurasAntes: false,
+  });
+  // Sem figura ou com conteúdo: como antes.
+  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", false, false), { texto: e, comando: "", figurasAntes: false });
+  assert.deepEqual(enunciadoNaTela(e, "Assinale a correta.", true, true), { texto: e, comando: "", figurasAntes: false });
+});
+
+test("pedeLeituraDoTexto: frases de leitura com acento, maiúsculas e negrito", () => {
+  for (const e of [
+    "Leia o texto abaixo.",
+    "Leia o texto a seguir:",
+    "Leia os textos abaixo e responda.",
+    "Leia os textos a seguir.",
+    "LEIA O TEXTO ABAIXO",
+    "**Leia o texto a seguir**\nTexto.",
+    "  * **Leia**   o  texto\nabaixo.",
+    "Leia com atenção o texto abaixo.",
+    "LEIA COM ATENCAO OS TEXTOS A SEGUIR.",
+    "Leiá ó texto abaixo.",
+  ]) assert.equal(pedeLeituraDoTexto(e), true, e);
+  for (const e of [
+    "",
+    "Observe a figura.",
+    "Leia a tirinha abaixo.",
+    "Leia o texto.",
+    "Um texto. Leia o texto abaixo.",
+    "Releia o texto abaixo.",
+  ]) assert.equal(pedeLeituraDoTexto(e), false, e);
 });

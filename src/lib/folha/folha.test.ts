@@ -157,11 +157,20 @@ test("figura indisponível vira aviso", async () => {
   assert.equal(contarImagens(xml), 0);
 });
 
-test("figura do enunciado sem nó no conteúdo vai depois do texto", async () => {
+test("figura do enunciado sem conteúdo formatado vai antes do texto", async () => {
   const q: QuestaoFolha = { ...qf("Observe a figura."), figuras: [figura("f1", "enunciado")] };
   const xml = await documentoXml(await folhaAluno({ titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [q] }));
   assert.equal(contarImagens(xml), 1);
   const texto = xml.indexOf("Observe a figura.");
+  const imagem = xml.indexOf("<pic:pic");
+  const comando = xml.indexOf("Assinale a alternativa correta.");
+  assert.ok(imagem < texto && texto < comando, "figura fora de ordem");
+});
+
+test("enunciado que pede a leitura do texto: figura depois do texto", async () => {
+  const q: QuestaoFolha = { ...qf("Leia o texto a seguir. Um texto."), figuras: [figura("f1", "enunciado")] };
+  const xml = await documentoXml(await folhaAluno({ titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [q] }));
+  const texto = xml.indexOf("Leia o texto a seguir.");
   const imagem = xml.indexOf("<pic:pic");
   const comando = xml.indexOf("Assinale a alternativa correta.");
   assert.ok(texto < imagem && imagem < comando, "figura fora de ordem");

@@ -255,7 +255,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
       {aviso && <p role="status" className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger">{aviso}</p>}
       <div className={css.layout}><div className="min-w-0"><section id="caderno-questao" className={css.caderno} aria-label={`Questão ${atual + 1}`}>
         <div className={css.cabecalho}><span>Simulado · questões objetivas</span><span>{atual + 1} / {prova.questoes.length}</span></div><div className={css.titulo}><h2>QUESTÃO {String(atual + 1).padStart(2, "0")}</h2><span aria-hidden="true" /></div>
-        <ConteudoQuestao doc={q.conteudo} textoAntigo={tela.texto} imagens={q.imagens} classeTexto={css.texto} classeFigura={css.figura}
+        <ConteudoQuestao doc={q.conteudo} textoAntigo={tela.texto} imagens={q.imagens} classeTexto={css.texto} classeFigura={css.figura} figurasAntes={tela.figurasAntes}
           aviso={q.faltaImagem ? <div className={css.figura}><ImagemIndisponivel /></div> : null} />
         {tela.comando && <p className={css.comando}>{tela.comando}</p>}
         <fieldset className={css.alternativas}>
