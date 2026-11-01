@@ -50,22 +50,21 @@ export function paginar(
       continue;
     }
 
+    // cadeia (ou bloco) maior que uma coluna vazia: fica inteira no topo da
+    // coluna e o último bloco é reduzido ao espaço que sobra
     const pag = paginas[paginas.length - 1];
-    if (total <= limite) {
-      // cabe numa coluna vazia (caso de altura zero) — não deveria chegar aqui
+    const cabeca = total - blocos[fim].altura;
+    const restante = limite - cabeca;
+    if (restante >= limite * 0.3) {
       for (let k = i; k <= fim; k++) pag.colunas[coluna].push(k);
-      usado += total;
+      pag.reduzir[fim] = restante;
+      usado = limite;
       i = fim + 1;
     } else {
-      // cadeia maior que a coluna: coloca só o primeiro bloco e segue
-      pag.colunas[coluna].push(i);
-      if (blocos[i].altura > limite) {
-        pag.reduzir[i] = limite;
-        usado = limite;
-      } else {
-        usado += blocos[i].altura;
-      }
-      i++;
+      // cabeça alta demais: ela fica aqui e o último bloco desce sozinho
+      for (let k = i; k < fim; k++) pag.colunas[coluna].push(k);
+      avancar();
+      i = fim;
     }
   }
   return paginas;
