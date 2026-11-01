@@ -260,15 +260,24 @@ async function bolinhasFolha(): Promise<Partial<Record<LetraBolinha, Buffer>>> {
   return bolinhas;
 }
 
-/** Monta na hora o .docx da prova ou do gabarito a partir das questões guardadas. */
-export async function montarArquivoProva(id: string, qual: "prova" | "gabarito"): Promise<{ nome: string; buffer: Buffer }> {
+export type ProvaFolha = {
+  id: string;
+  professor_id: string;
+  escola_id: string;
+  titulo: string;
+  created_at: string;
+  excluida: boolean;
+};
+
+/** Carrega a prova e tudo o que a folha precisa (usado pelo .docx e pela prévia); null se não existir. */
+export async function dadosFolhaProva(id: string): Promise<{ prova: ProvaFolha; dados: DadosFolha; nomeBase: string } | null> {
   const { data: prova, error } = await supabase
     .from("provas_word")
-    .select("id, escola_id, titulo, created_at")
+    .select("id, professor_id, escola_id, titulo, created_at, excluida_em")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!prova) throw new Error("Prova não encontrada.");
+  if (!prova) return null;
 
   const { data: linhas, error: errQ } = await supabase
     .from("prova_word_questoes")
@@ -292,17 +301,36 @@ export async function montarArquivoProva(id: string, qual: "prova" | "gabarito")
       : `${faltando.length} questões desta prova não estão mais no banco.`
     : null;
 
+  const titulo = prova.titulo as string;
   const dados: DadosFolha = {
-    titulo: prova.titulo as string,
+    titulo,
     escola: (escola?.nome as string | undefined) ?? "",
     logo,
     questoes,
     bolinhas,
     avisoFinal,
   };
+  return {
+    prova: {
+      id: prova.id as string,
+      professor_id: prova.professor_id as string,
+      escola_id: prova.escola_id as string,
+      titulo,
+      created_at: prova.created_at as string,
+      excluida: prova.excluida_em != null,
+    },
+    dados,
+    nomeBase: `${slug(titulo)}-${dataArquivo(prova.created_at as string)}`,
+  };
+}
+
+/** Monta na hora o .docx da prova ou do gabarito a partir das questões guardadas. */
+export async function montarArquivoProva(id: string, qual: "prova" | "gabarito"): Promise<{ nome: string; buffer: Buffer }> {
+  const carregada = await dadosFolhaProva(id);
+  if (!carregada) throw new Error("Prova não encontrada.");
+  const { dados, nomeBase } = carregada;
   const buffer = qual === "prova" ? await folhaAluno(dados) : await folhaGabarito(dados);
-  const nome = `${slug(prova.titulo as string)}-${dataArquivo(prova.created_at as string)}${qual === "gabarito" ? "-gabarito" : ""}.docx`;
-  return { nome, buffer };
+  return { nome: `${nomeBase}${qual === "gabarito" ? "-gabarito" : ""}.docx`, buffer };
 }
 
 /** Links sem login (código assinado) para baixar a prova e o gabarito. */
