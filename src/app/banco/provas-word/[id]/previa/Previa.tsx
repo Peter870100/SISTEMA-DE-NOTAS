@@ -3,17 +3,16 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Download, LoaderCircle, Printer } from "lucide-react";
+import { Download, LoaderCircle, Maximize2, Minus, Plus, Printer } from "lucide-react";
 import { itensGabarito, itensProva, type ItemFolha } from "@/lib/folha/estrutura";
 import { paginar, type BlocoMedido, type PaginaPrevia } from "@/lib/folha/paginar";
 import { dividirItem, tamanhoTexto, type BlocoDividido } from "@/lib/folha/dividir";
 import type { DadosPrevia, FiguraTela } from "@/lib/folha/previa";
+import { escalaDaTela, passoZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_PASSO, type ModoZoom } from "@/lib/folha/zoom";
 import { MenuBaixar } from "../../MenuBaixar";
 import { Bloco, Cabecalho, Rodape, TopoSeguintes, VARIAVEIS_FOLHA, type Qual } from "./Folha";
 import css from "./Previa.module.css";
 
-/** Largura de uma folha A4 em px CSS (210 mm a 96 dpi). */
-const LARGURA_FOLHA_PX = (210 * 96) / 25.4;
 /** Folga por coluna (px) para diferenças pequenas entre a tela e a impressão. */
 const FOLGA_COLUNA = 3;
 
@@ -66,6 +65,8 @@ export function Previa({
   const [divididos, setDivididos] = useState<Divididos | null>(null);
   const [erro, setErro] = useState<Qual | null>(null);
   const [avisoPdf, setAvisoPdf] = useState(false);
+  /** Zoom só da tela (a impressão e a medição não usam a escala). */
+  const [zoom, setZoom] = useState<ModoZoom>("auto");
   /** Impressão pedida (Imprimir, PDF ou `?imprimir=1`): sai quando as folhas estiverem prontas. */
   const [pedidoImpressao, setPedidoImpressao] = useState(false);
   const medicao = useRef<HTMLDivElement>(null);
@@ -204,7 +205,8 @@ export function Previa({
 
   if (!montado) return null;
 
-  const escala = Math.min(1, Math.max(0.2, (largura - 32) / LARGURA_FOLHA_PX));
+  const escala = escalaDaTela(zoom, largura);
+  const porcento = Math.round(escala * 100);
   const bolinhas = dados.bolinhas;
 
   const folha = (n: number, total: number, conteudo: ReactNode, atributosColunas: Record<string, string> = {}) => (
@@ -305,6 +307,33 @@ export function Previa({
           <div className={css.esperando}>Montando a prova…</div>
         )}
       </div>
+
+      {pronto && (
+        <div className={css.zoom} role="group" aria-label="Zoom da pré-visualização">
+          <button type="button" className={css.zoomBotao} aria-label="Diminuir zoom" disabled={porcento <= ZOOM_MIN} onClick={() => setZoom(passoZoom(escala, -1))}>
+            <Minus size={16} aria-hidden="true" />
+          </button>
+          <input
+            type="range"
+            className={css.zoomFaixa}
+            aria-label="Zoom"
+            aria-valuetext={`${porcento}%`}
+            min={ZOOM_MIN}
+            max={ZOOM_MAX}
+            step={ZOOM_PASSO}
+            value={Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, porcento))}
+            onChange={(e) => setZoom(Number(e.target.value))}
+          />
+          <button type="button" className={css.zoomBotao} aria-label="Aumentar zoom" disabled={porcento >= ZOOM_MAX} onClick={() => setZoom(passoZoom(escala, 1))}>
+            <Plus size={16} aria-hidden="true" />
+          </button>
+          <output className={css.zoomValor} aria-live="polite">{porcento}%</output>
+          <button type="button" className={css.zoomAjustar} aria-label="Ajustar à tela" title="Ajustar à tela" aria-pressed={zoom === "ajustar"} onClick={() => setZoom("ajustar")}>
+            <Maximize2 size={16} aria-hidden="true" />
+            <span className={css.zoomAjustarTexto}>Ajustar à tela</span>
+          </button>
+        </div>
+      )}
 
       {!pronto && !falhou && (
         <div ref={medicao} className={css.medicao} aria-hidden="true">
