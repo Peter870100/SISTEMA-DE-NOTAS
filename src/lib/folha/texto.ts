@@ -31,3 +31,11 @@ export function separarCredito(enunciado: string): { corpo: Segmento[][]; credit
   }
   return { corpo: markdownParaBlocos(linhas.join("\n")), credito };
 }
+
+/** Separador "título — assunto" (travessão, meia-risca ou hífen entre espaços). */
+export const TRAVESSAO = /\s+[—–-]\s+/;
+
+/** "Tarefa de Matemática — Porcentagem" → "Tarefa de Matemática" (parte antes do travessão). */
+export function tituloCurto(titulo: string): string {
+  return titulo.split(TRAVESSAO)[0].trim() || titulo;
+}

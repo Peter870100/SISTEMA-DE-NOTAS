@@ -1,7 +1,7 @@
 // Tipos da pré-visualização da prova no navegador. Puro e serializável: sem Buffer, sharp nem supabase.
 import type { FiguraRef, QuestaoBase } from "./estrutura";
 
-/** Figura pronta para a tela: `src` é um `data:image/png;base64,...` (ou null se não foi encontrada). */
+/** Figura pronta para a tela: `src` é um `data:` PNG ou JPEG em base64 (ou null se não foi encontrada). */
 export type FiguraTela = FiguraRef & { src: string | null; largura: number; altura: number };
 
 export type DadosPrevia = {

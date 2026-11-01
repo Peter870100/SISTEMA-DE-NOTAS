@@ -28,7 +28,40 @@ import {
 import { markdownParaBlocos, type Segmento } from "@/lib/questoes/markdown";
 import type { NoConteudo } from "@/lib/questoes/conteudo";
 import { itensGabarito, itensProva, temTexto, type FiguraRef, type ItemFolha, type QuestaoBase } from "./estrutura";
-import { numero2 } from "./texto";
+import { numero2, tituloCurto, TRAVESSAO } from "./texto";
+import {
+  ALTURA_A4,
+  AZUL,
+  BOLINHA_PX,
+  CINZA,
+  cm,
+  COLUNA_LOGO,
+  CORPO,
+  CORPO_QUESTAO,
+  DISTANCIA_TOPO_RODAPE,
+  ESPACO_COLUNAS,
+  FAIXA_QUESTAO,
+  FIM_LINHA,
+  FIO_CLARO,
+  FONTE_QUESTAO,
+  FUNDO,
+  LARGURA_A4,
+  LARGURA_COLUNA,
+  LARGURA_TEXTO_CAB,
+  LARGURA_UTIL,
+  LINHA,
+  LOGO_LARGURA_PX,
+  MARGEM_CELULA,
+  MARGEM_LADO,
+  MARGEM_TOPO,
+  PEQUENO,
+  PRETO,
+  RECUO,
+  RECUO_ALTERNATIVA,
+  SEM_SERIFA,
+  TITULO_QUESTAO,
+  TWIPS_POR_PX,
+} from "./medidas";
 
 export type { AlvoFigura } from "./estrutura";
 
@@ -52,41 +85,6 @@ export type DadosFolha = {
   avisoFinal?: string | null;
 };
 
-// Medidas em twips (1 cm = 567 twips). Tamanhos de fonte em meio-pontos.
-const CM = 567;
-const cm = (v: number) => Math.round(v * CM);
-const LARGURA_A4 = 11906;
-const ALTURA_A4 = 16838;
-const MARGEM_LADO = cm(1.5);
-const MARGEM_TOPO = cm(1.2);
-const LARGURA_UTIL = LARGURA_A4 - 2 * MARGEM_LADO;
-const ESPACO_COLUNAS = cm(0.8);
-const LARGURA_COLUNA = Math.floor((LARGURA_UTIL - ESPACO_COLUNAS) / 2);
-const RECUO = cm(0.6);
-const RECUO_ALTERNATIVA = cm(0.6);
-const TWIPS_POR_PX = 15; // 96 dpi
-
-const AZUL = "0E3562";
-const FUNDO = "E8EEF6";
-const CINZA = "595959";
-const FIO_CLARO = "B9CBE4";
-const PRETO = "000000";
-const FAIXA_QUESTAO = "D9D9D9";
-
-const FONTE_QUESTAO = "Arial"; // questões no padrão do caderno do ENEM
-const SEM_SERIFA = "Calibri"; // cabeçalho, faixas e rodapé
-
-const CORPO = 19; // 9,5 pt
-const CORPO_QUESTAO = 18; // 9 pt
-const TITULO_QUESTAO = 21; // 10,5 pt
-const BOLINHA_PX = 14; // ~0,36 cm a 96 dpi
-const PEQUENO = 15; // 7,5 pt
-const LINHA = 252; // entrelinha 1,05
-
-const LOGO_LARGURA_PX = 83; // ~2,2 cm a 96 dpi
-const COLUNA_LOGO = cm(2.4);
-
-const TRAVESSAO = /\s+[—–-]\s+/;
 
 function runs(segmentos: Segmento[], extra: { size?: number; bold?: boolean } = {}): TextRun[] {
   return segmentos.map(
@@ -159,11 +157,6 @@ function caixaLetra(letra: string): TextRun {
   });
 }
 
-/** "Tarefa de Matemática — Porcentagem" → "Tarefa de Matemática" (parte antes do travessão). */
-function tituloCurto(titulo: string): string {
-  return titulo.split(TRAVESSAO)[0].trim() || titulo;
-}
-
 function maiusculas(s: string): string {
   return s.toLocaleUpperCase("pt-BR");
 }
@@ -200,16 +193,6 @@ function logoRun(logo: Buffer): ImageRun | null {
 }
 
 // ---------- cabeçalho da 1ª página ----------
-
-const LARGURA_TEXTO_CAB = LARGURA_UTIL - COLUNA_LOGO;
-const MARGEM_CELULA = cm(0.3);
-/** Folga antes da borda da célula: um tab no limite exato faz o Word quebrar a linha. */
-const FOLGA_LINHA = cm(0.3);
-/**
- * Fim útil das linhas de preencher, medido a partir do início do texto da célula:
- * largura da célula menos as margens internas e a folga.
- */
-const FIM_LINHA = LARGURA_TEXTO_CAB - 2 * MARGEM_CELULA - FOLGA_LINHA;
 
 type Campo = { rotulo: string; ate: number | null; depois?: string };
 
@@ -333,8 +316,8 @@ function pagina() {
       right: MARGEM_LADO,
       bottom: MARGEM_TOPO,
       left: MARGEM_LADO,
-      header: cm(0.6),
-      footer: cm(0.6),
+      header: DISTANCIA_TOPO_RODAPE,
+      footer: DISTANCIA_TOPO_RODAPE,
     },
   };
 }

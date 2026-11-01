@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
     "/api/mcp/dono": [...DADOS_PDFJS, ...ARQUIVOS_FOLHA],
     "/api/provas-word/**": ARQUIVOS_FOLHA,
     "/banco/provas-word": ARQUIVOS_FOLHA,
+    "/banco/provas-word/[id]/previa": ARQUIVOS_FOLHA,
   },
   images: {
     remotePatterns: [
