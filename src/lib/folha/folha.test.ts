@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { celulasTabela, comandoRepetido, ehCredito, numero2, separarCredito } from "./texto";
 import { avisosDaQuestao } from "./avisos";
 import { folhaAluno, folhaGabarito, type FiguraFolha, type QuestaoFolha } from "./docx";
+import { documentoXml } from "./documento-xml";
 
 function qf(enunciado: string): QuestaoFolha {
   return {
@@ -40,14 +41,6 @@ test("folhaAluno e folhaGabarito geram .docx (zip)", async () => {
   const d = { titulo: "Tarefa de Matemática", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")] };
   for (const b of [await folhaAluno(d), await folhaGabarito(d)]) assert.equal(b.subarray(0, 2).toString(), "PK");
 });
-
-async function documentoXml(b: Buffer): Promise<string> {
-  const { default: JSZip } = await import("jszip");
-  const zip = await JSZip.loadAsync(b);
-  const arquivo = zip.file("word/document.xml");
-  assert.ok(arquivo, "word/document.xml ausente");
-  return arquivo.async("string");
-}
 
 test("folha do aluno: questão numerada, identificação e fontes", async () => {
   const d = {
