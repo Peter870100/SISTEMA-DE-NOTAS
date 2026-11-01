@@ -60,10 +60,23 @@ test("bloco alto no fim de uma cadeia é reduzido ao que sobra", () => {
   assert.deepEqual(r[0].reduzir, { 2: 80 });
 });
 
-test("cabeça alta demais: fica na coluna e o último desce sozinho", () => {
+test("cabeça alta demais: blocos seguem as regras comuns", () => {
   const r = paginar([b(80, true), b(250)], 100, 100);
   assert.deepEqual(r[0].colunas, [[0], [1]]);
   assert.deepEqual(r[0].reduzir, { 1: 100 });
+});
+
+test("cabeça mais alta que a coluna é reduzida", () => {
+  const r = paginar([b(250, true), b(10)], 100, 100);
+  assert.deepEqual(r[0].colunas, [[0], [1]]);
+  assert.deepEqual(r[0].reduzir, { 0: 100 });
+});
+
+test("cabeças que somam mais que a coluna não estouram", () => {
+  const r = paginar([b(60, true), b(60, true), b(10)], 100, 100);
+  assert.equal(r.length, 1);
+  assert.deepEqual(r[0].colunas, [[0], [1, 2]]);
+  assert.deepEqual(r[0].reduzir, {});
 });
 
 test("reduzir depois da primeira página usa alturaDemais", () => {

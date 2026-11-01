@@ -27,11 +27,13 @@ export function paginar(
     usado = 0;
   };
 
+  // blocos da cabeça de uma cadeia desfeita: seguem as regras de bloco comum
+  const soltos = new Set<number>();
   let i = 0;
   while (i < blocos.length) {
     // fim da cadeia que começa em i (blocos com grudaNoProximo + o próximo)
     let fim = i;
-    while (fim < blocos.length - 1 && blocos[fim].grudaNoProximo) fim++;
+    while (fim < blocos.length - 1 && blocos[fim].grudaNoProximo && !soltos.has(fim)) fim++;
     let total = 0;
     for (let k = i; k <= fim; k++) total += blocos[k].altura;
 
@@ -61,10 +63,9 @@ export function paginar(
       usado = limite;
       i = fim + 1;
     } else {
-      // cabeça alta demais: ela fica aqui e o último bloco desce sozinho
-      for (let k = i; k < fim; k++) pag.colunas[coluna].push(k);
-      avancar();
-      i = fim;
+      // cabeça alta demais: desfaz a cadeia; cada bloco segue as regras comuns
+      // (sempre solta ao menos um bloco, então termina)
+      for (let k = i; k < fim; k++) soltos.add(k);
     }
   }
   return paginas;
