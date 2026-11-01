@@ -46,7 +46,7 @@ export function areaDoTexto(t: string): Area {
 }
 
 /** Assunto pelo nome (dentro da matéria, se informada). Devolve o id e a matéria do assunto. */
-export async function assuntoDoTexto(ctx: Ctx, nome: string, materia?: string): Promise<{ id: string; nome: string; materia: string }> {
+export async function assuntoDoTexto(ctx: Pick<Ctx, "supabase">, nome: string, materia?: string): Promise<{ id: string; nome: string; materia: string }> {
   let q = ctx.supabase.from("assuntos").select("id, nome, materia");
   if (materia) q = q.eq("materia", materia);
   const { data, error } = await q.order("nome").limit(1000);

@@ -4,6 +4,9 @@ import {
   cenarioIneditas,
   codigoLink,
   escolherQuestoes,
+  materiaRotulo,
+  rotuloPedido,
+  textoPrevia,
   tituloProva,
   verificarCodigoLink,
 } from "./provas-word";
@@ -44,4 +47,16 @@ test("codigoLink: confere e recusa adulterado/outra prova", () => {
   assert.equal(verificarCodigoLink("p2", c, "k"), false);
   assert.equal(verificarCodigoLink("p1", c.slice(0, -1) + (c.endsWith("0") ? "1" : "0"), "k"), false);
   assert.equal(verificarCodigoLink("p1", null, "k"), false);
+});
+
+test("textoPrevia: cabe, falta inédita e nenhuma", () => {
+  const rot = rotuloPedido(materiaRotulo({ materia: "biologia" }), "Genética", "ufms");
+  assert.equal(rot, "Biologia · Genética (UFMS)");
+  assert.match(textoPrevia(rot, cenarioIneditas(["a", "b", "c"], new Set(), 2)), /3 questões no banco; você já usou 0; 3 inéditas\. Pedidas: 2 — cabem só em inéditas\./);
+  const falta = textoPrevia(rot, cenarioIneditas(["a", "b"], new Set(["a"]), 4));
+  assert.match(falta, /só há 1 inédita para 4 pedidas\./);
+  assert.match(falta, /no máximo 2 questões\./);
+  assert.match(textoPrevia(rot, cenarioIneditas([], new Set(), 3)), /nenhuma questão no banco/);
+  assert.equal(materiaRotulo({ area: "natureza" }), "Ciências da Natureza");
+  assert.equal(materiaRotulo({}), "Questões");
 });

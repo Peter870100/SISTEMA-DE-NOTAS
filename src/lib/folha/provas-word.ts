@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { AREAS, MATERIAS } from "@/lib/questoes/materias";
+import type { Area } from "@/lib/types";
 
 export type TipoProva = "fixacao" | "simulado";
 
@@ -83,4 +85,27 @@ export function verificarCodigoLink(
   const recebido = Buffer.from(codigo);
   const esperado = Buffer.from(hmacProva(provaId, chave));
   return recebido.length === esperado.length && timingSafeEqual(recebido, esperado);
+}
+
+/** Rótulo da matéria para o título: a matéria; sem ela, a área; senão "Questões". Pura. */
+export function materiaRotulo(f: { materia?: string; area?: Area }): string {
+  if (f.materia) return (MATERIAS as Record<string, { rotulo: string }>)[f.materia]?.rotulo ?? f.materia;
+  if (f.area) return AREAS[f.area];
+  return "Questões";
+}
+
+/** "Biologia · Genética (UFMS)": o que foi pedido, para a prévia. Pura. */
+export function rotuloPedido(materia: string, assunto: string | null, banca?: string): string {
+  const b = banca?.trim();
+  return `${materia}${assunto ? ` · ${assunto}` : ""}${b ? ` (${b.toUpperCase()})` : ""}`;
+}
+
+/** Texto da prévia (o mesmo na Hermes e no site). Pura. */
+export function textoPrevia(rotulo: string, c: Cenario): string {
+  if (c.elegiveis === 0) return `${rotulo}: nenhuma questão no banco com esses filtros (com figuras e publicadas). Tente outros filtros.`;
+  const base = `${rotulo}: ${c.elegiveis} ${c.elegiveis === 1 ? "questão" : "questões"} no banco; você já usou ${c.usadas}; ${c.ineditas} ${c.ineditas === 1 ? "inédita" : "inéditas"}. Pedidas: ${c.pedidas}`;
+  if (c.cabeEmIneditas) return `${base} — cabem só em inéditas.`;
+  const partes = [`${base} — só há ${c.ineditas} ${c.ineditas === 1 ? "inédita" : "inéditas"} para ${c.pedidas} pedidas.`];
+  if (c.elegiveis < c.pedidas) partes.push(`Mesmo completando com já usadas, a prova terá no máximo ${c.elegiveis} ${c.elegiveis === 1 ? "questão" : "questões"}.`);
+  return partes.join(" ");
 }

@@ -1,9 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BASE_LINKS_PROVA, gerarProva, lerProva, linksProva, listarProvas, previaProva } from "@/lib/folha/provas-word-servidor";
-import { LIMITE_QUESTOES_PROVA, type Cenario } from "@/lib/folha/provas-word";
-import { AREAS, MATERIAS } from "@/lib/questoes/materias";
-import type { FiltrosSorteio } from "@/lib/simulados/servidor";
+import { LIMITE_QUESTOES_PROVA, materiaRotulo, rotuloPedido, textoPrevia } from "@/lib/folha/provas-word";
 import { campoEscola, campoTelefone, dataBR, texto, type Ctx, type ObterCtx } from "../leitura/comum";
 import { atorDoEscopo, campoId, contaDoDono, escolaParaCriar, falha, registrado, type Perfil } from "./ator";
 import { camposFiltro, filtrosComAssunto, type ArgsFiltro } from "./simulados";
@@ -15,13 +13,6 @@ import { camposFiltro, filtrosComAssunto, type ArgsFiltro } from "./simulados";
 
 const ERRO_PROVA = "Prova não encontrada.";
 const MAX_LISTA = 20;
-
-/** Rótulo da matéria para o título: a matéria; sem ela, a área; senão "Questões". */
-function materiaRotulo(f: FiltrosSorteio): string {
-  if (f.materia) return (MATERIAS as Record<string, { rotulo: string }>)[f.materia]?.rotulo ?? f.materia;
-  if (f.area) return AREAS[f.area];
-  return "Questões";
-}
 
 /** Professor e escola do pedido (previa/gerar): professor = ele e a escola dele; dono = a conta do dono e a escola pedida. */
 async function autorDoPedido(ctx: Ctx, escola?: string) {
@@ -43,21 +34,6 @@ async function pedidoDe(ctx: Ctx, args: ArgsFiltro & { quantidade: number; escol
     escola,
     pedido: { escolaId: escola.id, professorId: ator.id, filtros, quantidade: args.quantidade, materiaRotulo: materiaRotulo(filtros), assuntoNome },
   };
-}
-
-function rotuloPedido(materia: string, assunto: string | null, banca?: string): string {
-  const b = banca?.trim();
-  return `${materia}${assunto ? ` · ${assunto}` : ""}${b ? ` (${b.toUpperCase()})` : ""}`;
-}
-
-/** Texto da prévia. Pura. */
-export function textoPrevia(rotulo: string, c: Cenario): string {
-  if (c.elegiveis === 0) return `${rotulo}: nenhuma questão no banco com esses filtros (com figuras e publicadas). Tente outros filtros.`;
-  const base = `${rotulo}: ${c.elegiveis} ${c.elegiveis === 1 ? "questão" : "questões"} no banco; você já usou ${c.usadas}; ${c.ineditas} ${c.ineditas === 1 ? "inédita" : "inéditas"}. Pedidas: ${c.pedidas}`;
-  if (c.cabeEmIneditas) return `${base} — cabem só em inéditas.`;
-  const partes = [`${base} — só há ${c.ineditas} ${c.ineditas === 1 ? "inédita" : "inéditas"} para ${c.pedidas} pedidas.`];
-  if (c.elegiveis < c.pedidas) partes.push(`Mesmo completando com já usadas, a prova terá no máximo ${c.elegiveis} ${c.elegiveis === 1 ? "questão" : "questões"}.`);
-  return partes.join(" ");
 }
 
 function blocoLinks(id: string): string {
