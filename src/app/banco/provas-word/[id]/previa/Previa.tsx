@@ -189,6 +189,24 @@ export function Previa({
     };
   }, [qual, nomeBase]);
 
+  // Com a prévia aberta, o resto do app fica inerte (sem foco, clique ou leitor de tela) e sem rolagem.
+  // O menu "Baixar" também abre num portal no body: ele (e a própria prévia) ficam de fora.
+  useEffect(() => {
+    if (!montado) return;
+    const marcados = [...document.body.children].filter(
+      (el) => !el.hasAttribute("data-previa") && !el.hasAttribute("data-menu-flutuante") && !el.hasAttribute("inert"),
+    );
+    marcados.forEach((el) => el.setAttribute("inert", ""));
+    const { html, body } = { html: document.documentElement.style.overflow, body: document.body.style.overflow };
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      marcados.forEach((el) => el.removeAttribute("inert"));
+      document.documentElement.style.overflow = html;
+      document.body.style.overflow = body;
+    };
+  }, [montado]);
+
   function trocar(q: Qual) {
     if (q === qual) return;
     setQual(q);

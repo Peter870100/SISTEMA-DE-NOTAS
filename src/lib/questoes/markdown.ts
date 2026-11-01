@@ -26,10 +26,17 @@ function normalizar(s: string): string {
   return s.replace(/\*/g, "").replace(/\s+/g, " ").trim().toLocaleLowerCase("pt-BR");
 }
 
+/** O texto termina com o comando começando no início ou logo após espaço/pontuação (não no meio de palavra)? */
+function terminaComComando(texto: string, c: string): boolean {
+  if (!texto.endsWith(c)) return false;
+  const inicio = texto.length - c.length;
+  return inicio === 0 || !/[\p{L}\p{N}]/u.test(texto[inicio - 1]);
+}
+
 /** O enunciado já termina com o comando? (a importação às vezes repete o comando no fim do texto) */
 export function comandoRepetido(enunciado: string, comando: string): boolean {
   const c = normalizar(comando ?? "");
-  return c.length > 0 && normalizar(enunciado ?? "").endsWith(c);
+  return c.length > 0 && terminaComComando(normalizar(enunciado ?? ""), c);
 }
 
 /**
@@ -93,7 +100,7 @@ export function separarComando(enunciado: string, comando: string): { texto: str
   if (!c) return null;
   const bruto = enunciado ?? "";
   const { texto, posicoes } = normalizarComPosicoes(bruto);
-  if (!texto.endsWith(c)) return null;
+  if (!terminaComComando(texto, c)) return null;
   const corte = posicoes[texto.length - c.length];
   const linhas = bruto.slice(0, corte).replace(/\s+$/, "").split(/\r?\n/);
   linhas[linhas.length - 1] = fecharMarcas(linhas[linhas.length - 1]);
@@ -106,7 +113,7 @@ export function separarComando(enunciado: string, comando: string): { texto: str
  */
 export function pedeLeituraDoTexto(enunciado: string): boolean {
   const t = normalizar(enunciado ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
-  return /^leia (com atencao )?(o texto|os textos) (abaixo|a seguir)/.test(t);
+  return /^leia,? (com atencao,? |atentamente,? )?(o texto|os textos) (abaixo|a seguir)/.test(t);
 }
 
 /**

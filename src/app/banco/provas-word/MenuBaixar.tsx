@@ -165,6 +165,7 @@ export function MenuBaixar({
           <div
             ref={lista}
             id={idMenu}
+            data-menu-flutuante=""
             role="menu"
             aria-label="Baixar"
             className={css.menuLista}

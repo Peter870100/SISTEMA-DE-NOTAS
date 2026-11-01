@@ -270,7 +270,11 @@ export type ProvaFolha = {
 };
 
 /** Carrega a prova e tudo o que a folha precisa (usado pelo .docx e pela prévia); null se não existir. */
-export async function dadosFolhaProva(id: string): Promise<{ prova: ProvaFolha; dados: DadosFolha; nomeBase: string } | null> {
+export async function dadosFolhaProva(
+  id: string,
+  /** Confere a prova logo depois de lida e antes de carregar as questões; false devolve null. */
+  autorizar?: (prova: ProvaFolha) => boolean,
+): Promise<{ prova: ProvaFolha; dados: DadosFolha; nomeBase: string } | null> {
   const { data: prova, error } = await supabase
     .from("provas_word")
     .select("id, professor_id, escola_id, titulo, created_at, excluida_em")
@@ -278,6 +282,18 @@ export async function dadosFolhaProva(id: string): Promise<{ prova: ProvaFolha; 
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!prova) return null;
+  if (
+    autorizar &&
+    !autorizar({
+      id: prova.id as string,
+      professor_id: prova.professor_id as string,
+      escola_id: prova.escola_id as string,
+      titulo: prova.titulo as string,
+      created_at: prova.created_at as string,
+      excluida: prova.excluida_em != null,
+    })
+  )
+    return null;
 
   const { data: linhas, error: errQ } = await supabase
     .from("prova_word_questoes")

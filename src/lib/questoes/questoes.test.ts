@@ -5,7 +5,7 @@ import { ASSUNTOS_INICIAIS } from "./assuntos-iniciais";
 import { estiloRecorte, limitarQuadro } from "./quadro";
 import { lerPaginas } from "./paginas";
 import { padraoExato } from "./busca";
-import { comandoParaMostrar, enunciadoNaTela, markdownParaBlocos, partesDoTexto, pedeLeituraDoTexto, separarComando } from "./markdown";
+import { comandoParaMostrar, comandoRepetido, enunciadoNaTela, markdownParaBlocos, partesDoTexto, pedeLeituraDoTexto, separarComando } from "./markdown";
 import { urlImagemPermitida } from "./enemdev";
 import { progressoDoLote } from "./ia";
 import { respostaParaQuestoes, RespostaPaginaSchema, classificacaoParaAtualizacoes, chaveQuestao } from "./formato-ia";
@@ -394,6 +394,12 @@ test("pedeLeituraDoTexto: frases de leitura com acento, maiúsculas e negrito", 
     "Leia com atenção o texto abaixo.",
     "LEIA COM ATENCAO OS TEXTOS A SEGUIR.",
     "Leiá ó texto abaixo.",
+    "Leia, com atenção, o texto abaixo.",
+    "Leia com atenção, o texto a seguir:",
+    "LEIA, COM ATENCAO, OS TEXTOS A SEGUIR.",
+    "Leia atentamente o texto abaixo.",
+    "Leia, atentamente, os textos a seguir.",
+    "**Leia** atentamente o texto a seguir",
   ]) assert.equal(pedeLeituraDoTexto(e), true, e);
   for (const e of [
     "",
@@ -402,5 +408,17 @@ test("pedeLeituraDoTexto: frases de leitura com acento, maiúsculas e negrito", 
     "Leia o texto.",
     "Um texto. Leia o texto abaixo.",
     "Releia o texto abaixo.",
+    "Leia atentamente a tirinha abaixo.",
+    "Leia, com atenção, o texto.",
   ]) assert.equal(pedeLeituraDoTexto(e), false, e);
+});
+
+test("comando só casa no início ou depois de espaço/pontuação, nunca no meio de palavra", () => {
+  assert.equal(comandoRepetido("Texto xquantos?", "quantos?"), false);
+  assert.equal(separarComando("Texto xquantos?", "quantos?"), null);
+  assert.equal(comandoParaMostrar("Texto xquantos?", "quantos?"), "quantos?");
+  assert.equal(comandoRepetido("Texto. Quantos?", "quantos?"), true);
+  assert.equal(comandoRepetido("Texto:quantos?", "quantos?"), true);
+  assert.equal(comandoRepetido("quantos?", "quantos?"), true);
+  assert.deepEqual(separarComando("Texto *quantos?*", "quantos?"), { texto: "Texto", comando: "quantos?" });
 });

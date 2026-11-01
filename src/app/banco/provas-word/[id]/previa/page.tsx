@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
 import { dadosFolhaProva, lerProva } from "@/lib/folha/provas-word-servidor";
@@ -9,6 +10,25 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const TITULO_GENERICO = "Pré-visualização";
+
+/** Mesma regra do download: dono da prova ou papel `dono`; prova excluída não aparece. */
+function podeVer(professor: { id: string; role?: string | null }, prova: { professor_id: string; excluida: boolean }): boolean {
+  return !prova.excluida && (professor.id === prova.professor_id || professor.role === "dono");
+}
+
+/** Título da aba: o da prova só para quem pode ver a prova; senão um título genérico. */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const generico = { title: TITULO_GENERICO };
+  const professor = await getProfessorAtual();
+  if (!professor) return generico;
+  const { id } = await params;
+  if (!UUID.test(id)) return generico;
+  const prova = await lerProva(id);
+  if (!prova || !podeVer(professor, prova)) return generico;
+  return { title: `${prova.titulo} · ${TITULO_GENERICO}` };
+}
 
 /** Pré-visualização da prova em Word (e do gabarito) para imprimir ou salvar em PDF. */
 export default async function PreviaProvaPage({
@@ -23,12 +43,9 @@ export default async function PreviaProvaPage({
 
   const { id } = await params;
   if (!UUID.test(id)) notFound();
-  // Mesma regra do download: dono da prova ou papel `dono`. Confere antes de carregar as figuras.
-  const prova = await lerProva(id);
-  if (!prova || prova.excluida || (professor.id !== prova.professor_id && professor.role !== "dono")) notFound();
-
-  const carregada = await dadosFolhaProva(id);
-  if (!carregada || carregada.prova.excluida) notFound();
+  // Uma leitura só da prova; a conferência de dono roda antes de carregar questões e figuras.
+  const carregada = await dadosFolhaProva(id, (prova) => podeVer(professor, prova));
+  if (!carregada) notFound();
 
   const busca = await searchParams;
   const qual = busca.qual === "gabarito" ? "gabarito" : "prova";
