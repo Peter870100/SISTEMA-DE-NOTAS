@@ -43,7 +43,11 @@ O Peter fala português; respostas em pt-BR.
    (só MCP do dono) grava questões escritas pelo Claude no banco geral em revisão, sem IA paga (lote em
    `geracoes_ia` com custo 0); `scripts/folha-tarefa.ts` gera folha do aluno + gabarito em .docx na pasta
    `folhas/` (uso em `docs/folha-tarefa.md`). Claude Code ligado ao MCP do dono (`statusavalia-dono`).
-   Etapa 2 pendente: folha com questões do acervo (figuras recortadas e `conteudo` formatado).
+11. Prova em Word (2026-11-01; spec `docs/superpowers/specs/2026-10-31-prova-em-word-design.md`): prova + gabarito
+   .docx com questões oficiais do banco (figuras recortadas, `conteudo` formatado), pela Hermes (`previa_prova_word`,
+   `gerar_prova_word`, `listar_provas_word`, `links_prova_word`) e pelo site (`/banco/provas-word`). Histórico em
+   `provas_word`/`prova_word_questoes`; "inéditas" = ainda não usadas pelo professor. Download em
+   `/api/provas-word/<id>/<prova|gabarito>` (link com `?c=` HMAC ou sessão). Uso em `docs/folha-tarefa.md`.
 
 ## Próximo passo
 - **Loja com Stripe** (alunos de fora: curso avulso ou pacote completo com treinos; Pix e cartão 12x):
@@ -52,7 +56,6 @@ O Peter fala português; respostas em pt-BR.
   executar com subagentes. O SQL da loja (seção 1 da spec) ainda NÃO foi colado.
 - Conta da API Anthropic está SEM CRÉDITO (2026-10-30): gerador do site e da Hermes falham com
   "credit balance is too low" até o Peter recarregar. A chave na Vercel foi trocada e é válida.
-- Folha de tarefa: Peter avaliar o visual da primeira folha (`folhas/2026-10-31-tarefa-de-matematica-porcentagem*.docx`).
 - Gerador na Hermes: falta uma geração real pelo Telegram chegar a "concluída" (confirma que o `after()`
   roda até o fim na Vercel). Se ficar "parou no meio" após 10 min, o `after` não está sendo mantido.
 - Build da Vercel às vezes falha baixando Google Fonts (`Can't resolve ...font/google/font`): é passageiro,

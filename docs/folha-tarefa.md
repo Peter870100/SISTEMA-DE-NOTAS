@@ -54,3 +54,23 @@ claude mcp add --transport http --scope local statusavalia-dono https://www.stat
 ```
 
 Use `--scope local` (não `project`) para o token não ir parar em arquivo versionado.
+
+## Prova em Word pela Hermes e pelo site
+
+Prova com questões **oficiais do banco** (publicadas, com resposta, sem pendência de figura ou revisão), com as
+figuras recortadas da prova original e o texto formatado. Sai em dois arquivos .docx: a prova e o gabarito.
+
+- **Pela Hermes (Telegram):** o professor pede, por exemplo, "uma prova de 10 questões de Biologia da UFMS".
+  A Hermes chama `previa_prova_word`, conta quantas questões existem, quantas ele já usou e quantas são inéditas,
+  e pergunta se é atividade de fixação ou simulado (e, se faltar inédita, se completa com já usadas). Depois
+  `gerar_prova_word` devolve os dois links. Para reenviar uma prova antiga: `listar_provas_word` e `links_prova_word`.
+- **Pelo site:** Banco de questões → **Provas em Word** (`/banco/provas-word`). Formulário "Nova prova" com prévia,
+  e o histórico com Baixar prova / Baixar gabarito / Excluir / Limpar tudo.
+- **Inédita** = questão que o professor ainda não pôs em nenhuma prova em Word dele (contam também as provas
+  excluídas do histórico; simulados online não contam).
+- **Links:** os da Hermes têm um código (`?c=`) e abrem sem login; não expiram, mas param de funcionar se a prova for
+  excluída. No site, o download usa a sessão (só o professor da prova ou o dono).
+- **Título:** "Atividade de Fixação – <Matéria>" ou "Simulado – <Matéria>", com " · <Assunto>" quando houver.
+  Logo do Colégio Status só na escola Status; nas outras, o nome da escola no cabeçalho.
+- Tabelas: `provas_word` e `prova_word_questoes` (`db/schema.sql`). Questão que foi para a lixeira depois some da
+  prova, com o aviso "N questões desta prova não estão mais no banco".
