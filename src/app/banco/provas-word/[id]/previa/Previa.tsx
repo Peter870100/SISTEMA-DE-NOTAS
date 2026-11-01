@@ -141,6 +141,10 @@ export function Previa({
           impressaoAutomatica.current = true;
           setAvisoPdf(true);
           setPedidoImpressao(true);
+          // Tira o `?imprimir=1` para recarregar a página não abrir a impressão de novo.
+          const url = new URL(window.location.href);
+          url.searchParams.delete("imprimir");
+          window.history.replaceState(null, "", url);
         }
       } catch (e) {
         console.error("Pré-visualização: falha ao montar as folhas", e);

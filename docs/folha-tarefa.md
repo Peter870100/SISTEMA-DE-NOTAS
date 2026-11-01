@@ -65,7 +65,7 @@ figuras recortadas da prova original e o texto formatado. Sai em dois arquivos .
   e pergunta se é atividade de fixação ou simulado (e, se faltar inédita, se completa com já usadas). Depois
   `gerar_prova_word` devolve os dois links. Para reenviar uma prova antiga: `listar_provas_word` e `links_prova_word`.
 - **Pelo site:** Banco de questões → **Provas em Word** (`/banco/provas-word`). Formulário "Nova prova" com prévia,
-  e o histórico com Baixar prova / Baixar gabarito / Excluir / Limpar tudo.
+  e o histórico com Pré-visualizar / Baixar ▾ (Prova/Gabarito em Word ou PDF) / Excluir / Limpar tudo.
 - **Inédita** = questão que o professor ainda não pôs em nenhuma prova em Word dele (contam também as provas
   excluídas do histórico; simulados online não contam).
 - **Links:** os da Hermes têm um código (`?c=`) e abrem sem login; não expiram, mas param de funcionar se a prova for
@@ -80,6 +80,7 @@ figuras recortadas da prova original e o texto formatado. Sai em dois arquivos .
 - No histórico de `/banco/provas-word` (e logo após gerar uma prova), clique em **Pré-visualizar**. A prova abre
   em tela cheia, paginada como folha A4; há a aba do gabarito.
 - **Imprimir** abre a janela de impressão do navegador com a folha atual.
-- **Baixar ▾** oferece Word (.docx) e PDF. Nos itens "(PDF)" abre-se a janela de impressão: escolha
-  "Salvar como PDF" como impressora.
+- **Baixar ▾** oferece Word (.docx) e PDF. No histórico (e logo após gerar), o menu lista **Prova (Word)**,
+  **Gabarito (Word)**, **Prova (PDF)** e **Gabarito (PDF)**; dentro da pré-visualização, **Word** e **PDF** da folha
+  aberta. Nos itens de PDF abre-se a janela de impressão: escolha "Salvar como PDF" como impressora.
 - As quebras de página da prévia e do PDF podem diferir um pouco das do Word.

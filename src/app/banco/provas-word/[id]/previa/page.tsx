@@ -5,8 +5,8 @@ import { dadosPrevia } from "@/lib/folha/previa-servidor";
 import { Previa } from "./Previa";
 
 export const dynamic = "force-dynamic";
-// Carrega as questões e recorta/reduz as figuras com sharp.
-export const maxDuration = 60;
+// Carrega as questões e recorta/reduz as figuras com sharp (mesmo limite do download em Word).
+export const maxDuration = 120;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

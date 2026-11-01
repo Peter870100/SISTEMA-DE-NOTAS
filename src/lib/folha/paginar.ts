@@ -13,6 +13,10 @@ export function paginar(
   alturaPrimeira: number,
   alturaDemais: number,
 ): PaginaPrevia[] {
+  // Coluna sem altura útil (ex.: medição falhou) nunca recebe bloco algum: o laço não terminaria.
+  if (!(alturaPrimeira > 0) || !(alturaDemais > 0)) {
+    throw new Error(`Altura de coluna inválida para paginar: ${alturaPrimeira} / ${alturaDemais}.`);
+  }
   const paginas: PaginaPrevia[] = [{ colunas: [[], []], reduzir: {} }];
   let coluna = 0;
   let usado = 0;

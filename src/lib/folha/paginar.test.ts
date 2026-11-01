@@ -94,3 +94,10 @@ test("bloco exatamente da altura da coluna não é reduzido", () => {
 test("lista vazia dá uma página vazia", () => {
   assert.deepEqual(paginar([], 100, 100), [{ colunas: [[], []], reduzir: {} }]);
 });
+
+test("coluna sem altura útil lança erro em vez de travar", () => {
+  assert.throws(() => paginar([b(40)], 0, 100), /Altura de coluna inválida/);
+  assert.throws(() => paginar([b(40)], 100, 0), /Altura de coluna inválida/);
+  assert.throws(() => paginar([b(40)], -5, -5), /Altura de coluna inválida/);
+  assert.throws(() => paginar([b(40)], Number.NaN, 100), /Altura de coluna inválida/);
+});
