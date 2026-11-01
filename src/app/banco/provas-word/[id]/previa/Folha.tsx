@@ -4,6 +4,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { markdownParaBlocos, type Segmento } from "@/lib/questoes/markdown";
 import type { MarcaConteudo, NoConteudo } from "@/lib/questoes/conteudo";
 import { temTexto, type ItemFolha } from "@/lib/folha/estrutura";
+import type { ParteTexto } from "@/lib/folha/dividir";
 import type { DadosPrevia, FiguraTela } from "@/lib/folha/previa";
 import { numero2, tituloCurto, TRAVESSAO } from "@/lib/folha/texto";
 import {
@@ -100,7 +101,28 @@ const ALINHAMENTO_FIGURA: Record<string, CSSProperties["textAlign"]> = {
   direita: "right",
 };
 
-function ParagrafoConteudo({ no, primeiro }: { no: NoConteudo; primeiro: boolean }) {
+/**
+ * Estilo de um parágrafo de texto (twips antes/depois e recuo de 1ª linha). Num pedaço de parágrafo
+ * dividido, só o primeiro tem recuo e espaço antes, só o último tem espaço depois, e os do meio
+ * terminam com a última linha justificada (o parágrafo parece contínuo).
+ */
+function estiloTexto(
+  o: { antes: number; depois: number; recuo?: number; alinhamento?: CSSProperties["textAlign"] },
+  parte: ParteTexto | undefined,
+): CSSProperties {
+  const alinhamento = o.alinhamento ?? "justify";
+  const primeira = parte?.primeira ?? true;
+  const ultima = parte?.ultima ?? true;
+  return {
+    textAlign: alinhamento,
+    textAlignLast: !ultima && alinhamento === "justify" ? "justify" : undefined,
+    textIndent: o.recuo && primeira ? x(o.recuo) : undefined,
+    paddingTop: primeira ? p(o.antes) : 0,
+    paddingBottom: ultima ? p(o.depois) : 0,
+  };
+}
+
+function ParagrafoConteudo({ no, primeiro, parte }: { no: NoConteudo; primeiro: boolean; parte?: ParteTexto }) {
   const ta = no.attrs?.textAlign;
   const r = no.attrs?.recuo;
   const recuo = typeof r === "number" && Number.isFinite(r) ? Math.min(3, Math.max(0, Math.floor(r))) : 0;
@@ -108,10 +130,11 @@ function ParagrafoConteudo({ no, primeiro }: { no: NoConteudo; primeiro: boolean
     <div
       className={css.texto}
       style={{
-        textAlign: typeof ta === "string" && Object.hasOwn(ALINHAMENTO_TEXTO, ta) ? ALINHAMENTO_TEXTO[ta] : "justify",
+        ...estiloTexto(
+          { antes: primeiro ? 100 : 0, depois: 40, alinhamento: typeof ta === "string" && Object.hasOwn(ALINHAMENTO_TEXTO, ta) ? ALINHAMENTO_TEXTO[ta] : "justify" },
+          parte,
+        ),
         paddingLeft: recuo ? x(recuo * RECUO) : undefined,
-        paddingTop: p(primeiro ? 100 : 0),
-        paddingBottom: p(40),
       }}
     >
       <EmLinha nos={no.content} />
@@ -124,11 +147,31 @@ function Vazio({ depois }: { depois: number }) {
   return <div className={css.vazio} style={{ paddingBottom: p(depois) }} aria-hidden="true" />;
 }
 
-function NoDoConteudo({ no, primeiro }: { no: NoConteudo; primeiro: boolean }) {
+function NoDoConteudo({ no, primeiro, parte }: { no: NoConteudo; primeiro: boolean; parte?: ParteTexto }) {
   if (no.type === "horizontalRule") {
     return (
       <div style={{ paddingTop: p(40), paddingBottom: p(80) }}>
         <div className={css.linhaHorizontal} />
+      </div>
+    );
+  }
+  if (no.type === "caixa" && parte) {
+    // Pedaço de uma caixa dividida (um parágrafo dela): bordas laterais; topo só no 1º, base só no último.
+    const fio = ".5pt solid #000";
+    return (
+      <div>
+        <div
+          style={{
+            borderLeft: fio,
+            borderRight: fio,
+            borderTop: parte.primeira ? fio : undefined,
+            borderBottom: parte.ultima ? fio : undefined,
+            padding: `${parte.primeira ? p(40) : 0} ${x(cm(0.15))} ${parte.ultima ? p(40) : 0}`,
+          }}
+        >
+          {(no.content ?? []).map((n, i) => <ParagrafoConteudo key={i} no={n} primeiro={false} />)}
+        </div>
+        {parte.ultima && <Vazio depois={40} />}
       </div>
     );
   }
@@ -142,7 +185,7 @@ function NoDoConteudo({ no, primeiro }: { no: NoConteudo; primeiro: boolean }) {
       </div>
     );
   }
-  return <ParagrafoConteudo no={no} primeiro={primeiro} />;
+  return <ParagrafoConteudo no={no} primeiro={primeiro} parte={parte} />;
 }
 
 // ---------- marcas das alternativas ----------
@@ -276,15 +319,20 @@ function Credito({ credito, origem }: { credito: string | null; origem: string |
   );
 }
 
-/** Um item da estrutura comum desenhado como bloco; `alturaMaximaFigura` reduz a figura para caber. */
+/**
+ * Um item da estrutura comum desenhado como bloco; `alturaMaximaFigura` reduz a figura para caber;
+ * `parte` marca um pedaço de texto dividido (`src/lib/folha/dividir.ts`).
+ */
 export function Bloco({
   item,
   bolinhas,
   alturaMaximaFigura,
+  parte,
 }: {
   item: ItemFolha<FiguraTela>;
   bolinhas: Bolinhas;
   alturaMaximaFigura?: number;
+  parte?: ParteTexto;
 }) {
   switch (item.tipo) {
     case "faixa":
@@ -293,21 +341,21 @@ export function Bloco({
       return <TituloQuestao numero={item.numero} primeiraDoBloco={item.primeiraDoBloco} />;
     case "paragrafo":
       return (
-        <div className={css.texto} style={{ textAlign: "justify", textIndent: x(RECUO), paddingTop: p(item.indice === 0 ? 100 : 0), paddingBottom: p(40) }}>
+        <div className={css.texto} style={estiloTexto({ antes: item.indice === 0 ? 100 : 0, depois: 40, recuo: RECUO }, parte)}>
           <Segmentos segmentos={item.segmentos} />
         </div>
       );
     case "tabela":
       return <Tabela linhas={item.linhas} />;
     case "noConteudo":
-      return <NoDoConteudo no={item.no} primeiro={item.primeiro} />;
+      return <NoDoConteudo no={item.no} primeiro={item.primeiro} parte={parte} />;
     case "figura":
       return <Figura item={item} alturaMaxima={alturaMaximaFigura} />;
     case "credito":
       return <Credito credito={item.credito} origem={item.origem} />;
     case "comando":
       return (
-        <div className={css.texto} style={{ textAlign: "justify", paddingTop: p(item.indice === 0 ? (item.comTexto ? 60 : 100) : 0), paddingBottom: p(60) }}>
+        <div className={css.texto} style={estiloTexto({ antes: item.indice === 0 ? (item.comTexto ? 60 : 100) : 0, depois: 60 }, parte)}>
           <Segmentos segmentos={item.segmentos} />
         </div>
       );
@@ -315,7 +363,7 @@ export function Bloco({
       return <Alternativa item={item} bolinhas={bolinhas} />;
     case "resolucao":
       return (
-        <div className={css.texto} style={{ textAlign: "justify", paddingTop: p(item.indice === 0 ? 100 : 0), paddingBottom: p(40) }}>
+        <div className={css.texto} style={estiloTexto({ antes: item.indice === 0 ? 100 : 0, depois: 40 }, parte)}>
           <Segmentos segmentos={item.segmentos} />
         </div>
       );
