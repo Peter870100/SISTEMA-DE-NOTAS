@@ -22,19 +22,38 @@ import {
   TextRun,
   VerticalAlignTable,
   WidthType,
+  type IRunOptions,
   type ISectionOptions,
 } from "docx";
 import { markdownParaBlocos, type Segmento } from "@/lib/questoes/markdown";
+import { imagensDoConteudo, type DocConteudo, type NoConteudo } from "@/lib/questoes/conteudo";
 import { numero2, separarCredito } from "./texto";
+
+export type AlvoFigura = "enunciado" | "A" | "B" | "C" | "D" | "E";
+
+/** Figura já carregada (PNG); `png: null` = indisponível. Largura e altura em px. */
+export type FiguraFolha = {
+  id: string;
+  alvo: AlvoFigura;
+  png: Buffer | null;
+  largura: number;
+  altura: number;
+  alinhamento: "esquerda" | "centro" | "direita";
+};
 
 export type QuestaoFolha = {
   id: string;
   enunciado: string;
+  /** Enunciado formatado (TipTap); quando há, substitui o `enunciado` em markdown. */
+  conteudo?: DocConteudo | null;
   comando: string;
-  alternativas: { letra: string; texto: string }[];
+  alternativas: { letra: string; texto: string; conteudo?: DocConteudo | null }[];
   resposta: string | null;
   resolucao: string | null;
   materia: string;
+  figuras?: FiguraFolha[];
+  /** Ex.: "UFMS 2024". */
+  origem?: string | null;
 };
 
 export type LetraBolinha = "A" | "B" | "C" | "D" | "E";
@@ -48,6 +67,8 @@ export type DadosFolha = {
   questoes: QuestaoFolha[];
   /** PNGs das bolinhas das alternativas (padrão ENEM); sem a da letra, usa a letra em caixinha. */
   bolinhas?: Partial<Record<LetraBolinha, Buffer>> | null;
+  /** Texto discreto no fim da prova e do gabarito. */
+  avisoFinal?: string | null;
 };
 
 // Medidas em twips (1 cm = 567 twips). Tamanhos de fonte em meio-pontos.
@@ -62,6 +83,7 @@ const ESPACO_COLUNAS = cm(0.8);
 const LARGURA_COLUNA = Math.floor((LARGURA_UTIL - ESPACO_COLUNAS) / 2);
 const RECUO = cm(0.6);
 const RECUO_ALTERNATIVA = cm(0.6);
+const TWIPS_POR_PX = 15; // 96 dpi
 
 const AZUL = "0E3562";
 const FUNDO = "E8EEF6";
@@ -99,7 +121,7 @@ function runs(segmentos: Segmento[], extra: { size?: number; bold?: boolean } = 
   );
 }
 
-type OpcoesRotulo = { size?: number; bold?: boolean; color?: string; characterSpacing?: number };
+type OpcoesRotulo = { size?: number; bold?: boolean; italics?: boolean; color?: string; characterSpacing?: number };
 
 /** Texto em Calibri (títulos, rótulos, faixas, rodapé). */
 function rotulo(text: string, o: OpcoesRotulo = {}): TextRun {
@@ -124,8 +146,10 @@ function paragrafoTexto(segmentos: Segmento[], i: number): Paragraph {
   });
 }
 
+type OpcoesTexto = Pick<IRunOptions, "size" | "bold" | "italics" | "underline" | "subScript" | "superScript">;
+
 /** Texto em Arial preto (partes da questão que não vêm do markdown). */
-function textoQuestao(text: string, o: { size?: number; bold?: boolean } = {}): TextRun {
+function textoQuestao(text: string, o: OpcoesTexto = {}): TextRun {
   return new TextRun({ text, font: FONTE_QUESTAO, color: PRETO, size: CORPO_QUESTAO, ...o });
 }
 
@@ -478,34 +502,230 @@ function comFaixas(questoes: QuestaoFolha[], porQuestao: PorQuestao): Bloco[] {
   return saida;
 }
 
+// ---------- conteúdo formatado (TipTap) e figuras ----------
+
+type Alinhamento = (typeof AlignmentType)[keyof typeof AlignmentType];
+
+const ALINHAMENTO_TEXTO: Record<string, Alinhamento> = {
+  left: AlignmentType.LEFT,
+  center: AlignmentType.CENTER,
+  right: AlignmentType.RIGHT,
+  justify: AlignmentType.JUSTIFIED,
+};
+const ALINHAMENTO_FIGURA: Record<string, Alinhamento> = {
+  esquerda: AlignmentType.LEFT,
+  centro: AlignmentType.CENTER,
+  direita: AlignmentType.RIGHT,
+};
+const FIO_FINO = { style: BorderStyle.SINGLE, size: 4, color: PRETO } as const; // 0,5 pt
+
+/** Runs dos nós em linha (texto com marcas e quebra); `quebraViraEspaco` deixa tudo numa linha só. */
+function runsConteudo(nos: NoConteudo[] | undefined, quebraViraEspaco = false): TextRun[] {
+  const saida: TextRun[] = [];
+  for (const n of nos ?? []) {
+    if (n.type === "hardBreak") {
+      saida.push(quebraViraEspaco ? textoQuestao(" ") : new TextRun({ break: 1 }));
+    } else if (n.type === "text" && typeof n.text === "string") {
+      const marcas = new Set((Array.isArray(n.marks) ? n.marks : []).map((m) => m.type));
+      saida.push(
+        textoQuestao(n.text, {
+          bold: marcas.has("bold") || undefined,
+          italics: marcas.has("italic") || undefined,
+          underline: marcas.has("underline") ? {} : undefined,
+          subScript: marcas.has("subscript") || undefined,
+          superScript: marcas.has("superscript") || undefined,
+        }),
+      );
+    }
+  }
+  return saida;
+}
+
+function temTexto(no: NoConteudo): boolean {
+  return (no.content ?? []).some((n) => n.type === "text" && !!n.text?.trim());
+}
+
+function paragrafoConteudo(no: NoConteudo, primeiro: boolean): Paragraph {
+  const ta = no.attrs?.textAlign;
+  const r = no.attrs?.recuo;
+  const recuo = typeof r === "number" && Number.isFinite(r) ? Math.min(3, Math.max(0, Math.floor(r))) : 0;
+  return new Paragraph({
+    children: runsConteudo(no.content),
+    alignment: typeof ta === "string" && Object.hasOwn(ALINHAMENTO_TEXTO, ta) ? ALINHAMENTO_TEXTO[ta] : AlignmentType.JUSTIFIED,
+    indent: recuo ? { left: recuo * RECUO } : undefined,
+    spacing: { before: primeiro ? 100 : 0, after: 40 },
+  });
+}
+
+function avisoFiguraIndisponivel(alinhamento: Alinhamento, recuo: number): Paragraph {
+  return new Paragraph({
+    alignment: alinhamento,
+    indent: recuo ? { left: recuo } : undefined,
+    spacing: { before: 60, after: 60 },
+    children: [textoQuestao("[Figura indisponível]", { italics: true })],
+  });
+}
+
+/**
+ * Figura em parágrafo próprio: largura limitada ao espaço disponível (coluna menos o recuo),
+ * altura proporcional; sem PNG vira aviso em itálico. Legenda opcional logo abaixo.
+ */
+function paragrafosFigura(
+  f: FiguraFolha | undefined,
+  o: { alinhamento?: string; legenda?: string; recuo?: number } = {},
+): Paragraph[] {
+  const chave = o.alinhamento && Object.hasOwn(ALINHAMENTO_FIGURA, o.alinhamento) ? o.alinhamento : (f?.alinhamento ?? "centro");
+  const alinhamento = ALINHAMENTO_FIGURA[chave];
+  const recuo = o.recuo ?? 0;
+  const saida: Paragraph[] = [];
+  const info = f?.png ? infoImagem(f.png) : null;
+  const largura = f && f.largura > 0 ? f.largura : (info?.largura ?? 0);
+  const altura = f && f.altura > 0 ? f.altura : (info?.altura ?? 0);
+  if (!f?.png || !largura || !altura) {
+    saida.push(avisoFiguraIndisponivel(alinhamento, recuo));
+  } else {
+    const maximo = Math.floor((LARGURA_COLUNA - recuo) / TWIPS_POR_PX);
+    const w = Math.min(largura, maximo);
+    const h = Math.max(1, Math.round((altura * w) / largura));
+    saida.push(
+      new Paragraph({
+        alignment: alinhamento,
+        indent: recuo ? { left: recuo } : undefined,
+        keepLines: true,
+        spacing: { before: 60, after: o.legenda ? 20 : 60 },
+        children: [
+          new ImageRun({
+            type: "png",
+            data: f.png,
+            transformation: { width: w, height: h },
+            altText: { name: "Figura", description: o.legenda || "Figura da questão", title: "Figura" },
+          }),
+        ],
+      }),
+    );
+  }
+  if (o.legenda) {
+    saida.push(
+      new Paragraph({
+        alignment: alinhamento,
+        indent: recuo ? { left: recuo } : undefined,
+        spacing: { after: 60 },
+        children: [textoQuestao(o.legenda, { size: PEQUENO })],
+      }),
+    );
+  }
+  return saida;
+}
+
+/** Blocos do enunciado formatado: parágrafos, linha, caixa (tabela 1 × 1) e figuras. */
+function blocosDoConteudo(doc: DocConteudo, figuras: FiguraFolha[]): Bloco[] {
+  const saida: Bloco[] = [];
+  let primeiro = true;
+  for (const n of doc.content ?? []) {
+    if (n.type === "paragraph") {
+      if (!temTexto(n)) continue;
+      saida.push(paragrafoConteudo(n, primeiro));
+    } else if (n.type === "horizontalRule") {
+      saida.push(new Paragraph({ border: { bottom: { ...FIO_FINO, space: 1 } }, spacing: { before: 40, after: 80 }, children: [] }));
+    } else if (n.type === "caixa") {
+      const ps = (n.content ?? []).filter((p) => p.type === "paragraph" && temTexto(p));
+      if (!ps.length) continue;
+      saida.push(
+        new Table({
+          width: { size: LARGURA_COLUNA, type: WidthType.DXA },
+          columnWidths: [LARGURA_COLUNA],
+          layout: TableLayoutType.FIXED,
+          borders: { top: FIO_FINO, bottom: FIO_FINO, left: FIO_FINO, right: FIO_FINO, insideHorizontal: SEM_BORDA, insideVertical: SEM_BORDA },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  width: { size: LARGURA_COLUNA, type: WidthType.DXA },
+                  margins: { left: cm(0.15), right: cm(0.15), top: 40, bottom: 40 },
+                  children: ps.map((p) => paragrafoConteudo(p, false)),
+                }),
+              ],
+            }),
+          ],
+        }),
+        new Paragraph({ children: [], spacing: { after: 40 } }),
+      );
+    } else if (n.type === "figura") {
+      const id = n.attrs?.imagemId;
+      const f = typeof id === "string" ? figuras.find((x) => x.id === id) : undefined;
+      const al = n.attrs?.alinhamento;
+      const legenda = typeof n.attrs?.legenda === "string" ? n.attrs.legenda.trim() : "";
+      saida.push(...paragrafosFigura(f, { alinhamento: typeof al === "string" ? al : undefined, legenda }));
+    } else {
+      continue;
+    }
+    primeiro = false;
+  }
+  return saida;
+}
+
+/** "UFMS 2024" em cinza, pequeno, à direita (sozinho; com crédito vai no parágrafo dele). */
+function runOrigem(origem: string, quebraAntes: boolean): TextRun {
+  return new TextRun({ text: origem, font: FONTE_QUESTAO, size: PEQUENO, color: CINZA, break: quebraAntes ? 1 : undefined });
+}
+
+function avisoFinal(texto: string | null | undefined): Paragraph[] {
+  const t = texto?.trim();
+  if (!t) return [];
+  return [new Paragraph({ spacing: { before: 240, after: 0 }, children: [rotulo(t, { size: PEQUENO, italics: true, color: CINZA })] })];
+}
+
 // ---------- folha do aluno ----------
 
-function alternativa(letra: string, texto: string, bolinhas: DadosFolha["bolinhas"]): Paragraph {
+type Alternativa = QuestaoFolha["alternativas"][number];
+
+/** Texto da alternativa numa linha só (quebras viram espaço); com `conteudo`, os runs do 1º parágrafo. */
+function runsAlternativa(a: Alternativa): TextRun[] {
+  const primeiro = a.conteudo?.content?.find((n) => n.type === "paragraph");
+  if (primeiro && temTexto(primeiro)) return runsConteudo(primeiro.content, true);
+  return runs(markdownParaBlocos(a.texto.replace(/\r?\n/g, " "))[0] ?? []);
+}
+
+function alternativa(a: Alternativa, bolinhas: DadosFolha["bolinhas"]): Paragraph {
   return new Paragraph({
     alignment: AlignmentType.LEFT,
     indent: { left: RECUO_ALTERNATIVA, hanging: RECUO_ALTERNATIVA },
     tabStops: [{ type: TabStopType.LEFT, position: RECUO_ALTERNATIVA }],
     spacing: { after: 60 },
-    children: [
-      marcaLetra(letra, bolinhas),
-      tab(),
-      // Texto da alternativa numa linha só (quebras viram espaço).
-      ...runs(markdownParaBlocos(texto.replace(/\r?\n/g, " "))[0] ?? []),
-    ],
+    children: [marcaLetra(a.letra, bolinhas), tab(), ...runsAlternativa(a)],
   });
+}
+
+/** Enunciado: formatado (`conteudo`) ou markdown com crédito separado; figuras soltas vão depois do texto. */
+function blocosEnunciado(q: QuestaoFolha): { textos: Bloco[]; credito: string | null; soltas: FiguraFolha[] } {
+  const doEnunciado = (q.figuras ?? []).filter((f) => f.alvo === "enunciado");
+  if (q.conteudo?.content) {
+    const usadas = new Set(imagensDoConteudo(q.conteudo));
+    return {
+      textos: blocosDoConteudo(q.conteudo, doEnunciado),
+      credito: null,
+      soltas: doEnunciado.filter((f) => !usadas.has(f.id)),
+    };
+  }
+  const { corpo, credito } = separarCredito(q.enunciado);
+  return { textos: blocosNaoVazios(corpo).map(paragrafoTexto), credito, soltas: doEnunciado };
 }
 
 function paragrafosQuestao(bolinhas: DadosFolha["bolinhas"]): PorQuestao {
   return (q, n, primeiraDoBloco) => {
-    const { corpo, credito } = separarCredito(q.enunciado);
+    const { textos, credito, soltas } = blocosEnunciado(q);
+    const origem = q.origem?.trim() || null;
     const saida: Bloco[] = [tituloQuestao(n, primeiraDoBloco)];
-    const textos = blocosNaoVazios(corpo).map(paragrafoTexto);
     saida.push(...textos);
-    if (credito) {
+    for (const f of soltas) saida.push(...paragrafosFigura(f));
+    if (credito || origem) {
       saida.push(
         new Paragraph({
           alignment: AlignmentType.RIGHT,
-          children: runs(markdownParaBlocos(credito)[0] ?? [], { size: PEQUENO }),
+          children: [
+            ...(credito ? runs(markdownParaBlocos(credito)[0] ?? [], { size: PEQUENO }) : []),
+            ...(origem ? [runOrigem(origem, !!credito)] : []),
+          ],
           spacing: { after: 60 },
         }),
       );
@@ -519,14 +739,21 @@ function paragrafosQuestao(bolinhas: DadosFolha["bolinhas"]): PorQuestao {
         }),
       );
     });
-    for (const a of q.alternativas) saida.push(alternativa(a.letra, a.texto, bolinhas));
+    for (const a of q.alternativas) {
+      saida.push(alternativa(a, bolinhas));
+      const letra = a.letra.trim().toUpperCase();
+      for (const f of q.figuras ?? []) {
+        if (f.alvo === letra) saida.push(...paragrafosFigura(f, { alinhamento: "esquerda", recuo: RECUO_ALTERNATIVA }));
+      }
+    }
     return saida;
   };
 }
 
 export async function folhaAluno(d: DadosFolha): Promise<Buffer> {
   const topo = cabecalho(d, d.subtitulo?.trim() || null, true);
-  return montar(d, "caderno de questões", topo, comFaixas(d.questoes, paragrafosQuestao(d.bolinhas)));
+  const corpo = [...comFaixas(d.questoes, paragrafosQuestao(d.bolinhas)), ...avisoFinal(d.avisoFinal)];
+  return montar(d, "caderno de questões", topo, corpo);
 }
 
 // ---------- gabarito (resoluções) ----------
@@ -559,5 +786,6 @@ function paragrafosResolucao(bolinhas: DadosFolha["bolinhas"]): PorQuestao {
 
 export async function folhaGabarito(d: DadosFolha): Promise<Buffer> {
   const topo = cabecalho(d, "Gabarito comentado", false);
-  return montar(d, "gabarito comentado", topo, comFaixas(d.questoes, paragrafosResolucao(d.bolinhas)));
+  const corpo = [...comFaixas(d.questoes, paragrafosResolucao(d.bolinhas)), ...avisoFinal(d.avisoFinal)];
+  return montar(d, "gabarito comentado", topo, corpo);
 }

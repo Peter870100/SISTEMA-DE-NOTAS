@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ehCredito, numero2, separarCredito } from "./texto";
 import { avisosDaQuestao } from "./avisos";
-import { folhaAluno, folhaGabarito, type QuestaoFolha } from "./docx";
+import { folhaAluno, folhaGabarito, type FiguraFolha, type QuestaoFolha } from "./docx";
 
 function qf(enunciado: string): QuestaoFolha {
   return {
@@ -111,4 +111,95 @@ test("avisosDaQuestao", () => {
   assert.deepEqual(avisosDaQuestao({ id: "a", temImagem: false, temConteudo: false }, 1), []);
   assert.match(avisosDaQuestao({ id: "a", temImagem: true, temConteudo: false }, 3)[0], /Questão 3 .*figura/);
   assert.match(avisosDaQuestao({ id: "a", temImagem: false, temConteudo: true }, 2)[0], /Questão 2 .*formatação/);
+});
+
+// ---------- conteúdo formatado, figuras, origem e aviso final ----------
+
+const LARGURA_COLUNA_EMU = Math.floor((11906 - 2 * Math.round(1.5 * 567) - Math.round(0.8 * 567)) / 2) * 635;
+
+function figura(
+  id: string,
+  alvo: FiguraFolha["alvo"],
+  o: Partial<FiguraFolha> = {},
+): FiguraFolha {
+  return { id, alvo, png: PNG_1X1, largura: 800, altura: 400, alinhamento: "centro", ...o };
+}
+
+function contarImagens(xml: string): number {
+  return xml.split("<pic:pic").length - 1;
+}
+
+test("conteúdo: negrito e figura do enunciado viram run negrito e 1 imagem", async () => {
+  const q: QuestaoFolha = {
+    ...qf("texto antigo que não deve aparecer"),
+    conteudo: {
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "Veja o " }, { type: "text", text: "forte", marks: [{ type: "bold" }] }] },
+        { type: "figura", attrs: { imagemId: "f1", alinhamento: "centro", legenda: "Figura 1" } },
+      ],
+    },
+    figuras: [figura("f1", "enunciado")],
+  };
+  const xml = await documentoXml(await folhaAluno({ titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [q] }));
+  assert.match(xml, /<w:b\/>(?:(?!<\/w:r>)[\s\S])*forte/);
+  assert.equal(contarImagens(xml), 1);
+  assert.ok(xml.includes("Figura 1"));
+  assert.ok(!xml.includes("texto antigo"));
+});
+
+test("figura larga é limitada à largura da coluna", async () => {
+  const q: QuestaoFolha = { ...qf("Observe."), figuras: [figura("f1", "enunciado", { largura: 4000, altura: 1000 })] };
+  const xml = await documentoXml(await folhaAluno({ titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [q] }));
+  const m = xml.match(/<wp:extent cx="(\d+)" cy="(\d+)"/);
+  assert.ok(m, "sem <wp:extent>");
+  assert.ok(Number(m[1]) <= LARGURA_COLUNA_EMU, `cx ${m[1]} > ${LARGURA_COLUNA_EMU}`);
+  assert.ok(Math.abs(Number(m[1]) / Number(m[2]) - 4) < 0.05, "proporção não mantida");
+});
+
+test("figura indisponível vira aviso", async () => {
+  const q: QuestaoFolha = { ...qf("Observe."), figuras: [figura("f1", "enunciado", { png: null })] };
+  const xml = await documentoXml(await folhaAluno({ titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [q] }));
+  assert.ok(xml.includes("[Figura indisponível]"));
+  assert.equal(contarImagens(xml), 0);
+});
+
+test("figura do enunciado sem nó no conteúdo vai depois do texto", async () => {
+  const q: QuestaoFolha = { ...qf("Observe a figura."), figuras: [figura("f1", "enunciado")] };
+  const xml = await documentoXml(await folhaAluno({ titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [q] }));
+  assert.equal(contarImagens(xml), 1);
+  const texto = xml.indexOf("Observe a figura.");
+  const imagem = xml.indexOf("<pic:pic");
+  const comando = xml.indexOf("Assinale a alternativa correta.");
+  assert.ok(texto < imagem && imagem < comando, "figura fora de ordem");
+});
+
+test("figura de alternativa aparece na alternativa", async () => {
+  const q: QuestaoFolha = { ...qf("Qual figura?"), figuras: [figura("fb", "B")] };
+  const xml = await documentoXml(await folhaAluno({ titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [q] }));
+  assert.equal(contarImagens(xml), 1);
+  const imagem = xml.indexOf("<pic:pic");
+  assert.ok(xml.lastIndexOf(">4<", imagem) > xml.lastIndexOf(">2<", imagem), "figura antes da alternativa B");
+  assert.ok(imagem < xml.indexOf(">6<"), "figura depois da alternativa C");
+});
+
+test("alternativa com conteúdo usa os runs formatados", async () => {
+  const q: QuestaoFolha = {
+    ...qf("Qual?"),
+    alternativas: [
+      { letra: "A", texto: "H2O", conteudo: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "H" }, { type: "text", text: "2", marks: [{ type: "subscript" }] }, { type: "text", text: "O" }] }] } },
+    ],
+  };
+  const xml = await documentoXml(await folhaAluno({ titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [q] }));
+  assert.match(xml, /<w:vertAlign w:val="subscript"\/>/);
+});
+
+test("origem e aviso final", async () => {
+  const q: QuestaoFolha = { ...qf("Quanto é 2²?"), origem: "UFMS 2024" };
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [q], avisoFinal: "Prova gerada pelo Status Avalia" };
+  const aluno = await documentoXml(await folhaAluno(d));
+  const gabarito = await documentoXml(await folhaGabarito(d));
+  assert.ok(aluno.includes("UFMS 2024"));
+  assert.ok(aluno.includes("Prova gerada pelo Status Avalia"));
+  assert.ok(gabarito.includes("Prova gerada pelo Status Avalia"));
 });
