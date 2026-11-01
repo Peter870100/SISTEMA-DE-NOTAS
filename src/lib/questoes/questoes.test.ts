@@ -5,7 +5,7 @@ import { ASSUNTOS_INICIAIS } from "./assuntos-iniciais";
 import { estiloRecorte, limitarQuadro } from "./quadro";
 import { lerPaginas } from "./paginas";
 import { padraoExato } from "./busca";
-import { markdownParaBlocos } from "./markdown";
+import { comandoParaMostrar, markdownParaBlocos, partesDoTexto } from "./markdown";
 import { urlImagemPermitida } from "./enemdev";
 import { progressoDoLote } from "./ia";
 import { respostaParaQuestoes, RespostaPaginaSchema, classificacaoParaAtualizacoes, chaveQuestao } from "./formato-ia";
@@ -315,4 +315,16 @@ test("letrasVisiveis: prova de 4 alternativas esconde a E vazia", () => {
   assert.deepEqual(letrasVisiveis(alts(["a", "b", "c", "d", ""]), new Set(["E"])), ["A", "B", "C", "D", "E"]);
   assert.deepEqual(letrasVisiveis(alts(["a", "", "c", "d", "e"])), ["A", "B", "C", "D", "E"]);
   assert.deepEqual(letrasVisiveis(alts([])), ["A", "B"]);
+});
+
+test("comandoParaMostrar: some quando o enunciado já termina com ele", () => {
+  assert.equal(comandoParaMostrar("Texto. Assinale a **correta**.", "Assinale a correta."), "");
+  assert.equal(comandoParaMostrar("Texto.", "Assinale a correta."), "Assinale a correta.");
+});
+test("partesDoTexto: linhas de tabela viram uma tabela", () => {
+  const texto = ["Antes.", "| A | B |", "|---|---|", "| 1 | 2 |", "Depois."].join("\n");
+  const p = partesDoTexto(texto);
+  assert.deepEqual(p.map((x) => x.tipo), ["linha", "tabela", "linha"]);
+  assert.deepEqual(p[1], { tipo: "tabela", linhas: [["A", "B"], ["1", "2"]] });
+  assert.deepEqual(partesDoTexto(texto, true).map((x) => x.tipo), ["linha", "linha"]);
 });

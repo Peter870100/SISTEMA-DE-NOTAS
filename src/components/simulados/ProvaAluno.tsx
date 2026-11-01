@@ -7,6 +7,7 @@ import { fecharSaidaPendente, mesclarPresenca, type Presenca } from "@/lib/herme
 import { formatarDuracao, PULSO_SEG, type TemposQuestoes } from "@/lib/simulados/regras";
 import type { Letra } from "@/lib/types";
 import { letrasVisiveis } from "@/lib/questoes/materias";
+import { comandoParaMostrar } from "@/lib/questoes/markdown";
 import { ImagemIndisponivel, ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { ConteudoQuestao, TextoAlternativa } from "@/components/questoes/ConteudoQuestao";
 import { estilos } from "@/components/ui/estilos";
@@ -255,7 +256,7 @@ export function ProvaAluno({ prova }: { prova: Prova }) {
         <div className={css.cabecalho}><span>Simulado · questões objetivas</span><span>{atual + 1} / {prova.questoes.length}</span></div><div className={css.titulo}><h2>QUESTÃO {String(atual + 1).padStart(2, "0")}</h2><span aria-hidden="true" /></div>
         <ConteudoQuestao doc={q.conteudo} textoAntigo={q.enunciado} imagens={q.imagens} classeTexto={css.texto} classeFigura={css.figura}
           aviso={q.faltaImagem ? <div className={css.figura}><ImagemIndisponivel /></div> : null} />
-        {q.comando && <p className={css.comando}>{q.comando}</p>}
+        {comandoParaMostrar(q.enunciado, q.comando) && <p className={css.comando}>{q.comando}</p>}
         <fieldset className={css.alternativas}>
           <legend className="sr-only">Alternativas</legend>
           {letrasVisiveis(q.alternativas, new Set(q.imagens.map((i) => i.alvo))).map((l) => (

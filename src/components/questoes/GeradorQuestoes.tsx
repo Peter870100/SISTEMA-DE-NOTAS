@@ -7,6 +7,7 @@ import { CheckCircle2, Loader2, Pencil, Sparkles, Trash2, TriangleAlert } from "
 import { gerarQuestoes } from "@/actions/geracao";
 import { excluirQuestao, publicarQuestao } from "@/actions/questoes";
 import type { ResultadoGeracao } from "@/lib/questoes/geracao-servidor";
+import { comandoParaMostrar } from "@/lib/questoes/markdown";
 import { LETRAS, MATERIAS } from "@/lib/questoes/materias";
 import type { Assunto } from "@/lib/types";
 import { estilos } from "@/components/ui/estilos";
@@ -135,7 +136,7 @@ export function GeradorQuestoes({ assuntos, iaOk, restante, ehDono, base }: Prop
                   </div>
                   {q.precisa_revisao && <p className={css.alerta}><TriangleAlert size={16} aria-hidden="true" />{q.motivo_revisao || "Conferir esta questão antes de publicar."}</p>}
                   <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={q.enunciado} imagens={[]} />
-                  <p className={css.comando}>{q.comando}</p>
+                  {comandoParaMostrar(q.enunciado, q.comando) && <p className={css.comando}>{q.comando}</p>}
                   <ol className={css.alts}>
                     {LETRAS.map((l) => {
                       const alt = q.alternativas.find((a) => a.letra === l);

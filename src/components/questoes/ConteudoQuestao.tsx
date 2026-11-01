@@ -76,7 +76,7 @@ export function ConteudoQuestao({
   if (!doc || !Array.isArray(doc.content)) {
     return (
       <>
-        <div className={classeTexto}><TextoQuestao texto={textoAntigo} /></div>
+        <div className={classeTexto}><TextoQuestao texto={textoAntigo} semTabelas={doEnunciado.length > 0} /></div>
         {aviso}
         {doEnunciado.map(figura)}
       </>

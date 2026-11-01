@@ -4,6 +4,7 @@ import { BookOpen, Target } from "lucide-react";
 import type { ResultadoAluno as Resultado } from "@/actions/simulados-aluno";
 import type { QuestaoAluno } from "@/lib/simulados/servidor";
 import { AREAS, letrasVisiveis } from "@/lib/questoes/materias";
+import { comandoParaMostrar } from "@/lib/questoes/markdown";
 import { formatarDuracao } from "@/lib/simulados/regras";
 import type { Area } from "@/lib/types";
 import { ImagemIndisponivel, ImagemQuestao } from "@/components/questoes/ImagemQuestao";
@@ -129,7 +130,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
                     <summary>Ver questão</summary>
                     <div className={css.corpo}>
                       <ConteudoQuestao doc={q.conteudo} textoAntigo={q.enunciado} imagens={q.imagens} aviso={q.faltaImagem ? <ImagemIndisponivel /> : null} />
-                      {q.comando && <p className={css.comando}>{q.comando}</p>}
+                      {comandoParaMostrar(q.enunciado, q.comando) && <p className={css.comando}>{q.comando}</p>}
                       <ul className={css.alternativas}>
                         {letrasVisiveis(q.alternativas, new Set(q.imagens.map((im) => im.alvo))).map((l) => {
                           const tipo = it.certa === l ? css.altCerta : it.marcada === l ? css.altErrada : "";
