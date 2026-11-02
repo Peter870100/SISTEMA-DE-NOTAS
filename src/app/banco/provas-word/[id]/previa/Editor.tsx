@@ -1,6 +1,16 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState, useTransition, type FormEvent, type PointerEvent as EventoPonteiro } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  useTransition,
+  type FocusEvent,
+  type FormEvent,
+  type KeyboardEvent as EventoTecla,
+  type PointerEvent as EventoPonteiro,
+} from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, GripVertical, RefreshCw, Trash2, X } from "lucide-react";
@@ -14,10 +24,19 @@ import {
   PROVA_MUDOU,
   type CabecalhoProva,
 } from "@/lib/folha/editar-prova";
-import { moverQuestaoProva, removerQuestaoProva, salvarCabecalhoProva, salvarNomeProva, trocarQuestaoProva } from "../../acoes";
+import { formatarDecimos } from "@/lib/folha/valores";
+import {
+  moverQuestaoProva,
+  removerQuestaoProva,
+  salvarCabecalhoProva,
+  salvarNomeProva,
+  salvarValorQuestaoProva,
+  trocarQuestaoProva,
+} from "../../acoes";
 import css from "./Previa.module.css";
 
-export type QuestaoEditor = { indice: number; questaoId: string; rotulo: string; trecho: string };
+/** `valor`: fixo em décimos (null = automática); `sugerido`: o automático em décimos, mostrado na caixinha vazia. */
+export type QuestaoEditor = { indice: number; questaoId: string; rotulo: string; trecho: string; valor: number | null; sugerido: number | null };
 
 type Secao = "cabecalho" | "questoes";
 type Aviso = { secao: Secao; tipo: "ok" | "erro" | "info"; texto: string } | null;
@@ -39,6 +58,7 @@ export function Editor({
   cabecalho,
   nomeProva,
   questoes,
+  avisoValores,
   aoFechar,
 }: {
   provaId: string;
@@ -47,6 +67,8 @@ export function Editor({
   /** Apelido atual de quem vê; null = quem vê não é o professor da prova (o campo não aparece). */
   nomeProva: string | null;
   questoes: QuestaoEditor[];
+  /** Aviso dos valores por questão (fixos acima do total, soma diferente, prova sem valor). */
+  avisoValores: string | null;
   aoFechar: () => void;
 }) {
   const router = useRouter();
@@ -100,6 +122,7 @@ export function Editor({
           data: campo("data"),
           valor: campo("valor"),
           instrucoes: campo("instrucoes"),
+          valorPorQuestao: f.get("valorPorQuestao") === "on",
         }),
         nomeProva !== null ? salvarNomeProva(campo("nomeProva")) : Promise.resolve({ ok: true as const }),
       ]);
@@ -113,6 +136,32 @@ export function Editor({
       setAviso({ secao: "cabecalho", tipo: "ok", texto: "Cabeçalho salvo." });
       router.refresh();
     });
+  }
+
+  /** Saiu da caixinha de valor: grava só se mudou; vazio volta a automática. Se falhar, a caixinha volta ao salvo. */
+  function salvarValor(e: FocusEvent<HTMLInputElement>, q: QuestaoEditor) {
+    const caixa = e.currentTarget;
+    const salvo = q.valor === null ? "" : formatarDecimos(q.valor);
+    const texto = caixa.value.trim();
+    if (texto === salvo) return;
+    setAviso(null);
+    setSoUsadas(null);
+    executar("questoes", async () => {
+      const r = await salvarValorQuestaoProva({ provaId, questaoId: q.questaoId, indice: q.indice, valor: texto || null });
+      if (!r.ok) {
+        caixa.value = salvo;
+        falhou("questoes", r.erro);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  /** Enter na caixinha de valor salva (sai da caixinha). */
+  function enterNoValor(e: EventoTecla<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    e.currentTarget.blur();
   }
 
   function mover(questaoId: string, de: number, para: number) {
@@ -300,7 +349,11 @@ export function Editor({
             </div>
             <label className={css.editorCampo}>
               Valor
-              <input name="valor" maxLength={LIMITES_CABECALHO.valor} defaultValue={cabecalho.valor ?? ""} placeholder="Ex.: 10,0" className={estilos.input} />
+              <input name="valor" inputMode="decimal" maxLength={LIMITES_CABECALHO.valor} defaultValue={cabecalho.valor ?? ""} placeholder="Ex.: 10" className={estilos.input} />
+            </label>
+            <label className={css.editorMarcar}>
+              <input name="valorPorQuestao" type="checkbox" defaultChecked={cabecalho.valorPorQuestao === true} />
+              Mostrar o valor de cada questão
             </label>
             {nomeProva !== null && (
               <label className={css.editorCampo}>
@@ -321,6 +374,7 @@ export function Editor({
         <section aria-labelledby="editor-questoes" className={css.editorSecao}>
           <h3 id="editor-questoes" className={css.editorSubtitulo}>Questões</h3>
           {mensagem("questoes")}
+          {avisoValores && <p role="status" className={css.editorInfo}>{avisoValores}</p>}
           <ol ref={lista} className={arrastando ? `${css.editorLista} ${css.editorListaArrastando}` : css.editorLista}>
             {questoes.map((q, i) => {
               const n = i + 1;
@@ -350,6 +404,20 @@ export function Editor({
                     <p className={css.editorRotulo}>
                       {n}. {q.rotulo || "Questão"}
                     </p>
+                    <input
+                      key={q.valor ?? "auto"}
+                      type="text"
+                      inputMode="decimal"
+                      maxLength={LIMITES_CABECALHO.valor}
+                      aria-label={`Valor da questão ${n}`}
+                      title="Valor da questão (em branco: divide o que sobra do valor da prova)"
+                      className={css.editorValor}
+                      defaultValue={q.valor === null ? "" : formatarDecimos(q.valor)}
+                      placeholder={q.sugerido === null ? "Valor" : formatarDecimos(q.sugerido)}
+                      disabled={pendente}
+                      onBlur={(e) => salvarValor(e, q)}
+                      onKeyDown={enterNoValor}
+                    />
                   </div>
                   {q.trecho && <p className={css.editorTrecho}>{q.trecho}</p>}
                   <div className={css.editorAcoes}>

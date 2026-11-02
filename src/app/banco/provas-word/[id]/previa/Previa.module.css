@@ -220,6 +220,16 @@
 .editorDupla { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 .editorCampo { display: flex; flex-direction: column; gap: .3rem; min-width: 0; color: var(--color-brand); font-size: .8rem; font-weight: 700; }
 .editorCampo textarea { resize: vertical; }
+.editorMarcar { display: flex; align-items: center; gap: .5rem; color: var(--color-brand); font-size: .85rem; font-weight: 600; cursor: pointer; }
+.editorMarcar input { width: 1rem; height: 1rem; accent-color: var(--color-brand); }
+/* Caixinha de valor da questão, no fim da linha do rótulo. */
+.editorValor {
+  flex: none; width: 4.2rem; margin-left: auto; padding: .3rem .45rem; border: 1px solid color-mix(in srgb, var(--color-brand) 30%, #fff);
+  border-radius: .5rem; background: #fff; color: var(--color-brand); font-size: .85rem; font-weight: 700; text-align: center; outline: none;
+}
+.editorValor::placeholder { color: color-mix(in srgb, var(--color-brand) 55%, #fff); font-weight: 600; }
+.editorValor:focus { border-color: var(--color-brand); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand) 18%, transparent); }
+.editorValor:disabled { opacity: .6; }
 .editorAjuda { color: var(--color-brand); font-size: .75rem; font-weight: 500; }
 .editorLista { display: flex; flex-direction: column; gap: .6rem; }
 .editorQuestao { position: relative; display: flex; flex-direction: column; gap: .35rem; padding: .65rem .75rem; border-left: 4px solid var(--color-brand); border-radius: .7rem; background: color-mix(in srgb, var(--color-brand) 6%, #fff); }

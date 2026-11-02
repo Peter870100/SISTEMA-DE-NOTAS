@@ -54,7 +54,7 @@ export default async function PreviaProvaPage({
   // Só depois da conferência de acesso acima: quem pode ver a prova pode editá-la (dono dela ou papel `dono`).
   // O campo "Nome ou apelido do professor" só aparece para o próprio professor da prova (o dono não muda o apelido de outro).
   const ehDaProva = professor.id === carregada.prova.professor_id;
-  const [dados, { questoes }, nomes] = await Promise.all([
+  const [dados, { questoes, aviso: avisoValores }, nomes] = await Promise.all([
     dadosPrevia(carregada.dados),
     questoesDoEditor(id),
     ehDaProva ? lerNomesProfessor(professor.id) : Promise.resolve(null),
@@ -67,7 +67,7 @@ export default async function PreviaProvaPage({
       nomeBase={carregada.nomeBase}
       qual={qual}
       imprimir={imprimir}
-      editor={{ titulo: dados.titulo, cabecalho: dados.cabecalho, questoes, nomeProva: ehDaProva ? (nomes?.nome_prova ?? "") : null }}
+      editor={{ titulo: dados.titulo, cabecalho: dados.cabecalho, questoes, avisoValores, nomeProva: ehDaProva ? (nomes?.nome_prova ?? "") : null }}
     />
   );
 }
