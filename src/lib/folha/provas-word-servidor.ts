@@ -8,7 +8,8 @@ import { filtroVisivel, type FiltrosSorteio } from "@/lib/simulados/servidor";
 import { emBlocos } from "@/lib/simulados/regras";
 import { folhaAluno, folhaGabarito, type DadosFolha, type LetraBolinha } from "./docx";
 import { carregarQuestoesFolha } from "./figuras-servidor";
-import { lerCabecalho } from "./editar-prova";
+import { escolherTroca, lerCabecalho, reordenar, removerDaOrdem, trechoEnunciado, validarCabecalho } from "./editar-prova";
+import { ehMateria, MATERIAS } from "@/lib/questoes/materias";
 import {
   cenarioIneditas,
   codigoLink,
@@ -358,4 +359,164 @@ export function linksProva(id: string, base: string): { prova: string; gabarito:
     prova: `${base}/api/provas-word/${id}/prova?c=${c}`,
     gabarito: `${base}/api/provas-word/${id}/gabarito?c=${c}`,
   };
+}
+
+// ---- Edição da prova (cabeçalho, ordem e troca de questões) ----
+
+/** Quem pede a edição: o professor da sessão (dono da conta pode editar qualquer prova). */
+export type EditorProva = { id: string; role?: string | null };
+
+type LinhaOrdem = { questao_id: string; ordem: number };
+
+/** Guarda comum: a prova existe, não foi excluída e é do professor (ou o pedido é do dono). */
+async function provaEditavel(
+  quem: EditorProva,
+  provaId: string,
+): Promise<{ prova: { id: string; professor_id: string; escola_id: string; filtros: FiltrosSorteio }; linhas: LinhaOrdem[] }> {
+  const { data: prova, error } = await supabase
+    .from("provas_word")
+    .select("id, professor_id, escola_id, filtros, excluida_em")
+    .eq("id", provaId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!prova || prova.excluida_em != null || (quem.id !== prova.professor_id && quem.role !== "dono")) {
+    throw new Error("Prova não encontrada.");
+  }
+  const { data: linhas, error: errQ } = await supabase
+    .from("prova_word_questoes")
+    .select("questao_id, ordem")
+    .eq("prova_id", provaId)
+    .order("ordem");
+  if (errQ) throw new Error(errQ.message);
+  return {
+    prova: {
+      id: prova.id as string,
+      professor_id: prova.professor_id as string,
+      escola_id: prova.escola_id as string,
+      filtros: (prova.filtros ?? {}) as FiltrosSorteio,
+    },
+    linhas: (linhas ?? []).map((l) => ({ questao_id: l.questao_id as string, ordem: l.ordem as number })),
+  };
+}
+
+/** Regrava `ordem` (1..n) só nas linhas que mudaram de posição. */
+async function regravarOrdem(provaId: string, antes: LinhaOrdem[], novaOrdem: string[]): Promise<void> {
+  const ordemAntiga = new Map(antes.map((l) => [l.questao_id, l.ordem]));
+  const mudou = novaOrdem
+    .map((questaoId, i) => ({ questaoId, ordem: i + 1 }))
+    .filter((l) => ordemAntiga.get(l.questaoId) !== l.ordem);
+  const resultados = await Promise.all(
+    mudou.map((l) =>
+      supabase.from("prova_word_questoes").update({ ordem: l.ordem }).eq("prova_id", provaId).eq("questao_id", l.questaoId),
+    ),
+  );
+  const falha = resultados.find((r) => r.error);
+  if (falha?.error) throw new Error(falha.error.message);
+}
+
+export async function salvarCabecalho(
+  quem: EditorProva,
+  provaId: string,
+  entrada: { titulo: string; turma?: string; data?: string; valor?: string; instrucoes?: string },
+): Promise<void> {
+  await provaEditavel(quem, provaId);
+  const v = validarCabecalho(entrada);
+  if (!v.ok) throw new Error(v.erro);
+  const { error } = await supabase.from("provas_word").update({ titulo: v.titulo, cabecalho: v.cabecalho }).eq("id", provaId);
+  if (error) throw new Error(error.message);
+}
+
+export async function moverQuestao(quem: EditorProva, provaId: string, de: number, para: number): Promise<void> {
+  const { linhas } = await provaEditavel(quem, provaId);
+  const nova = reordenar(
+    linhas.map((l) => l.questao_id),
+    de,
+    para,
+  );
+  if (!nova) throw new Error("Não foi possível mudar a ordem.");
+  await regravarOrdem(provaId, linhas, nova);
+}
+
+export async function removerQuestao(quem: EditorProva, provaId: string, indice: number): Promise<void> {
+  const { linhas } = await provaEditavel(quem, provaId);
+  const ids = linhas.map((l) => l.questao_id);
+  const nova = removerDaOrdem(ids, indice);
+  if (!nova) throw new Error("A prova precisa ter pelo menos 1 questão.");
+  const { error } = await supabase.from("prova_word_questoes").delete().eq("prova_id", provaId).eq("questao_id", ids[indice]);
+  if (error) throw new Error(error.message);
+  await regravarOrdem(provaId, linhas, nova);
+}
+
+export async function trocarQuestao(
+  quem: EditorProva,
+  provaId: string,
+  indice: number,
+  aceitarUsadas: boolean,
+): Promise<{ trocada: true; usada: boolean } | { trocada: false; motivo: "so-usadas" | "nenhuma" | "sem-base" }> {
+  const { prova, linhas } = await provaEditavel(quem, provaId);
+  const atual = Number.isInteger(indice) ? linhas[indice] : undefined;
+  if (!atual) throw new Error("Não foi possível trocar a questão.");
+
+  const { data: q, error } = await supabase.from("questoes").select("materia, assunto_id").eq("id", atual.questao_id).maybeSingle();
+  if (error) throw new Error(error.message);
+  const materia = q ? (q.materia as string | null) : (prova.filtros.materia ?? null);
+  const assuntoId = q ? (q.assunto_id as string | null) : (prova.filtros.assunto_id ?? null);
+  if (!materia && !assuntoId) return { trocada: false, motivo: "sem-base" };
+
+  const filtros: FiltrosSorteio = {
+    ...(assuntoId ? { assunto_id: assuntoId } : { materia: materia ?? undefined }),
+    banca: prova.filtros.banca,
+    anoDe: prova.filtros.anoDe,
+    anoAte: prova.filtros.anoAte,
+  };
+  const [candidatas, usadas] = await Promise.all([elegiveis(prova.escola_id, filtros), usadasPeloProfessor(prova.professor_id)]);
+  // `naProva` inclui a própria questão trocada: assim trocas seguidas nunca trazem de volta a primeira.
+  const escolha = escolherTroca(candidatas, new Set(linhas.map((l) => l.questao_id)), usadas, aceitarUsadas);
+  if (escolha.id === null) return { trocada: false, motivo: escolha.haUsadas ? "so-usadas" : "nenhuma" };
+
+  const { error: errU } = await supabase
+    .from("prova_word_questoes")
+    .update({ questao_id: escolha.id })
+    .eq("prova_id", provaId)
+    .eq("questao_id", atual.questao_id);
+  if (errU) throw new Error(errU.message);
+  return { trocada: true, usada: escolha.usada };
+}
+
+/** Questões da prova na ordem, com rótulo "Matéria · Assunto" e um trecho do enunciado (para o editor). */
+export async function questoesDoEditor(
+  provaId: string,
+): Promise<{ indice: number; questaoId: string; rotulo: string; trecho: string }[]> {
+  const { data: linhas, error } = await supabase
+    .from("prova_word_questoes")
+    .select("questao_id, ordem")
+    .eq("prova_id", provaId)
+    .order("ordem");
+  if (error) throw new Error(error.message);
+  const ids = (linhas ?? []).map((l) => l.questao_id as string);
+  if (ids.length === 0) return [];
+
+  const { data: qs, error: errQ } = await supabase.from("questoes").select("id, enunciado, materia, assunto_id").in("id", ids);
+  if (errQ) throw new Error(errQ.message);
+  const assuntoIds = [...new Set((qs ?? []).map((q) => q.assunto_id as string | null).filter((a): a is string => !!a))];
+  const nomes = new Map<string, string>();
+  if (assuntoIds.length > 0) {
+    const { data: assuntos, error: errA } = await supabase.from("assuntos").select("id, nome").in("id", assuntoIds);
+    if (errA) throw new Error(errA.message);
+    for (const a of assuntos ?? []) nomes.set(a.id as string, a.nome as string);
+  }
+  const porId = new Map((qs ?? []).map((q) => [q.id as string, q]));
+  return ids.map((questaoId, indice) => {
+    const q = porId.get(questaoId);
+    if (!q) return { indice, questaoId, rotulo: "Questão removida do banco", trecho: "" };
+    const materia = q.materia as string | null;
+    const rotuloMateria = materia ? (ehMateria(materia) ? MATERIAS[materia].rotulo : materia) : "";
+    const assunto = q.assunto_id ? nomes.get(q.assunto_id as string) : undefined;
+    return {
+      indice,
+      questaoId,
+      rotulo: [rotuloMateria, assunto].filter(Boolean).join(" · "),
+      trecho: trechoEnunciado((q.enunciado as string | null) ?? ""),
+    };
+  });
 }

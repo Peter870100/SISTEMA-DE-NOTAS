@@ -6,7 +6,17 @@ import { exigirProfessor } from "@/lib/questoes/acesso";
 import { supabase } from "@/lib/supabase/client";
 import { MATERIAS } from "@/lib/questoes/materias";
 import { LIMITE_QUESTOES_PROVA, materiaRotulo, rotuloPedido, textoPrevia, type Cenario } from "@/lib/folha/provas-word";
-import { excluirProva, gerarProva, limparProvas, previaProva, type PedidoProva } from "@/lib/folha/provas-word-servidor";
+import {
+  excluirProva,
+  gerarProva,
+  limparProvas,
+  moverQuestao,
+  previaProva,
+  removerQuestao,
+  salvarCabecalho,
+  trocarQuestao,
+  type PedidoProva,
+} from "@/lib/folha/provas-word-servidor";
 import { assuntoDoTexto } from "@/lib/mcp/acoes/simulados";
 import type { FiltrosSorteio } from "@/lib/simulados/servidor";
 
@@ -109,5 +119,77 @@ export async function limparProvasWord(): Promise<{ ok: true; excluidas: number 
     return { ok: true, excluidas };
   } catch (e) {
     return { ok: false, erro: mensagem(e, "Não foi possível limpar o histórico.") };
+  }
+}
+
+const esquemaCabecalho = z.object({
+  provaId: UUID,
+  titulo: z.string().max(1000),
+  turma: z.string().max(1000).optional(),
+  data: z.string().max(1000).optional(),
+  valor: z.string().max(1000).optional(),
+  instrucoes: z.string().max(1000).optional(),
+});
+const esquemaMover = z.object({ provaId: UUID, de: z.number().int().min(0), para: z.number().int().min(0) });
+const esquemaIndice = z.object({ provaId: UUID, indice: z.number().int().min(0) });
+const esquemaTroca = z.object({ provaId: UUID, indice: z.number().int().min(0), aceitarUsadas: z.boolean() });
+
+function atualizar(provaId: string): void {
+  revalidatePath(`/banco/provas-word/${provaId}/previa`);
+  revalidatePath(CAMINHO);
+}
+
+/** Erros de formato (zod) viram a mensagem padrão; os do núcleo já vêm escritos para o professor. */
+function erroEdicao(e: unknown, padrao: string): Falha {
+  return { ok: false, erro: e instanceof z.ZodError ? padrao : mensagem(e, padrao) };
+}
+
+export async function salvarCabecalhoProva(entrada: unknown): Promise<{ ok: true } | Falha> {
+  try {
+    const professor = await exigirProfessor();
+    const { provaId, ...campos } = esquemaCabecalho.parse(entrada);
+    await salvarCabecalho(professor, provaId, campos);
+    atualizar(provaId);
+    return { ok: true };
+  } catch (e) {
+    return erroEdicao(e, "Não foi possível salvar o cabeçalho.");
+  }
+}
+
+export async function moverQuestaoProva(entrada: unknown): Promise<{ ok: true } | Falha> {
+  try {
+    const professor = await exigirProfessor();
+    const { provaId, de, para } = esquemaMover.parse(entrada);
+    await moverQuestao(professor, provaId, de, para);
+    atualizar(provaId);
+    return { ok: true };
+  } catch (e) {
+    return erroEdicao(e, "Não foi possível mudar a ordem.");
+  }
+}
+
+export async function removerQuestaoProva(entrada: unknown): Promise<{ ok: true } | Falha> {
+  try {
+    const professor = await exigirProfessor();
+    const { provaId, indice } = esquemaIndice.parse(entrada);
+    await removerQuestao(professor, provaId, indice);
+    atualizar(provaId);
+    return { ok: true };
+  } catch (e) {
+    return erroEdicao(e, "Não foi possível remover a questão.");
+  }
+}
+
+export async function trocarQuestaoProva(
+  entrada: unknown,
+): Promise<{ ok: true; trocada: boolean; usada?: boolean; motivo?: "so-usadas" | "nenhuma" | "sem-base" } | Falha> {
+  try {
+    const professor = await exigirProfessor();
+    const { provaId, indice, aceitarUsadas } = esquemaTroca.parse(entrada);
+    const r = await trocarQuestao(professor, provaId, indice, aceitarUsadas);
+    atualizar(provaId);
+    return r.trocada ? { ok: true, trocada: true, usada: r.usada } : { ok: true, trocada: false, motivo: r.motivo };
+  } catch (e) {
+    return erroEdicao(e, "Não foi possível trocar a questão.");
   }
 }
