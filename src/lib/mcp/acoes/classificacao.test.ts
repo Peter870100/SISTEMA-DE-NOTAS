@@ -368,3 +368,124 @@ test("questoes_para_classificar: matéria desconhecida e assunto desconhecido vo
   assert.equal(a.isError, true);
   assert.match(textoDe(a), /Assunto "Culinária" não encontrado/);
 });
+
+// ---------- rodada de correções ----------
+
+const ligadas = (banco: ReturnType<typeof cenario>, q: string) =>
+  banco.tabelas.questao_habilidades.filter((l) => l.questao_id === q).map((l) => l.habilidade_id).sort();
+
+test("classificar_questoes: habilidade_ids e habilidades_novas vazios não contam como informados", async () => {
+  const { banco, chamar } = await montar();
+  banco.tabelas.questao_habilidades.push({ questao_id: Q1, habilidade_id: H1 }, { questao_id: Q2, habilidade_id: H1 });
+  const r = await chamar("classificar_questoes", {
+    itens: [
+      { questao_id: Q1, habilidade_ids: [] },
+      { questao_id: Q3, habilidade_ids: [], habilidades_novas: [] },
+      { questao_id: Q2, topico_id: T1, habilidade_ids: [] },
+    ],
+  });
+  assert.match(textoDe(r), /1 classificada\b/);
+  assert.match(textoDe(r), new RegExp(`${Q1}.*Informe`));
+  assert.match(textoDe(r), new RegExp(`${Q3}.*Informe`));
+  // o modo padrão é trocar, mas lista vazia não apaga nada
+  assert.deepEqual(ligadas(banco, Q1), [H1]);
+  assert.deepEqual(ligadas(banco, Q2), [H1]);
+  assert.equal(linhaDe(banco, "questoes", Q2).topico_id, T1);
+});
+
+test("classificar_questoes: topico_id e habilidade_id inexistentes são recusados com o motivo certo", async () => {
+  const { banco, chamar } = await montar();
+  const r = await chamar("classificar_questoes", {
+    itens: [
+      { questao_id: Q1, topico_id: uid(777) },
+      { questao_id: Q2, habilidade_ids: [uid(778)] },
+      { questao_id: Q3, topico_id: T2 },
+    ],
+  });
+  assert.match(textoDe(r), /1 classificada\b/);
+  assert.match(textoDe(r), new RegExp(`${Q1}: Tópico não encontrado\.`));
+  assert.match(textoDe(r), new RegExp(`${Q2}: Habilidade não encontrada\.`));
+  assert.equal(linhaDe(banco, "questoes", Q1).topico_id, null);
+  assert.equal(linhaDe(banco, "questoes", Q3).topico_id, T2);
+  assert.deepEqual(banco.tabelas.questao_habilidades, []);
+});
+
+test("classificar_questoes: item condenado por habilidade_ids inválida não deixa tópico nem habilidade propostos", async () => {
+  const { banco, chamar } = await montar();
+  const topicos = banco.tabelas.topicos.length;
+  const habilidades = banco.tabelas.habilidades.length;
+  const r = await chamar("classificar_questoes", {
+    itens: [
+      { questao_id: Q1, topico_novo: "Fantasma", habilidade_ids: [uid(778)] }, // não existe
+      { questao_id: Q2, habilidades_novas: [{ descricao: "Órfã" }], habilidade_ids: [H2] }, // é de humanas
+      { questao_id: Q3, topico_novo: "Triângulos", habilidade_ids: [H1] }, // este é válido
+    ],
+  });
+  assert.match(textoDe(r), /1 classificada\b/);
+  assert.match(textoDe(r), new RegExp(`${Q1}: Habilidade não encontrada\.`));
+  assert.match(textoDe(r), new RegExp(`${Q2}: A habilidade é de outra área\.`));
+  assert.equal(banco.tabelas.topicos.length, topicos + 1); // só o de Q3
+  assert.equal(banco.tabelas.habilidades.length, habilidades);
+  assert.ok(!textoDe(r).includes("Fantasma"));
+  assert.ok(!textoDe(r).includes("Órfã"));
+});
+
+test("classificar_questoes: topico_novo reaproveita o tópico existente de mesmo nome e repetir a chamada não cria nada", async () => {
+  const { banco, chamar } = await montar();
+  const antes = banco.tabelas.topicos.length;
+  const existente = await chamar("classificar_questoes", { itens: [{ questao_id: Q1, topico_novo: "  FUNÇÃO   afim " }] });
+  assert.match(textoDe(existente), /1 classificada\b/);
+  assert.equal(banco.tabelas.topicos.length, antes);
+  assert.equal(linhaDe(banco, "questoes", Q1).topico_id, T1); // o tópico que já existia, ainda aprovado
+  assert.equal(linhaDe(banco, "topicos", T1).situacao, "aprovado");
+  assert.ok(!/Criados/.test(textoDe(existente)));
+
+  const primeira = await chamar("classificar_questoes", { itens: [{ questao_id: Q2, topico_novo: "Função quadrática" }] });
+  assert.match(textoDe(primeira), /Criados como proposto.*Função quadrática/);
+  assert.equal(banco.tabelas.topicos.length, antes + 1);
+
+  const repetida = await chamar("classificar_questoes", { itens: [{ questao_id: Q2, topico_novo: "função quadrática" }] });
+  assert.match(textoDe(repetida), /1 classificada\b/);
+  assert.ok(!/Criados/.test(textoDe(repetida)));
+  assert.equal(banco.tabelas.topicos.length, antes + 1);
+});
+
+test("questoes_para_classificar: depois_de pagina a lista e a dica traz o id da última", async () => {
+  const { chamar } = await montar();
+  const p1 = textoDe(await chamar("questoes_para_classificar", { materia: "Matemática", so_sem_topico: false, limite: 1 }));
+  assert.ok(p1.includes(Q1) && !p1.includes(Q2));
+  assert.match(p1, new RegExp(`depois_de: ${Q1}`));
+  const p2 = textoDe(await chamar("questoes_para_classificar", { materia: "Matemática", so_sem_topico: false, limite: 1, depois_de: Q1 }));
+  assert.ok(p2.includes(Q2) && !p2.includes(Q1));
+  assert.match(p2, new RegExp(`depois_de: ${Q2}`));
+  // última página: sobraram Q3 e Q4 (a sem assunto não entra) e não há dica de continuação
+  const p3 = textoDe(await chamar("questoes_para_classificar", { materia: "Matemática", so_sem_topico: false, limite: 10, depois_de: Q2 }));
+  assert.ok(p3.includes(Q3) && p3.includes(Q4) && !p3.includes(Q2));
+  assert.ok(!p3.includes("Pode haver mais"));
+});
+
+test("questoes_para_classificar: a descrição da habilidade na lista é cortada em 160 caracteres", async () => {
+  const { banco, chamar } = await montar();
+  linhaDe(banco, "habilidades", H3).descricao = "y".repeat(300);
+  const t = textoDe(await chamar("questoes_para_classificar", { materia: "Matemática" }));
+  assert.ok(t.includes(`${"y".repeat(160)}…`));
+  assert.ok(!t.includes("y".repeat(161)));
+});
+
+test("registrarAcoes: o perfil professor não recebe as ferramentas de classificação; o dono recebe", async () => {
+  await montar(); // aponta o cliente global para o banco falso antes de carregar os módulos
+  const { registrarAcoes } = await import("../acoes");
+  const nomes = (perfil: "dono" | "professor") => {
+    const registradas: string[] = [];
+    const servidor = { registerTool(nome: string) { registradas.push(nome); } } as unknown as McpServer;
+    registrarAcoes(servidor, async () => { throw new Error("não deveria ser chamado"); }, perfil);
+    return registradas;
+  };
+  const professor = nomes("professor");
+  assert.ok(professor.length > 0);
+  assert.ok(!professor.includes("questoes_para_classificar"));
+  assert.ok(!professor.includes("classificar_questoes"));
+  const dono = nomes("dono");
+  assert.ok(dono.includes("questoes_para_classificar"));
+  assert.ok(dono.includes("classificar_questoes"));
+});

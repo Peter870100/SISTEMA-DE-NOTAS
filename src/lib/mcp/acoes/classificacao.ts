@@ -21,6 +21,7 @@ import { assuntoDaMateria } from "./questoes";
 const MAX_ENUNCIADO = 400;
 const MAX_COMANDO = 200;
 const MAX_ALTERNATIVA = 70;
+const MAX_HABILIDADE = 160;
 
 async function atualizarTelas() {
   try {
@@ -94,7 +95,7 @@ function textoQuestoesParaClassificar(l: Lista): string {
     const lista = l.habilidades.filter((h) => h.area === area);
     return [
       `Área ${AREAS[area]}:`,
-      ...(lista.length ? lista.map((h) => `- ${h.id} — ${h.codigo ?? "sem código"} — ${h.descricao}${marca(h.situacao)}`) : ["- (nenhuma habilidade ainda; use habilidades_novas)"]),
+      ...(lista.length ? lista.map((h) => `- ${h.id} — ${h.codigo ?? "sem código"} — ${resumir(h.descricao, MAX_HABILIDADE)}${marca(h.situacao)}`) : ["- (nenhuma habilidade ainda; use habilidades_novas)"]),
     ].join("\n");
   });
 
@@ -142,16 +143,15 @@ async function prepararItens(ctx: Ctx, ator: Ator, entrada: EntradaItem[]): Prom
   const assuntosDosNovos = [...new Set(entrada.filter((i) => i.topico_novo !== undefined).map((i) => questoes.get(i.questao_id)?.assunto_id).filter((a): a is string => !!a))];
   const topicosQueJaExistiam = new Set((assuntosDosNovos.length ? await listarTopicos(assuntosDosNovos) : []).map((t) => t.id));
   const topicosResolvidos = new Map<string, Topico>();
-  const habilidadesDaArea = new Map<Area, Habilidade[]>();
-  const daArea = async (area: Area) => {
-    if (!habilidadesDaArea.has(area)) habilidadesDaArea.set(area, await listarHabilidades(area));
-    return habilidadesDaArea.get(area)!;
-  };
+  // Todas as habilidades (são poucas), lidas só quando um item precisa: para conferir os ids e achar as da área.
+  let todasHabilidades: Habilidade[] | null = null;
+  const habilidades = async () => (todasHabilidades ??= await listarHabilidades());
 
   for (const item of entrada) {
     const recusar = (motivo: string) => recusados.push({ questaoId: item.questao_id, motivo });
     const mexeTopico = item.topico_id !== undefined || item.topico_novo !== undefined;
-    const mexeHabilidades = item.habilidade_ids !== undefined || (item.habilidades_novas?.length ?? 0) > 0;
+    // Lista vazia é "nada": no modo trocar, não pode apagar as habilidades da questão.
+    const mexeHabilidades = (item.habilidade_ids?.length ?? 0) > 0 || (item.habilidades_novas?.length ?? 0) > 0;
     if (!mexeTopico && !mexeHabilidades) {
       recusar("Informe tópico ou habilidades para esta questão (topico_id, topico_novo, habilidade_ids ou habilidades_novas).");
       continue;
@@ -171,12 +171,18 @@ async function prepararItens(ctx: Ctx, ator: Ator, entrada: EntradaItem[]): Prom
         continue;
       }
       try {
+        // Item que o núcleo recusaria por habilidade_ids inválida não pode deixar proposto órfão: confere antes de criar.
+        const todas = await habilidades();
+        for (const id of habilidadeIds) {
+          const h = todas.find((x) => x.id === id);
+          const motivo = !h ? "Habilidade não encontrada." : h.area !== q.area ? "A habilidade é de outra área." : null;
+          if (motivo) throw new Error(motivo);
+        }
         for (const nova of item.habilidades_novas ?? []) {
-          const lista = await daArea(q.area);
-          let h = lista.find((x) => chaveNome(x.descricao) === chaveNome(nova.descricao));
+          let h = todas.find((x) => x.area === q.area && chaveNome(x.descricao) === chaveNome(nova.descricao));
           if (!h) {
             h = await criarHabilidadePor(ator, q.area, nova.descricao, nova.codigo ?? null, "proposto");
-            lista.push(h);
+            todas.push(h);
             novos.push(`habilidade "${h.descricao}" (${AREAS[q.area]})`);
           }
           habilidadeIds.push(h.id);
@@ -280,7 +286,7 @@ export function registrarAcoesClassificacao(server: McpServer, obter: ObterCtx, 
           questao_id: campoId("Id da questão."),
           topico_id: campoId("Id de um tópico do assunto da questão (veja em questoes_para_classificar).").optional(),
           topico_novo: z.string().trim().min(1).max(120).optional().describe("Nome de um tópico novo no assunto da questão; use só se nenhum da lista servir."),
-          habilidade_ids: z.array(campoId("Id de uma habilidade da área da questão.")).max(10).optional().describe("Ids de habilidades da área da questão (até 10)."),
+          habilidade_ids: z.array(campoId("Id de uma habilidade da área da questão.")).max(10).optional().describe("Ids de habilidades da área da questão (até 10). Lista vazia = não mexe nas habilidades."),
           habilidades_novas: z.array(z.object({
             codigo: z.string().trim().max(20).optional().describe("Código, ex.: H5 (opcional)."),
             descricao: z.string().trim().min(1).max(500).describe("Descrição da habilidade."),
