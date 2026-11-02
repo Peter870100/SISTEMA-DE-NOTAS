@@ -29,7 +29,7 @@ import { markdownParaBlocos, type Segmento } from "@/lib/questoes/markdown";
 import type { NoConteudo } from "@/lib/questoes/conteudo";
 import { itensGabarito, itensProva, temTexto, type FiguraRef, type ItemFolha, type QuestaoBase } from "./estrutura";
 import { numero2, tituloCurto, TRAVESSAO } from "./texto";
-import { dataBR, type CabecalhoProva } from "./editar-prova";
+import { linhasIdentificacao, SEPARADOR_LINHA_CABECALHO, type CabecalhoProva, type CampoIdentificacao } from "./editar-prova";
 import {
   ALTURA_A4,
   AZUL,
@@ -42,7 +42,6 @@ import {
   DISTANCIA_TOPO_RODAPE,
   ESPACO_COLUNAS,
   FAIXA_QUESTAO,
-  FIM_LINHA,
   FIO_CLARO,
   FONTE_QUESTAO,
   FUNDO,
@@ -197,10 +196,9 @@ function logoRun(logo: Buffer): ImageRun | null {
 
 // ---------- cabeçalho da 1ª página ----------
 
-type Campo = { rotulo: string; ate: number | null; depois?: string };
 
 /** Linha "Rótulo: ____  Rótulo: ____" com tabs de leader sublinhado (fim de cada campo em `ate`). */
-function linhaPreencher(campos: Campo[]): Paragraph {
+function linhaPreencher(campos: CampoIdentificacao[]): Paragraph {
   const tabStops = campos
     .filter((c) => c.ate !== null)
     .map((c) => ({ type: TabStopType.LEFT, position: c.ate as number, leader: LeaderType.UNDERSCORE }));
@@ -211,6 +209,16 @@ function linhaPreencher(campos: Campo[]): Paragraph {
     if (c.depois) children.push(rotulo(c.depois, { size: 18 }));
   });
   return new Paragraph({ tabStops, children, spacing: { before: 100, after: 0 } });
+}
+
+/** Linha "Turma: X    Data: dd/mm/aaaa    Valor: Y" com só os campos preenchidos (sem tabs: o Word quebra se não couber). */
+function linhaInformada(itens: { rotulo: string; valor: string }[]): Paragraph {
+  const children: TextRun[] = [];
+  itens.forEach((it, i) => {
+    children.push(rotulo(`${i ? SEPARADOR_LINHA_CABECALHO : ""}${it.rotulo}: `, { bold: true, color: AZUL, size: 18 }));
+    children.push(rotulo(it.valor, { size: 18 }));
+  });
+  return new Paragraph({ children, spacing: { before: 100, after: 0 } });
 }
 
 const SEM_BORDA = { style: BorderStyle.NONE, size: 0, color: "auto" } as const;
@@ -228,21 +236,9 @@ function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: bo
   }
   const cab = comIdentificacao ? (d.cabecalho ?? {}) : {};
   if (comIdentificacao) {
-    textos.push(
-      linhaPreencher([
-        { rotulo: "Aluno(a)", ate: FIM_LINHA - cm(5.2) },
-        { rotulo: "Nº", ate: FIM_LINHA - cm(2.6) },
-        cab.turma ? { rotulo: "Turma", ate: null, depois: cab.turma } : { rotulo: "Turma", ate: FIM_LINHA },
-      ]),
-      linhaPreencher([
-        { rotulo: "Professor(a)", ate: FIM_LINHA - cm(7.4) },
-        { rotulo: "Data", ate: null, depois: cab.data ? dataBR(cab.data) : "____/____/______" },
-        cab.valor
-          ? { rotulo: "Nota", ate: FIM_LINHA - cm(2.4) }
-          : { rotulo: "Nota", ate: FIM_LINHA },
-        ...(cab.valor ? [{ rotulo: "Valor", ate: null, depois: cab.valor }] : []),
-      ]),
-    );
+    const linhas = linhasIdentificacao(cab);
+    textos.push(linhaPreencher(linhas.aluno), linhaPreencher(linhas.professor));
+    if (linhas.informada.length > 0) textos.push(linhaInformada(linhas.informada));
   }
 
   const imagem = d.logo ? logoRun(d.logo) : null;

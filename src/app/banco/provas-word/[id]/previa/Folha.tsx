@@ -7,7 +7,7 @@ import { temTexto, type ItemFolha } from "@/lib/folha/estrutura";
 import type { ParteTexto } from "@/lib/folha/dividir";
 import type { DadosPrevia, FiguraTela } from "@/lib/folha/previa";
 import { numero2, tituloCurto, TRAVESSAO } from "@/lib/folha/texto";
-import { dataBR } from "@/lib/folha/editar-prova";
+import { linhasIdentificacao, SEPARADOR_LINHA_CABECALHO, type CampoIdentificacao } from "@/lib/folha/editar-prova";
 import {
   AZUL,
   BOLINHA_PX,
@@ -382,10 +382,8 @@ export function Bloco({
 
 // ---------- cabeçalho, topo e rodapé ----------
 
-type Campo = { rotulo: string; ate: number | null; depois?: string };
-
 /** Linha "Rótulo: ____  Rótulo: ____"; o último campo vai até o fim da linha. */
-function LinhaPreencher({ campos }: { campos: Campo[] }) {
+function LinhaPreencher({ campos }: { campos: CampoIdentificacao[] }) {
   // Início de cada campo: fim do último campo anterior que tem linha (0 no primeiro).
   const inicios = campos.map((_, i) => campos.slice(0, i).reduce((fim, c) => c.ate ?? fim, 0));
   return (
@@ -405,9 +403,25 @@ function LinhaPreencher({ campos }: { campos: Campo[] }) {
   );
 }
 
+/** Linha "Turma: X    Data: dd/mm/aaaa    Valor: Y" (só os preenchidos); quebra em vez de vazar, como no Word. */
+function LinhaInformada({ itens }: { itens: { rotulo: string; valor: string }[] }) {
+  if (itens.length === 0) return null;
+  return (
+    <div className={css.linhaInformada} style={{ width: x(FIM_LINHA), paddingTop: p(100) }}>
+      {itens.map((it, i) => (
+        <span key={it.rotulo}>
+          <span className={css.rotuloCampo}>{`${i ? SEPARADOR_LINHA_CABECALHO : ""}${it.rotulo}: `}</span>
+          <span className={css.depois}>{it.valor}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /** Cabeçalho da 1ª página: logo (ou nome da escola) | título e linhas de identificação. */
 export function Cabecalho({ dados, qual }: { dados: DadosPrevia; qual: Qual }) {
   const cab = qual === "prova" ? dados.cabecalho : {};
+  const linhas = linhasIdentificacao(cab);
   return (
     <div>
       <div className={css.cabecalho}>
@@ -425,21 +439,9 @@ export function Cabecalho({ dados, qual }: { dados: DadosPrevia; qual: Qual }) {
             <div className={css.cabecalhoSubtitulo}>Gabarito comentado</div>
           ) : (
             <>
-              <LinhaPreencher
-                campos={[
-                  { rotulo: "Aluno(a)", ate: FIM_LINHA - cm(5.2) },
-                  { rotulo: "Nº", ate: FIM_LINHA - cm(2.6) },
-                  cab.turma ? { rotulo: "Turma", ate: null, depois: cab.turma } : { rotulo: "Turma", ate: FIM_LINHA },
-                ]}
-              />
-              <LinhaPreencher
-                campos={[
-                  { rotulo: "Professor(a)", ate: FIM_LINHA - cm(7.4) },
-                  { rotulo: "Data", ate: null, depois: cab.data ? dataBR(cab.data) : "____/____/______" },
-                  cab.valor ? { rotulo: "Nota", ate: FIM_LINHA - cm(2.4) } : { rotulo: "Nota", ate: FIM_LINHA },
-                  ...(cab.valor ? [{ rotulo: "Valor", ate: null, depois: cab.valor }] : []),
-                ]}
-              />
+              <LinhaPreencher campos={linhas.aluno} />
+              <LinhaPreencher campos={linhas.professor} />
+              <LinhaInformada itens={linhas.informada} />
             </>
           )}
         </div>

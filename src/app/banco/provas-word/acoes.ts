@@ -130,9 +130,10 @@ const esquemaCabecalho = z.object({
   valor: z.string().max(1000).optional(),
   instrucoes: z.string().max(1000).optional(),
 });
-const esquemaMover = z.object({ provaId: UUID, de: z.number().int().min(0), para: z.number().int().min(0) });
-const esquemaIndice = z.object({ provaId: UUID, indice: z.number().int().min(0) });
-const esquemaTroca = z.object({ provaId: UUID, indice: z.number().int().min(0), aceitarUsadas: z.boolean() });
+// `questaoId` é a questão em que o professor clicou: o núcleo recusa se ela não estiver mais no índice.
+const esquemaMover = z.object({ provaId: UUID, questaoId: UUID, de: z.number().int().min(0), para: z.number().int().min(0) });
+const esquemaIndice = z.object({ provaId: UUID, questaoId: UUID, indice: z.number().int().min(0) });
+const esquemaTroca = z.object({ provaId: UUID, questaoId: UUID, indice: z.number().int().min(0), aceitarUsadas: z.boolean() });
 
 function atualizar(provaId: string): void {
   revalidatePath(`/banco/provas-word/${provaId}/previa`);
@@ -159,8 +160,8 @@ export async function salvarCabecalhoProva(entrada: unknown): Promise<{ ok: true
 export async function moverQuestaoProva(entrada: unknown): Promise<{ ok: true } | Falha> {
   try {
     const professor = await exigirProfessor();
-    const { provaId, de, para } = esquemaMover.parse(entrada);
-    await moverQuestao(professor, provaId, de, para);
+    const { provaId, questaoId, de, para } = esquemaMover.parse(entrada);
+    await moverQuestao(professor, provaId, de, para, questaoId);
     atualizar(provaId);
     return { ok: true };
   } catch (e) {
@@ -171,8 +172,8 @@ export async function moverQuestaoProva(entrada: unknown): Promise<{ ok: true } 
 export async function removerQuestaoProva(entrada: unknown): Promise<{ ok: true } | Falha> {
   try {
     const professor = await exigirProfessor();
-    const { provaId, indice } = esquemaIndice.parse(entrada);
-    await removerQuestao(professor, provaId, indice);
+    const { provaId, questaoId, indice } = esquemaIndice.parse(entrada);
+    await removerQuestao(professor, provaId, indice, questaoId);
     atualizar(provaId);
     return { ok: true };
   } catch (e) {
@@ -185,8 +186,8 @@ export async function trocarQuestaoProva(
 ): Promise<{ ok: true; trocada: boolean; usada?: boolean; motivo?: "so-usadas" | "nenhuma" | "sem-base" } | Falha> {
   try {
     const professor = await exigirProfessor();
-    const { provaId, indice, aceitarUsadas } = esquemaTroca.parse(entrada);
-    const r = await trocarQuestao(professor, provaId, indice, aceitarUsadas);
+    const { provaId, questaoId, indice, aceitarUsadas } = esquemaTroca.parse(entrada);
+    const r = await trocarQuestao(professor, provaId, indice, questaoId, aceitarUsadas);
     atualizar(provaId);
     return r.trocada ? { ok: true, trocada: true, usada: r.usada } : { ok: true, trocada: false, motivo: r.motivo };
   } catch (e) {

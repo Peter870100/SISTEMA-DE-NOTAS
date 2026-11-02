@@ -8,7 +8,16 @@ import { filtroVisivel, type FiltrosSorteio } from "@/lib/simulados/servidor";
 import { emBlocos } from "@/lib/simulados/regras";
 import { folhaAluno, folhaGabarito, type DadosFolha, type LetraBolinha } from "./docx";
 import { carregarQuestoesFolha } from "./figuras-servidor";
-import { escolherTroca, lerCabecalho, reordenar, removerDaOrdem, trechoEnunciado, validarCabecalho } from "./editar-prova";
+import {
+  escolherTroca,
+  lerCabecalho,
+  mesmaQuestao,
+  PROVA_MUDOU,
+  reordenar,
+  removerDaOrdem,
+  trechoEnunciado,
+  validarCabecalho,
+} from "./editar-prova";
 import { ehMateria, MATERIAS } from "@/lib/questoes/materias";
 import {
   cenarioIneditas,
@@ -426,20 +435,30 @@ export async function salvarCabecalho(
   if (error) throw new Error(error.message);
 }
 
-export async function moverQuestao(quem: EditorProva, provaId: string, de: number, para: number): Promise<void> {
+/**
+ * Move a questão `questaoId` da posição `de` para `para`. Se ela já não está em `de` (a lista do
+ * editor ficou velha), recusa com PROVA_MUDOU em vez de mexer em outra questão.
+ */
+export async function moverQuestao(
+  quem: EditorProva,
+  provaId: string,
+  de: number,
+  para: number,
+  questaoId: string,
+): Promise<void> {
   const { linhas } = await provaEditavel(quem, provaId);
-  const nova = reordenar(
-    linhas.map((l) => l.questao_id),
-    de,
-    para,
-  );
+  const ids = linhas.map((l) => l.questao_id);
+  if (!mesmaQuestao(ids, de, questaoId)) throw new Error(PROVA_MUDOU);
+  const nova = reordenar(ids, de, para);
   if (!nova) throw new Error("Não foi possível mudar a ordem.");
   await regravarOrdem(provaId, linhas, nova);
 }
 
-export async function removerQuestao(quem: EditorProva, provaId: string, indice: number): Promise<void> {
+/** Remove a questão `questaoId` da posição `indice` (recusa com PROVA_MUDOU se ela não está mais lá). */
+export async function removerQuestao(quem: EditorProva, provaId: string, indice: number, questaoId: string): Promise<void> {
   const { linhas } = await provaEditavel(quem, provaId);
   const ids = linhas.map((l) => l.questao_id);
+  if (!mesmaQuestao(ids, indice, questaoId)) throw new Error(PROVA_MUDOU);
   const nova = removerDaOrdem(ids, indice);
   if (!nova) throw new Error("A prova precisa ter pelo menos 1 questão.");
   const { error } = await supabase.from("prova_word_questoes").delete().eq("prova_id", provaId).eq("questao_id", ids[indice]);
@@ -447,15 +466,17 @@ export async function removerQuestao(quem: EditorProva, provaId: string, indice:
   await regravarOrdem(provaId, linhas, nova);
 }
 
+/** Troca a questão `questaoId` da posição `indice` (recusa com PROVA_MUDOU se ela não está mais lá). */
 export async function trocarQuestao(
   quem: EditorProva,
   provaId: string,
   indice: number,
+  questaoId: string,
   aceitarUsadas: boolean,
 ): Promise<{ trocada: true; usada: boolean } | { trocada: false; motivo: "so-usadas" | "nenhuma" | "sem-base" }> {
   const { prova, linhas } = await provaEditavel(quem, provaId);
-  const atual = Number.isInteger(indice) ? linhas[indice] : undefined;
-  if (!atual) throw new Error("Não foi possível trocar a questão.");
+  if (!mesmaQuestao(linhas.map((l) => l.questao_id), indice, questaoId)) throw new Error(PROVA_MUDOU);
+  const atual = linhas[indice];
 
   const { data: q, error } = await supabase.from("questoes").select("materia, assunto_id").eq("id", atual.questao_id).maybeSingle();
   if (error) throw new Error(error.message);
@@ -474,12 +495,15 @@ export async function trocarQuestao(
   const escolha = escolherTroca(candidatas, new Set(linhas.map((l) => l.questao_id)), usadas, aceitarUsadas);
   if (escolha.id === null) return { trocada: false, motivo: escolha.haUsadas ? "so-usadas" : "nenhuma" };
 
-  const { error: errU } = await supabase
+  const { data: trocadas, error: errU } = await supabase
     .from("prova_word_questoes")
     .update({ questao_id: escolha.id })
     .eq("prova_id", provaId)
-    .eq("questao_id", atual.questao_id);
+    .eq("questao_id", atual.questao_id)
+    .select("questao_id");
   if (errU) throw new Error(errU.message);
+  // Nenhuma linha mudou: outra aba tirou ou trocou esta questão enquanto sorteávamos.
+  if (!trocadas || trocadas.length === 0) throw new Error(PROVA_MUDOU);
   return { trocada: true, usada: escolha.usada };
 }
 

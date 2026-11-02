@@ -6,13 +6,17 @@ import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, RefreshCw, Trash2, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { estilos } from "@/components/ui/estilos";
-import { LIMITES_CABECALHO, type CabecalhoProva } from "@/lib/folha/editar-prova";
+import { LIMITES_CABECALHO, PROVA_MUDOU, type CabecalhoProva } from "@/lib/folha/editar-prova";
 import { moverQuestaoProva, removerQuestaoProva, salvarCabecalhoProva, trocarQuestaoProva } from "../../acoes";
 import css from "./Previa.module.css";
 
 export type QuestaoEditor = { indice: number; questaoId: string; rotulo: string; trecho: string };
 
-type Aviso = { secao: "cabecalho" | "questoes"; tipo: "ok" | "erro" | "info"; texto: string } | null;
+type Secao = "cabecalho" | "questoes";
+type Aviso = { secao: Secao; tipo: "ok" | "erro" | "info"; texto: string } | null;
+
+/** Quando a ação do servidor nem responde (rede caiu, deploy novo): a pré-visualização continua na tela. */
+const ERRO_REDE = "Não foi possível salvar. Recarregue a página.";
 
 /** Painel lateral para editar o cabeçalho e as questões da prova; cada ação grava na hora. */
 export function Editor({
@@ -33,7 +37,7 @@ export function Editor({
   const [aviso, setAviso] = useState<Aviso>(null);
   /** Índice da questão cuja troca só acharia questões já usadas (pergunta "Trocar mesmo assim"). */
   const [soUsadas, setSoUsadas] = useState<number | null>(null);
-  const [remover, setRemover] = useState<number | null>(null);
+  const [remover, setRemover] = useState<{ indice: number; questaoId: string } | null>(null);
   const tituloPainel = useRef<HTMLHeadingElement>(null);
 
   // Ao abrir, o foco vai para o painel.
@@ -41,12 +45,29 @@ export function Editor({
     tituloPainel.current?.focus();
   }, []);
 
+  /** Mostra o erro; se a prova mudou em outra aba, recarrega a lista. */
+  function falhou(secao: Secao, erro: string) {
+    setAviso({ secao, tipo: "erro", texto: erro });
+    if (erro === PROVA_MUDOU) router.refresh();
+  }
+
+  /** Roda a ação na transição; se a chamada ao servidor falhar (rejeitar), mostra o aviso em vez de quebrar a tela. */
+  function executar(secao: Secao, acao: () => Promise<void>) {
+    iniciar(async () => {
+      try {
+        await acao();
+      } catch {
+        setAviso({ secao, tipo: "erro", texto: ERRO_REDE });
+      }
+    });
+  }
+
   function salvarCabecalho(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const campo = (nome: string) => String(f.get(nome) ?? "");
     setAviso(null);
-    iniciar(async () => {
+    executar("cabecalho", async () => {
       const r = await salvarCabecalhoProva({
         provaId,
         titulo: campo("titulo"),
@@ -64,26 +85,26 @@ export function Editor({
     });
   }
 
-  function mover(de: number, para: number) {
+  function mover(questaoId: string, de: number, para: number) {
     setAviso(null);
     setSoUsadas(null);
-    iniciar(async () => {
-      const r = await moverQuestaoProva({ provaId, de, para });
+    executar("questoes", async () => {
+      const r = await moverQuestaoProva({ provaId, questaoId, de, para });
       if (!r.ok) {
-        setAviso({ secao: "questoes", tipo: "erro", texto: r.erro });
+        falhou("questoes", r.erro);
         return;
       }
       router.refresh();
     });
   }
 
-  function trocar(indice: number, aceitarUsadas: boolean) {
+  function trocar(questaoId: string, indice: number, aceitarUsadas: boolean) {
     setAviso(null);
     setSoUsadas(null);
-    iniciar(async () => {
-      const r = await trocarQuestaoProva({ provaId, indice, aceitarUsadas });
+    executar("questoes", async () => {
+      const r = await trocarQuestaoProva({ provaId, questaoId, indice, aceitarUsadas });
       if (!r.ok) {
-        setAviso({ secao: "questoes", tipo: "erro", texto: r.erro });
+        falhou("questoes", r.erro);
         return;
       }
       if (r.trocada) {
@@ -100,15 +121,16 @@ export function Editor({
   }
 
   function confirmarRemover() {
-    const indice = remover;
+    const alvo = remover;
     setRemover(null);
-    if (indice === null) return;
+    if (alvo === null) return;
+    const { indice, questaoId } = alvo;
     setAviso(null);
     setSoUsadas(null);
-    iniciar(async () => {
-      const r = await removerQuestaoProva({ provaId, indice });
+    executar("questoes", async () => {
+      const r = await removerQuestaoProva({ provaId, questaoId, indice });
       if (!r.ok) {
-        setAviso({ secao: "questoes", tipo: "erro", texto: r.erro });
+        falhou("questoes", r.erro);
         return;
       }
       setAviso({ secao: "questoes", tipo: "ok", texto: `Questão ${indice + 1} removida.` });
@@ -178,17 +200,17 @@ export function Editor({
                   </p>
                   {q.trecho && <p className={css.editorTrecho}>{q.trecho}</p>}
                   <div className={css.editorAcoes}>
-                    <button type="button" className={css.editorBotao} aria-label={`Subir questão ${n}`} disabled={pendente || i === 0} onClick={() => mover(i, i - 1)}>
+                    <button type="button" className={css.editorBotao} aria-label={`Subir questão ${n}`} disabled={pendente || i === 0} onClick={() => mover(q.questaoId, i, i - 1)}>
                       <ArrowUp size={15} aria-hidden="true" />
                     </button>
-                    <button type="button" className={css.editorBotao} aria-label={`Descer questão ${n}`} disabled={pendente || i === total - 1} onClick={() => mover(i, i + 1)}>
+                    <button type="button" className={css.editorBotao} aria-label={`Descer questão ${n}`} disabled={pendente || i === total - 1} onClick={() => mover(q.questaoId, i, i + 1)}>
                       <ArrowDown size={15} aria-hidden="true" />
                     </button>
-                    <button type="button" className={css.editorBotao} aria-label={`Trocar questão ${n}`} disabled={pendente} onClick={() => trocar(i, false)}>
+                    <button type="button" className={css.editorBotao} aria-label={`Trocar questão ${n}`} disabled={pendente} onClick={() => trocar(q.questaoId, i, false)}>
                       <RefreshCw size={15} aria-hidden="true" />
                       Trocar
                     </button>
-                    <button type="button" className={`${css.editorBotao} ${css.editorRemover}`} aria-label={`Remover questão ${n}`} disabled={pendente || total <= 1} onClick={() => setRemover(i)}>
+                    <button type="button" className={`${css.editorBotao} ${css.editorRemover}`} aria-label={`Remover questão ${n}`} disabled={pendente || total <= 1} onClick={() => setRemover({ indice: i, questaoId: q.questaoId })}>
                       <Trash2 size={15} aria-hidden="true" />
                       Remover
                     </button>
@@ -197,7 +219,7 @@ export function Editor({
                     <div className={css.editorPergunta}>
                       <p role="status">Não há outra inédita deste assunto. Trocar por uma que você já usou?</p>
                       <div className={css.editorAcoes}>
-                        <button type="button" className={estilos.botaoPrimario} disabled={pendente} onClick={() => trocar(i, true)}>
+                        <button type="button" className={estilos.botaoPrimario} disabled={pendente} onClick={() => trocar(q.questaoId, i, true)}>
                           Trocar mesmo assim
                         </button>
                         <button type="button" className={estilos.botaoSecundario} disabled={pendente} onClick={() => setSoUsadas(null)}>
@@ -215,7 +237,7 @@ export function Editor({
 
       <ConfirmDialog
         open={remover !== null}
-        title={`Remover a questão ${(remover ?? 0) + 1}?`}
+        title={`Remover a questão ${(remover?.indice ?? 0) + 1}?`}
         message="Ela sai desta prova e as seguintes sobem uma posição."
         confirmLabel="Remover"
         onConfirm={confirmarRemover}

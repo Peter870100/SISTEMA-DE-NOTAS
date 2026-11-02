@@ -1,9 +1,11 @@
 // Regras puras da edição da prova em Word (sem banco, sem APIs do Node:
 // também é importado por componentes do navegador).
 
+import { cm, FIM_LINHA } from "./medidas";
+
 export type CabecalhoProva = { turma?: string; data?: string; valor?: string; instrucoes?: string };
 
-export const LIMITES_CABECALHO = { titulo: 120, turma: 40, valor: 20, instrucoes: 600 };
+export const LIMITES_CABECALHO = { titulo: 120, turma: 30, valor: 15, instrucoes: 600 };
 
 type EntradaCabecalho = { titulo: string; turma?: string; data?: string; valor?: string; instrucoes?: string };
 
@@ -58,13 +60,74 @@ export function lerCabecalho(bruto: unknown): CabecalhoProva {
   for (const k of ["turma", "data", "valor", "instrucoes"] as const) {
     if (typeof o[k] === "string") r[k] = o[k];
   }
+  // Data fora do formato "AAAA-MM-DD" é descartada (senão a folha sairia com "undefined/…").
+  if (r.data !== undefined && !dataValida(r.data)) delete r.data;
   return r;
+}
+
+/**
+ * Itens da linha extra de identificação ("Turma: …  Data: …  Valor: …"): só os preenchidos,
+ * nesta ordem; lista vazia quando nenhum foi preenchido. Usado pelo .docx e pela pré-visualização.
+ */
+export function itensLinhaCabecalho(cab: CabecalhoProva): { rotulo: string; valor: string }[] {
+  const itens: { rotulo: string; valor: string }[] = [];
+  if (cab.turma) itens.push({ rotulo: "Turma", valor: cab.turma });
+  if (cab.data) itens.push({ rotulo: "Data", valor: dataBR(cab.data) });
+  if (cab.valor) itens.push({ rotulo: "Valor", valor: cab.valor });
+  return itens;
+}
+
+/** Espaço entre os itens da linha extra de identificação (o mesmo no .docx e na tela). */
+export const SEPARADOR_LINHA_CABECALHO = "    ";
+
+/** Campo de uma linha de preencher: rótulo, fim do traço (twips; null = sem traço) e texto depois. */
+export type CampoIdentificacao = { rotulo: string; ate: number | null; depois?: string };
+
+/**
+ * Linhas de identificação da prova, iguais no .docx e na pré-visualização. Sem nada preenchido,
+ * são as duas linhas de sempre. Turma e data preenchidas saem das linhas "Aluno(a)" e
+ * "Professor(a)" (para não aparecerem duas vezes) e vão, com o valor, para a linha extra.
+ */
+export function linhasIdentificacao(cab: CabecalhoProva): {
+  aluno: CampoIdentificacao[];
+  professor: CampoIdentificacao[];
+  informada: { rotulo: string; valor: string }[];
+} {
+  const aluno: CampoIdentificacao[] = cab.turma
+    ? [
+        { rotulo: "Aluno(a)", ate: FIM_LINHA - cm(2.6) },
+        { rotulo: "Nº", ate: FIM_LINHA },
+      ]
+    : [
+        { rotulo: "Aluno(a)", ate: FIM_LINHA - cm(5.2) },
+        { rotulo: "Nº", ate: FIM_LINHA - cm(2.6) },
+        { rotulo: "Turma", ate: FIM_LINHA },
+      ];
+  const professor: CampoIdentificacao[] = cab.data
+    ? [
+        { rotulo: "Professor(a)", ate: FIM_LINHA - cm(3.6) },
+        { rotulo: "Nota", ate: FIM_LINHA },
+      ]
+    : [
+        { rotulo: "Professor(a)", ate: FIM_LINHA - cm(7.4) },
+        { rotulo: "Data", ate: null, depois: "____/____/______" },
+        { rotulo: "Nota", ate: FIM_LINHA },
+      ];
+  return { aluno, professor, informada: itensLinhaCabecalho(cab) };
 }
 
 /** "2026-11-05" vira "05/11/2026". */
 export function dataBR(iso: string): string {
   const [a, m, d] = iso.split("-");
   return `${d}/${m}/${a}`;
+}
+
+/** Erro de quando a prova mudou desde que o editor montou a lista (o editor recarrega a lista). */
+export const PROVA_MUDOU = "A prova mudou; a lista foi atualizada.";
+
+/** A questão no índice é a que o professor clicou? (Protege contra lista desatualizada.) */
+export function mesmaQuestao(ids: string[], indice: number, questaoId: string): boolean {
+  return Number.isInteger(indice) && indice >= 0 && indice < ids.length && ids[indice] === questaoId;
 }
 
 /** Move o item de `de` para `para`; null se índice inválido ou sem mudança. */

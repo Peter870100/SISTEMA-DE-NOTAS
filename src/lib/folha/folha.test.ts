@@ -217,7 +217,39 @@ test("cabeçalho preenchido aparece na prova e não no gabarito", async () => {
   for (const t of ["3º A", "05/11/2026", "10,0", "Instruções", "Use caneta &lt;azul&gt; &amp; preta.", "Sem consulta."]) assert.ok(aluno.includes(t), t);
   assert.ok(!aluno.includes("____/____/______"));
   const gab = await documentoXml(await folhaGabarito(d));
-  for (const t of ["3º A", "05/11/2026", "Instruções"]) assert.ok(!gab.includes(t), t);
+  for (const t of ["3º A", "05/11/2026", "Instruções", "Valor: "]) assert.ok(!gab.includes(t), t);
+});
+
+/** Parágrafos (<w:p>) do documento, cada um como texto puro. */
+function paragrafos(xml: string): string[] {
+  return (xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) ?? []).map((p) => (p.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) ?? []).map((t) => t.replace(/<[^>]+>/g, "")).join(""));
+}
+test("turma, data e valor vão numa linha própria, fora das linhas Aluno(a) e Professor(a)", async () => {
+  const turma = "T".repeat(30);
+  const valor = "V".repeat(15);
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")],
+    cabecalho: { turma, data: "2026-11-05", valor } };
+  const ps = paragrafos(await documentoXml(await folhaAluno(d)));
+  const linha = ps.find((p) => p.startsWith("Turma: "));
+  assert.equal(linha, `Turma: ${turma}    Data: 05/11/2026    Valor: ${valor}`);
+  const aluno = ps.find((p) => p.startsWith("Aluno(a): "));
+  const prof = ps.find((p) => p.startsWith("Professor(a): "));
+  assert.ok(aluno && !aluno.includes("Turma") && !aluno.includes(turma), aluno);
+  assert.ok(prof && !prof.includes("Data") && !prof.includes("Valor") && prof.includes("Nota"), prof);
+});
+test("só o valor preenchido: linha extra só com \"Valor:\" e linhas de sempre", async () => {
+  const base = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")] };
+  const ps = paragrafos(await documentoXml(await folhaAluno({ ...base, cabecalho: { valor: "10,0" } })));
+  const linha = ps.find((p) => p.includes("Valor: "));
+  assert.equal(linha, "Valor: 10,0");
+  assert.ok(!ps.some((p) => p.startsWith("Turma: ") || p.startsWith("Data: ")));
+  const semNada = paragrafos(await documentoXml(await folhaAluno(base)));
+  for (const r of ["Aluno(a): ", "Professor(a): "]) {
+    assert.equal(ps.find((p) => p.startsWith(r)), semNada.find((p) => p.startsWith(r)), r);
+  }
+  assert.ok(ps.find((p) => p.startsWith("Professor(a): "))?.includes("Data: ____/____/______"));
+  const gab = paragrafos(await documentoXml(await folhaGabarito({ ...base, cabecalho: { valor: "10,0", turma: "3A", data: "2026-11-05" } })));
+  assert.ok(!gab.some((p) => p.includes("Valor: ") || p.includes("Turma: ") || p.includes("05/11/2026")));
 });
 
 test("comandoRepetido: enunciado que já termina com o comando", () => {
