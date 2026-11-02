@@ -1,0 +1,7 @@
+.grade { display:grid; gap:16px; align-items:start; }
+.questao { display:flex; flex-direction:column; gap:12px; min-width:0; padding:16px; }
+.painel { display:flex; flex-direction:column; gap:16px; min-width:0; padding:16px; }
+.botoes { display:flex; flex-wrap:wrap; gap:8px; }
+.botoes>* { flex:1 1 140px; justify-content:center; }
+.erro { padding:8px 12px; border-radius:10px; background:color-mix(in srgb, var(--color-danger) 10%, #fff); color:var(--color-danger); font-size:14px; font-weight:600; }
+@media (min-width:1024px) { .grade { grid-template-columns:minmax(0,3fr) minmax(0,2fr); } .painel { position:sticky; top:16px; } }
