@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase/client";
-import { exigirProfessor } from "@/lib/questoes/acesso";
+import { exigirProfessor, podeVerQuestao } from "@/lib/questoes/acesso";
 import { LIMITE_LOTE, nomeNormalizado, type ItemLote, type Recusa } from "@/lib/questoes/classificacao";
 import {
-  classificacaoDasQuestoes, classificarQuestoesPor, criarHabilidadePor, juntarHabilidades, juntarTopicos,
+  classificacaoDasQuestoes, classificarQuestoesPor, erro, criarHabilidadePor, juntarHabilidades, juntarTopicos,
   listarHabilidades, listarTopicos, proporTopicoPor, questoesParaClassificar,
 } from "@/lib/questoes/classificacao-servidor";
 import type { Area, Habilidade, MaterialRevisao, Questao, Topico } from "@/lib/types";
@@ -22,13 +22,7 @@ function atualizar() {
   revalidatePath("/banco", "layout");
 }
 
-function falhar(e: { message: string } | null) {
-  if (!e) return;
-  if (e.message.includes("uq_topicos")) throw new Error("Já existe um tópico com esse nome neste assunto.");
-  if (e.message.includes("uq_habilidades_area_descricao")) throw new Error("Já existe uma habilidade com essa descrição nesta área.");
-  if (e.message.includes("uq_habilidades_area_codigo")) throw new Error("Já existe uma habilidade com esse código nesta área.");
-  throw new Error(e.message);
-}
+const falhar = erro;
 
 // ---------- leitura (qualquer professor) ----------
 
@@ -46,8 +40,14 @@ export async function listarHabilidadesAction(area?: Area): Promise<Habilidade[]
 export async function classificacaoDasQuestoesAction(
   ids: string[],
 ): Promise<Record<string, { topicoId: string | null; habilidadeIds: string[] }>> {
-  await exigirProfessor();
-  return Object.fromEntries(await classificacaoDasQuestoes(ids));
+  const professor = await exigirProfessor();
+  const visiveis = new Set<string>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await supabase.from("questoes").select("id, escopo, escola_id, status, criado_por").in("id", ids.slice(i, i + 100));
+    falhar(error);
+    for (const q of data ?? []) if (podeVerQuestao(professor, q)) visiveis.add(q.id);
+  }
+  return Object.fromEntries(await classificacaoDasQuestoes([...visiveis]));
 }
 
 export async function questoesParaClassificarAction(

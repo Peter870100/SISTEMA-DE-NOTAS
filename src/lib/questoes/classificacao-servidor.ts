@@ -3,7 +3,7 @@ import { ehAdmin } from "@/lib/papeis";
 import type { Area, Habilidade, Questao, Topico } from "@/lib/types";
 import type { Ator } from "./regras";
 import {
-  habilidadesFinais, nomeNormalizado, planoJuntarTopicos, validarItens,
+  habilidadesFinais, mesclarItens, nomeNormalizado, planoJuntarTopicos, validarItens,
   type ItemLote, type QuestaoLote, type Recusa,
 } from "./classificacao";
 
@@ -17,13 +17,25 @@ function emBlocos<T>(lista: T[], tamanho = BLOCO): T[][] {
   return saida;
 }
 
-function erro(e: { message: string } | null, padrao = "Falha ao gravar."): void {
+export function erro(e: { message: string } | null, padrao = "Falha ao gravar."): void {
   if (e) {
     if (e.message.includes("uq_topicos")) throw new Error("Já existe um tópico com esse nome neste assunto.");
     if (e.message.includes("uq_habilidades_area_descricao")) throw new Error("Já existe uma habilidade com essa descrição nesta área.");
     if (e.message.includes("uq_habilidades_area_codigo")) throw new Error("Já existe uma habilidade com esse código nesta área.");
     throw new Error(e.message || padrao);
   }
+}
+
+/** Lê todas as linhas, página a página (o PostgREST corta em 1000). `montar` deve ter ordem estável. */
+async function lerTodas<T>(montar: (de: number, ate: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
+  const saida: T[] = [];
+  for (let de = 0; ; de += 1000) {
+    const { data, error } = await montar(de, de + 999);
+    erro(error);
+    saida.push(...(data ?? []));
+    if ((data ?? []).length < 1000) break;
+  }
+  return saida;
 }
 
 // ---------- leitura ----------
@@ -38,17 +50,15 @@ export async function listarTopicos(assuntoIds?: string[]): Promise<Topico[]> {
     }
     return saida;
   }
-  const { data, error } = await supabase.from("topicos").select("*").order("nome").limit(5000);
-  erro(error);
-  return data ?? [];
+  return lerTodas<Topico>((de, ate) => supabase.from("topicos").select("*").order("nome").order("id").range(de, ate));
 }
 
 export async function listarHabilidades(area?: Area): Promise<Habilidade[]> {
-  let q = supabase.from("habilidades").select("*").order("area").order("codigo", { nullsFirst: false }).order("descricao");
-  if (area) q = q.eq("area", area);
-  const { data, error } = await q.limit(5000);
-  erro(error);
-  return data ?? [];
+  return lerTodas<Habilidade>((de, ate) => {
+    let q = supabase.from("habilidades").select("*").order("area").order("codigo", { nullsFirst: false }).order("descricao").order("id");
+    if (area) q = q.eq("area", area);
+    return q.range(de, ate);
+  });
 }
 
 export async function classificacaoDasQuestoes(
@@ -89,7 +99,7 @@ export async function questoesParaClassificar(
   let lista = comAssunto(base(false));
   if (f.soSemTopico) lista = lista.is("topico_id", null);
   if (f.depoisDe) lista = lista.gt("id", f.depoisDe);
-  const limite = Math.max(1, Math.min(f.limite, 200));
+  const limite = Math.max(1, Math.min(f.limite, 100));
   const [{ data, error: e1 }, totalR, classR] = await Promise.all([
     lista.order("id").limit(limite),
     comAssunto(base(true)),
@@ -108,7 +118,8 @@ export async function classificarQuestoesPor(
   itens: ItemLote[],
   modo: "adicionar" | "trocar",
 ): Promise<{ salvas: number; recusados: Recusa[] }> {
-  const questaoIds = [...new Set(itens.map((i) => i.questaoId))];
+  itens = mesclarItens(itens);
+  const questaoIds = itens.map((i) => i.questaoId);
   const topicoIds = [...new Set(itens.map((i) => i.topicoId).filter((t): t is string => !!t))];
   const habIds = [...new Set(itens.flatMap((i) => i.habilidadeIds ?? []))];
 
@@ -157,13 +168,28 @@ export async function classificarQuestoesPor(
       const finais = habilidadesFinais(atuais.get(item.questaoId)?.habilidadeIds ?? [], item.habilidadeIds ?? [], modo);
       for (const habilidade_id of finais) linhas.push({ questao_id: item.questaoId, habilidade_id });
     }
-    for (const bloco of emBlocos(comHab.map((i) => i.questaoId))) {
-      const { error } = await supabase.from("questao_habilidades").delete().in("questao_id", bloco);
+    // Itens já mesclados: sem pares repetidos. Insere antes de apagar, para que nenhuma falha
+    // previsível aconteça depois do delete.
+    const chaves = new Set<string>();
+    const unicas = linhas.filter((l) => {
+      const k = `${l.questao_id}|${l.habilidade_id}`;
+      if (chaves.has(k)) return false;
+      chaves.add(k);
+      return true;
+    });
+    for (const bloco of emBlocos(unicas, 500)) {
+      const { error } = await supabase.from("questao_habilidades").upsert(bloco, { onConflict: "questao_id,habilidade_id", ignoreDuplicates: true });
       erro(error);
     }
-    for (const bloco of emBlocos(linhas, 500)) {
-      const { error } = await supabase.from("questao_habilidades").insert(bloco);
-      erro(error);
+    if (modo === "trocar") {
+      // Apaga só o que saiu: ligações atuais que não estão nas finais.
+      const agora = await classificacaoDasQuestoes(comHab.map((i) => i.questaoId));
+      for (const [questaoId, { habilidadeIds }] of agora) {
+        const sobra = habilidadeIds.filter((h) => !chaves.has(`${questaoId}|${h}`));
+        if (sobra.length === 0) continue;
+        const { error } = await supabase.from("questao_habilidades").delete().eq("questao_id", questaoId).in("habilidade_id", sobra);
+        erro(error);
+      }
     }
   }
   return { salvas: aceitos.length, recusados };
@@ -242,7 +268,8 @@ async function transferirTopico(deId: string, paraId: string): Promise<void> {
 /** Junta dois tópicos do mesmo assunto: move questões, pré-requisitos e materiais e apaga o `de`. */
 export async function juntarTopicos(deId: string, paraId: string): Promise<void> {
   if (deId === paraId) throw new Error("Escolha outro tópico.");
-  const { data } = await supabase.from("topicos").select("id, assunto_id").in("id", [deId, paraId]);
+  const { data, error: eLer } = await supabase.from("topicos").select("id, assunto_id").in("id", [deId, paraId]);
+  erro(eLer);
   const de = data?.find((t) => t.id === deId);
   const para = data?.find((t) => t.id === paraId);
   if (!de || !para) throw new Error("Tópico não encontrado.");
@@ -286,14 +313,15 @@ export async function moverTopicosDoAssunto(origemId: string, destinoId: string)
 /** Junta duas habilidades da mesma área: as questões passam para o `para` e o `de` é apagado. */
 export async function juntarHabilidades(deId: string, paraId: string): Promise<void> {
   if (deId === paraId) throw new Error("Escolha outra habilidade.");
-  const { data } = await supabase.from("habilidades").select("id, area").in("id", [deId, paraId]);
+  const { data, error: eLer } = await supabase.from("habilidades").select("id, area").in("id", [deId, paraId]);
+  erro(eLer);
   const de = data?.find((h) => h.id === deId);
   const para = data?.find((h) => h.id === paraId);
   if (!de || !para) throw new Error("Habilidade não encontrada.");
   if (de.area !== para.area) throw new Error("As habilidades precisam ser da mesma área.");
-  const { data: links, error } = await supabase.from("questao_habilidades").select("questao_id").eq("habilidade_id", deId).limit(100000);
-  erro(error);
-  const novas = (links ?? []).map((l) => ({ questao_id: l.questao_id, habilidade_id: paraId }));
+  const links = await lerTodas<{ questao_id: string }>((a, b) =>
+    supabase.from("questao_habilidades").select("questao_id").eq("habilidade_id", deId).order("questao_id").range(a, b));
+  const novas = links.map((l) => ({ questao_id: l.questao_id, habilidade_id: paraId }));
   for (const bloco of emBlocos(novas, 500)) {
     const { error: e2 } = await supabase.from("questao_habilidades").upsert(bloco, { onConflict: "questao_id,habilidade_id", ignoreDuplicates: true });
     erro(e2);

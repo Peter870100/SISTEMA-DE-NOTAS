@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  LIMITE_LOTE, validarItens, mesmoAssunto, mesmaArea, habilidadesFinais, planoJuntarTopicos, nomeNormalizado,
+  LIMITE_LOTE, validarItens, mesmoAssunto, mesmaArea, habilidadesFinais, planoJuntarTopicos, nomeNormalizado, mesclarItens,
   type QuestaoLote, type ItemLote,
 } from "./classificacao";
 import type { Ator } from "./regras";
@@ -67,4 +67,22 @@ test("planoJuntarTopicos", () => {
     [{ id: "d1", nome: "derivacao" }],
   );
   assert.deepEqual(p, { mover: ["o2"], juntar: [{ de: "o1", para: "d1" }] });
+});
+
+test("mesclarItens: junta repetidas, soma habilidades e o último tópico vence", () => {
+  const r = mesclarItens([
+    { questaoId: "a", topicoId: "t1", habilidadeIds: ["h1", "h2"] },
+    { questaoId: "b" },
+    { questaoId: "a", topicoId: "t2", habilidadeIds: ["h2", "h3"] },
+    { questaoId: "a" },
+  ]);
+  assert.equal(r.length, 2);
+  assert.deepEqual(r[0], { questaoId: "a", topicoId: "t2", habilidadeIds: ["h1", "h2", "h3"] });
+  assert.deepEqual(r[1], { questaoId: "b" });
+});
+
+test("mesclarItens: sem habilidades informadas continua indefinido", () => {
+  const r = mesclarItens([{ questaoId: "a", topicoId: null }, { questaoId: "a", topicoId: "t" }]);
+  assert.equal(r[0].habilidadeIds, undefined);
+  assert.equal(r[0].topicoId, "t");
 });

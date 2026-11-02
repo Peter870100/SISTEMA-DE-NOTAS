@@ -81,3 +81,18 @@ export function planoJuntarTopicos(
   }
   return { mover, juntar };
 }
+
+/** Junta os itens que repetem a questão: habilidades somadas (sem repetir); no tópico vale o último informado. */
+export function mesclarItens(itens: ItemLote[]): ItemLote[] {
+  const porQuestao = new Map<string, ItemLote>();
+  for (const item of itens) {
+    const atual = porQuestao.get(item.questaoId);
+    if (!atual) {
+      porQuestao.set(item.questaoId, { ...item, ...(item.habilidadeIds && { habilidadeIds: [...new Set(item.habilidadeIds)] }) });
+      continue;
+    }
+    if (item.topicoId !== undefined) atual.topicoId = item.topicoId;
+    if (item.habilidadeIds !== undefined) atual.habilidadeIds = [...new Set([...(atual.habilidadeIds ?? []), ...item.habilidadeIds])];
+  }
+  return [...porQuestao.values()];
+}
