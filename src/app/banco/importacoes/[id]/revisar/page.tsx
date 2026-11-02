@@ -6,6 +6,7 @@ import { podeImportar } from "@/lib/questoes/acesso";
 import { imagensParaTela } from "@/lib/questoes/consultas";
 import { casaFiltro, estadoConferencia, ordenarParaConferencia, paginaVizinha, proximaQuestao, type FiltroConferencia } from "@/lib/questoes/conferencia";
 import { linkExibicao } from "@/lib/questoes/storage";
+import { carregarClassificacaoTela } from "@/lib/questoes/classificacao-pagina";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { EditorQuestao } from "@/components/questoes/EditorQuestao";
 import { PaginaComQuadros } from "@/components/questoes/PaginaComQuadros";
@@ -43,9 +44,10 @@ export default async function RevisarPage({ params, searchParams }: Props) {
 
   // ?pagina= só vale se for página de prova desta importação; senão, a página da questão.
   const paginaId = (paginasProva ?? []).some((p) => p.id === paginaParam) ? paginaParam! : atual?.pagina_id ?? null;
-  const [imagens, { data: assuntos }] = await Promise.all([
+  const [imagens, { data: assuntos }, classificacao] = await Promise.all([
     imagensParaTela(atual ? [atual.id] : []),
     supabase.from("assuntos").select("*").order("nome"),
+    atual ? carregarClassificacaoTela(atual.id) : Promise.resolve(null),
   ]);
   const pagina = (paginasProva ?? []).find((p) => p.id === paginaId) ?? (paginaId ? await supabase.from("importacao_paginas").select("*").eq("id", paginaId).eq("importacao_id", id).maybeSingle().then((r) => r.data) : null);
   const urlPagina = pagina ? await linkExibicao(pagina.storage_path) : null;
@@ -81,7 +83,7 @@ export default async function RevisarPage({ params, searchParams }: Props) {
         </section>
         <section aria-label="Questão copiada" className={`${estilos.card} p-3`}>
           {atual
-            ? <EditorQuestao key={atual.id} questao={atual} imagens={imgsAtual} assuntos={assuntos ?? []} podeEscolherGeral={false} modoRevisao proximaHref={proxima ? `${base}?q=${encodeURIComponent(proxima.id)}${sufixoFiltro}` : `/banco/importacoes/${id}`} />
+            ? <EditorQuestao key={atual.id} questao={atual} imagens={imgsAtual} assuntos={assuntos ?? []} podeEscolherGeral={false} modoRevisao classificacao={classificacao} proximaHref={proxima ? `${base}?q=${encodeURIComponent(proxima.id)}${sufixoFiltro}` : `/banco/importacoes/${id}`} />
             : filtro === "a-conferir"
               ? <div className="flex flex-col items-start gap-3"><p className="font-semibold text-ink">Tudo conferido! Nenhuma questão a conferir nesta prova.</p><Link href={`/banco/importacoes/${id}`} className={estilos.botaoSecundario}>← Voltar para a importação</Link></div>
               : <p className="text-sm text-muted">Nenhuma questão.</p>}

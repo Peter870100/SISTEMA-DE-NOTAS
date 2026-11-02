@@ -7,6 +7,7 @@ import { podeEditarQuestao, podeVerQuestao } from "@/lib/questoes/acesso";
 import { imagensParaTela } from "@/lib/questoes/consultas";
 import { letrasVisiveis } from "@/lib/questoes/materias";
 import { enunciadoNaTela } from "@/lib/questoes/markdown";
+import { carregarClassificacaoTela } from "@/lib/questoes/classificacao-pagina";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { EditorQuestao } from "@/components/questoes/EditorQuestao";
 import { ImagemQuestao } from "@/components/questoes/ImagemQuestao";
@@ -23,9 +24,9 @@ export default async function QuestaoPage({ params }: { params: Promise<{ id: st
   if (!professor) redirect("/login");
   const { data: q } = await supabase.from("questoes").select("*").eq("id", id).maybeSingle();
   if (!q || !podeVerQuestao(professor, q)) notFound();
-  const [imagens, { data: assuntos }] = await Promise.all([imagensParaTela([id]), supabase.from("assuntos").select("*").order("nome")]);
-  const imgs = imagens.get(id) ?? [];
   const edita = podeEditarQuestao(professor, q);
+  const [imagens, { data: assuntos }, classificacao] = await Promise.all([imagensParaTela([id]), supabase.from("assuntos").select("*").order("nome"), edita ? carregarClassificacaoTela(id) : Promise.resolve(null)]);
+  const imgs = imagens.get(id) ?? [];
   const tela = enunciadoNaTela(q.enunciado, q.comando, Array.isArray(q.conteudo?.content), imgs.some((i) => i.alvo === "enunciado"));
 
   return (
@@ -36,7 +37,7 @@ export default async function QuestaoPage({ params }: { params: Promise<{ id: st
         {professor.role === "dono" && q.escopo === "escola" && <PromoverQuestao questaoId={id} />}
       </>}>
       <section className={edita ? undefined : `${estilos.card} p-4`}>
-        {edita ? <EditorQuestao questao={q} imagens={imgs} assuntos={assuntos ?? []} podeEscolherGeral={false} /> : (
+        {edita ? <EditorQuestao questao={q} imagens={imgs} assuntos={assuntos ?? []} podeEscolherGeral={false} classificacao={classificacao} /> : (
           <div className="flex flex-col gap-3">
             <ConteudoQuestao doc={q.conteudo ?? null} textoAntigo={tela.texto} imagens={imgs} figurasAntes={tela.figurasAntes} />
             {tela.comando && <p className="text-sm font-medium text-ink">{tela.comando}</p>}

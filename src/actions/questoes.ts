@@ -9,6 +9,7 @@ import { exigirMateria, exigirResposta, exigirRespostaSePublicada, limparResoluc
 import { concluirImportacaoSeVazia, excluirQuestaoPor, publicarQuestaoPor } from "@/lib/questoes/nucleo";
 import { limitarQuadro, type Quadro } from "@/lib/questoes/quadro";
 import { BUCKET } from "@/lib/questoes/storage";
+import { classificarQuestoesPor } from "@/lib/questoes/classificacao-servidor";
 import { camposConferida, camposFaltaImagem } from "@/lib/questoes/conferencia";
 import { limparConteudo, textoDoConteudo, trocarIdsFiguras, type DocConteudo } from "@/lib/questoes/conteudo";
 import type { Alinhamento, AlvoImagem, Escopo, Letra } from "@/lib/types";
@@ -30,6 +31,10 @@ export type DadosQuestao = {
   conteudo?: unknown;
   /** Resolução comentada. Ausente: não altera a coluna; vazia: apaga. */
   resolucao?: string;
+  /** Tópico da questão (precisa ser do assunto). Ausente: não mexe; null: limpa. */
+  topico_id?: string | null;
+  /** Habilidades da questão (da área dela), que substituem as atuais. Ausente: não mexe. */
+  habilidade_ids?: string[];
 };
 
 const MIME: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
@@ -76,6 +81,17 @@ function traduzirErro(message: string): string {
   return message.includes("uq_questoes") ? "Já existe uma questão com essa banca, ano, caderno e número." : message;
 }
 
+/** Grava tópico e habilidades (trocando) depois que a questão já está salva; só se o editor os enviou. */
+async function gravarClassificacao(professor: Awaited<ReturnType<typeof exigirProfessor>>, id: string, d: DadosQuestao): Promise<void> {
+  if (d.topico_id === undefined && d.habilidade_ids === undefined) return;
+  const { recusados } = await classificarQuestoesPor(professor, [{
+    questaoId: id,
+    ...(d.topico_id !== undefined ? { topicoId: d.topico_id } : {}),
+    ...(d.habilidade_ids !== undefined ? { habilidadeIds: d.habilidade_ids } : {}),
+  }], "trocar");
+  if (recusados.length > 0) throw new Error(`A questão foi salva, mas a classificação não: ${recusados[0].motivo}`);
+}
+
 export async function criarQuestao(dados: DadosQuestao): Promise<string> {
   const professor = await exigirProfessor();
   const escopo: Escopo = dados.escopo === "geral" && professor.role === "dono" ? "geral" : "escola";
@@ -85,11 +101,14 @@ export async function criarQuestao(dados: DadosQuestao): Promise<string> {
     .select("id")
     .single();
   if (error || !data) throw new Error(traduzirErro(error?.message ?? "Falha ao criar questão."));
+  // A questão já existe: falha na classificação não pode impedir a navegação (evita criar duplicada).
+  try { await gravarClassificacao(professor, data.id, dados); } catch (e) { console.error("classificação da questão nova:", e); }
   return data.id;
 }
 
 export async function salvarQuestao(id: string, dados: DadosQuestao): Promise<void> {
-  const questao = await exigirEditorQuestaoPor(await exigirProfessor(), id);
+  const professor = await exigirProfessor();
+  const questao = await exigirEditorQuestaoPor(professor, id);
   const limpo = limpar(dados);
   exigirRespostaSePublicada(questao.status, limpo.anulada, limpo.resposta);
   let imagensValidas = new Set<string>();
@@ -100,6 +119,7 @@ export async function salvarQuestao(id: string, dados: DadosQuestao): Promise<vo
   }
   const { error } = await supabase.from("questoes").update({ ...limpo, ...camposEnunciado(dados, imagensValidas), updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw new Error(traduzirErro(error.message));
+  await gravarClassificacao(professor, id, dados);
 }
 
 export async function publicarQuestao(id: string, publicar: boolean): Promise<void> {

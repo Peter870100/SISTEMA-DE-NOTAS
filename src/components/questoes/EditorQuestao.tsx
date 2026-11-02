@@ -4,12 +4,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Trash2, Upload, Tags, FileText, ListChecks, Save, CheckCircle2 } from "lucide-react";
 import { criarQuestao, definirAlinhamento, excluirQuestao, marcarConferida, marcarFaltaImagem, prepararEnvioImagem, publicarQuestao, registrarImagem, removerImagem, salvarQuestao, type DadosQuestao } from "@/actions/questoes";
-import { LETRAS, MATERIAS } from "@/lib/questoes/materias";
+import { areaDaMateria, LETRAS, MATERIAS, type Materia } from "@/lib/questoes/materias";
 import { conteudoDeMarkdown, imagensDoConteudo, textoDoConteudo, trocarIdsFiguras, type DocConteudo } from "@/lib/questoes/conteudo";
 import { colagemEhImagem } from "@/lib/questoes/colar";
-import type { Alinhamento, AlvoImagem, Assunto, Letra, Questao } from "@/lib/types";
+import type { Alinhamento, AlvoImagem, Assunto, Habilidade, Letra, Questao, Topico } from "@/lib/types";
 import { estilos } from "@/components/ui/estilos";
 import { EntradaImagem, type EntradaImagemRef } from "./EntradaImagem";
+import { CamposClassificacao } from "./CamposClassificacao";
 import { ImagemQuestao, type ImagemTela } from "./ImagemQuestao";
 import { ConteudoQuestao } from "./ConteudoQuestao";
 import { EditorConteudo } from "./EditorConteudo";
@@ -25,6 +26,10 @@ type Props = {
   aoSalvar?: (id: string) => void;
   modoRevisao?: boolean;
   proximaHref?: string | null;
+  /** Tópicos, habilidades e a classificação atual. Ausente (null): campos escondidos e nada é gravado. */
+  classificacao?: { topicos: Topico[]; habilidades: Habilidade[]; atual: { topicoId: string | null; habilidadeIds: string[] } } | null;
+  /** Professor ou admin podem propor tópico. */
+  podeProporTopico?: boolean;
 };
 
 async function enviarImagem(url: string, arquivo: File) {
@@ -55,7 +60,7 @@ function MiniaturaPendente({ arquivo }: { arquivo: File }) {
   return <img ref={img} alt="Imagem a enviar ao criar a questão" className="max-h-40 max-w-full rounded-control border border-line object-contain" />;
 }
 
-export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, aoSalvar, modoRevisao = false, proximaHref = null }: Props) {
+export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, aoSalvar, modoRevisao = false, proximaHref = null, classificacao = null, podeProporTopico = true }: Props) {
   const router = useRouter();
   const [d, setD] = useState<DadosQuestao>(() => ({
     banca: questao?.banca ?? "Própria",
@@ -76,6 +81,7 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
     anulada: questao?.anulada ?? false,
     escopo: questao?.escopo ?? "escola",
     resolucao: questao?.resolucao ?? "",
+    ...(classificacao ? { topico_id: classificacao.atual.topicoId, habilidade_ids: classificacao.atual.habilidadeIds } : {}),
   }));
   const [ocupado, setOcupado] = useState(false);
   // Entradas de imagem por parte (enunciado, A..E): recebem imagens coladas nos textos.
@@ -252,7 +258,7 @@ Adicione as imagens novamente nesta página.`);
       {questao?.precisa_revisao && questao.motivo_revisao && <p className="rounded-control bg-gold/25 px-3 py-2 text-sm text-ink">⚠ {questao.motivo_revisao}</p>}
 
       <section className={`${styles.card} ${styles.metadata}`} aria-label="Identificação da questão">
-      <div className={styles.heading}><span className={styles.icon}><Tags size={22} aria-hidden="true" /></span><div><h2>Identificação da questão</h2><p>Organize a origem, a matéria e o assunto.</p></div></div>
+      <div className={styles.heading}><span className={styles.icon}><Tags size={22} aria-hidden="true" /></span><div><h2>Identificação da questão</h2><p>Organize a origem, a matéria, o assunto e o tópico.</p></div></div>
       <div className={styles.metadataFields}>
         <label className="flex flex-col gap-1 text-xs text-muted">Banca<input value={d.banca} onChange={(e) => set("banca", e.target.value)} className={estilos.input} /></label>
         <label className="flex flex-col gap-1 text-xs text-muted">Ano<input value={d.ano ?? ""} onChange={(e) => set("ano", e.target.value ? Number(e.target.value.replace(/\D/g, "")) : null)} inputMode="numeric" className={estilos.input} /></label>
@@ -261,17 +267,26 @@ Adicione as imagens novamente nesta página.`);
       </div>
       <div className={styles.subjectFields}>
         <label className="flex flex-col gap-1 text-xs text-muted">Matéria
-          <select value={d.materia} onChange={(e) => { set("materia", e.target.value); set("assunto_id", null); }} className={estilos.input}>
+          <select value={d.materia} onChange={(e) => {
+            const materia = e.target.value as Materia;
+            // Matéria nova: o assunto, o tópico e (se a área mudar) as habilidades deixam de valer.
+            setD((x) => ({ ...x, materia, assunto_id: null, ...(classificacao ? { topico_id: null, ...(areaDaMateria(materia) !== areaDaMateria(x.materia as Materia) ? { habilidade_ids: [] } : {}) } : {}) }));
+          }} className={estilos.input}>
             {Object.entries(MATERIAS).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted">Assunto
-          <select value={d.assunto_id ?? ""} onChange={(e) => set("assunto_id", e.target.value || null)} className={estilos.input}>
+          <select value={d.assunto_id ?? ""} onChange={(e) => { const assunto_id = e.target.value || null; setD((x) => ({ ...x, assunto_id, ...(classificacao ? { topico_id: null } : {}) })); }} className={estilos.input}>
             <option value="">— sem assunto —</option>
             {assuntosMateria.map((a) => <option key={a.id} value={a.id}>{a.nome}{a.situacao === "proposto" ? " (proposto)" : ""}</option>)}
           </select>
         </label>
       </div>
+      {classificacao && (
+        <CamposClassificacao assuntoId={d.assunto_id ?? null} area={areaDaMateria(d.materia as Materia)} topicos={classificacao.topicos} habilidades={classificacao.habilidades}
+          topicoId={d.topico_id ?? null} habilidadeIds={d.habilidade_ids ?? []} podeProporTopico={podeProporTopico} desabilitado={ocupado}
+          onChange={(v) => setD((x) => ({ ...x, topico_id: v.topicoId, habilidade_ids: v.habilidadeIds }))} />
+      )}
       {podeEscolherGeral && !questao && (
         <label className="flex flex-col gap-1 text-xs text-muted">Banco
           <select value={d.escopo} onChange={(e) => set("escopo", e.target.value as "geral" | "escola")} className={estilos.input}>
