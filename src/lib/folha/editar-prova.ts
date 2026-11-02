@@ -180,6 +180,19 @@ export function reordenar<T>(lista: T[], de: number, para: number): T[] | null {
   return r;
 }
 
+/**
+ * Arrastar: em que fenda (0..n) o ponteiro está, dados os meios verticais das linhas, em ordem.
+ * Fenda f = "antes da linha f"; n = depois da última.
+ */
+export function fendaArraste(meios: number[], y: number): number {
+  return meios.filter((m) => y > m).length;
+}
+
+/** Índice final (como em `reordenar`) ao soltar a linha `de` na fenda; igual a `de` = não muda nada. */
+export function destinoArraste(de: number, fenda: number): number {
+  return fenda > de ? fenda - 1 : fenda;
+}
+
 /** Tira o item do índice; null se inválido ou se sobraria prova vazia. */
 export function removerDaOrdem<T>(lista: T[], indice: number): T[] | null {
   if (!Number.isInteger(indice) || indice < 0 || indice >= lista.length || lista.length <= 1) return null;

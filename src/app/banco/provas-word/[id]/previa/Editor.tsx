@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useTransition, type FormEvent, type PointerEvent as EventoPonteiro } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, RefreshCw, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, RefreshCw, Trash2, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { estilos } from "@/components/ui/estilos";
-import { LIMITE_NOME_PROVA, LIMITES_CABECALHO, PROVA_MUDOU, type CabecalhoProva } from "@/lib/folha/editar-prova";
+import {
+  destinoArraste,
+  fendaArraste,
+  LIMITE_NOME_PROVA,
+  LIMITES_CABECALHO,
+  PROVA_MUDOU,
+  type CabecalhoProva,
+} from "@/lib/folha/editar-prova";
 import { moverQuestaoProva, removerQuestaoProva, salvarCabecalhoProva, salvarNomeProva, trocarQuestaoProva } from "../../acoes";
 import css from "./Previa.module.css";
 
@@ -14,6 +21,13 @@ export type QuestaoEditor = { indice: number; questaoId: string; rotulo: string;
 
 type Secao = "cabecalho" | "questoes";
 type Aviso = { secao: Secao; tipo: "ok" | "erro" | "info"; texto: string } | null;
+
+/** Arraste em andamento: a linha que saiu (`de`) e a fenda (0..n) onde ela cairia. */
+type Arraste = { de: number; questaoId: string; fenda: number; y: number; alca: HTMLElement; ponteiro: number };
+
+/** Faixa (px) junto às bordas do painel em que o arraste rola a lista; e o passo máximo por quadro. */
+const BORDA_ROLAGEM = 56;
+const PASSO_ROLAGEM = 14;
 
 /** Quando a ação do servidor nem responde (rede caiu, deploy novo): a pré-visualização continua na tela. */
 const ERRO_REDE = "Não foi possível salvar. Recarregue a página.";
@@ -42,6 +56,12 @@ export function Editor({
   const [soUsadas, setSoUsadas] = useState<number | null>(null);
   const [remover, setRemover] = useState<{ indice: number; questaoId: string } | null>(null);
   const tituloPainel = useRef<HTMLHeadingElement>(null);
+  const corpo = useRef<HTMLDivElement>(null);
+  const lista = useRef<HTMLOListElement>(null);
+  /** Dados do arraste lidos nos eventos do ponteiro; o estado `arraste` só redesenha a lista. */
+  const arrasteAtual = useRef<Arraste | null>(null);
+  const [arraste, setArraste] = useState<{ de: number; fenda: number } | null>(null);
+  const arrastando = arraste !== null;
 
   // Ao abrir, o foco vai para o painel.
   useEffect(() => {
@@ -108,6 +128,98 @@ export function Editor({
     });
   }
 
+  /** Recalcula a fenda sob o ponteiro (depois de mexer o ponteiro ou de rolar a lista). */
+  function acharFenda() {
+    const a = arrasteAtual.current;
+    if (!a || !lista.current) return;
+    const meios = Array.from(lista.current.children, (li) => {
+      const r = li.getBoundingClientRect();
+      return r.top + r.height / 2;
+    });
+    const fenda = fendaArraste(meios, a.y);
+    if (fenda !== a.fenda) {
+      a.fenda = fenda;
+      setArraste({ de: a.de, fenda });
+    }
+  }
+
+  /** Para o arraste sem mover nada (Esc, toque cancelado) ou antes de soltar. */
+  function encerrarArraste() {
+    const a = arrasteAtual.current;
+    arrasteAtual.current = null;
+    setArraste(null);
+    if (a && a.alca.hasPointerCapture(a.ponteiro)) a.alca.releasePointerCapture(a.ponteiro);
+  }
+
+  function comecarArraste(e: EventoPonteiro<HTMLButtonElement>, questaoId: string, de: number) {
+    if (pendente || arrasteAtual.current || (e.pointerType === "mouse" && e.button !== 0)) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    arrasteAtual.current = { de, questaoId, fenda: de, y: e.clientY, alca: e.currentTarget, ponteiro: e.pointerId };
+    setArraste({ de, fenda: de });
+  }
+
+  function moverArraste(e: EventoPonteiro<HTMLButtonElement>) {
+    const a = arrasteAtual.current;
+    if (!a || e.pointerId !== a.ponteiro) return;
+    a.y = e.clientY;
+    acharFenda();
+  }
+
+  /** Soltou: na mesma posição não faz nada; noutra, usa a mesma ação das setas. */
+  function soltarArraste(e: EventoPonteiro<HTMLButtonElement>) {
+    const a = arrasteAtual.current;
+    if (!a || e.pointerId !== a.ponteiro) return;
+    a.y = e.clientY;
+    acharFenda();
+    encerrarArraste();
+    const para = destinoArraste(a.de, a.fenda);
+    if (para !== a.de) mover(a.questaoId, a.de, para);
+  }
+
+  function cancelarArraste(e: EventoPonteiro<HTMLButtonElement>) {
+    const a = arrasteAtual.current;
+    if (a && e.pointerId === a.ponteiro) encerrarArraste();
+  }
+
+  /** Um quadro de rolagem: perto da borda de cima/baixo do painel, a lista rola sozinha. */
+  const rolarNaBorda = useEffectEvent(() => {
+    const a = arrasteAtual.current;
+    const el = corpo.current;
+    if (!a || !el) return;
+    const r = el.getBoundingClientRect();
+    let passo = 0;
+    if (a.y < r.top + BORDA_ROLAGEM) passo = -Math.min(PASSO_ROLAGEM, Math.ceil((r.top + BORDA_ROLAGEM - a.y) / 4));
+    else if (a.y > r.bottom - BORDA_ROLAGEM) passo = Math.min(PASSO_ROLAGEM, Math.ceil((a.y - r.bottom + BORDA_ROLAGEM) / 4));
+    if (passo === 0) return;
+    const antes = el.scrollTop;
+    el.scrollTop += passo;
+    if (el.scrollTop !== antes) acharFenda();
+  });
+
+  const teclaNoArraste = useEffectEvent((e: KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    encerrarArraste();
+  });
+
+  // Enquanto arrasta: rolagem nas bordas e Esc para cancelar.
+  useEffect(() => {
+    if (!arrastando) return;
+    let quadro = 0;
+    const passo = () => {
+      rolarNaBorda();
+      quadro = requestAnimationFrame(passo);
+    };
+    quadro = requestAnimationFrame(passo);
+    const tecla = (e: KeyboardEvent) => teclaNoArraste(e);
+    window.addEventListener("keydown", tecla);
+    return () => {
+      cancelAnimationFrame(quadro);
+      window.removeEventListener("keydown", tecla);
+    };
+  }, [arrastando]);
+
   function trocar(questaoId: string, indice: number, aceitarUsadas: boolean) {
     setAviso(null);
     setSoUsadas(null);
@@ -156,6 +268,8 @@ export function Editor({
     );
 
   const total = questoes.length;
+  /** Fenda onde aparece a linha de destino; null se não arrasta ou se cairia no mesmo lugar. */
+  const fendaVisivel = arraste && destinoArraste(arraste.de, arraste.fenda) !== arraste.de ? arraste.fenda : null;
 
   return createPortal(
     <aside data-previa-editor="" className={css.editor} aria-labelledby="titulo-editor">
@@ -166,7 +280,7 @@ export function Editor({
         </button>
       </div>
 
-      <div className={css.editorCorpo}>
+      <div ref={corpo} className={css.editorCorpo}>
         <section aria-labelledby="editor-cabecalho" className={css.editorSecao}>
           <h3 id="editor-cabecalho" className={css.editorSubtitulo}>Cabeçalho</h3>
           <form key={titulo + JSON.stringify(cabecalho) + (nomeProva ?? "")} onSubmit={salvarCabecalho} className={css.editorForm}>
@@ -207,14 +321,36 @@ export function Editor({
         <section aria-labelledby="editor-questoes" className={css.editorSecao}>
           <h3 id="editor-questoes" className={css.editorSubtitulo}>Questões</h3>
           {mensagem("questoes")}
-          <ol className={css.editorLista}>
+          <ol ref={lista} className={arrastando ? `${css.editorLista} ${css.editorListaArrastando}` : css.editorLista}>
             {questoes.map((q, i) => {
               const n = i + 1;
+              const classes = [
+                css.editorQuestao,
+                arraste?.de === i ? css.editorArrastada : "",
+                fendaVisivel === i ? css.editorSoltarAntes : "",
+                fendaVisivel === total && i === total - 1 ? css.editorSoltarDepois : "",
+              ].filter(Boolean).join(" ");
               return (
-                <li key={q.questaoId} className={css.editorQuestao}>
-                  <p className={css.editorRotulo}>
-                    {n}. {q.rotulo || "Questão"}
-                  </p>
+                <li key={q.questaoId} className={classes}>
+                  <div className={css.editorCabecaQuestao}>
+                    <button
+                      type="button"
+                      className={css.editorAlca}
+                      aria-label={`Arrastar questão ${n}`}
+                      title="Arraste para mudar a ordem"
+                      disabled={pendente || total <= 1}
+                      onPointerDown={(e) => comecarArraste(e, q.questaoId, i)}
+                      onPointerMove={moverArraste}
+                      onPointerUp={soltarArraste}
+                      onPointerCancel={cancelarArraste}
+                      onLostPointerCapture={cancelarArraste}
+                    >
+                      <GripVertical size={16} aria-hidden="true" />
+                    </button>
+                    <p className={css.editorRotulo}>
+                      {n}. {q.rotulo || "Questão"}
+                    </p>
+                  </div>
                   {q.trecho && <p className={css.editorTrecho}>{q.trecho}</p>}
                   <div className={css.editorAcoes}>
                     <button type="button" className={css.editorBotao} aria-label={`Subir questão ${n}`} disabled={pendente || i === 0} onClick={() => mover(q.questaoId, i, i - 1)}>

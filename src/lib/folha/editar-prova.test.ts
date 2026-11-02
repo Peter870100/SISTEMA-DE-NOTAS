@@ -2,7 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   dataBR,
+  destinoArraste,
   escolherTroca,
+  fendaArraste,
   itensLinhaCabecalho,
   lerCabecalho,
   linhasIdentificacao,
@@ -62,6 +64,26 @@ test("reordenar", () => {
   assert.equal(reordenar(["a", "b"], 0, 2), null);
   assert.equal(reordenar(["a", "b"], -1, 0), null);
   assert.equal(reordenar(["a", "b"], 1, 1), null);
+});
+test("fendaArraste e destinoArraste", () => {
+  const meios = [10, 30, 50]; // três linhas
+  assert.equal(fendaArraste(meios, 0), 0);
+  assert.equal(fendaArraste(meios, 20), 1);
+  assert.equal(fendaArraste(meios, 30), 1); // exatamente no meio: ainda antes
+  assert.equal(fendaArraste(meios, 45), 2);
+  assert.equal(fendaArraste(meios, 99), 3);
+  assert.equal(fendaArraste([], 5), 0);
+  // Linha 0 arrastada: fendas 0 e 1 = mesmo lugar; fenda 3 = última posição.
+  assert.equal(destinoArraste(0, 0), 0);
+  assert.equal(destinoArraste(0, 1), 0);
+  assert.equal(destinoArraste(0, 2), 1);
+  assert.equal(destinoArraste(0, 3), 2);
+  // Linha 2 arrastada para o topo.
+  assert.equal(destinoArraste(2, 0), 0);
+  assert.equal(destinoArraste(2, 2), 2);
+  assert.equal(destinoArraste(2, 3), 2);
+  // Coerente com reordenar.
+  assert.deepEqual(reordenar(["a", "b", "c"], 0, destinoArraste(0, 3)), ["b", "c", "a"]);
 });
 test("removerDaOrdem", () => {
   assert.deepEqual(removerDaOrdem(["a", "b", "c"], 1), ["a", "c"]);
