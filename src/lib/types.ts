@@ -261,6 +261,24 @@ export type Alternativa = { letra: Letra; texto: string; conteudo?: DocConteudo 
 
 export type Assunto = { id: string; materia: string; nome: string; situacao: "aprovado" | "proposto"; created_at: string };
 
+/** Nível abaixo do assunto (classificação fina). */
+export type Topico = { id: string; assunto_id: string; nome: string; situacao: "aprovado" | "proposto"; created_at: string };
+
+/** Habilidade por área (ex.: H1 do ENEM), vale para todas as matérias da área. */
+export type Habilidade = { id: string; area: Area; codigo: string | null; descricao: string; situacao: "aprovado" | "proposto"; created_at: string };
+
+/** Material de revisão de um tópico ou assunto: uma aula da plataforma ou título + link. */
+export type MaterialRevisao = {
+  id: string;
+  escola_id: string | null;
+  topico_id: string | null;
+  assunto_id: string | null;
+  aula_id: string | null;
+  titulo: string | null;
+  url: string | null;
+  created_at: string;
+};
+
 export type StatusImportacao = "enviando" | "lendo" | "revisao" | "concluida" | "erro";
 export type Importacao = {
   id: string;
@@ -308,6 +326,7 @@ export type Questao = {
   area: Area;
   materia: string;
   assunto_id: string | null;
+  topico_id: string | null;
   enunciado: string;
   conteudo: DocConteudo | null;
   comando: string;
