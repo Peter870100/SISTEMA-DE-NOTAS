@@ -95,7 +95,7 @@ export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAbert
               {painel.maisErro.length === 0
                 ? <p className={css.vazio}>Nenhum erro até agora. Continue assim!</p>
                 : <>
-                    <p className={css.legenda}>Da maior para a menor taxa de erro. Toque no nome para ver as questões.</p>
+                    <p className={css.legenda}>Da maior para a menor taxa de erro; os conteúdos com poucas respostas vêm no fim. Toque no nome para ver as questões.</p>
                     <GraficoConteudos conteudos={painel.maisErro} hrefBase={hrefBase} aberto={conteudo?.chave ?? null} />
                   </>}
             </Secao>
