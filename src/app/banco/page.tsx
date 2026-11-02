@@ -48,11 +48,14 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
   if (f.escopo === "geral" || f.escopo === "escola") c = c.eq("escopo", f.escopo);
   if (f.status === "publicada" || f.status === "revisao") c = c.eq("status", f.status);
   if (f.origem === "ia") c = c.eq("origem", "ia");
-  const [{ data: questoes, count }, publicadas, emRevisao, daEscola] = await Promise.all([
+  // Tópicos e habilidades seguem em paralelo com a busca; só vão para a tela se alguma questão puder ser classificada.
+  const classificacaoPromessa = carregarClassificacaoTela(null);
+  const [{ data: questoes, count }, publicadas, emRevisao, daEscola, classificacao] = await Promise.all([
     c.order("ano", { ascending: false }).order("numero").range((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA - 1),
     contar().eq("status", "publicada"),
     contar().eq("status", "revisao"),
     contar().eq("escopo", "escola"),
+    classificacaoPromessa,
   ]);
 
   // Melhor esforço: sem a coluna `criado_via` no banco, a lista só fica sem o selo.
@@ -69,7 +72,6 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
     { rotulo: "Da escola", valor: (daEscola.count ?? 0).toLocaleString("pt-BR"), detalhe: "criadas pela sua escola", Icone: School },
   ];
 
-  const classificacao = await carregarClassificacaoTela(null);
   const itens: ItemLista[] = (questoes ?? []).map((q) => ({
     questao: { id: q.id, assunto_id: q.assunto_id, area: q.area, escopo: q.escopo, escola_id: q.escola_id, criado_por: q.criado_por },
     podeEditar: podeEditarQuestao(professor, q),
@@ -121,7 +123,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
       <section aria-labelledby="titulo-questoes" className="flex flex-col gap-3">
         <h2 id="titulo-questoes" className={css.tituloSecao}><ClipboardList size={22} aria-hidden="true" />Questões<span>{total.toLocaleString("pt-BR")}</span></h2>
         {(questoes ?? []).length === 0 ? <p className={css.vazio}>Nenhuma questão encontrada.</p> : (
-          <LoteClassificacao dados={classificacao && { topicos: classificacao.topicos, habilidades: classificacao.habilidades }} itens={itens} />
+          <LoteClassificacao dados={classificacao && itens.some((i) => i.podeEditar) ? { topicos: classificacao.topicos, habilidades: classificacao.habilidades } : null} itens={itens} />
         )}
       </section>
       <nav aria-label="Páginas" className={css.paginas}>

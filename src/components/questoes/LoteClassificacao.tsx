@@ -30,11 +30,13 @@ export function resumoResultado(salvas: number, recusados: Recusa[]): string {
   return partes.join(", ");
 }
 
+const VALOR_VAZIO: ValorClassificacao = { topicoId: null, habilidadeIds: [] };
+
 /** Lista de questões do banco com seleção para classificar em lote (só as que a pessoa pode editar). */
 export function LoteClassificacao({ itens, dados }: Props) {
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
   const [aberto, setAberto] = useState(false);
-  const [valor, setValor] = useState<ValorClassificacao>({ topicoId: null, habilidadeIds: [] });
+  const [valor, setValor] = useState<ValorClassificacao>(VALOR_VAZIO);
   const [modo, setModo] = useState<"adicionar" | "trocar">("adicionar");
   const [salvando, setSalvando] = useState(false);
   const [resultado, setResultado] = useState<string | null>(null);
@@ -45,19 +47,28 @@ export function LoteClassificacao({ itens, dados }: Props) {
   const assunto = mesmoAssunto(escolhidas);
   const area = mesmaArea(escolhidas);
   const selecionavel = !!dados;
+  const barraVisivel = selecionavel && !aberto && (escolhidas.length > 0 || !!resultado);
 
+  /** Qualquer mudança na seleção zera o que foi escolhido no painel: o assunto e a área podem ter mudado. */
+  function reiniciar() {
+    setResultado(null);
+    setValor(VALOR_VAZIO);
+  }
   function alternar(id: string) {
     setMarcadas((m) => { const n = new Set(m); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-    setResultado(null);
+    reiniciar();
   }
   function alternarTodas() {
-    setResultado(null);
+    reiniciar();
     setMarcadas(marcadas.size === editaveis.length ? new Set() : new Set(editaveis.map((i) => i.questao.id)));
   }
 
   async function aplicar() {
-    const temTopico = !!assunto && !!valor.topicoId;
-    const temHab = !!area && valor.habilidadeIds.length > 0;
+    // Só segue o que combina com a seleção atual (tópico recém-proposto não está na lista: o servidor confere).
+    const topico = dados?.topicos.find((t) => t.id === valor.topicoId);
+    const temTopico = !!assunto && !!valor.topicoId && (!topico || topico.assunto_id === assunto);
+    const habilidadeIds = valor.habilidadeIds.filter((id) => dados?.habilidades.some((h) => h.id === id && h.area === area));
+    const temHab = !!area && habilidadeIds.length > 0;
     if (!temTopico && !temHab) { setErro("Escolha um tópico ou ao menos uma habilidade."); return; }
     setSalvando(true); setErro(null); setResultado(null);
     const ids = escolhidas.map((q) => q.id);
@@ -68,7 +79,7 @@ export function LoteClassificacao({ itens, dados }: Props) {
         const itensLote: ItemLote[] = ids.slice(i, i + LIMITE_LOTE).map((questaoId) => ({
           questaoId,
           ...(temTopico && { topicoId: valor.topicoId }),
-          ...(temHab && { habilidadeIds: valor.habilidadeIds }),
+          ...(temHab && { habilidadeIds }),
         }));
         const r = await classificarQuestoes(itensLote, modo);
         salvas += r.salvas;
@@ -77,7 +88,7 @@ export function LoteClassificacao({ itens, dados }: Props) {
       setResultado(resumoResultado(salvas, recusados));
       setMarcadas(new Set());
       setAberto(false);
-      setValor({ topicoId: null, habilidadeIds: [] });
+      setValor(VALOR_VAZIO);
     } catch (e) {
       const parcial = salvas > 0 || recusados.length > 0 ? ` (até aqui: ${resumoResultado(salvas, recusados)})` : "";
       setErro((e instanceof Error ? e.message : "Não foi possível classificar.") + parcial);
@@ -87,14 +98,13 @@ export function LoteClassificacao({ itens, dados }: Props) {
   }
 
   return (
-    <>
+    <div className={`${styles.corpo} ${barraVisivel ? styles.comBarra : ""}`}>
       {selecionavel && editaveis.length > 0 && (
         <label className={styles.todas}>
           <input type="checkbox" checked={marcadas.size === editaveis.length} onChange={alternarTodas} />
           Selecionar todas desta página
         </label>
       )}
-      {resultado && <p role="status" className={styles.resultado}>{resultado}</p>}
       <ul className={lista.lista}>
         {itens.map((item, i) => (
           <li key={item.questao.id} className={styles.item} style={{ "--i": Math.min(i, 12) } as CSSProperties}>
@@ -108,11 +118,20 @@ export function LoteClassificacao({ itens, dados }: Props) {
         ))}
       </ul>
 
-      {selecionavel && escolhidas.length > 0 && !aberto && (
+      {barraVisivel && (
         <div className={styles.barra} role="region" aria-label="Classificar selecionadas">
-          <span>{escolhidas.length} {escolhidas.length === 1 ? "selecionada" : "selecionadas"}</span>
-          <button type="button" onClick={() => { setAberto(true); setErro(null); }} className={estilos.botaoSecundario}><Tags size={16} aria-hidden="true" /> Classificar</button>
-          <button type="button" onClick={() => setMarcadas(new Set())} className={styles.limpar}>Limpar</button>
+          {escolhidas.length === 0 && resultado ? (
+            <>
+              <span role="status" className={styles.resultado}>{resultado}</span>
+              <button type="button" onClick={() => setResultado(null)} className={styles.limpar}>Fechar</button>
+            </>
+          ) : (
+            <>
+              <span>{escolhidas.length} {escolhidas.length === 1 ? "selecionada" : "selecionadas"}</span>
+              <button type="button" onClick={() => { reiniciar(); setAberto(true); setErro(null); }} className={estilos.botaoSecundario}><Tags size={16} aria-hidden="true" /> Classificar</button>
+              <button type="button" onClick={() => { reiniciar(); setMarcadas(new Set()); }} className={styles.limpar}>Limpar</button>
+            </>
+          )}
         </div>
       )}
 
@@ -139,6 +158,6 @@ export function LoteClassificacao({ itens, dados }: Props) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
