@@ -43,7 +43,8 @@ test("lerCabecalho: descarta data inválida", () => {
   assert.deepEqual(lerCabecalho({ data: "2026-11-05" }), { data: "2026-11-05" });
 });
 test("validarCabecalho: aceita turma de 30 e valor de 15", () => {
-  assert.equal(validarCabecalho({ titulo: "T", turma: "x".repeat(30), valor: "y".repeat(15) }).ok, true);
+  assert.equal(validarCabecalho({ titulo: "T", turma: "x".repeat(30), valor: "y".repeat(15) }, "y".repeat(15)).ok, true);
+  assert.equal(validarCabecalho({ titulo: "T", valor: "y".repeat(16) }, "y".repeat(16)).ok, false);
 });
 test("mesmaQuestao", () => {
   assert.equal(mesmaQuestao(["a", "b"], 1, "b"), true);
@@ -157,4 +158,25 @@ test("linhasIdentificacao: nome longo vai numa linha própria (sem tab) e Data/N
   const comData = linhasIdentificacao({ data: "2026-11-05" }, nome);
   assert.deepEqual(comData.nomeProfessor, [{ rotulo: "Professor(a)", valor: nome }]);
   assert.deepEqual(comData.professor, [{ rotulo: "Nota", ate: FIM_LINHA }]);
+});
+
+test("validarCabecalho: valor numérico é normalizado; o já salvo é mantido", () => {
+  assert.deepEqual(validarCabecalho({ titulo: "T", valor: "10 pontos" }, "10 pontos"), {
+    ok: true,
+    titulo: "T",
+    cabecalho: { valor: "10 pontos" },
+  });
+  const r = validarCabecalho({ titulo: "T", valor: "10" });
+  assert.ok(r.ok && r.cabecalho.valor === "10,0");
+  assert.equal(validarCabecalho({ titulo: "T", valor: "dez" }).ok, false);
+});
+
+test("lerCabecalho: valorPorQuestao só como booleano", () => {
+  assert.equal(lerCabecalho({ valorPorQuestao: true }).valorPorQuestao, true);
+  assert.equal("valorPorQuestao" in lerCabecalho({ valorPorQuestao: "sim" }), false);
+});
+
+test("itensLinhaCabecalho: valor numérico sai formatado", () => {
+  assert.deepEqual(itensLinhaCabecalho({ valor: "10" }), [{ rotulo: "Valor", valor: "10,0" }]);
+  assert.deepEqual(itensLinhaCabecalho({ valor: "10 pontos" }), [{ rotulo: "Valor", valor: "10 pontos" }]);
 });

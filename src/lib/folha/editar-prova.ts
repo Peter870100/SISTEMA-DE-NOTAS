@@ -2,8 +2,9 @@
 // também é importado por componentes do navegador).
 
 import { cm, FIM_LINHA } from "./medidas";
+import { formatarDecimos, lerDecimos } from "./valores";
 
-export type CabecalhoProva = { turma?: string; data?: string; valor?: string; instrucoes?: string };
+export type CabecalhoProva = { turma?: string; data?: string; valor?: string; instrucoes?: string; valorPorQuestao?: boolean };
 
 export const LIMITES_CABECALHO = { titulo: 120, turma: 30, valor: 15, instrucoes: 600 };
 
@@ -24,7 +25,8 @@ function dataValida(iso: string): boolean {
 
 /** Valida e limpa o cabeçalho editado; omite os campos vazios. */
 export function validarCabecalho(
-  entrada: EntradaCabecalho,
+  entrada: EntradaCabecalho & { valorPorQuestao?: boolean },
+  valorAnterior?: string,
 ): { ok: true; titulo: string; cabecalho: CabecalhoProva } | { ok: false; erro: string } {
   const titulo = (entrada.titulo ?? "").trim();
   if (titulo.length < 1 || titulo.length > LIMITES_CABECALHO.titulo) {
@@ -40,6 +42,13 @@ export function validarCabecalho(
   if (valor.length > LIMITES_CABECALHO.valor) {
     return { ok: false, erro: `O valor pode ter até ${LIMITES_CABECALHO.valor} caracteres.` };
   }
+  // Valor novo precisa ser número (guardado normalizado, "10,0"); o já salvo antes é mantido como está.
+  let valorFinal = valor;
+  if (valor && valor !== (valorAnterior ?? "").trim()) {
+    const d = lerDecimos(valor);
+    if (d === null) return { ok: false, erro: "O valor da prova deve ser um número, ex.: 10 ou 7,5." };
+    valorFinal = formatarDecimos(d);
+  }
   const instrucoes = (entrada.instrucoes ?? "").trim();
   if (instrucoes.length > LIMITES_CABECALHO.instrucoes) {
     return { ok: false, erro: `As instruções podem ter até ${LIMITES_CABECALHO.instrucoes} caracteres.` };
@@ -47,8 +56,9 @@ export function validarCabecalho(
   const cabecalho: CabecalhoProva = {};
   if (turma) cabecalho.turma = turma;
   if (data) cabecalho.data = data;
-  if (valor) cabecalho.valor = valor;
+  if (valorFinal) cabecalho.valor = valorFinal;
   if (instrucoes) cabecalho.instrucoes = instrucoes;
+  if (entrada.valorPorQuestao !== undefined) cabecalho.valorPorQuestao = entrada.valorPorQuestao;
   return { ok: true, titulo, cabecalho };
 }
 
@@ -60,6 +70,7 @@ export function lerCabecalho(bruto: unknown): CabecalhoProva {
   for (const k of ["turma", "data", "valor", "instrucoes"] as const) {
     if (typeof o[k] === "string") r[k] = o[k];
   }
+  if (typeof o.valorPorQuestao === "boolean") r.valorPorQuestao = o.valorPorQuestao;
   // Data fora do formato "AAAA-MM-DD" é descartada (senão a folha sairia com "undefined/…").
   if (r.data !== undefined && !dataValida(r.data)) delete r.data;
   return r;
@@ -73,7 +84,10 @@ export function itensLinhaCabecalho(cab: CabecalhoProva): { rotulo: string; valo
   const itens: { rotulo: string; valor: string }[] = [];
   if (cab.turma) itens.push({ rotulo: "Turma", valor: cab.turma });
   if (cab.data) itens.push({ rotulo: "Data", valor: dataBR(cab.data) });
-  if (cab.valor) itens.push({ rotulo: "Valor", valor: cab.valor });
+  if (cab.valor) {
+    const d = lerDecimos(cab.valor);
+    itens.push({ rotulo: "Valor", valor: d === null ? cab.valor : formatarDecimos(d) });
+  }
   return itens;
 }
 
