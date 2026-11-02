@@ -4,6 +4,7 @@
 --   - contas de aluno com usuário começando com 'teste.desempenho.';
 --   - a turma 'TESTE DESEMPENHO' (alunos da planilha vão junto).
 -- Questões do banco nunca são apagadas.
+-- Atenção: se algum bimestre da turma de teste estiver "encerrado", o delete falha; reabra o bimestre antes.
 begin;
 
 -- Simulados: simulado_turmas, simulado_questoes, tentativas e tentativa_respostas saem em cascata.

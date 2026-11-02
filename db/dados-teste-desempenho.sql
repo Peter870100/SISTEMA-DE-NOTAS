@@ -6,6 +6,7 @@
 --   Bruno: vai bem nos 4. Carla: fez só os simulados 1 e 2.
 -- As questões são escolhidas aqui dentro (order by id): publicadas, não anuladas, com assunto e gabarito,
 -- do banco geral. Matérias: matemática (assunto-alvo = o de matemática com mais questões), português e história.
+-- Os simulados de teste têm professor_id nulo: em /simulados só aparecem para admins.
 -- A senha das contas é a combinada com o Peter (aqui só o hash bcrypt).
 begin;
 
@@ -54,6 +55,7 @@ with base as (
 ), boa as (
     select * from base
      where cardinality(letras) >= 2 and resposta = any (letras)
+       and letras <@ array['A','B','C','D','E']::text[] and array_position(letras, null) is null
 ), alvo as (
     select assunto_id from boa where materia = 'matematica'
      group by assunto_id having count(*) >= 8

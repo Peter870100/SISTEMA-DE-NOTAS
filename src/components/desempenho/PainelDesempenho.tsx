@@ -48,10 +48,10 @@ function CartaoPrioridade({ p, visao, aulas, hrefBase, i }: { p: Prioridade; vis
 }
 
 /** Painel "Meu desempenho" (aluno) e "Desempenho de <nome>" (escola): mesmo componente, links pela URL. */
-export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAberta, conteudoAberto, erradas, aulas, voltar }: {
+export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAberta, conteudoAberto, erradas, aulas, voltar, textoSemHistorico }: {
   painel: Painel; visao: Visao; titulo: string; hrefBase: string;
   materiaAberta: string | null; conteudoAberto: string | null;
-  erradas: QuestaoErrada[]; aulas: Aula[]; voltar?: { href: string; rotulo: string };
+  erradas: QuestaoErrada[]; aulas: Aula[]; voltar?: { href: string; rotulo: string }; textoSemHistorico?: string;
 }) {
   const { resumo, comparacao } = painel;
   const atividades = painel.evolucao.length;
@@ -83,7 +83,7 @@ export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAbert
       {semHistorico ? (
         <section className={`${css.cartao} ${css.semHistorico}`} aria-label="Sem histórico">
           <span className={css.iconeSecao} data-icone><ClipboardList size={22} aria-hidden="true" /></span>
-          <p>{visao === "aluno" ? "Você ainda não entregou nenhum simulado ou treino" : "Este aluno ainda não entregou nenhum simulado ou treino"}</p>
+          <p>{textoSemHistorico ?? (visao === "aluno" ? "Você ainda não entregou nenhum simulado ou treino" : "Este aluno ainda não entregou nenhum simulado ou treino")}</p>
           {visao === "aluno" && <Link href="/aluno/simulados" className={css.botaoTreinar}>Ir para os simulados<ArrowRight size={17} aria-hidden="true" /></Link>}
         </section>
       ) : (

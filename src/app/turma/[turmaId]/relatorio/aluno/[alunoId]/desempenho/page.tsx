@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
 import { exigirTurmaDaEscola } from "@/lib/escola-acesso";
@@ -6,6 +8,8 @@ import { TEXTO_SEM_CONTA } from "@/lib/relatorios/calculos";
 import { questoesErradas, respostasDaConta } from "@/lib/desempenho/dados";
 import { montarPainel } from "@/lib/desempenho/calculos";
 import { detalheDaUrl } from "@/lib/desempenho/url";
+import { PageLayout } from "@/components/layout/PageLayout";
+import { estilos as ui } from "@/components/ui/estilos";
 import { PainelDesempenho } from "@/components/desempenho/PainelDesempenho";
 
 export const dynamic = "force-dynamic";
@@ -41,10 +45,11 @@ export default async function DesempenhoDoAlunoPage({ params, searchParams }: Pa
   const erradas = conteudo ? await questoesErradas(respostas, conteudo) : [];
 
   return (
-    <>
+    <PageLayout crumb={`Relatório · ${turma.nome}`} titulo={aluno.nome} subtitulo="Desempenho por conteúdo, somando simulados e treinos"
+      acoes={<Link href={voltar.href} className={ui.botaoSecundario}><ArrowLeft size={15} />{voltar.rotulo}</Link>}>
       <PainelDesempenho painel={painel} visao="escola" titulo={titulo} hrefBase={hrefBase}
-        materiaAberta={materia} conteudoAberto={conteudo} erradas={erradas} aulas={[]} voltar={voltar} />
-      {!aluno.contaId && <p className="mx-auto mt-4 max-w-3xl px-4 text-sm text-ink">{TEXTO_SEM_CONTA}</p>}
-    </>
+        materiaAberta={materia} conteudoAberto={conteudo} erradas={erradas} aulas={[]}
+        textoSemHistorico={aluno.contaId ? undefined : TEXTO_SEM_CONTA} />
+    </PageLayout>
   );
 }

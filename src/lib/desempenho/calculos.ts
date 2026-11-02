@@ -6,6 +6,8 @@ const pct = (parte: number, todo: number) => (todo > 0 ? Math.round((parte / tod
 const emBranco = (r: RespostaDesempenho) => r.alternativa == null;
 const acerto = (r: RespostaDesempenho) => !emBranco(r) && r.correta === true;
 const erro = (r: RespostaDesempenho) => !emBranco(r) && r.correta !== true;
+/** Chave do conteúdo: o assunto, ou a matéria quando a questão não tem assunto. */
+export const chaveConteudo = (r: Pick<RespostaDesempenho, "assuntoId" | "materia">) => r.assuntoId ?? `materia:${r.materia ?? "sem_materia"}`;
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const porErro = (a: ConteudoDesempenho, b: ConteudoDesempenho) => b.taxaErro - a.taxaErro || b.erros - a.erros || a.nome.localeCompare(b.nome, "pt-BR");
 
@@ -51,7 +53,7 @@ function rotuloMateria(m: string | null): string {
 export function porConteudo(rs: RespostaDesempenho[], unidade: "questões" | "respostas" = "questões"): ConteudoDesempenho[] {
   const grupos = new Map<string, ConteudoDesempenho>();
   for (const r of primeirasRespostas(rs)) {
-    const chave = r.assuntoId ?? `materia:${r.materia ?? "sem_materia"}`;
+    const chave = chaveConteudo(r);
     let g = grupos.get(chave);
     if (!g) {
       const rotulo = rotuloMateria(r.materia);

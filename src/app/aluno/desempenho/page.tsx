@@ -18,7 +18,7 @@ export default async function AlunoDesempenhoPage({ searchParams }: { searchPara
   const { materia, conteudo } = detalheDaUrl(painel, busca);
   const [erradas, aulas] = await Promise.all([
     conteudo ? questoesErradas(respostas, conteudo) : Promise.resolve([]),
-    aulasDoAlunoParaRevisao(aluno.id, aluno.escola_id),
+    painel.resumo.respondidas === 0 ? Promise.resolve([]) : aulasDoAlunoParaRevisao(aluno.id, aluno.escola_id),
   ]);
 
   return (

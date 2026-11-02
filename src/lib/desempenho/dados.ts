@@ -10,7 +10,7 @@ import { questoesParaAluno, type QuestaoAluno } from "@/lib/simulados/servidor";
 import type { GrupoTurma } from "@/lib/relatorios/acesso";
 import type { AlunoConta, Letra } from "@/lib/types";
 import { entraNoPainel } from "./acesso";
-import { primeirasRespostas } from "./calculos";
+import { chaveConteudo, primeirasRespostas } from "./calculos";
 import type { RespostaDesempenho } from "./tipos";
 
 // ---------- leitura paginada (mesmo padrão de relatorios/dados.ts) ----------
@@ -112,9 +112,9 @@ export async function respostasDaTurma(g: GrupoTurma): Promise<RespostaDesempenh
 export type QuestaoErrada = { questao: QuestaoAluno; marcada: Letra | null; certa: Letra | null; resolucao: string | null; atividadeTitulo: string };
 
 /** Questões que o aluno errou ou deixou em branco na primeira resposta, dentro de um conteúdo (chave do painel). */
-export async function questoesErradas(rs: RespostaDesempenho[], chaveConteudo: string): Promise<QuestaoErrada[]> {
+export async function questoesErradas(rs: RespostaDesempenho[], chave: string): Promise<QuestaoErrada[]> {
   const erradas = primeirasRespostas(rs)
-    .filter((r) => (r.assuntoId ?? `materia:${r.materia ?? "sem_materia"}`) === chaveConteudo && (r.alternativa == null || r.correta !== true))
+    .filter((r) => chaveConteudo(r) === chave && (r.alternativa == null || r.correta !== true))
     .sort((a, b) => (a.entregueEm < b.entregueEm ? -1 : a.entregueEm > b.entregueEm ? 1 : 0));
   const unicas = [...new Map(erradas.map((r) => [r.questaoId, r])).values()];
   if (unicas.length === 0) return [];

@@ -82,6 +82,10 @@ test("prioridades: 4 questões com 4 erros → mais_respostas", () => {
 test("prioridades: só em branco → nenhuma", () => {
   assert.deepEqual(prioridades([conteudoCom(3, 0, 3)]), []);
 });
+test("prioridades: 17 questões com 10 erros (59%) → não é revisar", () => {
+  assert.equal(prioridades([conteudoCom(17, 10)]).length, 0);
+});
+
 test("prioridades: revisar vem antes de mais_respostas", () => {
   const ps = prioridades([conteudoCom(2, 2), conteudoCom(10, 7)]);
   assert.deepEqual(ps.map((p) => p.tipo), ["revisar", "mais_respostas"]);
