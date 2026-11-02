@@ -52,7 +52,7 @@ export default async function PreviaProvaPage({
   const qual = busca.qual === "gabarito" ? "gabarito" : "prova";
   const imprimir = busca.imprimir === "1";
   // Só depois da conferência de acesso acima: quem pode ver a prova pode editá-la (dono dela ou papel `dono`).
-  // O campo "Nome na prova" só aparece para o próprio professor da prova (o dono não muda o apelido de outro).
+  // O campo "Nome ou apelido do professor" só aparece para o próprio professor da prova (o dono não muda o apelido de outro).
   const ehDaProva = professor.id === carregada.prova.professor_id;
   const [dados, questoes, nomes] = await Promise.all([
     dadosPrevia(carregada.dados),

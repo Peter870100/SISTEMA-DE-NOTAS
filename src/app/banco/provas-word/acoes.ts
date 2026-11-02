@@ -159,7 +159,7 @@ export async function salvarCabecalhoProva(entrada: unknown): Promise<{ ok: true
 }
 
 /**
- * Grava o "Nome na prova" (apelido) do professor da sessão: o id sai da sessão, nunca do cliente, então
+ * Grava o "Nome ou apelido" do professor da sessão: o id sai da sessão, nunca do cliente, então
  * ninguém muda o apelido de outro professor. Vale para todas as provas dele.
  */
 export async function salvarNomeProva(texto: unknown): Promise<{ ok: true; nomeProva: string | null } | Falha> {
@@ -170,7 +170,7 @@ export async function salvarNomeProva(texto: unknown): Promise<{ ok: true; nomeP
     revalidatePath(CAMINHO, "layout");
     return { ok: true, nomeProva };
   } catch (e) {
-    return erroEdicao(e, "Não foi possível salvar o nome na prova.");
+    return erroEdicao(e, "Não foi possível salvar o nome do professor.");
   }
 }
 

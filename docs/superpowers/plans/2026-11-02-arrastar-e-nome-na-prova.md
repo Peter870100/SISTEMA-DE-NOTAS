@@ -9,7 +9,7 @@ Spec: `docs/superpowers/specs/2026-11-02-arrastar-e-nome-na-prova-design.md`. Br
 - Nome na folha = `nome_prova ?? nome` do **dono da prova** (`provas_word.professor_id`).
 - Com matéria única (`filtros.materia`): "Nome — Matéria" (travessão com espaços; rótulo de `MATERIAS`).
 - Word e prévia iguais (usar `linhasIdentificacao` como fonte única). Gabarito sem mudança.
-- Textos fixos: "Nome na prova", "Vale para todas as suas provas. Em branco, sai o seu nome.".
+- Textos fixos: "Nome ou apelido do professor", "Vale para todas as suas provas. Em branco, sai o seu nome.".
 - Server actions devolvem `{ ok: false, erro }` e nunca lançam.
 - Telas azul-escuro, sem texto cinza.
 - Setas ↑ ↓ continuam. Arrastar usa a ação de mover já existente (`de`, `para`, `questaoId`).

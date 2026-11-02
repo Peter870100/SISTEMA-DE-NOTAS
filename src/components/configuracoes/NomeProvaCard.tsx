@@ -20,9 +20,9 @@ export function NomeProvaCard({ nomeInicial }: { nomeInicial: string }) {
       try {
         const r = await salvarNomeProva(texto);
         if (r.ok) setTexto(r.nomeProva ?? "");
-        setMensagem(r.ok ? { ok: true, texto: "Nome na prova salvo." } : { ok: false, texto: r.erro });
+        setMensagem(r.ok ? { ok: true, texto: "Nome do professor salvo." } : { ok: false, texto: r.erro });
       } catch {
-        setMensagem({ ok: false, texto: "Não foi possível salvar o nome na prova." });
+        setMensagem({ ok: false, texto: "Não foi possível salvar o nome do professor." });
       }
     });
   }
@@ -31,11 +31,11 @@ export function NomeProvaCard({ nomeInicial }: { nomeInicial: string }) {
     <form onSubmit={salvar} className={`${styles.mediaCard} ${base.card}`}>
       <span className={base.icon}><IdCard size={23} aria-hidden="true" /></span>
       <span className={styles.optionBody}>
-        <span className={styles.title}>Nome na prova</span>
+        <span className={styles.title}>Nome ou apelido do professor</span>
         <span className={styles.description}>Vale para todas as suas provas. Em branco, sai o seu nome.</span>
         <span className={`${styles.mediaLinha} ${styles.nomeProvaLinha}`}>
           <label>
-            Nome na prova
+            Nome ou apelido do professor
             <input value={texto} maxLength={LIMITE_NOME_PROVA} onChange={(e) => setTexto(e.target.value)} placeholder="Ex.: Cenoura" />
           </label>
           <button type="submit" className={base.primary} disabled={pendente}>{pendente ? "Salvando..." : "Salvar"}</button>

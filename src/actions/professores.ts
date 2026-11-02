@@ -79,14 +79,14 @@ export async function atualizarTelefoneProfessor(id: string, telefone: string): 
   await telefoneProfessorPor(await atorDoAdmin(), id, telefone);
 }
 
-/** "Nome na prova" (apelido) do professor, definido pelo admin; em branco volta a sair o nome. */
+/** "Nome ou apelido do professor", definido pelo admin; em branco volta a sair o nome. */
 export async function atualizarNomeProvaProfessor(id: string, texto: string): Promise<{ ok: true; nomeProva: string | null } | { ok: false; erro: string }> {
   try {
     const atual = await exigirAdminDaEscola();
     await exigirPoderSobreAlvo(atual, id);
     return { ok: true, nomeProva: await gravarNomeProva(id, String(texto ?? "")) };
   } catch (e) {
-    return { ok: false, erro: e instanceof Error && e.message ? e.message : "Não foi possível salvar o nome na prova." };
+    return { ok: false, erro: e instanceof Error && e.message ? e.message : "Não foi possível salvar o nome do professor." };
   }
 }
 
@@ -153,7 +153,7 @@ export async function criarProfessor(
     .single();
   if (error) {
     const faltaColuna = /nome_prova/i.test(error.message);
-    throw new Error(faltaColuna ? "O nome na prova ainda não pode ser salvo: falta atualizar o banco. Crie sem ele." : error.message);
+    throw new Error(faltaColuna ? "O nome do professor ainda não pode ser salvo: falta atualizar o banco. Crie sem ele." : error.message);
   }
   return { ...data, nome_prova: apelido.valor };
 }

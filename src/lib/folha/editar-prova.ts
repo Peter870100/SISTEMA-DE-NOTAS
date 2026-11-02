@@ -80,14 +80,14 @@ export function itensLinhaCabecalho(cab: CabecalhoProva): { rotulo: string; valo
 /** Espaço entre os itens da linha extra de identificação (o mesmo no .docx e na tela). */
 export const SEPARADOR_LINHA_CABECALHO = "    ";
 
-/** Tamanho máximo do "Nome na prova" (apelido) do professor. */
+/** Tamanho máximo do "Nome ou apelido do professor". */
 export const LIMITE_NOME_PROVA = 60;
 
-/** Valida o "Nome na prova": trim; em branco vira null (sai o nome normal). */
+/** Valida o "Nome ou apelido do professor": trim; em branco vira null (sai o nome normal). */
 export function validarNomeProva(texto: string): { ok: true; valor: string | null } | { ok: false; erro: string } {
   const valor = (texto ?? "").trim();
   if (valor.length > LIMITE_NOME_PROVA) {
-    return { ok: false, erro: `O nome na prova pode ter até ${LIMITE_NOME_PROVA} caracteres.` };
+    return { ok: false, erro: `O nome do professor pode ter até ${LIMITE_NOME_PROVA} caracteres.` };
   }
   return { ok: true, valor: valor || null };
 }

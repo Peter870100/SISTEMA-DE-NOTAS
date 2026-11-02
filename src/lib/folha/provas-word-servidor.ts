@@ -441,7 +441,7 @@ export async function salvarCabecalho(
   if (error) throw new Error(error.message);
 }
 
-/** Grava o "Nome na prova" de quem pede (sempre a própria conta, nunca a de outro professor). */
+/** Grava o "Nome ou apelido do professor" de quem pede (sempre a própria conta, nunca a de outro professor). */
 export async function salvarNomeProva(quem: EditorProva, texto: string): Promise<string | null> {
   return gravarNomeProva(quem.id, texto);
 }

@@ -91,7 +91,7 @@ export function Editor({
     const campo = (nome: string) => String(f.get(nome) ?? "");
     setAviso(null);
     executar("cabecalho", async () => {
-      // O "Nome na prova" é da conta do professor: vai numa chamada a mais, junto com o cabeçalho.
+      // O "Nome ou apelido do professor" é da conta do professor: vai numa chamada a mais, junto com o cabeçalho.
       const [r, rNome] = await Promise.all([
         salvarCabecalhoProva({
           provaId,
@@ -304,7 +304,7 @@ export function Editor({
             </label>
             {nomeProva !== null && (
               <label className={css.editorCampo}>
-                Nome na prova
+                Nome ou apelido do professor
                 <input name="nomeProva" maxLength={LIMITE_NOME_PROVA} defaultValue={nomeProva} placeholder="Ex.: Cenoura" aria-describedby="editor-nome-prova-ajuda" className={estilos.input} />
                 <span id="editor-nome-prova-ajuda" className={css.editorAjuda}>Vale para todas as suas provas. Em branco, sai o seu nome.</span>
               </label>

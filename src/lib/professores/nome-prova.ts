@@ -2,11 +2,11 @@ import { supabase } from "@/lib/supabase/client";
 import { validarNomeProva } from "@/lib/folha/editar-prova";
 
 /**
- * "Nome na prova" (apelido) do professor, guardado em `professores.nome_prova`. A coluna é colada à mão
+ * "Nome ou apelido do professor", guardado em `professores.nome_prova`. A coluna é colada à mão
  * no banco: enquanto ela não existe, a leitura devolve null (sai o nome normal) e a gravação avisa.
  */
 
-export const ERRO_FALTA_COLUNA_NOME_PROVA = "O nome na prova ainda não pode ser salvo: falta atualizar o banco.";
+export const ERRO_FALTA_COLUNA_NOME_PROVA = "O nome do professor ainda não pode ser salvo: falta atualizar o banco.";
 
 function faltaColuna(error: { code?: string; message: string }): boolean {
   return error.code === "42703" || error.code === "PGRST204" || /nome_prova/i.test(error.message);
