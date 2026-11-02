@@ -206,6 +206,20 @@ test("origem e aviso final", async () => {
   assert.ok(gabarito.includes("Prova gerada pelo Status Avalia"));
 });
 
+test("cabeçalho vazio não muda a folha", async () => {
+  const base = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")] };
+  assert.equal(await documentoXml(await folhaAluno(base)), await documentoXml(await folhaAluno({ ...base, cabecalho: {} })));
+});
+test("cabeçalho preenchido aparece na prova e não no gabarito", async () => {
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")],
+    cabecalho: { turma: "3º A", data: "2026-11-05", valor: "10,0", instrucoes: "Use caneta <azul> & preta.\nSem consulta." } };
+  const aluno = await documentoXml(await folhaAluno(d));
+  for (const t of ["3º A", "05/11/2026", "10,0", "Instruções", "Use caneta &lt;azul&gt; &amp; preta.", "Sem consulta."]) assert.ok(aluno.includes(t), t);
+  assert.ok(!aluno.includes("____/____/______"));
+  const gab = await documentoXml(await folhaGabarito(d));
+  for (const t of ["3º A", "05/11/2026", "Instruções"]) assert.ok(!gab.includes(t), t);
+});
+
 test("comandoRepetido: enunciado que já termina com o comando", () => {
   assert.equal(comandoRepetido("Texto longo. Dessa forma, é **correto** afirmar que", "Dessa forma, é correto  afirmar que"), true);
   assert.equal(comandoRepetido("Texto sobre a ferrovia?**", "a ferrovia?"), true);

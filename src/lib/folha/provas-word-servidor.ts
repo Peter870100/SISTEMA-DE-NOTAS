@@ -8,6 +8,7 @@ import { filtroVisivel, type FiltrosSorteio } from "@/lib/simulados/servidor";
 import { emBlocos } from "@/lib/simulados/regras";
 import { folhaAluno, folhaGabarito, type DadosFolha, type LetraBolinha } from "./docx";
 import { carregarQuestoesFolha } from "./figuras-servidor";
+import { lerCabecalho } from "./editar-prova";
 import {
   cenarioIneditas,
   codigoLink,
@@ -277,7 +278,7 @@ export async function dadosFolhaProva(
 ): Promise<{ prova: ProvaFolha; dados: DadosFolha; nomeBase: string } | null> {
   const { data: prova, error } = await supabase
     .from("provas_word")
-    .select("id, professor_id, escola_id, titulo, created_at, excluida_em")
+    .select("id, professor_id, escola_id, titulo, created_at, excluida_em, cabecalho")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -325,6 +326,7 @@ export async function dadosFolhaProva(
     questoes,
     bolinhas,
     avisoFinal,
+    cabecalho: lerCabecalho(prova.cabecalho),
   };
   return {
     prova: {

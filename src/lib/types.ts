@@ -409,6 +409,8 @@ export type ProvaWord = {
   tipo: "fixacao" | "simulado";
   filtros: Record<string, unknown>;
   origem: "hermes" | "site";
+  /** Turma, data, valor e instruções (ver `lerCabecalho`). */
+  cabecalho: Record<string, unknown>;
   created_at: string;
   excluida_em: string | null;
 };

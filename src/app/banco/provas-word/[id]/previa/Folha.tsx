@@ -7,6 +7,7 @@ import { temTexto, type ItemFolha } from "@/lib/folha/estrutura";
 import type { ParteTexto } from "@/lib/folha/dividir";
 import type { DadosPrevia, FiguraTela } from "@/lib/folha/previa";
 import { numero2, tituloCurto, TRAVESSAO } from "@/lib/folha/texto";
+import { dataBR } from "@/lib/folha/editar-prova";
 import {
   AZUL,
   BOLINHA_PX,
@@ -406,6 +407,7 @@ function LinhaPreencher({ campos }: { campos: Campo[] }) {
 
 /** Cabeçalho da 1ª página: logo (ou nome da escola) | título e linhas de identificação. */
 export function Cabecalho({ dados, qual }: { dados: DadosPrevia; qual: Qual }) {
+  const cab = qual === "prova" ? dados.cabecalho : {};
   return (
     <div>
       <div className={css.cabecalho}>
@@ -427,20 +429,27 @@ export function Cabecalho({ dados, qual }: { dados: DadosPrevia; qual: Qual }) {
                 campos={[
                   { rotulo: "Aluno(a)", ate: FIM_LINHA - cm(5.2) },
                   { rotulo: "Nº", ate: FIM_LINHA - cm(2.6) },
-                  { rotulo: "Turma", ate: FIM_LINHA },
+                  cab.turma ? { rotulo: "Turma", ate: null, depois: cab.turma } : { rotulo: "Turma", ate: FIM_LINHA },
                 ]}
               />
               <LinhaPreencher
                 campos={[
                   { rotulo: "Professor(a)", ate: FIM_LINHA - cm(7.4) },
-                  { rotulo: "Data", ate: null, depois: "____/____/______" },
-                  { rotulo: "Nota", ate: FIM_LINHA },
+                  { rotulo: "Data", ate: null, depois: cab.data ? dataBR(cab.data) : "____/____/______" },
+                  cab.valor ? { rotulo: "Nota", ate: FIM_LINHA - cm(2.4) } : { rotulo: "Nota", ate: FIM_LINHA },
+                  ...(cab.valor ? [{ rotulo: "Valor", ate: null, depois: cab.valor }] : []),
                 ]}
               />
             </>
           )}
         </div>
       </div>
+      {cab.instrucoes && (
+        <div className={css.instrucoes} style={{ paddingTop: p(100) }}>
+          <span className={css.rotuloCampo}>Instruções: </span>
+          {cab.instrucoes}
+        </div>
+      )}
       <Vazio depois={160} />
     </div>
   );

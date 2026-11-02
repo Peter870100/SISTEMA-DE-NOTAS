@@ -114,6 +114,7 @@
 .rotuloCampo { color: var(--folha-azul); font-weight: 700; }
 .traco { flex: 1; min-width: 0; margin-bottom: .2em; border-bottom: .75px solid #000; }
 .depois { color: #000; }
+.instrucoes { font-size: 9.5pt; white-space: pre-line; overflow-wrap: break-word; }
 .vazio { height: 1.2em; box-sizing: content-box; }
 
 /* ---------- blocos ---------- */

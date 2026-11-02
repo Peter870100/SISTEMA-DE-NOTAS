@@ -29,6 +29,7 @@ import { markdownParaBlocos, type Segmento } from "@/lib/questoes/markdown";
 import type { NoConteudo } from "@/lib/questoes/conteudo";
 import { itensGabarito, itensProva, temTexto, type FiguraRef, type ItemFolha, type QuestaoBase } from "./estrutura";
 import { numero2, tituloCurto, TRAVESSAO } from "./texto";
+import { dataBR, type CabecalhoProva } from "./editar-prova";
 import {
   ALTURA_A4,
   AZUL,
@@ -83,6 +84,8 @@ export type DadosFolha = {
   bolinhas?: Partial<Record<LetraBolinha, Buffer>> | null;
   /** Texto discreto no fim da prova e do gabarito. */
   avisoFinal?: string | null;
+  /** Turma, data, valor e instruções da prova (só aparecem na folha do aluno). */
+  cabecalho?: CabecalhoProva | null;
 };
 
 
@@ -223,17 +226,21 @@ function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: bo
   if (subtitulo) {
     textos.push(new Paragraph({ children: [rotulo(subtitulo, { color: CINZA, size: CORPO })], spacing: { after: 20 } }));
   }
+  const cab = comIdentificacao ? (d.cabecalho ?? {}) : {};
   if (comIdentificacao) {
     textos.push(
       linhaPreencher([
         { rotulo: "Aluno(a)", ate: FIM_LINHA - cm(5.2) },
         { rotulo: "Nº", ate: FIM_LINHA - cm(2.6) },
-        { rotulo: "Turma", ate: FIM_LINHA },
+        cab.turma ? { rotulo: "Turma", ate: null, depois: cab.turma } : { rotulo: "Turma", ate: FIM_LINHA },
       ]),
       linhaPreencher([
         { rotulo: "Professor(a)", ate: FIM_LINHA - cm(7.4) },
-        { rotulo: "Data", ate: null, depois: "____/____/______" },
-        { rotulo: "Nota", ate: FIM_LINHA },
+        { rotulo: "Data", ate: null, depois: cab.data ? dataBR(cab.data) : "____/____/______" },
+        cab.valor
+          ? { rotulo: "Nota", ate: FIM_LINHA - cm(2.4) }
+          : { rotulo: "Nota", ate: FIM_LINHA },
+        ...(cab.valor ? [{ rotulo: "Valor", ate: null, depois: cab.valor }] : []),
       ]),
     );
   }
@@ -269,8 +276,18 @@ function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: bo
         }),
       ],
     }),
+    ...(cab.instrucoes ? [instrucoes(cab.instrucoes)] : []),
     new Paragraph({ children: [], spacing: { after: 160 } }),
   ];
+}
+
+/** "Instruções: " em negrito azul e o texto logo depois; cada quebra de linha vira quebra no Word. */
+function instrucoes(texto: string): Paragraph {
+  const children = texto.split(/\r?\n/).map((linha, i) => new TextRun({ text: linha, font: SEM_SERIFA, size: CORPO, break: i ? 1 : undefined }));
+  return new Paragraph({
+    children: [rotulo("Instruções: ", { bold: true, color: AZUL, size: CORPO }), ...children],
+    spacing: { before: 100, after: 0 },
+  });
 }
 
 // ---------- topo das páginas seguintes e rodapé ----------
