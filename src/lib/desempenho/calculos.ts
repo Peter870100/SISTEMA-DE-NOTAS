@@ -72,9 +72,18 @@ export function porConteudo(rs: RespostaDesempenho[], unidade: "questões" | "re
   });
 }
 
-/** Conteúdos com erro para o gráfico: maior taxa de erro, depois mais erros, depois nome. */
+/** Conteúdo que já vale como "Revisão prioritária": questões suficientes e taxa de erro no limite ou acima. */
+export function ehPrioritario(c: Pick<ConteudoDesempenho, "questoes" | "taxaErro">, regras: Regras = REGRAS): boolean {
+  return c.questoes >= regras.minQuestoesPrioridade && c.taxaErro >= regras.taxaErroPrioridade;
+}
+
+/**
+ * Conteúdos para o gráfico de erros: primeiro os com questões suficientes (pior taxa primeiro), depois os de
+ * poucas respostas, para um 100% em 1 questão não passar na frente de 6 erros em 8. Até `maxConteudosGrafico`.
+ */
 export function maisErro(cs: ConteudoDesempenho[], regras: Regras = REGRAS): ConteudoDesempenho[] {
-  return cs.filter((c) => c.erros > 0).sort(porErro).slice(0, regras.maxConteudosGrafico);
+  const poucas = (c: ConteudoDesempenho) => Number(c.questoes < regras.minQuestoesPrioridade);
+  return cs.filter((c) => c.erros > 0).sort((a, b) => poucas(a) - poucas(b) || porErro(a, b)).slice(0, regras.maxConteudosGrafico);
 }
 
 /** Matérias com seus conteúdos, a de pior aproveitamento primeiro. */
@@ -127,7 +136,7 @@ export function comparar(ev: AtividadeEvolucao[]): Comparacao | null {
 
 /** "Revisar" (questões suficientes e muito erro) primeiro; depois os que pedem mais respostas. */
 export function prioridades(cs: ConteudoDesempenho[], regras: Regras = REGRAS): Prioridade[] {
-  const revisar = cs.filter((c) => c.questoes >= regras.minQuestoesPrioridade && c.taxaErro >= regras.taxaErroPrioridade).sort(porErro);
+  const revisar = cs.filter((c) => ehPrioritario(c, regras)).sort(porErro);
   const poucas = cs.filter((c) => c.questoes < regras.minQuestoesPrioridade && c.erros > 0).sort(porErro);
   return [
     ...revisar.map((conteudo): Prioridade => ({ tipo: "revisar", conteudo, texto: textoRevisar(conteudo) })),

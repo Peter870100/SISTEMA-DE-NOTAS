@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { comparar, evolucao, legendaErro, maisErro, montarPainel, porConteudo, prioridades, resumoGeral } from "./calculos";
+import { comparar, ehPrioritario, evolucao, legendaErro, maisErro, montarPainel, porConteudo, prioridades, resumoGeral } from "./calculos";
 import { textoRevisar } from "./regras";
 import type { ConteudoDesempenho, RespostaDesempenho } from "./tipos";
 
@@ -131,6 +131,19 @@ test("atividade só de questões já vistas aparece na evolução, mas não cres
 });
 
 // maisErro
+test("maisErro: conteúdos com 5+ questões antes dos de poucas respostas, mesmo com taxa menor", () => {
+  const m = maisErro([
+    c({ chave: "p1", nome: "Poucas 100%", questoes: 2, erros: 2, taxaErro: 100 }),
+    c({ chave: "r", nome: "Razão", questoes: 8, erros: 6, taxaErro: 75 }),
+    c({ chave: "b", nome: "Baixa", questoes: 6, erros: 1, taxaErro: 17 }),
+    c({ chave: "p2", nome: "Poucas 50%", questoes: 2, erros: 1, taxaErro: 50 }),
+  ]);
+  assert.deepEqual(m.map((x) => x.chave), ["r", "b", "p1", "p2"]);
+  assert.equal(ehPrioritario(m[0]), true);
+  assert.equal(ehPrioritario(m[1]), false);
+  assert.equal(ehPrioritario(m[2]), false);
+});
+
 test("maisErro: corta em 8 e ignora erros 0", () => {
   const cs = Array.from({ length: 10 }, (_, i) => c({ chave: `k${i}`, nome: `N${i}`, erros: i === 0 ? 0 : 1, taxaErro: 10 + i }));
   const m = maisErro(cs);
