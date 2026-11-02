@@ -61,6 +61,7 @@ import {
   SEM_SERIFA,
   TITULO_QUESTAO,
   TWIPS_POR_PX,
+  larguraTituloQuestao,
 } from "./medidas";
 
 export type { AlvoFigura } from "./estrutura";
@@ -411,9 +412,9 @@ function faixaMateria(materia: string, de: number, ate: number, primeira: boolea
  * "QUESTÃO 01" + faixa cinza até o fim da coluna, com linha preta embaixo (caderno do ENEM).
  * Tabela 1 × 2 sem bordas, exceto a inferior; a faixa é um parágrafo sombreado de altura fixa.
  */
-function tituloQuestao(n: number, primeiraDoBloco: boolean): Table {
+function tituloQuestao(n: number, primeiraDoBloco: boolean, valor?: string): Table {
   const texto = `QUESTÃO ${numero2(n)}`;
-  const esquerda = n >= 100 ? cm(2.85) : cm(2.6);
+  const esquerda = larguraTituloQuestao(n, valor);
   const direita = LARGURA_COLUNA - esquerda;
   const linha = { style: BorderStyle.SINGLE, size: 8, color: PRETO } as const; // 1 pt
   return new Table({
@@ -441,7 +442,10 @@ function tituloQuestao(n: number, primeiraDoBloco: boolean): Table {
                 keepNext: true,
                 keepLines: true,
                 spacing: { before: primeiraDoBloco ? 60 : 200, after: 0 },
-                children: [textoQuestao(texto, { bold: true, size: TITULO_QUESTAO })],
+                children: [
+                  textoQuestao(texto, { bold: true, size: TITULO_QUESTAO }),
+                  ...(valor ? [textoQuestao(` (${valor})`, { size: TITULO_QUESTAO })] : []),
+                ],
               }),
             ],
           }),
@@ -688,7 +692,7 @@ function blocosItem(item: ItemFolha<FiguraFolha>, bolinhas: DadosFolha["bolinhas
     case "faixa":
       return [faixaMateria(item.materia, item.de, item.ate, item.primeira)];
     case "titulo":
-      return [tituloQuestao(item.numero, item.primeiraDoBloco)];
+      return [tituloQuestao(item.numero, item.primeiraDoBloco, item.valor)];
     case "paragrafo":
       return [paragrafoTexto(item.segmentos, item.indice)];
     case "tabela":

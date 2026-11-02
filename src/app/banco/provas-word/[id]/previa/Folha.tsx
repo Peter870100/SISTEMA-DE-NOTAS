@@ -21,6 +21,7 @@ import {
   FUNDO,
   LARGURA_COLUNA,
   LARGURA_UTIL,
+  larguraTituloQuestao,
   LOGO_LARGURA_PX,
   MARGEM_CELULA,
   px,
@@ -257,12 +258,13 @@ function Faixa({ item }: { item: Extract<ItemFolha<FiguraTela>, { tipo: "faixa" 
   );
 }
 
-function TituloQuestao({ numero, primeiraDoBloco }: { numero: number; primeiraDoBloco: boolean }) {
-  const esquerda = numero >= 100 ? cm(2.85) : cm(2.6);
+function TituloQuestao({ numero, primeiraDoBloco, valor }: { numero: number; primeiraDoBloco: boolean; valor?: string }) {
+  const esquerda = larguraTituloQuestao(numero, valor);
   return (
     <div className={css.tituloQuestao}>
       <div className={css.tituloTexto} style={{ width: x(esquerda), paddingTop: p(primeiraDoBloco ? 60 : 200), paddingRight: x(cm(0.15)) }}>
         QUESTÃO {numero2(numero)}
+        {valor ? <span style={{ fontWeight: 400 }}> ({valor})</span> : null}
       </div>
       <div className={css.tituloFaixa}>
         <div />
@@ -339,7 +341,7 @@ export function Bloco({
     case "faixa":
       return <Faixa item={item} />;
     case "titulo":
-      return <TituloQuestao numero={item.numero} primeiraDoBloco={item.primeiraDoBloco} />;
+      return <TituloQuestao numero={item.numero} primeiraDoBloco={item.primeiraDoBloco} valor={item.valor} />;
     case "paragrafo":
       return (
         <div className={css.texto} style={estiloTexto({ antes: item.indice === 0 ? 100 : 0, depois: 40, recuo: RECUO }, parte)}>

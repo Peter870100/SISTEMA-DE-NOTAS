@@ -51,3 +51,9 @@ export const FIM_LINHA = LARGURA_TEXTO_CAB - 2 * MARGEM_CELULA - FOLGA_LINHA;
 export const px = (twips: number) => twips / TWIPS_POR_PX;
 /** Twips em pontos. */
 export const pt = (twips: number) => twips / 20;
+
+/** Largura da coluna do "QUESTÃO NN"; com valor ("(10,0)") alarga o bastante para não quebrar a linha. */
+export function larguraTituloQuestao(numero: number, valor?: string): number {
+  const base = numero >= 100 ? cm(2.85) : cm(2.6);
+  return valor ? base + Math.round(cm(0.19) * (valor.length + 3)) : base;
+}

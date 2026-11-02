@@ -19,6 +19,7 @@ import {
   trechoEnunciado,
   validarCabecalho,
 } from "./editar-prova";
+import { fixoEmDecimos, lerDecimos, valoresPorId } from "./valores";
 import { ehMateria, MATERIAS } from "@/lib/questoes/materias";
 import { gravarNomeProva, lerNomesProfessor } from "@/lib/professores/nome-prova";
 import {
@@ -288,7 +289,7 @@ export async function dadosFolhaProva(
   id: string,
   /** Confere a prova logo depois de lida e antes de carregar as questões; false devolve null. */
   autorizar?: (prova: ProvaFolha) => boolean,
-): Promise<{ prova: ProvaFolha; dados: DadosFolha; nomeBase: string } | null> {
+): Promise<{ prova: ProvaFolha; dados: DadosFolha; nomeBase: string; avisoValores: string | null } | null> {
   const { data: prova, error } = await supabase
     .from("provas_word")
     .select("id, professor_id, escola_id, titulo, created_at, excluida_em, cabecalho, filtros")
@@ -311,7 +312,7 @@ export async function dadosFolhaProva(
 
   const { data: linhas, error: errQ } = await supabase
     .from("prova_word_questoes")
-    .select("questao_id, ordem")
+    .select("questao_id, ordem, valor")
     .eq("prova_id", id)
     .order("ordem");
   if (errQ) throw new Error(errQ.message);
@@ -333,15 +334,26 @@ export async function dadosFolhaProva(
       : `${faltando.length} questões desta prova não estão mais no banco.`
     : null;
 
+  // Valor por questão: calculado sobre todas as linhas da prova (mesmo as de questões que sumiram do
+  // banco) e aplicado só às questões que a folha desenha.
+  const cabecalho = lerCabecalho(prova.cabecalho);
+  const { porId, aviso: avisoValores } = valoresPorId(
+    ids,
+    (linhas ?? []).map((l) => fixoEmDecimos(l.valor)),
+    lerDecimos(cabecalho.valor),
+    cabecalho.valorPorQuestao === true,
+  );
+  const questoesComValor = porId ? questoes.map((q) => ({ ...q, valor: porId.get(q.id) })) : questoes;
+
   const titulo = prova.titulo as string;
   const dados: DadosFolha = {
     titulo,
     escola: (escola?.nome as string | undefined) ?? "",
     logo,
-    questoes,
+    questoes: questoesComValor,
     bolinhas,
     avisoFinal,
-    cabecalho: lerCabecalho(prova.cabecalho),
+    cabecalho,
     professor: nomes ? nomeNaProva(nomes.nome, nomes.nome_prova, materiaUnicaRotulo(prova.filtros)) : null,
   };
   return {
@@ -355,6 +367,7 @@ export async function dadosFolhaProva(
     },
     dados,
     nomeBase: `${slug(titulo)}-${dataArquivo(prova.created_at as string)}`,
+    avisoValores,
   };
 }
 

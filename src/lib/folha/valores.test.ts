@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatarDecimos, lerDecimos, validarValoresPedido, valoresDasQuestoes } from "./valores";
+import { formatarDecimos, lerDecimos, validarValoresPedido, valoresDasQuestoes, valoresPorId } from "./valores";
 
 test("lerDecimos: aceita vírgula e ponto, recusa o resto", () => {
   assert.equal(lerDecimos("10"), 100);
@@ -57,4 +57,11 @@ test("validarValoresPedido", () => {
   );
   assert.equal(validarValoresPedido(3, 100, [{ numero: 1, valor: 60 }, { numero: 2, valor: 50 }]).ok, false);
   assert.deepEqual(validarValoresPedido(3, 100, [{ numero: 3, valor: 20 }]), { ok: true, fixos: [null, null, 20] });
+});
+
+test("valoresPorId: só as questões que ainda existem, na ordem certa", () => {
+  const r = valoresPorId(["a", "b", "c"], [null, null, null], 100, true);
+  assert.deepEqual([...r.porId!.entries()], [["a", "3,3"], ["b", "3,3"], ["c", "3,4"]]);
+  assert.equal(valoresPorId(["a"], [null], 100, false).porId, null);
+  assert.equal(valoresPorId(["a", "b"], [60, 60], 100, true).porId, null);
 });

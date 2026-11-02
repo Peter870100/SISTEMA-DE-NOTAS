@@ -1340,6 +1340,8 @@ create table if not exists prova_word_questoes (
 create index if not exists idx_prova_word_questoes_questao on prova_word_questoes (questao_id);
 alter table provas_word add column if not exists cabecalho jsonb not null default '{}';
 alter table provas_word enable row level security;
+-- Valor fixo da questão na prova (2026-11-02); null = automática (dividida pelo valor da prova).
+alter table prova_word_questoes add column if not exists valor numeric(6,1);
 alter table prova_word_questoes enable row level security;
 drop policy if exists "acesso_total_provas_word" on provas_word;
 create policy "acesso_total_provas_word" on provas_word for all using (true) with check (true);

@@ -82,3 +82,30 @@ export function validarValoresPedido(
   }
   return { ok: true, fixos };
 }
+
+/**
+ * Valor de cada questão da prova, já formatado ("1,0"), por id. `ids` e `fixos` seguem a ordem da prova
+ * (todas as linhas, mesmo as de questões que sumiram do banco); `porId` é null quando não há valor a mostrar.
+ */
+export function valoresPorId(
+  ids: string[],
+  fixos: (number | null)[],
+  totalDecimos: number | null,
+  mostrar: boolean,
+): { porId: Map<string, string> | null; aviso: string | null } {
+  const { porQuestao, aviso } = valoresDasQuestoes(totalDecimos, fixos, mostrar);
+  if (!porQuestao) return { porId: null, aviso };
+  const porId = new Map<string, string>();
+  ids.forEach((id, i) => {
+    const v = porQuestao[i];
+    if (v !== null && v !== undefined) porId.set(id, formatarDecimos(v));
+  });
+  return { porId, aviso };
+}
+
+/** Lê `prova_word_questoes.valor` (numeric: número ou texto, null = automática) em décimos. */
+export function fixoEmDecimos(valor: unknown): number | null {
+  if (valor === null || valor === undefined || valor === "") return null;
+  const d = Math.round(Number(valor) * 10);
+  return Number.isFinite(d) && d > 0 ? d : null;
+}

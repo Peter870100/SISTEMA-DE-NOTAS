@@ -313,3 +313,28 @@ test("comando repetido no fim do enunciado não sai duas vezes", async () => {
 async function xmlAluno(q: QuestaoFolha): Promise<string> {
   return documentoXml(await folhaAluno({ titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [q] }));
 }
+
+function tituloXml(xml: string, n: string): string {
+  const i = xml.indexOf(`QUESTÃO ${n}`);
+  assert.ok(i >= 0, `sem título ${n}`);
+  return xml.slice(i, xml.indexOf("</w:p>", i));
+}
+
+test("valor da questão: aparece no título da prova e do gabarito, sem negrito", async () => {
+  const questoes = [{ ...qf("Quanto é 2²?"), valor: "1,0" }, { ...qf("Quanto é 3²?"), valor: "2,5" }];
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes };
+  for (const xml of [await documentoXml(await folhaAluno(d)), await documentoXml(await folhaGabarito(d))]) {
+    assert.ok(tituloXml(xml, "01").includes("(1,0)"));
+    assert.ok(tituloXml(xml, "02").includes("(2,5)"));
+    assert.ok(tituloXml(xml, "01").includes(" (1,0)"));
+  }
+});
+
+test("sem valor, o título da questão fica como antes", async () => {
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")] };
+  for (const xml of [await documentoXml(await folhaAluno(d)), await documentoXml(await folhaGabarito(d))]) {
+    assert.ok(!tituloXml(xml, "01").includes("("));
+  }
+  const comValorVazio = { ...d, questoes: [{ ...qf("Quanto é 2²?"), valor: undefined }] };
+  assert.equal(await documentoXml(await folhaAluno(comValorVazio)), await documentoXml(await folhaAluno(d)));
+});

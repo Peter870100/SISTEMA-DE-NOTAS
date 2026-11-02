@@ -22,12 +22,14 @@ export type QuestaoBase<F extends FiguraRef> = {
   figuras?: F[];
   /** Ex.: "UFMS 2024". */
   origem?: string | null;
+  /** Valor da questão já formatado (ex.: "1,0"); impresso depois de "QUESTÃO NN". */
+  valor?: string;
 };
 
 export type ItemFolha<F> =
   /** Faixa da matéria antes de cada bloco de questões seguidas da mesma matéria. */
   | { tipo: "faixa"; materia: string; de: number; ate: number; primeira: boolean }
-  | { tipo: "titulo"; numero: number; primeiraDoBloco: boolean }
+  | { tipo: "titulo"; numero: number; primeiraDoBloco: boolean; valor?: string }
   /** Parágrafo do enunciado em markdown; `indice` conta só os parágrafos (o 0 ganha respiro). */
   | { tipo: "paragrafo"; segmentos: Segmento[]; indice: number }
   | { tipo: "tabela"; linhas: string[][] }
@@ -160,7 +162,7 @@ function itensQuestao<F extends FiguraRef>(q: QuestaoBase<F>, n: number, primeir
   const origem = q.origem?.trim() || null;
   const figuras: ItemFolha<F>[] = soltas.map((f) => ({ tipo: "figura", figura: f, naAlternativa: false }));
   const saida: ItemFolha<F>[] = [
-    { tipo: "titulo", numero: n, primeiraDoBloco },
+    { tipo: "titulo", numero: n, primeiraDoBloco, ...(q.valor ? { valor: q.valor } : {}) },
     ...(figurasAntes ? [...figuras, ...textos] : [...textos, ...figuras]),
   ];
   if (credito || origem) saida.push({ tipo: "credito", credito, origem });
@@ -178,7 +180,7 @@ function itensQuestao<F extends FiguraRef>(q: QuestaoBase<F>, n: number, primeir
 }
 
 function itensResolucao<F extends FiguraRef>(q: QuestaoBase<F>, n: number, primeiraDoBloco: boolean): ItemFolha<F>[] {
-  const saida: ItemFolha<F>[] = [{ tipo: "titulo", numero: n, primeiraDoBloco }];
+  const saida: ItemFolha<F>[] = [{ tipo: "titulo", numero: n, primeiraDoBloco, ...(q.valor ? { valor: q.valor } : {}) }];
   blocosNaoVazios(markdownParaBlocos(q.resolucao ?? "")).forEach((segmentos, indice) => {
     saida.push({ tipo: "resolucao", segmentos, indice });
   });

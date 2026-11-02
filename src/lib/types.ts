@@ -416,7 +416,8 @@ export type ProvaWord = {
   created_at: string;
   excluida_em: string | null;
 };
-export type ProvaWordQuestao = { prova_id: string; questao_id: string; ordem: number };
+/** `valor`: numeric(6,1) fixo da questão na prova (o Supabase devolve número ou texto); null = automática. */
+export type ProvaWordQuestao = { prova_id: string; questao_id: string; ordem: number; valor?: number | string | null };
 export type PorArea = Partial<Record<Area, { acertos: number; total: number }>>;
 export type EventoSaida = { questao: number | null; saiu_em: string; voltou_em: string | null };
 
