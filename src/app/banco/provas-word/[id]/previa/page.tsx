@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
 import { dadosFolhaProva, lerProva, questoesDoEditor } from "@/lib/folha/provas-word-servidor";
 import { dadosPrevia } from "@/lib/folha/previa-servidor";
+import { lerNomesProfessor } from "@/lib/professores/nome-prova";
 import { PreviaEditavel } from "./PreviaEditavel";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +52,13 @@ export default async function PreviaProvaPage({
   const qual = busca.qual === "gabarito" ? "gabarito" : "prova";
   const imprimir = busca.imprimir === "1";
   // Só depois da conferência de acesso acima: quem pode ver a prova pode editá-la (dono dela ou papel `dono`).
-  const [dados, questoes] = await Promise.all([dadosPrevia(carregada.dados), questoesDoEditor(id)]);
+  // O campo "Nome na prova" só aparece para o próprio professor da prova (o dono não muda o apelido de outro).
+  const ehDaProva = professor.id === carregada.prova.professor_id;
+  const [dados, questoes, nomes] = await Promise.all([
+    dadosPrevia(carregada.dados),
+    questoesDoEditor(id),
+    ehDaProva ? lerNomesProfessor(professor.id) : Promise.resolve(null),
+  ]);
 
   return (
     <PreviaEditavel
@@ -60,7 +67,7 @@ export default async function PreviaProvaPage({
       nomeBase={carregada.nomeBase}
       qual={qual}
       imprimir={imprimir}
-      editor={{ titulo: dados.titulo, cabecalho: dados.cabecalho, questoes }}
+      editor={{ titulo: dados.titulo, cabecalho: dados.cabecalho, questoes, nomeProva: ehDaProva ? (nomes?.nome_prova ?? "") : null }}
     />
   );
 }

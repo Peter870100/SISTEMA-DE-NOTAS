@@ -85,6 +85,8 @@ export type DadosFolha = {
   avisoFinal?: string | null;
   /** Turma, data, valor e instruções da prova (só aparecem na folha do aluno). */
   cabecalho?: CabecalhoProva | null;
+  /** Nome do professor na linha "Professor(a)" (já com a matéria, se houver); só na folha do aluno. */
+  professor?: string | null;
 };
 
 
@@ -211,7 +213,10 @@ function linhaPreencher(campos: CampoIdentificacao[]): Paragraph {
   return new Paragraph({ tabStops, children, spacing: { before: 100, after: 0 } });
 }
 
-/** Linha "Turma: X    Data: dd/mm/aaaa    Valor: Y" com só os campos preenchidos (sem tabs: o Word quebra se não couber). */
+/**
+ * Linha "Turma: X    Data: dd/mm/aaaa    Valor: Y" com só os campos preenchidos (sem tabs: o Word quebra se não couber).
+ * Também serve para o nome longo do professor ("Professor(a): …").
+ */
 function linhaInformada(itens: { rotulo: string; valor: string }[]): Paragraph {
   const children: TextRun[] = [];
   itens.forEach((it, i) => {
@@ -236,8 +241,10 @@ function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: bo
   }
   const cab = comIdentificacao ? (d.cabecalho ?? {}) : {};
   if (comIdentificacao) {
-    const linhas = linhasIdentificacao(cab);
-    textos.push(linhaPreencher(linhas.aluno), linhaPreencher(linhas.professor));
+    const linhas = linhasIdentificacao(cab, d.professor);
+    textos.push(linhaPreencher(linhas.aluno));
+    if (linhas.nomeProfessor.length > 0) textos.push(linhaInformada(linhas.nomeProfessor));
+    textos.push(linhaPreencher(linhas.professor));
     if (linhas.informada.length > 0) textos.push(linhaInformada(linhas.informada));
   }
 

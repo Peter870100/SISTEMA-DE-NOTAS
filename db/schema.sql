@@ -1345,4 +1345,8 @@ drop policy if exists "acesso_total_provas_word" on provas_word;
 create policy "acesso_total_provas_word" on provas_word for all using (true) with check (true);
 drop policy if exists "acesso_total_prova_word_questoes" on prova_word_questoes;
 create policy "acesso_total_prova_word_questoes" on prova_word_questoes for all using (true) with check (true);
+
+-- ===== Nome na prova (2026-11-02) =====
+-- Apelido do professor na linha "Professor(a)" das provas em Word; null = sai o nome.
+alter table professores add column if not exists nome_prova varchar(60);
 NOTIFY pgrst, 'reload schema';

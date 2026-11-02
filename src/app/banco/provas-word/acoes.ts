@@ -14,6 +14,7 @@ import {
   previaProva,
   removerQuestao,
   salvarCabecalho,
+  salvarNomeProva as gravarNomeProvaDe,
   trocarQuestao,
   type PedidoProva,
 } from "@/lib/folha/provas-word-servidor";
@@ -154,6 +155,22 @@ export async function salvarCabecalhoProva(entrada: unknown): Promise<{ ok: true
     return { ok: true };
   } catch (e) {
     return erroEdicao(e, "Não foi possível salvar o cabeçalho.");
+  }
+}
+
+/**
+ * Grava o "Nome na prova" (apelido) do professor da sessão: o id sai da sessão, nunca do cliente, então
+ * ninguém muda o apelido de outro professor. Vale para todas as provas dele.
+ */
+export async function salvarNomeProva(texto: unknown): Promise<{ ok: true; nomeProva: string | null } | Falha> {
+  try {
+    const professor = await exigirProfessor();
+    const nomeProva = await gravarNomeProvaDe(professor, z.string().max(1000).parse(texto));
+    revalidatePath("/configuracoes");
+    revalidatePath(CAMINHO, "layout");
+    return { ok: true, nomeProva };
+  } catch (e) {
+    return erroEdicao(e, "Não foi possível salvar o nome na prova.");
   }
 }
 

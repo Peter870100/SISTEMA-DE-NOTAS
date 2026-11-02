@@ -5,12 +5,17 @@ import {
   escolherTroca,
   itensLinhaCabecalho,
   lerCabecalho,
+  linhasIdentificacao,
+  LIMITE_NOME_PROVA,
   mesmaQuestao,
+  nomeNaProva,
   reordenar,
   removerDaOrdem,
   trechoEnunciado,
   validarCabecalho,
+  validarNomeProva,
 } from "./editar-prova";
+import { cm, FIM_LINHA } from "./medidas";
 
 test("validarCabecalho: trim, omite vazios e mantém quebras", () => {
   const r = validarCabecalho({ titulo: "  Simulado  ", turma: " 3º A ", data: "2026-11-05", valor: "", instrucoes: "  Use caneta.\nSem consulta.  " });
@@ -72,4 +77,62 @@ test("escolherTroca: inédita primeiro, nunca uma da prova", () => {
 test("trechoEnunciado", () => {
   assert.equal(trechoEnunciado("**Leia** o  texto\n<b>abaixo</b>."), "Leia o texto abaixo.");
   assert.equal(trechoEnunciado("x".repeat(100), 90), "x".repeat(89) + "…");
+});
+
+test("nomeNaProva: apelido, senão o nome; matéria única no fim", () => {
+  assert.equal(nomeNaProva("Fernando Alves", "Cenoura"), "Cenoura");
+  assert.equal(nomeNaProva("Fernando Alves", "  Cenoura  ", "História"), "Cenoura — História");
+  assert.equal(nomeNaProva(" Fernando Alves ", null), "Fernando Alves");
+  assert.equal(nomeNaProva("Fernando Alves", "   ", "História"), "Fernando Alves — História");
+  assert.equal(nomeNaProva("Fernando Alves", undefined, "  "), "Fernando Alves");
+});
+test("nomeNaProva: sem nome nenhum devolve null (fica o traço)", () => {
+  assert.equal(nomeNaProva("", null), null);
+  assert.equal(nomeNaProva("  ", " ", "História"), null);
+  assert.equal(nomeNaProva(null, null, "História"), null);
+});
+test("validarNomeProva: trim, vazio vira null, até 60", () => {
+  assert.deepEqual(validarNomeProva("  Cenoura "), { ok: true, valor: "Cenoura" });
+  assert.deepEqual(validarNomeProva("   "), { ok: true, valor: null });
+  assert.deepEqual(validarNomeProva("x".repeat(LIMITE_NOME_PROVA)), { ok: true, valor: "x".repeat(60) });
+  assert.equal(validarNomeProva("x".repeat(61)).ok, false);
+});
+test("linhasIdentificacao: sem nome, linhas de sempre", () => {
+  const sem = linhasIdentificacao({});
+  assert.deepEqual(sem, linhasIdentificacao({}, null));
+  assert.deepEqual(sem, linhasIdentificacao({}, "   "));
+  assert.deepEqual(sem.nomeProfessor, []);
+  assert.deepEqual(sem.professor, [
+    { rotulo: "Professor(a)", ate: FIM_LINHA - cm(7.4) },
+    { rotulo: "Data", ate: null, depois: "____/____/______" },
+    { rotulo: "Nota", ate: FIM_LINHA },
+  ]);
+  assert.deepEqual(linhasIdentificacao({ data: "2026-11-05" }).professor.map((c) => c.rotulo), ["Professor(a)", "Nota"]);
+});
+test("linhasIdentificacao: nome curto entra como texto no lugar do traço", () => {
+  const r = linhasIdentificacao({}, "Cenoura — História");
+  assert.deepEqual(r.nomeProfessor, []);
+  assert.deepEqual(r.professor, [
+    { rotulo: "Professor(a)", ate: null, depois: "Cenoura — História" },
+    { rotulo: "Data", ate: null, depois: "____/____/______" },
+    { rotulo: "Nota", ate: FIM_LINHA },
+  ]);
+  const comData = linhasIdentificacao({ data: "2026-11-05" }, "Cenoura — História");
+  assert.deepEqual(comData.professor, [
+    { rotulo: "Professor(a)", ate: null, depois: "Cenoura — História" },
+    { rotulo: "Nota", ate: FIM_LINHA },
+  ]);
+  assert.deepEqual(comData.informada.map((i) => i.rotulo), ["Data"]);
+});
+test("linhasIdentificacao: nome longo vai numa linha própria (sem tab) e Data/Nota seguem na de baixo", () => {
+  const nome = "N".repeat(60) + " — Língua Portuguesa";
+  const r = linhasIdentificacao({}, nome);
+  assert.deepEqual(r.nomeProfessor, [{ rotulo: "Professor(a)", valor: nome }]);
+  assert.deepEqual(r.professor, [
+    { rotulo: "Data", ate: null, depois: "____/____/______" },
+    { rotulo: "Nota", ate: FIM_LINHA },
+  ]);
+  const comData = linhasIdentificacao({ data: "2026-11-05" }, nome);
+  assert.deepEqual(comData.nomeProfessor, [{ rotulo: "Professor(a)", valor: nome }]);
+  assert.deepEqual(comData.professor, [{ rotulo: "Nota", ate: FIM_LINHA }]);
 });

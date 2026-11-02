@@ -220,6 +220,7 @@
 .editorDupla { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 .editorCampo { display: flex; flex-direction: column; gap: .3rem; min-width: 0; color: var(--color-brand); font-size: .8rem; font-weight: 700; }
 .editorCampo textarea { resize: vertical; }
+.editorAjuda { color: var(--color-brand); font-size: .75rem; font-weight: 500; }
 .editorLista { display: flex; flex-direction: column; gap: .6rem; }
 .editorQuestao { display: flex; flex-direction: column; gap: .35rem; padding: .65rem .75rem; border-left: 4px solid var(--color-brand); border-radius: .7rem; background: color-mix(in srgb, var(--color-brand) 6%, #fff); }
 .editorRotulo { color: var(--color-brand); font-size: .88rem; font-weight: 700; }

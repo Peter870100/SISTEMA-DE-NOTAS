@@ -94,6 +94,14 @@ export function materiaRotulo(f: { materia?: string; area?: Area }): string {
   return "Questões";
 }
 
+/** Rótulo da matéria quando a prova é de uma matéria só (`filtros.materia` conhecida); senão null. Pura. */
+export function materiaUnicaRotulo(filtros: unknown): string | null {
+  if (!filtros || typeof filtros !== "object") return null;
+  const materia = (filtros as { materia?: unknown }).materia;
+  if (typeof materia !== "string" || !Object.hasOwn(MATERIAS, materia)) return null;
+  return (MATERIAS as Record<string, { rotulo: string }>)[materia].rotulo;
+}
+
 /** "Biologia · Genética (UFMS)": o que foi pedido, para a prévia. Pura. */
 export function rotuloPedido(materia: string, assunto: string | null, banca?: string): string {
   const b = banca?.trim();

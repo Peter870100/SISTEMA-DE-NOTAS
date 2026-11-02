@@ -403,7 +403,7 @@ function LinhaPreencher({ campos }: { campos: CampoIdentificacao[] }) {
   );
 }
 
-/** Linha "Turma: X    Data: dd/mm/aaaa    Valor: Y" (só os preenchidos); quebra em vez de vazar, como no Word. */
+/** Linha "Turma: X    Data: dd/mm/aaaa    Valor: Y" (só os preenchidos) ou o nome longo do professor; quebra em vez de vazar, como no Word. */
 function LinhaInformada({ itens }: { itens: { rotulo: string; valor: string }[] }) {
   if (itens.length === 0) return null;
   return (
@@ -421,7 +421,7 @@ function LinhaInformada({ itens }: { itens: { rotulo: string; valor: string }[] 
 /** Cabeçalho da 1ª página: logo (ou nome da escola) | título e linhas de identificação. */
 export function Cabecalho({ dados, qual }: { dados: DadosPrevia; qual: Qual }) {
   const cab = qual === "prova" ? dados.cabecalho : {};
-  const linhas = linhasIdentificacao(cab);
+  const linhas = linhasIdentificacao(cab, qual === "prova" ? dados.professor : null);
   return (
     <div>
       <div className={css.cabecalho}>
@@ -440,6 +440,7 @@ export function Cabecalho({ dados, qual }: { dados: DadosPrevia; qual: Qual }) {
           ) : (
             <>
               <LinhaPreencher campos={linhas.aluno} />
+              <LinhaInformada itens={linhas.nomeProfessor} />
               <LinhaPreencher campos={linhas.professor} />
               <LinhaInformada itens={linhas.informada} />
             </>

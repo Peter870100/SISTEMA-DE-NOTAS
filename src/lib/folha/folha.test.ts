@@ -252,6 +252,35 @@ test("só o valor preenchido: linha extra só com \"Valor:\" e linhas de sempre"
   assert.ok(!gab.some((p) => p.includes("Valor: ") || p.includes("Turma: ") || p.includes("05/11/2026")));
 });
 
+/** Parágrafos crus (<w:p>…</w:p>) do documento. */
+function paragrafosXml(xml: string): string[] {
+  return xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) ?? [];
+}
+test("nome do professor: na linha Professor(a) da prova, sem traço; nunca no gabarito", async () => {
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")], professor: "Cenoura — História" };
+  const crus = paragrafosXml(await documentoXml(await folhaAluno(d)));
+  const cru = crus.find((p) => paragrafos(p)[0]?.startsWith("Professor(a): ")) ?? "";
+  const prof = paragrafos(cru)[0];
+  assert.ok(prof?.startsWith("Professor(a): Cenoura — História  Data: ____/____/______  Nota: "), prof);
+  assert.equal(cru.split("<w:tab/>").length - 1, 1, "só a Nota tem traço (tab)");
+  const gab = await documentoXml(await folhaGabarito(d));
+  assert.ok(!gab.includes("Cenoura"));
+  const semNome = paragrafos(await documentoXml(await folhaAluno({ ...d, professor: null })));
+  assert.ok(!semNome.some((p) => p.includes("Cenoura")));
+});
+test("nome longo (60 + matéria) vai numa linha própria, sem tab, e Data/Nota seguem abaixo", async () => {
+  const nome = "N".repeat(60) + " — Língua Portuguesa";
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")], professor: nome };
+  const xml = await documentoXml(await folhaAluno(d));
+  const crus = paragrafosXml(xml);
+  const i = crus.findIndex((p) => paragrafos(p)[0]?.startsWith("Professor(a): "));
+  assert.ok(i >= 0);
+  assert.equal(paragrafos(crus[i])[0], `Professor(a): ${nome}`);
+  assert.ok(!crus[i].includes("<w:tab/>") && !crus[i].includes("<w:tabs>"), "a linha do nome não pode ter tab");
+  const seguinte = paragrafos(crus[i + 1])[0];
+  assert.ok(seguinte.startsWith("Data: ____/____/______  Nota: "), seguinte);
+});
+
 test("comandoRepetido: enunciado que já termina com o comando", () => {
   assert.equal(comandoRepetido("Texto longo. Dessa forma, é **correto** afirmar que", "Dessa forma, é correto  afirmar que"), true);
   assert.equal(comandoRepetido("Texto sobre a ferrovia?**", "a ferrovia?"), true);

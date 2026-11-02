@@ -12,6 +12,7 @@ import {
   escolherTroca,
   lerCabecalho,
   mesmaQuestao,
+  nomeNaProva,
   PROVA_MUDOU,
   reordenar,
   removerDaOrdem,
@@ -19,11 +20,13 @@ import {
   validarCabecalho,
 } from "./editar-prova";
 import { ehMateria, MATERIAS } from "@/lib/questoes/materias";
+import { gravarNomeProva, lerNomesProfessor } from "@/lib/professores/nome-prova";
 import {
   cenarioIneditas,
   codigoLink,
   escolherQuestoes,
   LIMITE_QUESTOES_PROVA,
+  materiaUnicaRotulo,
   tituloProva,
   type Cenario,
   type TipoProva,
@@ -288,7 +291,7 @@ export async function dadosFolhaProva(
 ): Promise<{ prova: ProvaFolha; dados: DadosFolha; nomeBase: string } | null> {
   const { data: prova, error } = await supabase
     .from("provas_word")
-    .select("id, professor_id, escola_id, titulo, created_at, excluida_em, cabecalho")
+    .select("id, professor_id, escola_id, titulo, created_at, excluida_em, cabecalho, filtros")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -315,11 +318,13 @@ export async function dadosFolhaProva(
   const ids = (linhas ?? []).map((l) => l.questao_id as string);
 
   const ehStatus = prova.escola_id === ESCOLA_PADRAO_ID;
-  const [{ questoes, faltando }, { data: escola }, logo, bolinhas] = await Promise.all([
+  const [{ questoes, faltando }, { data: escola }, logo, bolinhas, nomes] = await Promise.all([
     carregarQuestoesFolha(ids),
     supabase.from("escolas").select("nome").eq("id", prova.escola_id).maybeSingle(),
     ehStatus ? lerPublico("logo-folha.png") : Promise.resolve(null),
     bolinhasFolha(),
+    // Sempre o professor dono da prova (não quem está vendo).
+    prova.professor_id ? lerNomesProfessor(prova.professor_id as string) : Promise.resolve(null),
   ]);
 
   const avisoFinal = faltando.length
@@ -337,6 +342,7 @@ export async function dadosFolhaProva(
     bolinhas,
     avisoFinal,
     cabecalho: lerCabecalho(prova.cabecalho),
+    professor: nomes ? nomeNaProva(nomes.nome, nomes.nome_prova, materiaUnicaRotulo(prova.filtros)) : null,
   };
   return {
     prova: {
@@ -433,6 +439,11 @@ export async function salvarCabecalho(
   if (!v.ok) throw new Error(v.erro);
   const { error } = await supabase.from("provas_word").update({ titulo: v.titulo, cabecalho: v.cabecalho }).eq("id", provaId);
   if (error) throw new Error(error.message);
+}
+
+/** Grava o "Nome na prova" de quem pede (sempre a própria conta, nunca a de outro professor). */
+export async function salvarNomeProva(quem: EditorProva, texto: string): Promise<string | null> {
+  return gravarNomeProva(quem.id, texto);
 }
 
 /**

@@ -80,6 +80,36 @@ export function itensLinhaCabecalho(cab: CabecalhoProva): { rotulo: string; valo
 /** Espaço entre os itens da linha extra de identificação (o mesmo no .docx e na tela). */
 export const SEPARADOR_LINHA_CABECALHO = "    ";
 
+/** Tamanho máximo do "Nome na prova" (apelido) do professor. */
+export const LIMITE_NOME_PROVA = 60;
+
+/** Valida o "Nome na prova": trim; em branco vira null (sai o nome normal). */
+export function validarNomeProva(texto: string): { ok: true; valor: string | null } | { ok: false; erro: string } {
+  const valor = (texto ?? "").trim();
+  if (valor.length > LIMITE_NOME_PROVA) {
+    return { ok: false, erro: `O nome na prova pode ter até ${LIMITE_NOME_PROVA} caracteres.` };
+  }
+  return { ok: true, valor: valor || null };
+}
+
+/**
+ * Nome que sai na linha "Professor(a)": o apelido (`nome_prova`) se houver, senão o nome; com a
+ * matéria única da prova, vira "Nome — Matéria". Null quando não há nome nenhum (fica o traço).
+ */
+export function nomeNaProva(nome: string | null | undefined, nomeProva: string | null | undefined, materiaRotulo?: string | null): string | null {
+  const base = (nomeProva ?? "").trim() || (nome ?? "").trim();
+  if (!base) return null;
+  const materia = (materiaRotulo ?? "").trim();
+  return materia ? `${base} — ${materia}` : base;
+}
+
+/**
+ * Até quantos caracteres o nome cabe na mesma linha de "Data" e "Nota" (Calibri 9 pt, com folga
+ * para letras largas). Acima disso, o nome vai numa linha própria, sem tab, que quebra em vez de
+ * estourar (como a linha extra de turma/data/valor).
+ */
+const NOME_NA_LINHA = { comCampoData: 28, semCampoData: 45 };
+
 /** Campo de uma linha de preencher: rótulo, fim do traço (twips; null = sem traço) e texto depois. */
 export type CampoIdentificacao = { rotulo: string; ate: number | null; depois?: string };
 
@@ -87,9 +117,15 @@ export type CampoIdentificacao = { rotulo: string; ate: number | null; depois?: 
  * Linhas de identificação da prova, iguais no .docx e na pré-visualização. Sem nada preenchido,
  * são as duas linhas de sempre. Turma e data preenchidas saem das linhas "Aluno(a)" e
  * "Professor(a)" (para não aparecerem duas vezes) e vão, com o valor, para a linha extra.
+ * Com o nome do professor, ele entra como texto no lugar do traço; se for longo demais para
+ * dividir a linha com "Data" e "Nota", vai sozinho em `nomeProfessor` (linha acima, sem tab).
  */
-export function linhasIdentificacao(cab: CabecalhoProva): {
+export function linhasIdentificacao(
+  cab: CabecalhoProva,
+  nomeProfessor?: string | null,
+): {
   aluno: CampoIdentificacao[];
+  nomeProfessor: { rotulo: string; valor: string }[];
   professor: CampoIdentificacao[];
   informada: { rotulo: string; valor: string }[];
 } {
@@ -103,17 +139,20 @@ export function linhasIdentificacao(cab: CabecalhoProva): {
         { rotulo: "Nº", ate: FIM_LINHA - cm(2.6) },
         { rotulo: "Turma", ate: FIM_LINHA },
       ];
-  const professor: CampoIdentificacao[] = cab.data
-    ? [
-        { rotulo: "Professor(a)", ate: FIM_LINHA - cm(3.6) },
-        { rotulo: "Nota", ate: FIM_LINHA },
-      ]
-    : [
-        { rotulo: "Professor(a)", ate: FIM_LINHA - cm(7.4) },
-        { rotulo: "Data", ate: null, depois: "____/____/______" },
-        { rotulo: "Nota", ate: FIM_LINHA },
-      ];
-  return { aluno, professor, informada: itensLinhaCabecalho(cab) };
+  const data: CampoIdentificacao[] = cab.data ? [] : [{ rotulo: "Data", ate: null, depois: "____/____/______" }];
+  const nota: CampoIdentificacao = { rotulo: "Nota", ate: FIM_LINHA };
+  const nome = (nomeProfessor ?? "").trim();
+  const informada = itensLinhaCabecalho(cab);
+
+  if (!nome) {
+    const professor: CampoIdentificacao = { rotulo: "Professor(a)", ate: FIM_LINHA - (cab.data ? cm(3.6) : cm(7.4)) };
+    return { aluno, nomeProfessor: [], professor: [professor, ...data, nota], informada };
+  }
+  const cabe = nome.length <= (cab.data ? NOME_NA_LINHA.semCampoData : NOME_NA_LINHA.comCampoData);
+  if (cabe) {
+    return { aluno, nomeProfessor: [], professor: [{ rotulo: "Professor(a)", ate: null, depois: nome }, ...data, nota], informada };
+  }
+  return { aluno, nomeProfessor: [{ rotulo: "Professor(a)", valor: nome }], professor: [...data, nota], informada };
 }
 
 /** "2026-11-05" vira "05/11/2026". */

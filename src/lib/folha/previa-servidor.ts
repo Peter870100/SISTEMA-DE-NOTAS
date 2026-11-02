@@ -51,5 +51,6 @@ export async function dadosPrevia(dados: DadosFolha): Promise<DadosPrevia> {
     questoes,
     avisoFinal: dados.avisoFinal ?? null,
     cabecalho: dados.cabecalho ?? {},
+    professor: dados.professor ?? null,
   };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound, Phone, School, Trash2, UserPlus, Users, Mail, CheckCircle2, Clock3 } from "lucide-react";
+import { IdCard, KeyRound, Phone, School, Trash2, UserPlus, Users, Mail, CheckCircle2, Clock3 } from "lucide-react";
 import type { Professor, ProfessorRole } from "@/lib/types";
 import {
   criarProfessor,
@@ -9,7 +9,9 @@ import {
   excluirProfessor,
   atualizarAcessoTurmas,
   atualizarTelefoneProfessor,
+  atualizarNomeProvaProfessor,
 } from "@/actions/professores";
+import { LIMITE_NOME_PROVA } from "@/lib/folha/editar-prova";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import styles from "./ContasAdmin.module.css";
 import { ehAdmin } from "@/lib/papeis";
@@ -45,6 +47,7 @@ export function GerenciarProfessores({
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [role, setRole] = useState<ProfessorRole>("professor");
+  const [nomeProva, setNomeProva] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -58,6 +61,10 @@ export function GerenciarProfessores({
   const [telefoneEdit, setTelefoneEdit] = useState("");
   const [salvandoTelefoneId, setSalvandoTelefoneId] = useState<string | null>(null);
 
+  const [nomeProvaAbertoId, setNomeProvaAbertoId] = useState<string | null>(null);
+  const [nomeProvaEdit, setNomeProvaEdit] = useState("");
+  const [salvandoNomeProvaId, setSalvandoNomeProvaId] = useState<string | null>(null);
+
   const [turmasAbertaId, setTurmasAbertaId] = useState<string | null>(null);
   const [restritoEdit, setRestritoEdit] = useState(false);
   const [turmasSelecionadas, setTurmasSelecionadas] = useState<Set<string>>(new Set());
@@ -66,6 +73,7 @@ export function GerenciarProfessores({
   function fecharPaineis() {
     setSenhaAbertaId(null);
     setTelefoneAbertoId(null);
+    setNomeProvaAbertoId(null);
     setTurmasAbertaId(null);
   }
 
@@ -79,12 +87,13 @@ export function GerenciarProfessores({
     setSalvando(true);
     setErro(null);
     try {
-      const professor = await criarProfessor(nome, email, senha, role);
+      const professor = await criarProfessor(nome, email, senha, role, nomeProva);
       setProfessores((prev) => [...prev, professor].sort((a, b) => a.nome.localeCompare(b.nome)));
       setNome("");
       setEmail("");
       setSenha("");
       setRole("professor");
+      setNomeProva("");
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível criar o professor.");
     } finally {
@@ -163,6 +172,32 @@ export function GerenciarProfessores({
     }
   }
 
+  function handleAbrirNomeProva(p: Professor) {
+    fecharPaineis();
+    setNomeProvaAbertoId(p.id);
+    setNomeProvaEdit(p.nome_prova ?? "");
+    setErro(null);
+  }
+
+  async function handleSalvarNomeProva(id: string) {
+    if (salvandoNomeProvaId) return;
+    setSalvandoNomeProvaId(id);
+    setErro(null);
+    try {
+      const r = await atualizarNomeProvaProfessor(id, nomeProvaEdit);
+      if (!r.ok) {
+        setErro(r.erro);
+        return;
+      }
+      setProfessores((prev) => prev.map((p) => (p.id === id ? { ...p, nome_prova: r.nomeProva } : p)));
+      setNomeProvaAbertoId(null);
+    } catch {
+      setErro("Não foi possível salvar o nome na prova.");
+    } finally {
+      setSalvandoNomeProvaId(null);
+    }
+  }
+
   function handleAbrirTurmas(p: Professor) {
     fecharPaineis();
     setTurmasAbertaId(p.id);
@@ -206,6 +241,7 @@ export function GerenciarProfessores({
           <label>Email<input required type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="professor@escola.com.br"/></label>
           <label>Senha inicial<input required type="password" autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Crie uma senha"/></label>
           <label>Perfil de acesso<select value={role} onChange={(e) => setRole(e.target.value as ProfessorRole)}><option value="professor">Professor</option><option value="admin">Administrador</option></select></label>
+          <label>Nome na prova (opcional)<input maxLength={LIMITE_NOME_PROVA} value={nomeProva} onChange={(e) => setNomeProva(e.target.value)} placeholder="Apelido na prova; em branco, sai o nome"/></label>
         </div>
         <div className={styles.formFooter}><p>Depois do cadastro, configure o telefone e o acesso às turmas no cartão do professor.</p><button type="submit" disabled={salvando} className={styles.primary}><UserPlus size={18}/>{salvando ? "Criando..." : "Criar professor"}</button></div>
       </form>
@@ -214,18 +250,20 @@ export function GerenciarProfessores({
         <div className={styles.grid}>
           {professores.map((p) => {
             const presenca = statusPresenca(p.ultimo_acesso);
-            const ocupado = definindoId === p.id || salvandoTelefoneId === p.id || salvandoTurmasId === p.id || excluindoId === p.id;
+            const ocupado = definindoId === p.id || salvandoTelefoneId === p.id || salvandoNomeProvaId === p.id || salvandoTurmasId === p.id || excluindoId === p.id;
             return <article key={p.id} className={styles.professor} aria-busy={ocupado}>
               <div className={styles.identity}><span className={styles.avatar} aria-hidden="true">{p.nome.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((parte) => parte[0]).join("").toUpperCase()}</span><div className={styles.identityText}><span className={styles.role}>{p.role === "dono" ? "Dono da escola" : ehAdmin(p.role) ? "Administrador" : "Professor"}</span><h3>{p.nome}</h3><p className={styles.presence}><span className={presenca.online ? styles.online : styles.offline}/>{presenca.texto}</p></div></div>
-              <div className={styles.details}><p><Mail size={17}/><span>{p.email}</span></p><p><Phone size={17}/><span>{p.telefone || "Telefone não informado"}</span></p><p><School size={17}/><span>{ehAdmin(p.role) || !p.acesso_restrito ? "Acesso a todas as turmas" : acessoPorProfessor[p.id]?.join(", ") || "Nenhuma turma liberada"}</span></p></div>
+              <div className={styles.details}><p><Mail size={17}/><span>{p.email}</span></p><p><Phone size={17}/><span>{p.telefone || "Telefone não informado"}</span></p>{p.nome_prova && <p><IdCard size={17}/><span>Na prova: {p.nome_prova}</span></p>}<p><School size={17}/><span>{ehAdmin(p.role) || !p.acesso_restrito ? "Acesso a todas as turmas" : acessoPorProfessor[p.id]?.join(", ") || "Nenhuma turma liberada"}</span></p></div>
               <div className={styles.badges}><span>{p.email_verificado ? <CheckCircle2 size={15}/> : <Clock3 size={15}/>} {p.email_verificado ? "Email verificado" : "Verificação pendente"}</span>{p.senha_provisoria && <span><KeyRound size={15}/>Senha provisória</span>}</div>
               <div className={styles.actions}>
                 <button type="button" disabled={ocupado} aria-expanded={telefoneAbertoId === p.id} onClick={() => handleAbrirTelefone(p)} className={styles.secondary}><Phone size={16}/>Telefone</button>
+                <button type="button" disabled={ocupado} aria-expanded={nomeProvaAbertoId === p.id} onClick={() => handleAbrirNomeProva(p)} className={styles.secondary}><IdCard size={16}/>Nome na prova</button>
                 <button type="button" disabled={ocupado} aria-expanded={senhaAbertaId === p.id} onClick={() => handleAbrirSenha(p.id)} className={styles.secondary}><KeyRound size={16}/>Senha provisória</button>
                 {!ehAdmin(p.role) && <button type="button" disabled={ocupado} aria-expanded={turmasAbertaId === p.id} onClick={() => handleAbrirTurmas(p)} className={styles.secondary}><School size={16}/>Turmas</button>}
                 <button type="button" disabled={ocupado} onClick={() => setConfirmExcluir(p)} className={styles.delete}><Trash2 size={16}/>{excluindoId === p.id ? "Excluindo..." : "Excluir"}</button>
               </div>
               {telefoneAbertoId === p.id && <form className={styles.panel} onSubmit={(e) => { e.preventDefault(); void handleSalvarTelefone(p.id); }}><label>Telefone de contato<input type="tel" autoFocus value={telefoneEdit} onChange={(e) => setTelefoneEdit(e.target.value)} placeholder="(00) 00000-0000"/></label><div className={styles.actions}><button disabled={ocupado} type="submit" className={styles.primary}>{ocupado ? "Salvando..." : "Salvar telefone"}</button><button disabled={ocupado} type="button" onClick={fecharPaineis} className={styles.secondary}>Cancelar</button></div></form>}
+              {nomeProvaAbertoId === p.id && <form className={styles.panel} onSubmit={(e) => { e.preventDefault(); void handleSalvarNomeProva(p.id); }}><label>Nome na prova<input autoFocus maxLength={LIMITE_NOME_PROVA} value={nomeProvaEdit} onChange={(e) => setNomeProvaEdit(e.target.value)} placeholder="Ex.: Cenoura"/></label><p style={{ margin: 0, fontSize: 13, color: "var(--color-muted)" }}>Sai na linha “Professor(a)” de todas as provas dele. Em branco, sai o nome.</p><div className={styles.actions}><button disabled={ocupado} type="submit" className={styles.primary}>{ocupado ? "Salvando..." : "Salvar nome"}</button><button disabled={ocupado} type="button" onClick={fecharPaineis} className={styles.secondary}>Cancelar</button></div></form>}
               {senhaAbertaId === p.id && <form className={styles.panel} onSubmit={(e) => { e.preventDefault(); void handleDefinirSenha(p.id); }}><label>Nova senha provisória<input required minLength={6} autoComplete="new-password" type="password" autoFocus value={novaSenhaProvisoria} onChange={(e) => setNovaSenhaProvisoria(e.target.value)} placeholder="Pelo menos 6 caracteres"/></label><div className={styles.actions}><button disabled={ocupado} type="submit" className={styles.primary}>{ocupado ? "Salvando..." : "Salvar senha"}</button><button disabled={ocupado} type="button" onClick={fecharPaineis} className={styles.secondary}>Cancelar</button></div></form>}
               {turmasAbertaId === p.id && <form className={styles.panel} onSubmit={(e) => { e.preventDefault(); void handleSalvarTurmas(p.id); }}><label className={styles.checkbox}><input type="checkbox" checked={restritoEdit} onChange={(e) => setRestritoEdit(e.target.checked)}/>Restringir a turmas específicas</label>{restritoEdit && <fieldset className={styles.turmas}><legend>Turmas liberadas</legend>{nomesTurmas.length === 0 && <p>Nenhuma turma cadastrada.</p>}{nomesTurmas.map((t) => <label key={t} className={styles.checkbox}><input type="checkbox" checked={turmasSelecionadas.has(t)} onChange={() => toggleTurma(t)}/>{t}</label>)}</fieldset>}<div className={styles.actions}><button disabled={ocupado} type="submit" className={styles.primary}>{ocupado ? "Salvando..." : "Salvar acesso"}</button><button disabled={ocupado} type="button" onClick={fecharPaineis} className={styles.secondary}>Cancelar</button></div></form>}
             </article>;

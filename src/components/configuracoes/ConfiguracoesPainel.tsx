@@ -4,12 +4,13 @@ import type { ProfessorRole } from "@/lib/types";
 import { ehAdmin } from "@/lib/papeis";
 import base from "@/components/admin/ContasAdmin.module.css";
 import { MediaAprovacaoCard } from "./MediaAprovacaoCard";
+import { NomeProvaCard } from "./NomeProvaCard";
 import styles from "./ConfiguracoesPainel.module.css";
 
 type Opcao = { href: string; icon: LucideIcon; titulo: string; descricao: string };
 type Grupo = { titulo: string; opcoes: Opcao[] };
 
-export function ConfiguracoesPainel({ role, mediaAprovacao }: { role: ProfessorRole; mediaAprovacao: number }) {
+export function ConfiguracoesPainel({ role, mediaAprovacao, nomeProva }: { role: ProfessorRole; mediaAprovacao: number; nomeProva: string }) {
   const grupos: Grupo[] = [
     ...(ehAdmin(role) ? [{
       titulo: "Escola",
@@ -55,6 +56,7 @@ export function ConfiguracoesPainel({ role, mediaAprovacao }: { role: ProfessorR
         </details>
       )}
       {ehAdmin(role) && <MediaAprovacaoCard mediaInicial={mediaAprovacao} />}
+      <NomeProvaCard nomeInicial={nomeProva} />
       <div className={styles.groups}>
         {grupos.map((grupo, index) => (
           <section key={grupo.titulo} aria-labelledby={`configuracoes-grupo-${index}`} className={grupo.opcoes.length > 1 ? styles.wideGroup : undefined}>

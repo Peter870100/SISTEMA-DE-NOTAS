@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase/client";
 import { exigirAdminDaEscola } from "@/lib/escola-acesso";
 import { configurarProfessorPor, definirSenhaProfessorPor, telefoneProfessorPor } from "@/lib/professores/nucleo";
 import type { AtorEscola } from "@/lib/simulados/ator";
+import { validarNomeProva } from "@/lib/folha/editar-prova";
+import { gravarNomeProva, nomesProvaPorId } from "@/lib/professores/nome-prova";
 import type { Professor, ProfessorRole } from "@/lib/types";
 
 /** O admin logado como ator do núcleo de professores (só admin da escola). */
@@ -37,7 +39,10 @@ export async function listarProfessores(): Promise<Professor[]> {
     .eq("escola_id", admin.escola_id)
     .order("nome");
   if (error) throw new Error(error.message);
-  return data ?? [];
+  const lista = data ?? [];
+  // Lido à parte: sem a coluna `nome_prova` no banco, a lista continua funcionando.
+  const apelidos = await nomesProvaPorId(lista.map((p) => p.id));
+  return lista.map((p) => ({ ...p, nome_prova: apelidos[p.id] ?? null }));
 }
 
 /** Mapa professor_id -> nomes de turma liberados, pra exibir/editar no admin. */
@@ -74,6 +79,17 @@ export async function atualizarTelefoneProfessor(id: string, telefone: string): 
   await telefoneProfessorPor(await atorDoAdmin(), id, telefone);
 }
 
+/** "Nome na prova" (apelido) do professor, definido pelo admin; em branco volta a sair o nome. */
+export async function atualizarNomeProvaProfessor(id: string, texto: string): Promise<{ ok: true; nomeProva: string | null } | { ok: false; erro: string }> {
+  try {
+    const atual = await exigirAdminDaEscola();
+    await exigirPoderSobreAlvo(atual, id);
+    return { ok: true, nomeProva: await gravarNomeProva(id, String(texto ?? "")) };
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error && e.message ? e.message : "Não foi possível salvar o nome na prova." };
+  }
+}
+
 /**
  * Define uma senha provisória pro professor (ativa cadastros pendentes sem depender de email,
  * e também serve pra resetar a senha de quem já tem conta). Ele é forçado a trocar no próximo login.
@@ -96,7 +112,8 @@ export async function criarProfessor(
   nome: string,
   email: string,
   senha: string,
-  role: ProfessorRole
+  role: ProfessorRole,
+  nomeProva = ""
 ): Promise<Professor> {
   const atual = await exigirAdminDaEscola();
   if (role !== "admin" && role !== "professor" && role !== "dono") {
@@ -111,6 +128,8 @@ export async function criarProfessor(
   if (!nomeLimpo || !emailLimpo || !senha) {
     throw new Error("Preencha nome, email e senha.");
   }
+  const apelido = validarNomeProva(String(nomeProva ?? ""));
+  if (!apelido.ok) throw new Error(apelido.erro);
 
   const { data: contaAluno } = await supabase.from("alunos_contas").select("id").eq("email", emailLimpo).maybeSingle();
   if (contaAluno) throw new Error("Esse email já está em uso por uma conta de aluno.");
@@ -125,11 +144,16 @@ export async function criarProfessor(
       role,
       escola_id: atual.escola_id,
       email_verificado: true,
+      // Só manda a coluna quando preenchida: sem `nome_prova` no banco, o cadastro sem apelido segue funcionando.
+      ...(apelido.valor ? { nome_prova: apelido.valor } : {}),
     })
     .select(
       "id, nome, email, role, escola_id, email_verificado, senha_provisoria, acesso_restrito, telefone, ultimo_acesso, created_at"
     )
     .single();
-  if (error) throw new Error(error.message);
-  return data;
+  if (error) {
+    const faltaColuna = /nome_prova/i.test(error.message);
+    throw new Error(faltaColuna ? "O nome na prova ainda não pode ser salvo: falta atualizar o banco. Crie sem ele." : error.message);
+  }
+  return { ...data, nome_prova: apelido.valor };
 }

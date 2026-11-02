@@ -20,10 +20,11 @@ export function PreviaEditavel({
   nomeBase: string;
   qual: Qual;
   imprimir: boolean;
-  editor: { titulo: string; cabecalho: CabecalhoProva; questoes: QuestaoEditor[] };
+  /** `nomeProva`: apelido atual de quem vê, ou null quando quem vê não é o professor da prova (sem o campo). */
+  editor: { titulo: string; cabecalho: CabecalhoProva; questoes: QuestaoEditor[]; nomeProva: string | null };
 }) {
   const [aberto, setAberto] = useState(false);
-  const versao = editor.titulo + JSON.stringify(editor.cabecalho) + editor.questoes.map((q) => q.questaoId).join();
+  const versao = editor.titulo + JSON.stringify(editor.cabecalho) + editor.questoes.map((q) => q.questaoId).join() + (props.dados.professor ?? "");
 
   return (
     <>
@@ -33,6 +34,7 @@ export function PreviaEditavel({
           provaId={props.provaId}
           titulo={editor.titulo}
           cabecalho={editor.cabecalho}
+          nomeProva={editor.nomeProva}
           questoes={editor.questoes}
           aoFechar={() => setAberto(false)}
         />

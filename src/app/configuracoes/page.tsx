@@ -2,6 +2,7 @@ import { ehAdmin } from "@/lib/papeis";
 import { redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
 import { mediaAprovacaoDaEscola } from "@/lib/relatorios/media";
+import { lerNomesProfessor } from "@/lib/professores/nome-prova";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { ConfiguracoesPainel } from "@/components/configuracoes/ConfiguracoesPainel";
 
@@ -11,11 +12,14 @@ export default async function ConfiguracoesPage() {
   const atual = await getProfessorAtual();
   if (!atual) redirect("/login");
 
-  const media = ehAdmin(atual.role) ? await mediaAprovacaoDaEscola(atual.escola_id) : 6;
+  const [media, nomes] = await Promise.all([
+    ehAdmin(atual.role) ? mediaAprovacaoDaEscola(atual.escola_id) : Promise.resolve(6),
+    lerNomesProfessor(atual.id),
+  ]);
 
   return (
     <PageLayout crumb="Configurações" titulo="Configurações" subtitulo="Tudo o que você pode ajustar na plataforma, em um só lugar." largura="max-w-6xl">
-      <ConfiguracoesPainel role={atual.role} mediaAprovacao={media} />
+      <ConfiguracoesPainel role={atual.role} mediaAprovacao={media} nomeProva={nomes?.nome_prova ?? ""} />
     </PageLayout>
   );
 }

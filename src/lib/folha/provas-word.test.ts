@@ -5,6 +5,7 @@ import {
   codigoLink,
   escolherQuestoes,
   materiaRotulo,
+  materiaUnicaRotulo,
   rotuloPedido,
   textoPrevia,
   tituloProva,
@@ -59,4 +60,13 @@ test("textoPrevia: cabe, falta inédita e nenhuma", () => {
   assert.match(textoPrevia(rot, cenarioIneditas([], new Set(), 3)), /nenhuma questão no banco/);
   assert.equal(materiaRotulo({ area: "natureza" }), "Ciências da Natureza");
   assert.equal(materiaRotulo({}), "Questões");
+});
+test("materiaUnicaRotulo: só com uma matéria conhecida em filtros.materia", () => {
+  assert.equal(materiaUnicaRotulo({ materia: "historia" }), "História");
+  assert.equal(materiaUnicaRotulo({ materia: "inexistente" }), null);
+  assert.equal(materiaUnicaRotulo({ materias: ["historia", "geografia"] }), null);
+  assert.equal(materiaUnicaRotulo({ area: "humanas" }), null);
+  assert.equal(materiaUnicaRotulo({}), null);
+  assert.equal(materiaUnicaRotulo(null), null);
+  assert.equal(materiaUnicaRotulo({ materia: 3 }), null);
 });

@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, RefreshCw, Trash2, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { estilos } from "@/components/ui/estilos";
-import { LIMITES_CABECALHO, PROVA_MUDOU, type CabecalhoProva } from "@/lib/folha/editar-prova";
-import { moverQuestaoProva, removerQuestaoProva, salvarCabecalhoProva, trocarQuestaoProva } from "../../acoes";
+import { LIMITE_NOME_PROVA, LIMITES_CABECALHO, PROVA_MUDOU, type CabecalhoProva } from "@/lib/folha/editar-prova";
+import { moverQuestaoProva, removerQuestaoProva, salvarCabecalhoProva, salvarNomeProva, trocarQuestaoProva } from "../../acoes";
 import css from "./Previa.module.css";
 
 export type QuestaoEditor = { indice: number; questaoId: string; rotulo: string; trecho: string };
@@ -23,12 +23,15 @@ export function Editor({
   provaId,
   titulo,
   cabecalho,
+  nomeProva,
   questoes,
   aoFechar,
 }: {
   provaId: string;
   titulo: string;
   cabecalho: CabecalhoProva;
+  /** Apelido atual de quem vê; null = quem vê não é o professor da prova (o campo não aparece). */
+  nomeProva: string | null;
   questoes: QuestaoEditor[];
   aoFechar: () => void;
 }) {
@@ -68,16 +71,23 @@ export function Editor({
     const campo = (nome: string) => String(f.get(nome) ?? "");
     setAviso(null);
     executar("cabecalho", async () => {
-      const r = await salvarCabecalhoProva({
-        provaId,
-        titulo: campo("titulo"),
-        turma: campo("turma"),
-        data: campo("data"),
-        valor: campo("valor"),
-        instrucoes: campo("instrucoes"),
-      });
-      if (!r.ok) {
-        setAviso({ secao: "cabecalho", tipo: "erro", texto: r.erro });
+      // O "Nome na prova" é da conta do professor: vai numa chamada a mais, junto com o cabeçalho.
+      const [r, rNome] = await Promise.all([
+        salvarCabecalhoProva({
+          provaId,
+          titulo: campo("titulo"),
+          turma: campo("turma"),
+          data: campo("data"),
+          valor: campo("valor"),
+          instrucoes: campo("instrucoes"),
+        }),
+        nomeProva !== null ? salvarNomeProva(campo("nomeProva")) : Promise.resolve({ ok: true as const }),
+      ]);
+      const falha = !r.ok ? r : !rNome.ok ? rNome : null;
+      if (falha) {
+        setAviso({ secao: "cabecalho", tipo: "erro", texto: falha.erro });
+        // O que foi salvo aparece na prévia mesmo assim.
+        if (r.ok || rNome.ok) router.refresh();
         return;
       }
       setAviso({ secao: "cabecalho", tipo: "ok", texto: "Cabeçalho salvo." });
@@ -159,7 +169,7 @@ export function Editor({
       <div className={css.editorCorpo}>
         <section aria-labelledby="editor-cabecalho" className={css.editorSecao}>
           <h3 id="editor-cabecalho" className={css.editorSubtitulo}>Cabeçalho</h3>
-          <form key={titulo + JSON.stringify(cabecalho)} onSubmit={salvarCabecalho} className={css.editorForm}>
+          <form key={titulo + JSON.stringify(cabecalho) + (nomeProva ?? "")} onSubmit={salvarCabecalho} className={css.editorForm}>
             <label className={css.editorCampo}>
               Título
               <input name="titulo" required maxLength={LIMITES_CABECALHO.titulo} defaultValue={titulo} className={estilos.input} />
@@ -178,6 +188,13 @@ export function Editor({
               Valor
               <input name="valor" maxLength={LIMITES_CABECALHO.valor} defaultValue={cabecalho.valor ?? ""} placeholder="Ex.: 10,0" className={estilos.input} />
             </label>
+            {nomeProva !== null && (
+              <label className={css.editorCampo}>
+                Nome na prova
+                <input name="nomeProva" maxLength={LIMITE_NOME_PROVA} defaultValue={nomeProva} placeholder="Ex.: Cenoura" aria-describedby="editor-nome-prova-ajuda" className={estilos.input} />
+                <span id="editor-nome-prova-ajuda" className={css.editorAjuda}>Vale para todas as suas provas. Em branco, sai o seu nome.</span>
+              </label>
+            )}
             <label className={css.editorCampo}>
               Instruções
               <textarea name="instrucoes" rows={4} maxLength={LIMITES_CABECALHO.instrucoes} defaultValue={cabecalho.instrucoes ?? ""} className={estilos.input} />

@@ -65,6 +65,8 @@ export type Professor = {
   telefone: string | null;
   ultimo_acesso: string | null;
   created_at: string;
+  /** Apelido que sai na linha "Professor(a)" das provas em Word; null = o nome. Opcional: nem toda leitura traz. */
+  nome_prova?: string | null;
 };
 
 /** Linha crua de professores (inclui hash e token) — só usada dentro de actions server-side de auth. */
