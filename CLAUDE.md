@@ -53,6 +53,12 @@ O Peter fala português; respostas em pt-BR.
    em `professores.nome_prova`), subir/descer/arrastar, trocar e remover questões. Valor por questão: total no
    cabeçalho, fixos em `prova_word_questoes.valor` (null = automática, divisão em décimos), "QUESTÃO 01 (1,0)";
    `gerar_prova_word` aceita `valor`/`valores_questoes` (texto p/ o prompt da Hermes em `docs/folha-tarefa.md`).
+12. Meu desempenho (2026-11-02; spec `docs/superpowers/specs/2026-11-02-meu-desempenho-design.md`): `/aluno/desempenho`
+   (ícone de gráfico) e, na escola, "Conteúdos com mais erro na turma" no relatório + `/turma/<id>/relatorio/aluno/<id>/desempenho`.
+   Só usa respostas já gravadas (matéria/assunto); 1ª resposta por questão; regras em `src/lib/desempenho/regras.ts`.
+   Dados de teste: `db/dados-teste-desempenho.sql` (turma TESTE DESEMPENHO, usuários `teste.desempenho.*`) e
+   `db/apagar-dados-teste-desempenho.sql`. É o projeto 1 de 4 do acompanhamento da aprendizagem: faltam 2 (classificação
+   fina + lote), 3 (recomendações e plano de estudo) e 4 (IA).
 
 ## Próximo passo
 - **Loja com Stripe** (alunos de fora: curso avulso ou pacote completo com treinos; Pix e cartão 12x):
