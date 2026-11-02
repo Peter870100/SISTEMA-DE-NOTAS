@@ -376,7 +376,8 @@ export async function dadosFolhaProva(
     bolinhas,
     avisoFinal,
     cabecalho,
-    professor: nomes ? nomeNaProva(nomes.nome, nomes.nome_prova, materiaUnicaRotulo(prova.filtros)) : null,
+    professor: nomes ? nomeNaProva(nomes.nome, nomes.nome_prova) : null,
+    disciplina: materiaUnicaRotulo(prova.filtros) ?? null,
   };
   return {
     prova: {

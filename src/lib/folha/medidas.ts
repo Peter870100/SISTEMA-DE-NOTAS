@@ -40,12 +40,19 @@ export const COLUNA_LOGO = cm(2.4);
 export const MARGEM_CELULA = cm(0.3);
 /** Folga antes da borda da célula: um tab no limite exato faz o Word quebrar a linha. */
 export const FOLGA_LINHA = cm(0.3);
+/** Texto do cabeçalho sem a caixa de nota (gabarito). */
 export const LARGURA_TEXTO_CAB = LARGURA_UTIL - COLUNA_LOGO;
+/** Coluna da caixa "NOTA" (só na folha do aluno), à direita das linhas de identificação. */
+export const COLUNA_NOTA = cm(2.4);
+/** Caixa em branco onde o professor escreve a nota à mão. */
+export const CAIXA_NOTA = { largura: cm(2), altura: cm(1.3) };
+/** Texto do cabeçalho da folha do aluno (com a caixa de nota). */
+export const LARGURA_TEXTO_CAB_ALUNO = LARGURA_TEXTO_CAB - COLUNA_NOTA;
 /**
- * Fim útil das linhas de preencher, medido a partir do início do texto da célula:
+ * Fim útil das linhas de preencher (folha do aluno), medido a partir do início do texto da célula:
  * largura da célula menos as margens internas e a folga.
  */
-export const FIM_LINHA = LARGURA_TEXTO_CAB - 2 * MARGEM_CELULA - FOLGA_LINHA;
+export const FIM_LINHA = LARGURA_TEXTO_CAB_ALUNO - 2 * MARGEM_CELULA - FOLGA_LINHA;
 
 /** Twips em px CSS (96 dpi). */
 export const px = (twips: number) => twips / TWIPS_POR_PX;

@@ -16,6 +16,8 @@ import {
   COLUNA_LOGO,
   ESPACO_COLUNAS,
   FAIXA_QUESTAO,
+  CAIXA_NOTA,
+  COLUNA_NOTA,
   FIM_LINHA,
   FIO_CLARO,
   FUNDO,
@@ -423,7 +425,8 @@ function LinhaInformada({ itens }: { itens: { rotulo: string; valor: string }[] 
 /** Cabeçalho da 1ª página: logo (ou nome da escola) | título e linhas de identificação. */
 export function Cabecalho({ dados, qual }: { dados: DadosPrevia; qual: Qual }) {
   const cab = qual === "prova" ? dados.cabecalho : {};
-  const linhas = linhasIdentificacao(cab, qual === "prova" ? dados.professor : null);
+  const prova = qual === "prova";
+  const linhas = linhasIdentificacao(cab, prova ? dados.professor : null, prova ? dados.disciplina : null);
   return (
     <div>
       <div className={css.cabecalho}>
@@ -443,11 +446,17 @@ export function Cabecalho({ dados, qual }: { dados: DadosPrevia; qual: Qual }) {
             <>
               <LinhaPreencher campos={linhas.aluno} />
               <LinhaInformada itens={linhas.nomeProfessor} />
-              <LinhaPreencher campos={linhas.professor} />
+              {linhas.professor.length > 0 && <LinhaPreencher campos={linhas.professor} />}
               <LinhaInformada itens={linhas.informada} />
             </>
           )}
         </div>
+        {prova && (
+          <div className={css.cabecalhoNota} style={{ width: x(COLUNA_NOTA) }}>
+            <span className={css.rotuloNota}>NOTA</span>
+            <span className={css.caixaNota} style={{ width: x(CAIXA_NOTA.largura), height: x(CAIXA_NOTA.altura) }} />
+          </div>
+        )}
       </div>
       {cab.instrucoes && (
         <div className={css.instrucoes} style={{ paddingTop: p(100) }}>

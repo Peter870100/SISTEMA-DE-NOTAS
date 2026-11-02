@@ -106,6 +106,10 @@
 .cabecalho { display: flex; width: var(--folha-largura-util); }
 .cabecalhoLogo { flex: none; display: flex; align-items: center; justify-content: center; border-right: 1.5pt solid var(--folha-azul); }
 .cabecalhoEscola { color: var(--folha-azul); font-family: var(--fonte-folha); font-size: 8pt; font-weight: 700; text-align: center; }
+/* Caixa "NOTA" à direita (só na folha do aluno), para a nota escrita à mão. */
+.cabecalhoNota { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2pt; font-family: var(--fonte-folha); }
+.rotuloNota { color: var(--folha-azul); font-size: 9pt; font-weight: 700; }
+.caixaNota { display: block; border: 1.5pt solid var(--folha-azul); }
 .cabecalhoTexto { flex: 1; display: flex; flex-direction: column; justify-content: center; font-family: var(--fonte-folha); line-height: 1.28; }
 .cabecalhoTitulo { padding-bottom: 1pt; color: var(--folha-azul); font-size: 11pt; font-weight: 700; }
 .cabecalhoSubtitulo { padding-bottom: 1pt; color: var(--folha-cinza); font-size: 9.5pt; }

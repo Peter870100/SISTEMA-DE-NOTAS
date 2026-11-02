@@ -14,6 +14,8 @@ export type DadosPrevia = {
   avisoFinal: string | null;
   /** Turma, data, valor e instruções da prova; `{}` quando não há. */
   cabecalho: CabecalhoProva;
-  /** Nome do professor na linha "Professor(a)" (já com a matéria); null = traço de preencher. */
+  /** Nome do professor na linha "Professor(a)"; null = traço de preencher. */
   professor: string | null;
+  /** Matéria única da prova ("Disciplina: …" na linha de turma/data/valor); null = não sai. */
+  disciplina: string | null;
 };

@@ -4,6 +4,7 @@ import {
   Document,
   Footer,
   Header,
+  HeightRule,
   ImageRun,
   LeaderType,
   LineRuleType,
@@ -36,7 +37,9 @@ import {
   BOLINHA_PX,
   CINZA,
   cm,
+  CAIXA_NOTA,
   COLUNA_LOGO,
+  COLUNA_NOTA,
   CORPO,
   CORPO_QUESTAO,
   DISTANCIA_TOPO_RODAPE,
@@ -48,6 +51,7 @@ import {
   LARGURA_A4,
   LARGURA_COLUNA,
   LARGURA_TEXTO_CAB,
+  LARGURA_TEXTO_CAB_ALUNO,
   LARGURA_UTIL,
   LINHA,
   LOGO_LARGURA_PX,
@@ -86,8 +90,10 @@ export type DadosFolha = {
   avisoFinal?: string | null;
   /** Turma, data, valor e instruções da prova (só aparecem na folha do aluno). */
   cabecalho?: CabecalhoProva | null;
-  /** Nome do professor na linha "Professor(a)" (já com a matéria, se houver); só na folha do aluno. */
+  /** Nome do professor na linha "Professor(a)"; só na folha do aluno. */
   professor?: string | null;
+  /** Matéria da prova ("Disciplina: …"); só na folha do aluno. */
+  disciplina?: string | null;
 };
 
 
@@ -229,6 +235,7 @@ function linhaInformada(itens: { rotulo: string; valor: string }[]): Paragraph {
 
 const SEM_BORDA = { style: BorderStyle.NONE, size: 0, color: "auto" } as const;
 const FIO_VERTICAL = { style: BorderStyle.SINGLE, size: 12, color: AZUL } as const; // 1,5 pt
+const FIO_CAIXA = { style: BorderStyle.SINGLE, size: 12, color: AZUL } as const; // 1,5 pt
 
 function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: boolean): (Paragraph | Table)[] {
   const textos: Paragraph[] = [
@@ -242,12 +249,13 @@ function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: bo
   }
   const cab = comIdentificacao ? (d.cabecalho ?? {}) : {};
   if (comIdentificacao) {
-    const linhas = linhasIdentificacao(cab, d.professor);
+    const linhas = linhasIdentificacao(cab, d.professor, d.disciplina);
     textos.push(linhaPreencher(linhas.aluno));
     if (linhas.nomeProfessor.length > 0) textos.push(linhaInformada(linhas.nomeProfessor));
-    textos.push(linhaPreencher(linhas.professor));
+    if (linhas.professor.length > 0) textos.push(linhaPreencher(linhas.professor));
     if (linhas.informada.length > 0) textos.push(linhaInformada(linhas.informada));
   }
+  const larguraTexto = comIdentificacao ? LARGURA_TEXTO_CAB_ALUNO : LARGURA_TEXTO_CAB;
 
   const imagem = d.logo ? logoRun(d.logo) : null;
   const conteudoLogo = imagem
@@ -257,7 +265,7 @@ function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: bo
   return [
     new Table({
       width: { size: LARGURA_UTIL, type: WidthType.DXA },
-      columnWidths: [COLUNA_LOGO, LARGURA_TEXTO_CAB],
+      columnWidths: comIdentificacao ? [COLUNA_LOGO, larguraTexto, COLUNA_NOTA] : [COLUNA_LOGO, larguraTexto],
       borders: TableBorders.NONE,
       rows: [
         new TableRow({
@@ -270,12 +278,13 @@ function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: bo
               children: [conteudoLogo],
             }),
             new TableCell({
-              width: { size: LARGURA_TEXTO_CAB, type: WidthType.DXA },
+              width: { size: larguraTexto, type: WidthType.DXA },
               verticalAlign: VerticalAlignTable.CENTER,
               margins: { left: MARGEM_CELULA, right: MARGEM_CELULA, top: 0, bottom: 0 },
               borders: { top: SEM_BORDA, bottom: SEM_BORDA, right: SEM_BORDA, left: FIO_VERTICAL },
               children: textos,
             }),
+            ...(comIdentificacao ? [celulaNota()] : []),
           ],
         }),
       ],
@@ -283,6 +292,44 @@ function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: bo
     ...(cab.instrucoes ? [instrucoes(cab.instrucoes)] : []),
     new Paragraph({ children: [], spacing: { after: 160 } }),
   ];
+}
+
+/** Coluna da direita na folha do aluno: "NOTA" e uma caixa em branco para o professor escrever a nota à mão. */
+function celulaNota(): TableCell {
+  const caixa = new Table({
+    width: { size: CAIXA_NOTA.largura, type: WidthType.DXA },
+    columnWidths: [CAIXA_NOTA.largura],
+    alignment: AlignmentType.CENTER,
+    layout: TableLayoutType.FIXED,
+    rows: [
+      new TableRow({
+        height: { value: CAIXA_NOTA.altura, rule: HeightRule.EXACT },
+        children: [
+          new TableCell({
+            width: { size: CAIXA_NOTA.largura, type: WidthType.DXA },
+            borders: { top: FIO_CAIXA, bottom: FIO_CAIXA, left: FIO_CAIXA, right: FIO_CAIXA },
+            children: [new Paragraph({ children: [] })],
+          }),
+        ],
+      }),
+    ],
+  });
+  return new TableCell({
+    width: { size: COLUNA_NOTA, type: WidthType.DXA },
+    verticalAlign: VerticalAlignTable.CENTER,
+    margins: { left: 0, right: 0, top: 0, bottom: 0 },
+    borders: { top: SEM_BORDA, bottom: SEM_BORDA, left: SEM_BORDA, right: SEM_BORDA },
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [rotulo("NOTA", { bold: true, color: AZUL, size: 18 })],
+        spacing: { after: 40 },
+      }),
+      caixa,
+      // O Word exige um parágrafo depois de uma tabela dentro de célula.
+      new Paragraph({ children: [], spacing: { before: 0, after: 0, line: 20, lineRule: LineRuleType.EXACT } }),
+    ],
+  });
 }
 
 /** "Instruções: " em negrito azul e o texto logo depois; cada quebra de linha vira quebra no Word. */

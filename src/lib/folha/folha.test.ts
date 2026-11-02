@@ -235,7 +235,7 @@ test("turma, data e valor vão numa linha própria, fora das linhas Aluno(a) e P
   const aluno = ps.find((p) => p.startsWith("Aluno(a): "));
   const prof = ps.find((p) => p.startsWith("Professor(a): "));
   assert.ok(aluno && !aluno.includes("Turma") && !aluno.includes(turma), aluno);
-  assert.ok(prof && !prof.includes("Data") && !prof.includes("Valor") && prof.includes("Nota"), prof);
+  assert.ok(prof && !prof.includes("Data") && !prof.includes("Valor") && !prof.includes("Nota"), prof);
 });
 test("só o valor preenchido: linha extra só com \"Valor:\" e linhas de sempre", async () => {
   const base = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")] };
@@ -256,20 +256,21 @@ test("só o valor preenchido: linha extra só com \"Valor:\" e linhas de sempre"
 function paragrafosXml(xml: string): string[] {
   return xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) ?? [];
 }
-test("nome do professor: na linha Professor(a) da prova, sem traço; nunca no gabarito", async () => {
-  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")], professor: "Cenoura — História" };
+test("nome do professor: na linha Professor(a) da prova, sem traço; disciplina à parte; nunca no gabarito", async () => {
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")], professor: "Cenoura", disciplina: "História" };
   const crus = paragrafosXml(await documentoXml(await folhaAluno(d)));
   const cru = crus.find((p) => paragrafos(p)[0]?.startsWith("Professor(a): ")) ?? "";
   const prof = paragrafos(cru)[0];
-  assert.ok(prof?.startsWith("Professor(a): Cenoura — História  Data: ____/____/______  Nota: "), prof);
-  assert.equal(cru.split("<w:tab/>").length - 1, 1, "só a Nota tem traço (tab)");
+  assert.equal(prof, "Professor(a): Cenoura  Data: ____/____/______");
+  assert.ok(!cru.includes("<w:tab/>"), "nome e data sem traço (tab)");
+  assert.ok(crus.some((p) => paragrafos(p)[0] === "Disciplina: História"));
   const gab = await documentoXml(await folhaGabarito(d));
-  assert.ok(!gab.includes("Cenoura"));
+  assert.ok(!gab.includes("Cenoura") && !gab.includes("Disciplina"));
   const semNome = paragrafos(await documentoXml(await folhaAluno({ ...d, professor: null })));
   assert.ok(!semNome.some((p) => p.includes("Cenoura")));
 });
-test("nome longo (60 + matéria) vai numa linha própria, sem tab, e Data/Nota seguem abaixo", async () => {
-  const nome = "N".repeat(60) + " — Língua Portuguesa";
+test("nome longo (60) vai numa linha própria, sem tab, e a Data segue abaixo", async () => {
+  const nome = "N".repeat(60);
   const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")], professor: nome };
   const xml = await documentoXml(await folhaAluno(d));
   const crus = paragrafosXml(xml);
@@ -278,7 +279,15 @@ test("nome longo (60 + matéria) vai numa linha própria, sem tab, e Data/Nota s
   assert.equal(paragrafos(crus[i])[0], `Professor(a): ${nome}`);
   assert.ok(!crus[i].includes("<w:tab/>") && !crus[i].includes("<w:tabs>"), "a linha do nome não pode ter tab");
   const seguinte = paragrafos(crus[i + 1])[0];
-  assert.ok(seguinte.startsWith("Data: ____/____/______  Nota: "), seguinte);
+  assert.equal(seguinte, "Data: ____/____/______");
+});
+test("caixa NOTA: só na folha do aluno, sem linha \"Nota:\"", async () => {
+  const d = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")] };
+  const ps = paragrafos(await documentoXml(await folhaAluno(d)));
+  assert.ok(ps.includes("NOTA"));
+  assert.ok(!ps.some((p) => p.includes("Nota:")));
+  const gab = paragrafos(await documentoXml(await folhaGabarito(d)));
+  assert.ok(!gab.includes("NOTA"));
 });
 
 test("comandoRepetido: enunciado que já termina com o comando", () => {
