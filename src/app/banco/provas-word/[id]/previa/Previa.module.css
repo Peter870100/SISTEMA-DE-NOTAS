@@ -187,13 +187,64 @@
 }
 @media (prefers-reduced-motion: reduce) { .zoom { transition: none; } }
 
+/* ---------- painel "Editar" (portal próprio no body, à direita; no celular, tela cheia) ---------- */
+
+/* Com o painel aberto, barra e folhas encolhem 380px para ele não tapar nada (mesma largura do Editor.tsx). */
+@media (min-width: 701px) {
+  .comEditor { padding-right: 380px; }
+  .comEditor .zoom { right: calc(380px + 1.75rem); }
+}
+
+.editor {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 81;
+  display: flex; flex-direction: column; width: 380px; max-width: 100%;
+  border-left: 4px solid var(--color-gold); background: #f3f6fc; color: var(--color-ink);
+  box-shadow: -8px 0 28px rgb(4 30 80 / .28);
+}
+@media (max-width: 700px) { .editor { left: 0; width: auto; border-left: 0; } }
+.editorTopo {
+  flex: none; display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  padding: .6rem .75rem .6rem 1rem; background: var(--color-brand); color: #fff;
+}
+.editorTitulo { color: #fff; font-family: var(--font-heading), sans-serif; font-size: 1.1rem; font-weight: 700; text-transform: uppercase; outline: none; }
+.editorFechar {
+  display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem;
+  border: 1px solid rgb(255 255 255 / .35); border-radius: .6rem; background: rgb(255 255 255 / .1); color: #fff;
+}
+.editorFechar:hover { border-color: var(--color-gold); background: rgb(255 255 255 / .18); }
+.editorCorpo { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 1rem; padding: 1rem; }
+.editorSecao { display: flex; flex-direction: column; gap: .7rem; padding: .9rem 1rem; border: 1px solid var(--color-line); border-radius: 1rem; background: #fff; box-shadow: 0 4px 16px rgb(10 42 110 / .06); }
+.editorSubtitulo { color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: 1rem; font-weight: 700; text-transform: uppercase; }
+.editorForm { display: flex; flex-direction: column; gap: .7rem; }
+.editorDupla { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+.editorCampo { display: flex; flex-direction: column; gap: .3rem; min-width: 0; color: var(--color-brand); font-size: .8rem; font-weight: 700; }
+.editorCampo textarea { resize: vertical; }
+.editorLista { display: flex; flex-direction: column; gap: .6rem; }
+.editorQuestao { display: flex; flex-direction: column; gap: .35rem; padding: .65rem .75rem; border-left: 4px solid var(--color-brand); border-radius: .7rem; background: color-mix(in srgb, var(--color-brand) 6%, #fff); }
+.editorRotulo { color: var(--color-brand); font-size: .88rem; font-weight: 700; }
+.editorTrecho { color: var(--color-ink); font-size: .82rem; line-height: 1.35; overflow-wrap: anywhere; }
+.editorAcoes { display: flex; flex-wrap: wrap; gap: .35rem; }
+.editorBotao {
+  display: inline-flex; align-items: center; gap: .3rem; min-height: 2rem; padding: .25rem .6rem;
+  border: 1px solid color-mix(in srgb, var(--color-brand) 30%, #fff); border-radius: .55rem; background: #fff;
+  color: var(--color-brand); font-size: .8rem; font-weight: 700; transition: background .15s, border-color .15s;
+}
+.editorBotao:hover:not(:disabled) { border-color: var(--color-brand); background: color-mix(in srgb, var(--color-brand) 10%, #fff); }
+.editorBotao:disabled { cursor: not-allowed; opacity: .5; }
+.editorRemover { margin-left: auto; color: var(--color-danger); }
+.editorRemover:hover:not(:disabled) { border-color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 8%, #fff); }
+.editorPergunta { display: flex; flex-direction: column; gap: .5rem; padding: .6rem .7rem; border-left: 4px solid var(--color-gold); border-radius: .6rem; background: #fff8c2; color: var(--color-gold-ink); font-size: .85rem; font-weight: 600; }
+.editorOk { padding: .55rem .8rem; border-left: 4px solid var(--color-ok); border-radius: .6rem; background: color-mix(in srgb, var(--color-ok) 10%, #fff); color: var(--color-brand); font-size: .85rem; font-weight: 700; }
+.editorInfo { padding: .55rem .8rem; border-left: 4px solid var(--color-gold); border-radius: .6rem; background: #fff8c2; color: var(--color-gold-ink); font-size: .85rem; font-weight: 600; }
+.editorErro { padding: .55rem .8rem; border-radius: .6rem; background: color-mix(in srgb, var(--color-danger) 10%, #fff); color: var(--color-danger); font-size: .85rem; font-weight: 600; }
+
 @keyframes girar { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .girar { animation: none; } }
 
 /* ---------- impressão: só as folhas, uma por página A4 ---------- */
 
 @media print {
-  .raiz { position: static; display: block; background: #fff; }
+  .raiz { position: static; display: block; padding: 0 !important; background: #fff; }
   .barra, .aviso, .medicao, .esperando, .zoom { display: none !important; }
   .area { overflow: visible; }
   .paginas { display: block; width: auto; min-width: 0; padding: 0; }

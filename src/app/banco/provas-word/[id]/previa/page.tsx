@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getProfessorAtual } from "@/lib/auth";
-import { dadosFolhaProva, lerProva } from "@/lib/folha/provas-word-servidor";
+import { dadosFolhaProva, lerProva, questoesDoEditor } from "@/lib/folha/provas-word-servidor";
 import { dadosPrevia } from "@/lib/folha/previa-servidor";
-import { Previa } from "./Previa";
+import { PreviaEditavel } from "./PreviaEditavel";
 
 export const dynamic = "force-dynamic";
 // Carrega as questões e recorta/reduz as figuras com sharp (mesmo limite do download em Word).
@@ -50,7 +50,17 @@ export default async function PreviaProvaPage({
   const busca = await searchParams;
   const qual = busca.qual === "gabarito" ? "gabarito" : "prova";
   const imprimir = busca.imprimir === "1";
-  const dados = await dadosPrevia(carregada.dados);
+  // Só depois da conferência de acesso acima: quem pode ver a prova pode editá-la (dono dela ou papel `dono`).
+  const [dados, questoes] = await Promise.all([dadosPrevia(carregada.dados), questoesDoEditor(id)]);
 
-  return <Previa dados={dados} provaId={id} nomeBase={carregada.nomeBase} qual={qual} imprimir={imprimir} />;
+  return (
+    <PreviaEditavel
+      dados={dados}
+      provaId={id}
+      nomeBase={carregada.nomeBase}
+      qual={qual}
+      imprimir={imprimir}
+      editor={{ titulo: dados.titulo, cabecalho: dados.cabecalho, questoes }}
+    />
+  );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Download, LoaderCircle, Maximize2, Minus, Plus, Printer } from "lucide-react";
+import { Download, LoaderCircle, Maximize2, Minus, Pencil, Plus, Printer } from "lucide-react";
 import { itensGabarito, itensProva, type ItemFolha } from "@/lib/folha/estrutura";
 import { paginar, type BlocoMedido, type PaginaPrevia } from "@/lib/folha/paginar";
 import { dividirItem, tamanhoTexto, type BlocoDividido } from "@/lib/folha/dividir";
@@ -15,6 +15,10 @@ import css from "./Previa.module.css";
 
 /** Folga por coluna (px) para diferenças pequenas entre a tela e a impressão. */
 const FOLGA_COLUNA = 3;
+
+/** Largura do painel "Editar" (px) e largura da janela até a qual ele ocupa a tela toda (mesmos valores do CSS). */
+const LARGURA_EDITOR = 380;
+const TELA_CHEIA_EDITOR = 700;
 
 /** Rodadas de divisão de texto alto demais antes de paginar mesmo assim. */
 const MAX_RODADAS = 4;
@@ -51,12 +55,16 @@ export function Previa({
   nomeBase,
   qual: qualInicial,
   imprimir,
+  editorAberto,
+  aoAlternarEditor,
 }: {
   dados: DadosPrevia;
   provaId: string;
   nomeBase: string;
   qual: Qual;
   imprimir: boolean;
+  editorAberto: boolean;
+  aoAlternarEditor: () => void;
 }) {
   const montado = useMontado();
   const largura = useLarguraJanela();
@@ -190,11 +198,15 @@ export function Previa({
   }, [qual, nomeBase]);
 
   // Com a prévia aberta, o resto do app fica inerte (sem foco, clique ou leitor de tela) e sem rolagem.
-  // O menu "Baixar" também abre num portal no body: ele (e a própria prévia) ficam de fora.
+  // O menu "Baixar" e o painel "Editar" também abrem em portais no body: eles (e a própria prévia) ficam de fora.
   useEffect(() => {
     if (!montado) return;
     const marcados = [...document.body.children].filter(
-      (el) => !el.hasAttribute("data-previa") && !el.hasAttribute("data-menu-flutuante") && !el.hasAttribute("inert"),
+      (el) =>
+        !el.hasAttribute("data-previa") &&
+        !el.hasAttribute("data-menu-flutuante") &&
+        !el.hasAttribute("data-previa-editor") &&
+        !el.hasAttribute("inert"),
     );
     marcados.forEach((el) => el.setAttribute("inert", ""));
     const { html, body } = { html: document.documentElement.style.overflow, body: document.body.style.overflow };
@@ -223,7 +235,9 @@ export function Previa({
 
   if (!montado) return null;
 
-  const escala = escalaDaTela(zoom, largura);
+  // Com o painel "Editar" ao lado (acima de 700px), as folhas têm 380px a menos de largura.
+  const comPainel = editorAberto && largura > TELA_CHEIA_EDITOR;
+  const escala = escalaDaTela(zoom, comPainel ? largura - LARGURA_EDITOR : largura);
   const porcento = Math.round(escala * 100);
   const bolinhas = dados.bolinhas;
 
@@ -239,7 +253,7 @@ export function Previa({
   );
 
   return createPortal(
-    <div data-previa="" className={css.raiz} style={VARIAVEIS_FOLHA}>
+    <div data-previa="" className={`${css.raiz} ${editorAberto ? css.comEditor : ""}`} style={VARIAVEIS_FOLHA}>
       <style>{`@media print {
   @page { size: A4; margin: 0; }
   html, body { display: block !important; height: auto !important; overflow: visible !important; background: #fff !important; }
@@ -262,6 +276,10 @@ export function Previa({
             Montando a prova…
           </span>
         )}
+        <button type="button" className={css.botaoBarra} aria-pressed={editorAberto} disabled={!pronto} onClick={aoAlternarEditor}>
+          <Pencil size={16} aria-hidden="true" />
+          Editar
+        </button>
         <button type="button" className={css.botaoBarra} disabled={!pronto} onClick={() => setPedidoImpressao(true)}>
           <Printer size={16} aria-hidden="true" />
           Imprimir
