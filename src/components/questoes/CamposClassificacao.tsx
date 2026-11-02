@@ -23,11 +23,15 @@ type Props = {
   /** Professor ou admin podem propor tópico; false esconde o botão. */
   podeProporTopico?: boolean;
   desabilitado?: boolean;
+  /** Quando informado, o campo de tópico fica desligado e mostra este motivo (ex.: lote com assuntos diferentes). */
+  motivoSemTopico?: string;
+  /** Idem para as habilidades (ex.: lote com áreas diferentes). */
+  motivoSemHabilidades?: string;
 };
 
 /** Tópico (com "+ propor tópico") e Habilidades da área, com busca. Compartilhado pelo editor e pela tela de classificar. */
 export function CamposClassificacao({
-  assuntoId, area, topicos, habilidades, topicoId, habilidadeIds, onChange, podeProporTopico = true, desabilitado = false,
+  assuntoId, area, topicos, habilidades, topicoId, habilidadeIds, onChange, podeProporTopico = true, desabilitado = false, motivoSemTopico, motivoSemHabilidades,
 }: Props) {
   const [propostos, setPropostos] = useState<Topico[]>([]);
   const [propondo, setPropondo] = useState(false);
@@ -73,13 +77,14 @@ export function CamposClassificacao({
     <div className={styles.campos}>
       <div className={styles.campo}>
         <label className="flex flex-col gap-1 text-xs text-muted">Tópico
-          <select value={topicoId ?? ""} disabled={desabilitado || !assuntoId} onChange={(e) => onChange({ topicoId: e.target.value || null, habilidadeIds })} className={estilos.input}>
+          <select value={topicoId ?? ""} disabled={desabilitado || !assuntoId || !!motivoSemTopico} onChange={(e) => onChange({ topicoId: e.target.value || null, habilidadeIds })} className={estilos.input}>
             <option value="">— sem tópico —</option>
             {doAssunto.map((t) => <option key={t.id} value={t.id}>{t.nome}{t.situacao === "proposto" ? " (proposto)" : ""}</option>)}
           </select>
         </label>
-        {!assuntoId && <p className={styles.dica}>Escolha um assunto para ver os tópicos.</p>}
-        {assuntoId && podeProporTopico && !propondo && (
+        {motivoSemTopico && <p className={styles.dica}>{motivoSemTopico}</p>}
+        {!assuntoId && !motivoSemTopico && <p className={styles.dica}>Escolha um assunto para ver os tópicos.</p>}
+        {assuntoId && !motivoSemTopico && podeProporTopico && !propondo && (
           <button type="button" disabled={desabilitado} onClick={() => setPropondo(true)} className={styles.link}><Plus size={14} aria-hidden="true" /> propor tópico</button>
         )}
         {assuntoId && propondo && (
@@ -95,7 +100,9 @@ export function CamposClassificacao({
 
       <div className={styles.campo} role="group" aria-label="Habilidades">
         <span className={styles.rotulo}>Habilidades {habilidadeIds.length > 0 && <span className={styles.contagem}>({habilidadeIds.length})</span>}</span>
-        {daArea.length === 0
+        {motivoSemHabilidades
+          ? <p className={styles.dica}>{motivoSemHabilidades}</p>
+          : daArea.length === 0
           ? <p className={styles.dica}>Nenhuma habilidade cadastrada para esta área.</p>
           : (
             <>

@@ -4,6 +4,9 @@ import { FilePlus2, Upload, Tags, Database, CheckCircle2, ClipboardList, School,
 import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { podeImportar } from "@/lib/questoes/acesso";
+import { podeEditarQuestao } from "@/lib/questoes/regras";
+import { carregarClassificacaoTela } from "@/lib/questoes/classificacao-pagina";
+import { LoteClassificacao, type ItemLista } from "@/components/questoes/LoteClassificacao";
 import { AREAS, MATERIAS } from "@/lib/questoes/materias";
 import { padraoExato } from "@/lib/questoes/busca";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -30,7 +33,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
   // Sintaxe PostgREST: or=(and(a,b),and(c,d,or(e,f))). Ids vêm do servidor (uuid), nunca do usuário.
   const visibilidade = professor.role === "dono" ? null
     : `and(escopo.eq.geral,status.eq.publicada),${professor.role === "admin" ? `and(escopo.eq.escola,escola_id.eq.${professor.escola_id})` : `and(escopo.eq.escola,escola_id.eq.${professor.escola_id},or(status.eq.publicada,criado_por.eq.${professor.id}))`}`;
-  let c = supabase.from("questoes").select("id, banca, ano, caderno, numero, area, materia, enunciado, status, escopo, precisa_revisao, criado_por, escola_id, origem", { count: "exact" });
+  let c = supabase.from("questoes").select("id, banca, ano, caderno, numero, area, materia, enunciado, status, escopo, precisa_revisao, criado_por, escola_id, origem, assunto_id", { count: "exact" });
   if (visibilidade) c = c.or(visibilidade);
   // Números do painel: tudo o que este professor pode ver (sem os filtros da busca).
   const contar = () => {
@@ -66,6 +69,30 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
     { rotulo: "Da escola", valor: (daEscola.count ?? 0).toLocaleString("pt-BR"), detalhe: "criadas pela sua escola", Icone: School },
   ];
 
+  const classificacao = await carregarClassificacaoTela(null);
+  const itens: ItemLista[] = (questoes ?? []).map((q) => ({
+    questao: { id: q.id, assunto_id: q.assunto_id, area: q.area, escopo: q.escopo, escola_id: q.escola_id, criado_por: q.criado_por },
+    podeEditar: podeEditarQuestao(professor, q),
+    cartao: (
+      <Link href={`/banco/questoes/${q.id}`} className={`${css.cartao} cartao-interativo`} data-status={q.status}>
+        <div className={css.topo}>
+          <span className={css.numero} data-icone>Nº {q.numero ?? "—"}</span>
+          <span className={css.origem}>{q.banca} {q.ano ?? ""}{q.caderno ? ` · ${q.caderno}` : ""}</span>
+          {daHermes.has(q.id) && <SeloHermes />}
+          {q.origem === "ia" && <span className={css.selo}>IA</span>}
+          {q.status === "revisao" && <span className={css.revisao}>Em revisão</span>}
+          {q.precisa_revisao && <span className={css.alerta} title="Marcada para conferir"><TriangleAlert size={15} aria-hidden="true" />Conferir</span>}
+        </div>
+        <p className={css.enunciado}>{q.enunciado.replace(/[*]/g, "") || "(sem texto)"}</p>
+        <div className={css.rodape}>
+          <span className={css.materia}>{MATERIAS[q.materia as keyof typeof MATERIAS]?.rotulo ?? q.materia ?? "Sem matéria"}</span>
+          <span className={css.escopo}>{q.escopo === "geral" ? "Banco geral" : "Escola"}</span>
+          <span className={css.abrir}>Abrir<ArrowRight size={16} aria-hidden="true" /></span>
+        </div>
+      </Link>
+    ),
+  }));
+
   return (
     <PageLayout crumb="Banco de questões" titulo="Questões" subtitulo={`${total} questão(ões)`} largura="max-w-7xl"
       acoes={<>
@@ -94,28 +121,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
       <section aria-labelledby="titulo-questoes" className="flex flex-col gap-3">
         <h2 id="titulo-questoes" className={css.tituloSecao}><ClipboardList size={22} aria-hidden="true" />Questões<span>{total.toLocaleString("pt-BR")}</span></h2>
         {(questoes ?? []).length === 0 ? <p className={css.vazio}>Nenhuma questão encontrada.</p> : (
-          <ul className={css.lista}>
-            {(questoes ?? []).map((q, i) => (
-              <li key={q.id} style={{ "--i": Math.min(i, 12) } as React.CSSProperties}>
-                <Link href={`/banco/questoes/${q.id}`} className={`${css.cartao} cartao-interativo`} data-status={q.status}>
-                  <div className={css.topo}>
-                    <span className={css.numero} data-icone>Nº {q.numero ?? "—"}</span>
-                    <span className={css.origem}>{q.banca} {q.ano ?? ""}{q.caderno ? ` · ${q.caderno}` : ""}</span>
-                    {daHermes.has(q.id) && <SeloHermes />}
-                    {q.origem === "ia" && <span className={css.selo}>IA</span>}
-                    {q.status === "revisao" && <span className={css.revisao}>Em revisão</span>}
-                    {q.precisa_revisao && <span className={css.alerta} title="Marcada para conferir"><TriangleAlert size={15} aria-hidden="true" />Conferir</span>}
-                  </div>
-                  <p className={css.enunciado}>{q.enunciado.replace(/[*]/g, "") || "(sem texto)"}</p>
-                  <div className={css.rodape}>
-                    <span className={css.materia}>{MATERIAS[q.materia as keyof typeof MATERIAS]?.rotulo ?? q.materia ?? "Sem matéria"}</span>
-                    <span className={css.escopo}>{q.escopo === "geral" ? "Banco geral" : "Escola"}</span>
-                    <span className={css.abrir}>Abrir<ArrowRight size={16} aria-hidden="true" /></span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <LoteClassificacao dados={classificacao && { topicos: classificacao.topicos, habilidades: classificacao.habilidades }} itens={itens} />
         )}
       </section>
       <nav aria-label="Páginas" className={css.paginas}>
