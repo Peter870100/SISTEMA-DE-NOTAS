@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   LIMITE_LOTE, validarItens, mesmoAssunto, mesmaArea, habilidadesFinais, planoJuntarTopicos, nomeNormalizado, mesclarItens,
+  contarPorTopico, normalizarLinkHttps, buscarPorTexto,
   type QuestaoLote, type ItemLote,
 } from "./classificacao";
 import type { Ator } from "./regras";
@@ -85,4 +86,34 @@ test("mesclarItens: sem habilidades informadas continua indefinido", () => {
   const r = mesclarItens([{ questaoId: "a", topicoId: null }, { questaoId: "a", topicoId: "t" }]);
   assert.equal(r[0].habilidadeIds, undefined);
   assert.equal(r[0].topicoId, "t");
+});
+
+test("contarPorTopico: uma contagem por tópico, ignorando questões sem tópico", () => {
+  assert.deepEqual(contarPorTopico([{ topico_id: "a" }, { topico_id: null }, { topico_id: "b" }, { topico_id: "a" }]), { a: 2, b: 1 });
+  assert.deepEqual(contarPorTopico([]), {});
+});
+
+test("normalizarLinkHttps: aceita https em qualquer caixa e devolve o esquema em minúsculas", () => {
+  assert.equal(normalizarLinkHttps("  https://exemplo.com/aula?x=1  "), "https://exemplo.com/aula?x=1");
+  assert.equal(normalizarLinkHttps("HTTPS://Exemplo.com/Aula"), "https://Exemplo.com/Aula");
+  assert.equal(normalizarLinkHttps("Https://exemplo.com"), "https://exemplo.com");
+});
+
+test("normalizarLinkHttps: recusa http, outros esquemas, vazio, sem endereço e com espaço", () => {
+  for (const ruim of ["http://exemplo.com", "ftp://exemplo.com", "exemplo.com", "javascript:alert(1)", "", "https://", "https:// exemplo.com", "https://exe mplo.com"]) {
+    assert.equal(normalizarLinkHttps(ruim), null, ruim);
+  }
+});
+
+test("buscarPorTexto: todas as palavras, sem acento, começo do nome primeiro e limite", () => {
+  const itens = [
+    { nome: "Derivação parassintética", rotulo: "Português · Morfologia" },
+    { nome: "Derivadas", rotulo: "Matemática · Cálculo" },
+    { nome: "Regra da cadeia", rotulo: "Matemática · Derivação" },
+    { nome: "Funções", rotulo: "Matemática · Álgebra" },
+  ];
+  assert.deepEqual(buscarPorTexto(itens, "derivacao").map((i) => i.nome), ["Derivação parassintética", "Regra da cadeia"]);
+  assert.deepEqual(buscarPorTexto(itens, "matematica deriv").map((i) => i.nome), ["Derivadas", "Regra da cadeia"]);
+  assert.deepEqual(buscarPorTexto(itens, "   "), []);
+  assert.deepEqual(buscarPorTexto(itens, "a", 2).length, 2);
 });

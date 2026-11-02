@@ -1,9 +1,9 @@
 import { supabase } from "@/lib/supabase/client";
 import { ehAdmin } from "@/lib/papeis";
-import type { Area, Habilidade, Questao, Topico } from "@/lib/types";
+import type { Area, Habilidade, MaterialRevisao, Questao, Topico } from "@/lib/types";
 import type { Ator } from "./regras";
 import {
-  habilidadesFinais, mesclarItens, nomeNormalizado, planoJuntarTopicos, validarItens,
+  contarPorTopico, habilidadesFinais, mesclarItens, nomeNormalizado, planoJuntarTopicos, validarItens,
   type ItemLote, type QuestaoLote, type Recusa,
 } from "./classificacao";
 
@@ -76,6 +76,59 @@ export async function classificacaoDasQuestoes(
     for (const h of hs ?? []) mapa.get(h.questao_id)?.habilidadeIds.push(h.habilidade_id);
   }
   return mapa;
+}
+
+/** Nº de questões por tópico, numa só leitura (o PostgREST não agrupa): lê só a coluna `topico_id`, página a página. */
+export async function contarQuestoesPorTopico(): Promise<Record<string, number>> {
+  const linhas = await lerTodas<{ topico_id: string | null }>((de, ate) =>
+    supabase.from("questoes").select("topico_id").not("topico_id", "is", null).order("id").range(de, ate));
+  return contarPorTopico(linhas);
+}
+
+export async function listarTodosPrerequisitos(): Promise<{ topico_id: string; prerequisito_id: string }[]> {
+  return lerTodas((de, ate) =>
+    supabase.from("topico_prerequisitos").select("topico_id, prerequisito_id").order("topico_id").order("prerequisito_id").range(de, ate));
+}
+
+export async function listarTodosMateriais(): Promise<MaterialRevisao[]> {
+  return lerTodas<MaterialRevisao>((de, ate) => supabase.from("materiais_revisao").select("*").order("created_at").order("id").range(de, ate));
+}
+
+/** Aula que pode virar material: o rótulo traz o curso e a escola, que se repetem entre escolas. */
+export type AulaOpcao = { id: string; titulo: string; curso: string; publicada: boolean };
+
+/** Aulas publicadas (para escolher) mais as de `idsExtras` (já usadas em materiais, mesmo despublicadas), em ordem alfabética. */
+export async function listarAulasParaMaterial(idsExtras: string[]): Promise<AulaOpcao[]> {
+  type Linha = { id: string; titulo: string; curso_id: string; publicada: boolean };
+  const aulas = await lerTodas<Linha>((de, ate) =>
+    supabase.from("aulas").select("id, titulo, curso_id, publicada").eq("publicada", true).order("curso_id").order("id").range(de, ate));
+  const vistas = new Set(aulas.map((a) => a.id));
+  const faltam = [...new Set(idsExtras)].filter((id) => !vistas.has(id));
+  for (const bloco of emBlocos(faltam)) {
+    const { data, error } = await supabase.from("aulas").select("id, titulo, curso_id, publicada").in("id", bloco);
+    erro(error);
+    aulas.push(...(data ?? []));
+  }
+  const cursoIds = [...new Set(aulas.map((a) => a.curso_id))];
+  const cursos = new Map<string, { titulo: string; escola_id: string }>();
+  for (const bloco of emBlocos(cursoIds)) {
+    const { data, error } = await supabase.from("cursos").select("id, titulo, escola_id").in("id", bloco);
+    erro(error);
+    for (const c of data ?? []) cursos.set(c.id, c);
+  }
+  const escolaIds = [...new Set([...cursos.values()].map((c) => c.escola_id))];
+  const escolas = new Map<string, string>();
+  for (const bloco of emBlocos(escolaIds)) {
+    const { data, error } = await supabase.from("escolas").select("id, nome").in("id", bloco);
+    erro(error);
+    for (const e of data ?? []) escolas.set(e.id, e.nome);
+  }
+  return aulas
+    .map((a) => {
+      const c = cursos.get(a.curso_id);
+      return { id: a.id, titulo: a.titulo, publicada: a.publicada, curso: c ? `${c.titulo} (${escolas.get(c.escola_id) ?? "escola"})` : "Curso" };
+    })
+    .sort((a, b) => a.curso.localeCompare(b.curso, "pt-BR") || a.titulo.localeCompare(b.titulo, "pt-BR", { numeric: true }));
 }
 
 /** Questões que o ator pode editar, para classificar (paginação por id). */

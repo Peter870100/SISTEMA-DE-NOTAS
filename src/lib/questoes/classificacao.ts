@@ -96,3 +96,39 @@ export function mesclarItens(itens: ItemLote[]): ItemLote[] {
   }
   return [...porQuestao.values()];
 }
+
+/** Quantas linhas há por tópico (linhas sem tópico não contam). */
+export function contarPorTopico(linhas: { topico_id: string | null }[]): Record<string, number> {
+  const contagem: Record<string, number> = {};
+  for (const l of linhas) if (l.topico_id) contagem[l.topico_id] = (contagem[l.topico_id] ?? 0) + 1;
+  return contagem;
+}
+
+/**
+ * Link de material: só `https://` e com endereço. O esquema pode vir em maiúsculas ("HTTPS://") e sai em
+ * minúsculas, porque a restrição do banco (`like 'https://%'`) diferencia maiúsculas. Null se inválido.
+ */
+export function normalizarLinkHttps(url: string): string | null {
+  const limpo = url.trim();
+  if (!/^https:\/\//i.test(limpo) || /\s/.test(limpo)) return null;
+  try {
+    if (!new URL(limpo).hostname) return null;
+  } catch {
+    return null;
+  }
+  return `https://${limpo.slice("https://".length)}`;
+}
+
+/** Itens cujo nome e rótulo contêm todas as palavras da busca (sem acento nem maiúsculas), até `limite`. */
+export function buscarPorTexto<T extends { nome: string; rotulo: string }>(itens: T[], texto: string, limite = 8): T[] {
+  const palavras = nomeNormalizado(texto).split(/\s+/).filter(Boolean);
+  if (palavras.length === 0) return [];
+  const achados = itens.filter((i) => {
+    const alvo = nomeNormalizado(`${i.nome} ${i.rotulo}`);
+    return palavras.every((p) => alvo.includes(p));
+  });
+  // Quem tem o nome começando pela busca vem primeiro.
+  const inicio = nomeNormalizado(texto);
+  achados.sort((a, b) => Number(!nomeNormalizado(a.nome).startsWith(inicio)) - Number(!nomeNormalizado(b.nome).startsWith(inicio)));
+  return achados.slice(0, limite);
+}

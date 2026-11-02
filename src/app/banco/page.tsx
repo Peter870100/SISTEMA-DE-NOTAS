@@ -104,7 +104,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
         {(podeImportar(professor, "geral") || podeImportar(professor, "escola")) && <Link href="/banco/importar" className={estilos.botaoSecundario}><Upload size={16} aria-hidden="true" /> Importar prova</Link>}
         <Link href={`/banco/classificar?${new URLSearchParams({ ...(f.materia ? { materia: f.materia } : {}), semTopico: "1" })}`} className={estilos.botaoSecundario}><ListChecks size={16} aria-hidden="true" /> Classificar</Link>
         {professor.role === "dono" && <Link href="/banco/importar-enem" className={estilos.botaoSecundario}><Database size={16} aria-hidden="true" /> Importar ENEM</Link>}
-        {professor.role === "dono" && <Link href="/banco/assuntos" className={estilos.botaoSecundario}><Tags size={16} aria-hidden="true" /> Assuntos</Link>}
+        {professor.role === "dono" && <Link href="/banco/assuntos" className={estilos.botaoSecundario}><Tags size={16} aria-hidden="true" /> Classificação</Link>}
       </>}>
       <PainelResumo itens={painel} />
       <form className={css.filtros} action="/banco">

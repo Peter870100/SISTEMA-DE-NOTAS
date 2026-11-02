@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase/client";
 import { exigirProfessor, podeVerQuestao } from "@/lib/questoes/acesso";
-import { LIMITE_LOTE, nomeNormalizado, type ItemLote, type Recusa } from "@/lib/questoes/classificacao";
+import { LIMITE_LOTE, nomeNormalizado, normalizarLinkHttps, type ItemLote, type Recusa } from "@/lib/questoes/classificacao";
 import {
   classificacaoDasQuestoes, classificarQuestoesPor, erro, criarHabilidadePor, juntarHabilidades, juntarTopicos,
   listarHabilidades, listarTopicos, proporTopicoPor, questoesParaClassificar,
@@ -175,24 +175,43 @@ export async function definirPrerequisitos(topicoId: string, prerequisitoIds: st
   atualizar();
 }
 
-/** Material de um tópico OU de um assunto: uma aula OU título + link https. */
+/** Material de um tópico OU de um assunto: uma aula publicada OU título + link https. */
 export async function adicionarMaterial(m: {
   topicoId?: string; assuntoId?: string; aulaId?: string; titulo?: string; url?: string;
 }): Promise<void> {
   await exigirDono();
   if (!!m.topicoId === !!m.assuntoId) throw new Error("Escolha um tópico ou um assunto.");
-  const titulo = m.titulo?.trim() || null;
-  const url = m.url?.trim() || null;
-  if (!m.aulaId) {
+  const alvo = m.topicoId
+    ? await supabase.from("topicos").select("id").eq("id", m.topicoId).maybeSingle()
+    : await supabase.from("assuntos").select("id").eq("id", m.assuntoId!).maybeSingle();
+  if (!alvo.data) throw new Error(m.topicoId ? "Tópico não encontrado." : "Assunto não encontrado.");
+
+  let titulo: string | null = null;
+  let url: string | null = null;
+  if (m.aulaId) {
+    const { data: aula } = await supabase.from("aulas").select("id, publicada").eq("id", m.aulaId).maybeSingle();
+    if (!aula || !aula.publicada) throw new Error("Escolha uma aula publicada.");
+  } else {
+    titulo = m.titulo?.trim().replace(/\s+/g, " ") || null;
     if (!titulo) throw new Error("Informe o título do material.");
-    if (!url || !url.startsWith("https://")) throw new Error("O link precisa começar com https://.");
+    if (titulo.length > 160) throw new Error("O título do material é muito longo.");
+    url = normalizarLinkHttps(m.url ?? "");
+    if (!url) throw new Error("O link precisa começar com https://.");
   }
+
+  // Sem repetir o mesmo material no mesmo tópico ou assunto.
+  let existentes = supabase.from("materiais_revisao").select("aula_id, url");
+  existentes = m.topicoId ? existentes.eq("topico_id", m.topicoId) : existentes.eq("assunto_id", m.assuntoId!);
+  const { data: jaTem, error: eLer } = await existentes;
+  falhar(eLer);
+  if ((jaTem ?? []).some((x) => (m.aulaId ? x.aula_id === m.aulaId : x.url === url))) throw new Error("Esse material já está na lista.");
+
   const { error } = await supabase.from("materiais_revisao").insert({
     topico_id: m.topicoId ?? null,
     assunto_id: m.assuntoId ?? null,
     aula_id: m.aulaId ?? null,
-    titulo: m.aulaId ? null : titulo,
-    url: m.aulaId ? null : url,
+    titulo,
+    url,
     escola_id: null,
   });
   falhar(error);
