@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Estado do projeto (atualizado em 2026-10-28)
+# Estado do projeto (atualizado em 2026-11-02)
 
 Plataforma escolar "Status Avalia" (Next.js 16.2, React 19, Supabase, TypeScript). Produção em
 www.statusavalia.com.br (projeto Vercel `sistema-de-notas`, deploy automático a cada push no `master`).
@@ -49,6 +49,10 @@ O Peter fala português; respostas em pt-BR.
    `provas_word`/`prova_word_questoes`; "inéditas" = ainda não usadas pelo professor. Download em
    `/api/provas-word/<id>/<prova|gabarito>` (link com `?c=` HMAC ou sessão). Uso em `docs/folha-tarefa.md`.
    Pré-visualização em `/banco/provas-word/<id>/previa` (Imprimir, Baixar Word/PDF; `?qual=gabarito`, `?imprimir=1`).
+   Painel **Editar** na prévia (2026-11-02): cabeçalho (turma, data, valor, instruções, "Nome ou apelido do professor"
+   em `professores.nome_prova`), subir/descer/arrastar, trocar e remover questões. Valor por questão: total no
+   cabeçalho, fixos em `prova_word_questoes.valor` (null = automática, divisão em décimos), "QUESTÃO 01 (1,0)";
+   `gerar_prova_word` aceita `valor`/`valores_questoes` (texto p/ o prompt da Hermes em `docs/folha-tarefa.md`).
 
 ## Próximo passo
 - **Loja com Stripe** (alunos de fora: curso avulso ou pacote completo com treinos; Pix e cartão 12x):
