@@ -143,8 +143,8 @@ test("linhasIdentificacao: a disciplina abre a linha de turma/data/valor, longe 
     { rotulo: "Disciplina", valor: "Química" },
     { rotulo: "Turma", valor: "3A" },
     { rotulo: "Data", valor: "04/11/2026" },
-    { rotulo: "Valor", valor: "10,0" },
   ]);
+  assert.equal(r.notaDe, "10,0");
   assert.deepEqual(linhasIdentificacao({}, "Cenoura", "  ").informada, []);
   assert.deepEqual(linhasIdentificacao({}, null, "Química").informada, [{ rotulo: "Disciplina", valor: "Química" }]);
 });
@@ -188,4 +188,14 @@ test("lerCabecalho: valorPorQuestao só como booleano", () => {
 test("itensLinhaCabecalho: valor numérico sai formatado", () => {
   assert.deepEqual(itensLinhaCabecalho({ valor: "10" }), [{ rotulo: "Valor", valor: "10,0" }]);
   assert.deepEqual(itensLinhaCabecalho({ valor: "10 pontos" }), [{ rotulo: "Valor", valor: "10 pontos" }]);
+});
+
+test("linhasIdentificacao: valor numérico vai para a caixa NOTA; texto antigo fica na linha", () => {
+  const num = linhasIdentificacao({ valor: "10" });
+  assert.equal(num.notaDe, "10,0");
+  assert.deepEqual(num.informada, []);
+  const texto = linhasIdentificacao({ valor: "10 pontos" });
+  assert.equal(texto.notaDe, null);
+  assert.deepEqual(texto.informada, [{ rotulo: "Valor", valor: "10 pontos" }]);
+  assert.equal(linhasIdentificacao({}).notaDe, null);
 });

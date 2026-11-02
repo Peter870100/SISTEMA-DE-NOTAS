@@ -237,11 +237,11 @@ test("turma, data e valor vão numa linha própria, fora das linhas Aluno(a) e P
   assert.ok(aluno && !aluno.includes("Turma") && !aluno.includes(turma), aluno);
   assert.ok(prof && !prof.includes("Data") && !prof.includes("Valor") && !prof.includes("Nota"), prof);
 });
-test("só o valor preenchido: linha extra só com \"Valor:\" e linhas de sempre", async () => {
+test("só o valor preenchido: \"de 10,0\" dentro da caixa NOTA, sem linha extra, e linhas de sempre", async () => {
   const base = { titulo: "Tarefa", escola: "Colégio Status", logo: null, questoes: [qf("Quanto é 2²?")] };
   const ps = paragrafos(await documentoXml(await folhaAluno({ ...base, cabecalho: { valor: "10,0" } })));
-  const linha = ps.find((p) => p.includes("Valor: "));
-  assert.equal(linha, "Valor: 10,0");
+  assert.ok(!ps.some((p) => p.includes("Valor: ")));
+  assert.equal(ps[ps.indexOf("NOTA") + 1], "de 10,0");
   assert.ok(!ps.some((p) => p.startsWith("Turma: ") || p.startsWith("Data: ")));
   const semNada = paragrafos(await documentoXml(await folhaAluno(base)));
   for (const r of ["Aluno(a): ", "Professor(a): "]) {

@@ -130,7 +130,9 @@ export type CampoIdentificacao = { rotulo: string; ate: number | null; depois?: 
  * Linhas de identificação da prova, iguais no .docx e na pré-visualização. Sem nada preenchido,
  * são as duas linhas de sempre. Turma e data preenchidas saem das linhas "Aluno(a)" e
  * "Professor(a)" (para não aparecerem duas vezes) e vão, com o valor, para a linha extra; a
- * disciplina abre essa linha, longe do nome. A nota não tem linha: vai na caixa "NOTA" ao lado.
+ * disciplina abre essa linha, longe do nome. A nota não tem linha: vai na caixa "NOTA" ao lado, e o
+ * valor numérico da prova vai dentro dela (`notaDe`, ex.: "10,0") em vez de na linha; um valor antigo
+ * em texto ("10 pontos") continua na linha.
  * Com o nome do professor, ele entra como texto no lugar do traço; se for longo demais para
  * dividir a linha com "Data", vai sozinho em `nomeProfessor` (linha acima, sem tab), e
  * `professor` pode ficar vazia (data já preenchida).
@@ -144,6 +146,7 @@ export function linhasIdentificacao(
   nomeProfessor: { rotulo: string; valor: string }[];
   professor: CampoIdentificacao[];
   informada: { rotulo: string; valor: string }[];
+  notaDe: string | null;
 } {
   const aluno: CampoIdentificacao[] = cab.turma
     ? [
@@ -158,17 +161,20 @@ export function linhasIdentificacao(
   const data: CampoIdentificacao[] = cab.data ? [] : [{ rotulo: "Data", ate: null, depois: "____/____/______" }];
   const nome = (nomeProfessor ?? "").trim();
   const materia = (disciplina ?? "").trim();
-  const informada = [...(materia ? [{ rotulo: "Disciplina", valor: materia }] : []), ...itensLinhaCabecalho(cab)];
+  const total = lerDecimos(cab.valor);
+  const notaDe = total === null ? null : formatarDecimos(total);
+  const itens = itensLinhaCabecalho(cab).filter((it) => !(notaDe && it.rotulo === "Valor"));
+  const informada = [...(materia ? [{ rotulo: "Disciplina", valor: materia }] : []), ...itens];
 
   if (!nome) {
     const professor: CampoIdentificacao = { rotulo: "Professor(a)", ate: FIM_LINHA - (cab.data ? 0 : ESPACO_DATA) };
-    return { aluno, nomeProfessor: [], professor: [professor, ...data], informada };
+    return { aluno, nomeProfessor: [], professor: [professor, ...data], informada, notaDe };
   }
   const cabe = nome.length <= (cab.data ? NOME_NA_LINHA.semCampoData : NOME_NA_LINHA.comCampoData);
   if (cabe) {
-    return { aluno, nomeProfessor: [], professor: [{ rotulo: "Professor(a)", ate: null, depois: nome }, ...data], informada };
+    return { aluno, nomeProfessor: [], professor: [{ rotulo: "Professor(a)", ate: null, depois: nome }, ...data], informada, notaDe };
   }
-  return { aluno, nomeProfessor: [{ rotulo: "Professor(a)", valor: nome }], professor: data, informada };
+  return { aluno, nomeProfessor: [{ rotulo: "Professor(a)", valor: nome }], professor: data, informada, notaDe };
 }
 
 /** "2026-11-05" vira "05/11/2026". */

@@ -256,6 +256,7 @@ function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: bo
     if (linhas.informada.length > 0) textos.push(linhaInformada(linhas.informada));
   }
   const larguraTexto = comIdentificacao ? LARGURA_TEXTO_CAB_ALUNO : LARGURA_TEXTO_CAB;
+  const notaDe = comIdentificacao ? linhasIdentificacao(cab).notaDe : null;
 
   const imagem = d.logo ? logoRun(d.logo) : null;
   const conteudoLogo = imagem
@@ -284,7 +285,7 @@ function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: bo
               borders: { top: SEM_BORDA, bottom: SEM_BORDA, right: SEM_BORDA, left: FIO_VERTICAL },
               children: textos,
             }),
-            ...(comIdentificacao ? [celulaNota()] : []),
+            ...(comIdentificacao ? [celulaNota(notaDe)] : []),
           ],
         }),
       ],
@@ -294,8 +295,11 @@ function cabecalho(d: DadosFolha, subtitulo: string | null, comIdentificacao: bo
   ];
 }
 
-/** Coluna da direita na folha do aluno: "NOTA" e uma caixa em branco para o professor escrever a nota à mão. */
-function celulaNota(): TableCell {
+/**
+ * Coluna da direita na folha do aluno: "NOTA" e uma caixa em branco para o professor escrever a nota à mão;
+ * com valor numérico da prova, "de 10,0" pequeno no canto de baixo da caixa.
+ */
+function celulaNota(notaDe: string | null): TableCell {
   const caixa = new Table({
     width: { size: CAIXA_NOTA.largura, type: WidthType.DXA },
     columnWidths: [CAIXA_NOTA.largura],
@@ -307,8 +311,15 @@ function celulaNota(): TableCell {
         children: [
           new TableCell({
             width: { size: CAIXA_NOTA.largura, type: WidthType.DXA },
+            verticalAlign: VerticalAlignTable.BOTTOM,
+            margins: { left: 40, right: 60, top: 0, bottom: 20 },
             borders: { top: FIO_CAIXA, bottom: FIO_CAIXA, left: FIO_CAIXA, right: FIO_CAIXA },
-            children: [new Paragraph({ children: [] })],
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: notaDe ? [rotulo(`de ${notaDe}`, { color: AZUL, size: PEQUENO })] : [],
+              }),
+            ],
           }),
         ],
       }),

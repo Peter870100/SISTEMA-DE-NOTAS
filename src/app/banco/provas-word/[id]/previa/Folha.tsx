@@ -454,7 +454,9 @@ export function Cabecalho({ dados, qual }: { dados: DadosPrevia; qual: Qual }) {
         {prova && (
           <div className={css.cabecalhoNota} style={{ width: x(COLUNA_NOTA) }}>
             <span className={css.rotuloNota}>NOTA</span>
-            <span className={css.caixaNota} style={{ width: x(CAIXA_NOTA.largura), height: x(CAIXA_NOTA.altura) }} />
+            <span className={css.caixaNota} style={{ width: x(CAIXA_NOTA.largura), height: x(CAIXA_NOTA.altura) }}>
+              {linhas.notaDe && <span className={css.notaDe}>de {linhas.notaDe}</span>}
+            </span>
           </div>
         )}
       </div>
