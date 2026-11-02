@@ -12,6 +12,32 @@ export function ehCredito(paragrafo: string): boolean {
   return SOBRENOME_INICIAL.test(p);
 }
 
+/** Linha que marca o lugar da figura no texto importado ("[Charge]", "[Figura: ...]"); não pega "[...]" nem matriz. */
+const MARCA_FIGURA = /^\s*\[\s*[A-Za-zÀ-ÿ][^\]]*\]\s*$/;
+
+/**
+ * Para questão com figura: tira do texto os marcadores de figura e o crédito logo abaixo de cada um
+ * (a fonte da imagem), para a folha pôr esse crédito embaixo da figura, antes do resto do texto.
+ */
+export function separarCreditosDeFigura(texto: string): { texto: string; creditos: string[] } {
+  const linhas = texto.split(/\r?\n/);
+  const saida: string[] = [];
+  const creditos: string[] = [];
+  for (let i = 0; i < linhas.length; i++) {
+    if (!MARCA_FIGURA.test(linhas[i])) {
+      saida.push(linhas[i]);
+      continue;
+    }
+    let j = i + 1;
+    while (j < linhas.length && !linhas[j].trim()) j++;
+    if (j < linhas.length && ehCredito(linhas[j])) {
+      creditos.push(linhas[j].trim());
+      i = j;
+    }
+  }
+  return { texto: saida.join("\n"), creditos };
+}
+
 /** Número com dois dígitos: 1 → "01". */
 export function numero2(n: number): string {
   return String(n).padStart(2, "0");

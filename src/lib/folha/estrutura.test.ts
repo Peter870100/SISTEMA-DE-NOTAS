@@ -152,3 +152,32 @@ test("comando repetido com conteúdo formatado continua sem item comando", () =>
   });
   assert.deepEqual(tipos(itensProva([q])), ["faixa", "titulo", "noConteudo", "figura", ...ALTERNATIVAS]);
 });
+
+test("marcador da figura com a fonte embaixo: o marcador sai e a fonte vem logo abaixo da figura", () => {
+  const f: FiguraRef = { id: "f1", alvo: "enunciado", alinhamento: "centro" };
+  const fonte = "Disponível em: https://operamundi.uol.com.br/permalink/34200. Acesso em: 31 Ago. de 2022.";
+  const q = questao(`A charge a seguir ilustra o conflito.\n\n[Charge]\n\n${fonte}\n\nSabe-se que o urânio sofre fissão.`, {
+    figuras: [f], origem: "UFGD 2023",
+  });
+  const itens = itensProva([q]);
+  assert.deepEqual(tipos(itens), ["faixa", "titulo", "figura", "credito", "paragrafo", "paragrafo", "credito", "comando", ...ALTERNATIVAS]);
+  assert.deepEqual(itens[3], { tipo: "credito", credito: fonte, origem: null });
+  const textos = itens.flatMap((i) => (i.tipo === "paragrafo" ? [i.segmentos.map((s) => s.texto).join("")] : []));
+  assert.deepEqual(textos, ["A charge a seguir ilustra o conflito.", "Sabe-se que o urânio sofre fissão."]);
+});
+
+test("marcador com descrição e fonte no fim do texto: a fonte sobe para baixo da figura", () => {
+  const f: FiguraRef = { id: "f1", alvo: "enunciado", alinhamento: "centro" };
+  const fonte = "Disponível em: http://qnint.sbq.org.br/x. Acesso em: 3 out. 2022.";
+  const itens = itensProva([questao(`O paracetamol é sintetizado.\n\n[Figura: reação do p-aminofenol]\n\n${fonte}`, { figuras: [f] })]);
+  assert.deepEqual(tipos(itens), ["faixa", "titulo", "figura", "credito", "paragrafo", "comando", ...ALTERNATIVAS]);
+  assert.deepEqual(itens[3], { tipo: "credito", credito: fonte, origem: null });
+});
+
+test("sem figura, \"[...]\" e matriz: nada muda", () => {
+  const f: FiguraRef = { id: "f1", alvo: "enunciado", alinhamento: "centro" };
+  const semFigura = itensProva([questao("Texto.\n[Charge]\nDisponível em: x. Acesso em: 1 jan. 2024.\nMais texto.")]);
+  assert.deepEqual(tipos(semFigura), ["faixa", "titulo", "paragrafo", "paragrafo", "paragrafo", "paragrafo", "comando", ...ALTERNATIVAS]);
+  const comFigura = itensProva([questao("Um trecho.\n[...]\nOutro trecho.\n[1 0 0]", { figuras: [f] })]);
+  assert.deepEqual(tipos(comFigura), ["faixa", "titulo", "figura", "paragrafo", "paragrafo", "paragrafo", "paragrafo", "comando", ...ALTERNATIVAS]);
+});

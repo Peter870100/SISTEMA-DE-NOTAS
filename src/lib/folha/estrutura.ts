@@ -2,7 +2,7 @@
 // pré-visualização no navegador desenham a mesma lista. Puro: sem a biblioteca `docx` nem `Buffer`.
 import { enunciadoNaTela, markdownParaBlocos, type Segmento } from "@/lib/questoes/markdown";
 import { imagensDoConteudo, type DocConteudo, type NoConteudo } from "@/lib/questoes/conteudo";
-import { celulasTabela, comandoRepetido, separarCredito } from "./texto";
+import { celulasTabela, comandoRepetido, separarCredito, separarCreditosDeFigura } from "./texto";
 
 export type AlvoFigura = "enunciado" | "A" | "B" | "C" | "D" | "E";
 
@@ -137,9 +137,10 @@ function itensComTabelas<F>(linhas: Segmento[][], temFigura: boolean): ItemFolha
  * Enunciado: formatado (`conteudo`) ou markdown com crédito separado. Figuras soltas vão depois do texto,
  * menos no markdown com figura (`enunciadoNaTela`): a figura vem antes do texto, salvo quando o enunciado
  * pede a leitura de um texto — aí o comando repetido no fim sai do texto e vai depois da figura.
+ * Marcador da figura no texto ("[Charge]") sai; o crédito logo abaixo dele (a fonte da imagem) vai embaixo da figura.
  */
 function enunciado<F extends FiguraRef>(q: QuestaoBase<F>): {
-  textos: ItemFolha<F>[]; credito: string | null; soltas: F[]; comando: string; figurasAntes: boolean;
+  textos: ItemFolha<F>[]; credito: string | null; soltas: F[]; creditosFiguras: string[]; comando: string; figurasAntes: boolean;
 } {
   const doEnunciado = (q.figuras ?? []).filter((f) => f.alvo === "enunciado");
   if (q.conteudo?.content) {
@@ -148,19 +149,31 @@ function enunciado<F extends FiguraRef>(q: QuestaoBase<F>): {
       textos: itensDoConteudo(q.conteudo, doEnunciado),
       credito: null,
       soltas: doEnunciado.filter((f) => !usadas.has(f.id)),
+      creditosFiguras: [],
       comando: comandoRepetido(q.enunciado, q.comando) ? "" : q.comando,
       figurasAntes: false,
     };
   }
   const tela = enunciadoNaTela(q.enunciado, q.comando, false, doEnunciado.length > 0);
-  const { corpo, credito } = separarCredito(tela.texto);
-  return { textos: itensComTabelas<F>(blocosNaoVazios(corpo), doEnunciado.length > 0), credito, soltas: doEnunciado, comando: tela.comando, figurasAntes: tela.figurasAntes };
+  const { texto, creditos } = doEnunciado.length ? separarCreditosDeFigura(tela.texto) : { texto: tela.texto, creditos: [] };
+  const { corpo, credito } = separarCredito(texto);
+  return {
+    textos: itensComTabelas<F>(blocosNaoVazios(corpo), doEnunciado.length > 0),
+    credito,
+    soltas: doEnunciado,
+    creditosFiguras: creditos,
+    comando: tela.comando,
+    figurasAntes: tela.figurasAntes,
+  };
 }
 
 function itensQuestao<F extends FiguraRef>(q: QuestaoBase<F>, n: number, primeiraDoBloco: boolean): ItemFolha<F>[] {
-  const { textos, credito, soltas, comando, figurasAntes } = enunciado(q);
+  const { textos, credito, soltas, creditosFiguras, comando, figurasAntes } = enunciado(q);
   const origem = q.origem?.trim() || null;
-  const figuras: ItemFolha<F>[] = soltas.map((f) => ({ tipo: "figura", figura: f, naAlternativa: false }));
+  const figuras: ItemFolha<F>[] = [
+    ...soltas.map((f): ItemFolha<F> => ({ tipo: "figura", figura: f, naAlternativa: false })),
+    ...creditosFiguras.map((c): ItemFolha<F> => ({ tipo: "credito", credito: c, origem: null })),
+  ];
   const saida: ItemFolha<F>[] = [
     { tipo: "titulo", numero: n, primeiraDoBloco, ...(q.valor ? { valor: q.valor } : {}) },
     ...(figurasAntes ? [...figuras, ...textos] : [...textos, ...figuras]),
