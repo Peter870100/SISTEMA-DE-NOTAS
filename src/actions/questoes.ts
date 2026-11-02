@@ -92,7 +92,8 @@ async function gravarClassificacao(professor: Awaited<ReturnType<typeof exigirPr
   if (recusados.length > 0) throw new Error(`A questão foi salva, mas a classificação não: ${recusados[0].motivo}`);
 }
 
-export async function criarQuestao(dados: DadosQuestao): Promise<string> {
+/** Cria a questão. Falha na classificação não desfaz a criação: volta como `aviso` para o editor mostrar. */
+export async function criarQuestao(dados: DadosQuestao): Promise<{ id: string; aviso?: string }> {
   const professor = await exigirProfessor();
   const escopo: Escopo = dados.escopo === "geral" && professor.role === "dono" ? "geral" : "escola";
   const { data, error } = await supabase
@@ -102,8 +103,12 @@ export async function criarQuestao(dados: DadosQuestao): Promise<string> {
     .single();
   if (error || !data) throw new Error(traduzirErro(error?.message ?? "Falha ao criar questão."));
   // A questão já existe: falha na classificação não pode impedir a navegação (evita criar duplicada).
-  try { await gravarClassificacao(professor, data.id, dados); } catch (e) { console.error("classificação da questão nova:", e); }
-  return data.id;
+  try { await gravarClassificacao(professor, data.id, dados); }
+  catch (e) {
+    const motivo = (e instanceof Error ? e.message : "erro desconhecido").replace(/^A questão foi salva, mas a classificação não: /, "");
+    return { id: data.id, aviso: `Questão criada, mas a classificação não foi salva: ${motivo}` };
+  }
+  return { id: data.id };
 }
 
 export async function salvarQuestao(id: string, dados: DadosQuestao): Promise<void> {

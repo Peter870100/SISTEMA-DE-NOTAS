@@ -125,9 +125,22 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
     finally { setOcupado(false); }
   }
 
+  /** Tópico e habilidades só vão ao servidor se mudaram em relação ao que a tela carregou (não sobrescreve edição de outra tela). */
+  function paraEnviar(dados: DadosQuestao): DadosQuestao {
+    if (!classificacao) return dados;
+    const { topico_id, habilidade_ids, ...resto } = dados;
+    const base = classificacao.atual;
+    const mesmasHab = (habilidade_ids ?? []).length === base.habilidadeIds.length && (habilidade_ids ?? []).every((h) => base.habilidadeIds.includes(h));
+    return {
+      ...resto,
+      ...(questao && (topico_id ?? null) === base.topicoId ? {} : { topico_id }),
+      ...(questao && mesmasHab ? {} : { habilidade_ids }),
+    };
+  }
+
   async function salvar(): Promise<string> {
-    if (questao) { await salvarQuestao(questao.id, d); aoSalvar?.(questao.id); return questao.id; }
-    const id = await criarQuestao(d);
+    if (questao) { await salvarQuestao(questao.id, paraEnviar(d)); aoSalvar?.(questao.id); return questao.id; }
+    const { id, aviso: avisoClassificacao } = await criarQuestao(paraEnviar(d));
     aoSalvar?.(id);
     let falha: string | null = null;
     const reais = new Map<string, string>();
@@ -144,10 +157,13 @@ export function EditorQuestao({ questao, imagens, assuntos, podeEscolherGeral, a
     // Figuras do texto ainda citam o id provisório: troca pelo real (e tira as que não subiram) e salva de novo.
     const provisorios = new Set(pendentes.map((p) => p.id));
     if (imagensDoConteudo(conteudoEnunciado).some((i) => provisorios.has(i))) {
-      try { await salvarQuestao(id, { ...d, conteudo: trocarIdsFiguras(conteudoEnunciado, reais, provisorios) }); }
+      try { await salvarQuestao(id, { ...paraEnviar(d), topico_id: undefined, habilidade_ids: undefined, conteudo: trocarIdsFiguras(conteudoEnunciado, reais, provisorios) }); }
       catch (e) { falha ??= e instanceof Error ? e.message : "Falha ao salvar as figuras no texto."; }
     }
     // A questão já existe: sempre vai para a página dela (evita criar duplicada).
+    // A página muda logo em seguida: avisos vão em alerta, como o da imagem.
+    if (avisoClassificacao) window.alert(`${avisoClassificacao}
+Abra a questão e escolha o tópico e as habilidades novamente.`);
     if (falha) window.alert(`A questão foi criada, mas uma imagem não foi enviada: ${falha}
 Adicione as imagens novamente nesta página.`);
     router.push(`/banco/questoes/${id}`);
