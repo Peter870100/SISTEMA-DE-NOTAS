@@ -1,6 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatarDecimos, lerDecimos, validarValoresPedido, valoresDasQuestoes, valoresPorId } from "./valores";
+import {
+  decimosParaBanco,
+  excessoFixos,
+  formatarDecimos,
+  lerDecimos,
+  validarValoresPedido,
+  valoresDasQuestoes,
+  valoresDoPainel,
+  valoresPorId,
+} from "./valores";
 
 test("lerDecimos: aceita vírgula e ponto, recusa o resto", () => {
   assert.equal(lerDecimos("10"), 100);
@@ -64,4 +73,33 @@ test("valoresPorId: só as questões que ainda existem, na ordem certa", () => {
   assert.deepEqual([...r.porId!.entries()], [["a", "3,3"], ["b", "3,3"], ["c", "3,4"]]);
   assert.equal(valoresPorId(["a"], [null], 100, false).porId, null);
   assert.equal(valoresPorId(["a", "b"], [60, 60], 100, true).porId, null);
+});
+
+test("excessoFixos: só recusa acima de um total válido", () => {
+  assert.equal(excessoFixos(null, [500, null]), null);
+  assert.equal(excessoFixos(100, [50, 50, null]), null);
+  assert.equal(excessoFixos(100, [60, null, 50]), "Os valores fixos (11,0) passam do valor da prova (10,0).");
+});
+
+test("valoresDoPainel: sugere só nas automáticas e avisa", () => {
+  assert.deepEqual(valoresDoPainel(100, [20, null, null]), { sugeridos: [null, 40, 40], aviso: null });
+  assert.deepEqual(valoresDoPainel(null, [null, null]), { sugeridos: [null, null], aviso: null });
+  assert.deepEqual(valoresDoPainel(null, [20, null]), {
+    sugeridos: [null, null],
+    aviso: "Preencha o valor da prova para os valores aparecerem.",
+  });
+  assert.deepEqual(valoresDoPainel(100, [60, 60, null]), {
+    sugeridos: [null, null, null],
+    aviso: "Os valores fixos (12,0) passam do valor da prova (10,0).",
+  });
+  assert.deepEqual(valoresDoPainel(100, [40, 50]), {
+    sugeridos: [null, null],
+    aviso: "As questões somam 9,0 e a prova vale 10,0.",
+  });
+});
+
+test("decimosParaBanco: ponto e uma casa", () => {
+  assert.equal(decimosParaBanco(15), "1.5");
+  assert.equal(decimosParaBanco(5), "0.5");
+  assert.equal(decimosParaBanco(100), "10.0");
 });

@@ -109,3 +109,36 @@ export function fixoEmDecimos(valor: unknown): number | null {
   const d = Math.round(Number(valor) * 10);
   return Number.isFinite(d) && d > 0 ? d : null;
 }
+
+/** Mensagem de "fixos acima do total"; null quando cabem (ou não há total: fixo sem total pode ser guardado). */
+export function excessoFixos(totalDecimos: number | null, fixos: (number | null)[]): string | null {
+  if (totalDecimos === null) return null;
+  const soma = fixos.reduce<number>((s, v) => s + (v ?? 0), 0);
+  return soma > totalDecimos
+    ? `Os valores fixos (${formatarDecimos(soma)}) passam do valor da prova (${formatarDecimos(totalDecimos)}).`
+    : null;
+}
+
+/**
+ * Painel "Editar": o valor automático sugerido para cada questão sem fixo (null nas fixas ou quando não há
+ * divisão) e o aviso. Não depende da opção "mostrar": o painel sugere mesmo com ela desligada.
+ */
+export function valoresDoPainel(
+  totalDecimos: number | null,
+  fixos: (number | null)[],
+): { sugeridos: (number | null)[]; aviso: string | null } {
+  const nenhum = fixos.map(() => null);
+  if (totalDecimos === null) {
+    return {
+      sugeridos: nenhum,
+      aviso: fixos.some((v) => v !== null) ? "Preencha o valor da prova para os valores aparecerem." : null,
+    };
+  }
+  const { porQuestao, aviso } = valoresDasQuestoes(totalDecimos, fixos, true);
+  return { sugeridos: porQuestao ? porQuestao.map((v, i) => (fixos[i] === null ? v : null)) : nenhum, aviso };
+}
+
+/** Décimos no formato do `numeric` do banco ("1.5"), sem ponto flutuante. */
+export function decimosParaBanco(d: number): string {
+  return `${Math.floor(d / 10)}.${d % 10}`;
+}

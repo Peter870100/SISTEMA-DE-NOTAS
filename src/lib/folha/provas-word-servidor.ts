@@ -18,8 +18,9 @@ import {
   removerDaOrdem,
   trechoEnunciado,
   validarCabecalho,
+  type CabecalhoProva,
 } from "./editar-prova";
-import { fixoEmDecimos, lerDecimos, valoresPorId } from "./valores";
+import { decimosParaBanco, excessoFixos, fixoEmDecimos, lerDecimos, valoresDoPainel, valoresPorId } from "./valores";
 import { ehMateria, MATERIAS } from "@/lib/questoes/materias";
 import { gravarNomeProva, lerNomesProfessor } from "@/lib/professores/nome-prova";
 import {
@@ -394,16 +395,20 @@ export function linksProva(id: string, base: string): { prova: string; gabarito:
 /** Quem pede a edição: o professor da sessão (dono da conta pode editar qualquer prova). */
 export type EditorProva = { id: string; role?: string | null };
 
-type LinhaOrdem = { questao_id: string; ordem: number };
+/** `valor` é o fixo da questão em décimos (null = automática). */
+type LinhaOrdem = { questao_id: string; ordem: number; valor: number | null };
 
 /** Guarda comum: a prova existe, não foi excluída e é do professor (ou o pedido é do dono). */
 async function provaEditavel(
   quem: EditorProva,
   provaId: string,
-): Promise<{ prova: { id: string; professor_id: string; escola_id: string; filtros: FiltrosSorteio }; linhas: LinhaOrdem[] }> {
+): Promise<{
+  prova: { id: string; professor_id: string; escola_id: string; filtros: FiltrosSorteio; cabecalho: CabecalhoProva };
+  linhas: LinhaOrdem[];
+}> {
   const { data: prova, error } = await supabase
     .from("provas_word")
-    .select("id, professor_id, escola_id, filtros, excluida_em")
+    .select("id, professor_id, escola_id, filtros, cabecalho, excluida_em")
     .eq("id", provaId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -412,7 +417,7 @@ async function provaEditavel(
   }
   const { data: linhas, error: errQ } = await supabase
     .from("prova_word_questoes")
-    .select("questao_id, ordem")
+    .select("questao_id, ordem, valor")
     .eq("prova_id", provaId)
     .order("ordem");
   if (errQ) throw new Error(errQ.message);
@@ -422,8 +427,13 @@ async function provaEditavel(
       professor_id: prova.professor_id as string,
       escola_id: prova.escola_id as string,
       filtros: (prova.filtros ?? {}) as FiltrosSorteio,
+      cabecalho: lerCabecalho(prova.cabecalho),
     },
-    linhas: (linhas ?? []).map((l) => ({ questao_id: l.questao_id as string, ordem: l.ordem as number })),
+    linhas: (linhas ?? []).map((l) => ({
+      questao_id: l.questao_id as string,
+      ordem: l.ordem as number,
+      valor: fixoEmDecimos(l.valor),
+    })),
   };
 }
 
@@ -445,13 +455,55 @@ async function regravarOrdem(provaId: string, antes: LinhaOrdem[], novaOrdem: st
 export async function salvarCabecalho(
   quem: EditorProva,
   provaId: string,
-  entrada: { titulo: string; turma?: string; data?: string; valor?: string; instrucoes?: string },
+  entrada: { titulo: string; turma?: string; data?: string; valor?: string; instrucoes?: string; valorPorQuestao?: boolean },
 ): Promise<void> {
-  await provaEditavel(quem, provaId);
-  const v = validarCabecalho(entrada);
+  const { prova } = await provaEditavel(quem, provaId);
+  const anterior = prova.cabecalho;
+  // O valor já salvo passa como está (mesmo um texto antigo, ex.: "10 pontos"); só um valor novo precisa ser número.
+  const v = validarCabecalho(entrada, anterior.valor);
   if (!v.ok) throw new Error(v.erro);
+  if (lerDecimos(anterior.valor) === null && lerDecimos(v.cabecalho.valor) !== null) {
+    // A prova acabou de ganhar um total válido: liga "Mostrar o valor de cada questão".
+    v.cabecalho.valorPorQuestao = true;
+  } else if (entrada.valorPorQuestao === undefined && anterior.valorPorQuestao !== undefined) {
+    // Quem não mandou a opção (painel antigo, outra aba) não a apaga: fica a escolha já salva.
+    v.cabecalho.valorPorQuestao = anterior.valorPorQuestao;
+  }
   const { error } = await supabase.from("provas_word").update({ titulo: v.titulo, cabecalho: v.cabecalho }).eq("id", provaId);
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Grava o valor fixo da questão `questaoId` na posição `indice`; vazio ou null volta a automática (null no
+ * banco). Recusa com PROVA_MUDOU se ela não está mais lá, e recusa o fixo que faria os fixos passarem do
+ * valor da prova (sem total válido, o fixo é guardado e só aparece quando houver total).
+ */
+export async function salvarValorQuestao(
+  quem: EditorProva,
+  provaId: string,
+  indice: number,
+  questaoId: string,
+  valor: string | null,
+): Promise<void> {
+  const { prova, linhas } = await provaEditavel(quem, provaId);
+  if (!mesmaQuestao(linhas.map((l) => l.questao_id), indice, questaoId)) throw new Error(PROVA_MUDOU);
+  const texto = (valor ?? "").trim();
+  const decimos = texto ? lerDecimos(texto) : null;
+  if (texto && decimos === null) throw new Error("O valor da questão deve ser um número, ex.: 2 ou 1,5.");
+  if (decimos !== null) {
+    const fixos = linhas.map((l, i) => (i === indice ? decimos : l.valor));
+    const excesso = excessoFixos(lerDecimos(prova.cabecalho.valor), fixos);
+    if (excesso) throw new Error(excesso);
+  }
+  const { data: gravadas, error } = await supabase
+    .from("prova_word_questoes")
+    .update({ valor: decimos === null ? null : decimosParaBanco(decimos) })
+    .eq("prova_id", provaId)
+    .eq("questao_id", questaoId)
+    .select("questao_id");
+  if (error) throw new Error(error.message);
+  // Nenhuma linha mudou: outra aba tirou ou trocou esta questão no meio do caminho.
+  if (!gravadas || gravadas.length === 0) throw new Error(PROVA_MUDOU);
 }
 
 /** Grava o "Nome ou apelido do professor" de quem pede (sempre a própria conta, nunca a de outro professor). */
@@ -478,7 +530,10 @@ export async function moverQuestao(
   await regravarOrdem(provaId, linhas, nova);
 }
 
-/** Remove a questão `questaoId` da posição `indice` (recusa com PROVA_MUDOU se ela não está mais lá). */
+/**
+ * Remove a questão `questaoId` da posição `indice` (recusa com PROVA_MUDOU se ela não está mais lá). O valor
+ * fixo dela some junto com a linha, e as outras automáticas voltam a dividir o total.
+ */
 export async function removerQuestao(quem: EditorProva, provaId: string, indice: number, questaoId: string): Promise<void> {
   const { linhas } = await provaEditavel(quem, provaId);
   const ids = linhas.map((l) => l.questao_id);
@@ -490,7 +545,10 @@ export async function removerQuestao(quem: EditorProva, provaId: string, indice:
   await regravarOrdem(provaId, linhas, nova);
 }
 
-/** Troca a questão `questaoId` da posição `indice` (recusa com PROVA_MUDOU se ela não está mais lá). */
+/**
+ * Troca a questão `questaoId` da posição `indice` (recusa com PROVA_MUDOU se ela não está mais lá). Só o
+ * `questao_id` da linha muda: o valor fixo fica na posição e a nova questão o herda.
+ */
 export async function trocarQuestao(
   quem: EditorProva,
   provaId: string,
@@ -531,18 +589,32 @@ export async function trocarQuestao(
   return { trocada: true, usada: escolha.usada };
 }
 
-/** Questões da prova na ordem, com rótulo "Matéria · Assunto" e um trecho do enunciado (para o editor). */
-export async function questoesDoEditor(
-  provaId: string,
-): Promise<{ indice: number; questaoId: string; rotulo: string; trecho: string }[]> {
-  const { data: linhas, error } = await supabase
-    .from("prova_word_questoes")
-    .select("questao_id, ordem")
-    .eq("prova_id", provaId)
-    .order("ordem");
+export type QuestaoDoEditor = {
+  indice: number;
+  questaoId: string;
+  rotulo: string;
+  trecho: string;
+  /** Valor fixo em décimos; null = automática. */
+  valor: number | null;
+  /** Valor automático em décimos (sugestão da caixinha vazia); null nas fixas ou quando não há divisão. */
+  sugerido: number | null;
+};
+
+/**
+ * Questões da prova na ordem, com rótulo "Matéria · Assunto", um trecho do enunciado e o valor (fixo ou
+ * sugerido), mais o aviso de valores do painel. Quem chama já conferiu o acesso à prova.
+ */
+export async function questoesDoEditor(provaId: string): Promise<{ questoes: QuestaoDoEditor[]; aviso: string | null }> {
+  const [{ data: prova, error: errP }, { data: linhas, error }] = await Promise.all([
+    supabase.from("provas_word").select("cabecalho").eq("id", provaId).maybeSingle(),
+    supabase.from("prova_word_questoes").select("questao_id, ordem, valor").eq("prova_id", provaId).order("ordem"),
+  ]);
+  if (errP) throw new Error(errP.message);
   if (error) throw new Error(error.message);
   const ids = (linhas ?? []).map((l) => l.questao_id as string);
-  if (ids.length === 0) return [];
+  if (ids.length === 0) return { questoes: [], aviso: null };
+  const fixos = (linhas ?? []).map((l) => fixoEmDecimos(l.valor));
+  const { sugeridos, aviso } = valoresDoPainel(lerDecimos(lerCabecalho(prova?.cabecalho).valor), fixos);
 
   const { data: qs, error: errQ } = await supabase.from("questoes").select("id, enunciado, materia, assunto_id").in("id", ids);
   if (errQ) throw new Error(errQ.message);
@@ -554,9 +626,10 @@ export async function questoesDoEditor(
     for (const a of assuntos ?? []) nomes.set(a.id as string, a.nome as string);
   }
   const porId = new Map((qs ?? []).map((q) => [q.id as string, q]));
-  return ids.map((questaoId, indice) => {
+  const questoes = ids.map((questaoId, indice): QuestaoDoEditor => {
+    const valores = { valor: fixos[indice], sugerido: sugeridos[indice] };
     const q = porId.get(questaoId);
-    if (!q) return { indice, questaoId, rotulo: "Questão removida do banco", trecho: "" };
+    if (!q) return { indice, questaoId, rotulo: "Questão removida do banco", trecho: "", ...valores };
     const materia = q.materia as string | null;
     const rotuloMateria = materia ? (ehMateria(materia) ? MATERIAS[materia].rotulo : materia) : "";
     const assunto = q.assunto_id ? nomes.get(q.assunto_id as string) : undefined;
@@ -565,6 +638,8 @@ export async function questoesDoEditor(
       questaoId,
       rotulo: [rotuloMateria, assunto].filter(Boolean).join(" · "),
       trecho: trechoEnunciado((q.enunciado as string | null) ?? ""),
+      ...valores,
     };
   });
+  return { questoes, aviso };
 }

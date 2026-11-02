@@ -15,6 +15,7 @@ import {
   removerQuestao,
   salvarCabecalho,
   salvarNomeProva as gravarNomeProvaDe,
+  salvarValorQuestao,
   trocarQuestao,
   type PedidoProva,
 } from "@/lib/folha/provas-word-servidor";
@@ -130,10 +131,12 @@ const esquemaCabecalho = z.object({
   data: z.string().max(1000).optional(),
   valor: z.string().max(1000).optional(),
   instrucoes: z.string().max(1000).optional(),
+  valorPorQuestao: z.boolean().optional(),
 });
 // `questaoId` é a questão em que o professor clicou: o núcleo recusa se ela não estiver mais no índice.
 const esquemaMover = z.object({ provaId: UUID, questaoId: UUID, de: z.number().int().min(0), para: z.number().int().min(0) });
 const esquemaIndice = z.object({ provaId: UUID, questaoId: UUID, indice: z.number().int().min(0) });
+const esquemaValor = z.object({ provaId: UUID, questaoId: UUID, indice: z.number().int().min(0), valor: z.string().max(15).nullable() });
 const esquemaTroca = z.object({ provaId: UUID, questaoId: UUID, indice: z.number().int().min(0), aceitarUsadas: z.boolean() });
 
 function atualizar(provaId: string): void {
@@ -195,6 +198,19 @@ export async function removerQuestaoProva(entrada: unknown): Promise<{ ok: true 
     return { ok: true };
   } catch (e) {
     return erroEdicao(e, "Não foi possível remover a questão.");
+  }
+}
+
+/** Valor fixo da questão (texto como "1,5"); vazio ou null volta a automática. */
+export async function salvarValorQuestaoProva(entrada: unknown): Promise<{ ok: true } | Falha> {
+  try {
+    const professor = await exigirProfessor();
+    const { provaId, questaoId, indice, valor } = esquemaValor.parse(entrada);
+    await salvarValorQuestao(professor, provaId, indice, questaoId, valor);
+    atualizar(provaId);
+    return { ok: true };
+  } catch (e) {
+    return erroEdicao(e, "Não foi possível salvar o valor da questão.");
   }
 }
 
