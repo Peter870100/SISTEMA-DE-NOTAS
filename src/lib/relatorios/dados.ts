@@ -465,3 +465,12 @@ export async function carregarRelatorioAluno(g: GrupoTurma, alunoId: string, ago
   };
   return { ...semFrase, frase: fraseAluno(semFrase, b.media) };
 }
+
+/** Nome e conta (se houver) de um aluno da planilha do grupo, pela mesma regra do relatório. Lança AlunoForaDoGrupo. */
+export async function contaDoAlunoDaTurma(g: GrupoTurma, alunoId: string): Promise<{ nome: string; contaId: string | null }> {
+  const b = await carregarBase(g);
+  const alvo = b.linhas.find((l) => l.alunoId === alunoId);
+  if (!alvo) throw new AlunoForaDoGrupo();
+  const p = montarPessoa(b, alvo);
+  return { nome: p.nome, contaId: p.contaId };
+}
