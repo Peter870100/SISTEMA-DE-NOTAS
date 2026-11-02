@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ObterCtx } from "./leitura/comum";
 import { registrarAcoesAjuda } from "./acoes/ajuda";
+import { registrarAcoesClassificacao } from "./acoes/classificacao";
 import { registrarAcoesContas } from "./acoes/contas";
 import { registrarAcoesCursos } from "./acoes/cursos";
 import { registrarAcoesEscritas } from "./acoes/escritas";
@@ -16,7 +17,8 @@ import type { Perfil } from "./acoes/ator";
  * Ferramentas de escrita da Hermes (Etapa B): simulados, questões e importação de provas em PDF.
  * Etapa C1, só no perfil dono: contas de aluno e ajuda ao aluno (tentativas e progresso de aula).
  * Etapa C2, só no perfil dono: professores (papel, acesso às turmas, telefone e senha provisória).
- * Também no dono: cursos (publicar aula e turmas do curso).
+ * Também no dono: cursos (publicar aula e turmas do curso), questões escritas pelo Claude e classificação fina
+ * (tópico e habilidades) em lote.
  * Nos dois perfis: prova em Word (prévia de inéditas, gerar, histórico e links).
  * Cada uma resolve o ator na escola do item (`atorDoEscopo`), registra em `hermes_registro`
  * e chama as mesmas funções do núcleo que a tela usa.
@@ -33,5 +35,6 @@ export function registrarAcoes(server: McpServer, obter: ObterCtx, perfil: Perfi
     registrarAcoesProfessores(server, obter, perfil);
     registrarAcoesCursos(server, obter, perfil);
     registrarAcoesEscritas(server, obter, perfil);
+    registrarAcoesClassificacao(server, obter, perfil);
   }
 }

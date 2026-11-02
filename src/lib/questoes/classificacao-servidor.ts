@@ -248,8 +248,12 @@ export async function classificarQuestoesPor(
   return { salvas: aceitos.length, recusados };
 }
 
-/** Propõe um tópico; se o nome (normalizado) já existe no assunto, devolve o existente. */
-export async function proporTopicoPor(ator: Ator, assuntoId: string, nome: string): Promise<Topico> {
+/**
+ * Propõe um tópico; se o nome (normalizado) já existe no assunto, devolve o existente.
+ * A situação padrão é `aprovado` para o dono e `proposto` para os demais; `situacao` força uma delas
+ * (o MCP do dono cria como `proposto`, para ele revisar depois).
+ */
+export async function proporTopicoPor(ator: Ator, assuntoId: string, nome: string, situacao?: "aprovado" | "proposto"): Promise<Topico> {
   const limpo = nome.trim().replace(/\s+/g, " ");
   if (!limpo) throw new Error("Informe o nome do tópico.");
   if (limpo.length > 120) throw new Error("O nome do tópico é muito longo.");
@@ -264,7 +268,7 @@ export async function proporTopicoPor(ator: Ator, assuntoId: string, nome: strin
   if (existente) return existente;
   const { data, error } = await supabase
     .from("topicos")
-    .insert({ assunto_id: assuntoId, nome: limpo, situacao: ator.role === "dono" ? "aprovado" : "proposto" })
+    .insert({ assunto_id: assuntoId, nome: limpo, situacao: situacao ?? (ator.role === "dono" ? "aprovado" : "proposto") })
     .select("*")
     .single();
   if (error || !data) {
