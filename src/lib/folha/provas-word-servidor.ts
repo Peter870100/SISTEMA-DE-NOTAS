@@ -483,8 +483,9 @@ export async function salvarCabecalho(
   // O valor já salvo passa como está (mesmo um texto antigo, ex.: "10 pontos"); só um valor novo precisa ser número.
   const v = validarCabecalho(entrada, anterior.valor);
   if (!v.ok) throw new Error(v.erro);
-  if (lerDecimos(anterior.valor) === null && lerDecimos(v.cabecalho.valor) !== null) {
-    // A prova acabou de ganhar um total válido: liga "Mostrar o valor de cada questão".
+  if (entrada.valorPorQuestao === undefined && lerDecimos(anterior.valor) === null && lerDecimos(v.cabecalho.valor) !== null) {
+    // A prova acabou de ganhar um total válido e quem pediu não escolheu: liga "Mostrar o valor de cada questão".
+    // O painel manda sempre a escolha (a caixinha já vem marcada quando a prova ainda não tem total).
     v.cabecalho.valorPorQuestao = true;
   } else if (entrada.valorPorQuestao === undefined && anterior.valorPorQuestao !== undefined) {
     // Quem não mandou a opção (painel antigo, outra aba) não a apaga: fica a escolha já salva.

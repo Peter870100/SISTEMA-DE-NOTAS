@@ -24,7 +24,7 @@ import {
   PROVA_MUDOU,
   type CabecalhoProva,
 } from "@/lib/folha/editar-prova";
-import { formatarDecimos } from "@/lib/folha/valores";
+import { formatarDecimos, lerDecimos } from "@/lib/folha/valores";
 import {
   moverQuestaoProva,
   removerQuestaoProva,
@@ -143,7 +143,11 @@ export function Editor({
     const caixa = e.currentTarget;
     const salvo = q.valor === null ? "" : formatarDecimos(q.valor);
     const texto = caixa.value.trim();
-    if (texto === salvo) return;
+    // "2" e "2,0" são o mesmo valor: só mostra o formato salvo, sem gravar.
+    if (texto === salvo || (q.valor !== null && lerDecimos(texto) === q.valor)) {
+      caixa.value = salvo;
+      return;
+    }
     setAviso(null);
     setSoUsadas(null);
     executar("questoes", async () => {
@@ -352,7 +356,7 @@ export function Editor({
               <input name="valor" inputMode="decimal" maxLength={LIMITES_CABECALHO.valor} defaultValue={cabecalho.valor ?? ""} placeholder="Ex.: 10" className={estilos.input} />
             </label>
             <label className={css.editorMarcar}>
-              <input name="valorPorQuestao" type="checkbox" defaultChecked={cabecalho.valorPorQuestao === true} />
+              <input name="valorPorQuestao" type="checkbox" defaultChecked={cabecalho.valorPorQuestao === true || lerDecimos(cabecalho.valor) === null} />
               Mostrar o valor de cada questão
             </label>
             {nomeProva !== null && (
