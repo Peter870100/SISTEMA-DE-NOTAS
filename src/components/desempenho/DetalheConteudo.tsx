@@ -42,13 +42,15 @@ export function DetalheConteudo({ conteudo, erradas, aulas, visao, hrefFechar }:
         <Link href={hrefFechar} scroll={false} className={css.fechar}><X size={17} aria-hidden="true" />Fechar</Link>
       </div>
 
-      <div className={css.revisaoSugerida}>
-        <span className={css.rotulo}>Revisão sugerida</span>
-        <div className={css.acoes}>
-          <AulasDoConteudo conteudo={conteudo} aulas={aulas} visao={visao} />
-          {visao === "aluno" && <TreinarAssunto assuntoId={conteudo.assuntoId} materia={conteudo.materia} nome={conteudo.nome} className={css.botaoTreinar} />}
+      {(visao === "aluno" || aulasDoTema(conteudo.nome, aulas).length > 0) && (
+        <div className={css.revisaoSugerida}>
+          <span className={css.rotulo}>Revisão sugerida</span>
+          <div className={css.acoes}>
+            <AulasDoConteudo conteudo={conteudo} aulas={aulas} visao={visao} />
+            {visao === "aluno" && <TreinarAssunto assuntoId={conteudo.assuntoId} materia={conteudo.materia} nome={conteudo.nome} className={css.botaoTreinar} />}
+          </div>
         </div>
-      </div>
+      )}
 
       {erradas.length === 0
         ? <p className={css.vazio}>Nenhuma questão errada ou em branco neste conteúdo.</p>
