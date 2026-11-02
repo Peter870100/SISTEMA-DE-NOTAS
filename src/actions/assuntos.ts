@@ -2,6 +2,7 @@
 
 import { supabase } from "@/lib/supabase/client";
 import { exigirProfessor } from "@/lib/questoes/acesso";
+import { moverTopicosDoAssunto } from "@/lib/questoes/classificacao-servidor";
 import { inserirAssuntosIniciais } from "@/lib/questoes/assuntos-servidor";
 import type { Assunto } from "@/lib/types";
 
@@ -32,6 +33,8 @@ export async function juntarAssunto(propostoId: string, destinoId: string): Prom
     supabase.from("assuntos").select("*").eq("id", destinoId).maybeSingle(),
   ]);
   if (!proposto || !destino || proposto.materia !== destino.materia) throw new Error("Os assuntos precisam ser da mesma matéria.");
+  // Primeiro os tópicos e materiais: o gatilho zera o tópico que não é do assunto da questão.
+  await moverTopicosDoAssunto(propostoId, destinoId);
   const { error } = await supabase.from("questoes").update({ assunto_id: destinoId }).eq("assunto_id", propostoId);
   if (error) throw new Error(error.message);
   await supabase.from("assuntos").delete().eq("id", propostoId);

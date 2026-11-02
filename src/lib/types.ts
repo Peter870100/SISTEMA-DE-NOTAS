@@ -637,6 +637,36 @@ export type Database = {
         Update: Partial<Omit<Assunto, "id" | "created_at">>;
         Relationships: [];
       };
+      topicos: {
+        Row: Topico;
+        Insert: Partial<Omit<Topico, "id" | "created_at">> & { assunto_id: string; nome: string };
+        Update: Partial<Omit<Topico, "id" | "created_at">>;
+        Relationships: [];
+      };
+      habilidades: {
+        Row: Habilidade;
+        Insert: Partial<Omit<Habilidade, "id" | "created_at">> & { area: Area; descricao: string };
+        Update: Partial<Omit<Habilidade, "id" | "created_at">>;
+        Relationships: [];
+      };
+      questao_habilidades: {
+        Row: { questao_id: string; habilidade_id: string };
+        Insert: { questao_id: string; habilidade_id: string };
+        Update: Partial<{ questao_id: string; habilidade_id: string }>;
+        Relationships: [];
+      };
+      topico_prerequisitos: {
+        Row: { topico_id: string; prerequisito_id: string };
+        Insert: { topico_id: string; prerequisito_id: string };
+        Update: Partial<{ topico_id: string; prerequisito_id: string }>;
+        Relationships: [];
+      };
+      materiais_revisao: {
+        Row: MaterialRevisao;
+        Insert: Partial<Omit<MaterialRevisao, "id" | "created_at">>;
+        Update: Partial<Omit<MaterialRevisao, "id" | "created_at">>;
+        Relationships: [];
+      };
       importacoes: {
         Row: Importacao;
         Insert: Partial<Omit<Importacao, "id" | "created_at" | "updated_at">> & { escopo: Escopo; origem: "pdf" | "enemdev"; banca: string };
