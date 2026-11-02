@@ -21,5 +21,5 @@ export default async function RelatorioAlunoPage({ params }: PageProps) {
     throw e;
   });
   if (!dados) notFound();
-  return <RelatorioAluno turmaId={turmaId} dados={dados} />;
+  return <RelatorioAluno turmaId={turmaId} alunoId={alunoId} dados={dados} />;
 }

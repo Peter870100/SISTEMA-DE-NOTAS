@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, TriangleAlert } from "lucide-react";
+import { ArrowLeft, ChartColumn, TriangleAlert } from "lucide-react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos as ui } from "@/components/ui/estilos";
 import type { AtividadeAluno, RelatorioAluno as Dados, LinhaSimuladoAluno, ResumoAulas } from "@/lib/relatorios/tipos";
@@ -94,7 +94,7 @@ function textoAssistido(a: ResumoAulas["aulas"][number]): string {
   return a.pct > 0 ? formatarPct(a.pct) : "Começada";
 }
 
-export function RelatorioAluno({ turmaId, dados }: { turmaId: string; dados: Dados }) {
+export function RelatorioAluno({ turmaId, alunoId, dados }: { turmaId: string; alunoId: string; dados: Dados }) {
   const { mediaAprovacao } = dados;
   const semConta = !dados.temConta;
   const q = cartaoQuantoFalta(dados.quantoFalta, mediaAprovacao);
@@ -112,6 +112,7 @@ export function RelatorioAluno({ turmaId, dados }: { turmaId: string; dados: Dad
       acoes={
         <div className={`${css.naoImprimir} flex flex-wrap gap-2`}>
           <Link href={`/turma/${turmaId}/relatorio`} className={ui.botaoSecundario}><ArrowLeft size={15} />Relatório da turma</Link>
+          <Link href={`/turma/${turmaId}/relatorio/aluno/${alunoId}/desempenho`} className={ui.botaoSecundario}><ChartColumn size={15} />Desempenho</Link>
           <BotaoImprimir />
         </div>
       }

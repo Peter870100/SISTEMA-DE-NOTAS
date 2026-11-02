@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos as ui } from "@/components/ui/estilos";
+import type { ConteudoDesempenho } from "@/lib/desempenho/tipos";
+import { ConteudosTurma } from "@/components/desempenho/ConteudosTurma";
 import type { RelatorioTurma as Dados } from "@/lib/relatorios/tipos";
 import { formatarNota, formatarPct } from "@/lib/relatorios/calculos";
 import { BotaoImprimir } from "./BotaoImprimir";
@@ -18,7 +20,7 @@ function Numero({ rotulo, valor }: { rotulo: string; valor: string }) {
   );
 }
 
-export function RelatorioTurma({ turmaId, dados }: { turmaId: string; dados: Dados }) {
+export function RelatorioTurma({ turmaId, dados, conteudos, avisoConteudos }: { turmaId: string; dados: Dados; conteudos: ConteudoDesempenho[]; avisoConteudos?: string }) {
   const { mediaAprovacao, mediaTurma, mediaTurmaBase } = dados;
   const rotuloMedia = mediaTurmaBase === "andamento" ? "Média da turma (em andamento)" : mediaTurmaBase === "encerrados" ? "Média da turma (encerrados)" : "Média da turma";
   // `simulados` vem em ordem de abertura: o último é o mais recente.
@@ -58,6 +60,8 @@ export function RelatorioTurma({ turmaId, dados }: { turmaId: string; dados: Dad
           <h2 className="font-display text-base font-semibold text-ink">Alunos</h2>
           <TabelaAlunos turmaId={turmaId} alunos={dados.alunos} bimestres={dados.mediaPorBimestre.map((b) => b.bimestre)} mediaAprovacao={mediaAprovacao} />
         </section>
+
+        <ConteudosTurma conteudos={conteudos} aviso={avisoConteudos} />
 
         <section className={`rounded-card border border-line bg-surface p-4 shadow-card ${css.cartao}`}>
           <h2 className="font-display text-base font-semibold text-ink">Simulados: quem não fez</h2>

@@ -42,6 +42,7 @@ export function TabelaAlunos({ turmaId, alunos, bimestres, mediaAprovacao }: Pro
             <th>Quanto falta</th>
             <th>Simulados</th>
             <th>Aulas</th>
+            <th>Desempenho</th>
           </tr>
         </thead>
         <tbody>
@@ -55,6 +56,7 @@ export function TabelaAlunos({ turmaId, alunos, bimestres, mediaAprovacao }: Pro
                 <td className="text-ink">{textoQuantoFalta(a.quantoFalta)}</td>
                 <td className="text-ink">{a.temConta ? `${a.simuladosFeitos}/${a.simuladosTotal}` : "sem login"}</td>
                 <td className="text-ink">{a.aulasConcluidas === null ? "—" : a.aulasConcluidas}</td>
+                <td><Link href={`/turma/${turmaId}/relatorio/aluno/${a.alunoId}/desempenho`} className="font-semibold text-brand-bright hover:underline">Desempenho</Link></td>
               </tr>
             );
           })}
