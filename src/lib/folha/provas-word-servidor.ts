@@ -20,7 +20,15 @@ import {
   validarCabecalho,
   type CabecalhoProva,
 } from "./editar-prova";
-import { decimosParaBanco, excessoFixos, fixoEmDecimos, lerDecimos, valoresDoPainel, valoresPorId } from "./valores";
+import {
+  decimosParaBanco,
+  excessoFixos,
+  fixoEmDecimos,
+  formatarDecimos,
+  lerDecimos,
+  valoresDoPainel,
+  valoresPorId,
+} from "./valores";
 import { ehMateria, MATERIAS } from "@/lib/questoes/materias";
 import { gravarNomeProva, lerNomesProfessor } from "@/lib/professores/nome-prova";
 import {
@@ -123,8 +131,17 @@ export async function previaProva(p: PedidoProva): Promise<Cenario> {
   return cenarioIneditas(ids, usadas, p.quantidade);
 }
 
+/**
+ * Gera e grava a prova. `valor` (em décimos, já validado): o total vai no cabeçalho com "mostrar o valor de
+ * cada questão" ligado, e `fixos[i]` vira o valor fixo da i-ª questão (se a prova sair menor, os de sobra caem).
+ */
 export async function gerarProva(
-  p: PedidoProva & { tipo: TipoProva; permitirRepetidas: boolean; origem: "hermes" | "site" },
+  p: PedidoProva & {
+    tipo: TipoProva;
+    permitirRepetidas: boolean;
+    origem: "hermes" | "site";
+    valor?: { total: number; fixos: (number | null)[] } | null;
+  },
 ): Promise<{ id: string; titulo: string; total: number; repetidas: number }> {
   conferirQuantidade(p.quantidade);
   const [todas, usadas] = await Promise.all([elegiveis(p.escolaId, p.filtros), usadasPeloProfessor(p.professorId)]);
@@ -141,12 +158,16 @@ export async function gerarProva(
       tipo: p.tipo,
       filtros: { ...p.filtros, quantidade: p.quantidade },
       origem: p.origem,
+      ...(p.valor ? { cabecalho: { valor: formatarDecimos(p.valor.total), valorPorQuestao: true } } : {}),
     })
     .select("id")
     .single();
   if (error || !prova) throw new Error(error?.message ?? "Não foi possível gravar a prova.");
 
-  const linhas = ids.map((questao_id, i) => ({ prova_id: prova.id, questao_id, ordem: i + 1 }));
+  const linhas = ids.map((questao_id, i) => {
+    const fixo = p.valor?.fixos[i] ?? null;
+    return { prova_id: prova.id, questao_id, ordem: i + 1, valor: fixo === null ? null : decimosParaBanco(fixo) };
+  });
   const { error: errQ } = await supabase.from("prova_word_questoes").insert(linhas);
   if (errQ) {
     await supabase.from("provas_word").delete().eq("id", prova.id);

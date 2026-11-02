@@ -26,6 +26,7 @@ export function NovaProva({ limite }: { limite: number }) {
   const [anoAte, setAnoAte] = useState("");
   const [quantidade, setQuantidade] = useState("10");
   const [tipo, setTipo] = useState<TipoProva>("fixacao");
+  const [valor, setValor] = useState("");
   const [previa, setPrevia] = useState<Previa | null>(null);
   const [completar, setCompletar] = useState(false);
   const [gerada, setGerada] = useState<Gerada | null>(null);
@@ -66,6 +67,7 @@ export function NovaProva({ limite }: { limite: number }) {
         pedido: { ...pedido, banca: pedido.banca || undefined, assunto: pedido.assunto || undefined },
         tipo,
         permitirRepetidas: !cenario.cabeEmIneditas && completar,
+        valor,
       });
       if (!r.ok) {
         setErro(r.erro);
@@ -109,6 +111,9 @@ export function NovaProva({ limite }: { limite: number }) {
             <option value="fixacao">Atividade de Fixação</option>
             <option value="simulado">Simulado</option>
           </select>
+        </label>
+        <label className={css.campo}>Valor da prova
+          <input value={valor} onChange={(e) => { setValor(e.target.value); setErro(null); }} inputMode="decimal" maxLength={15} placeholder="Sem valor" className={estilos.input} />
         </label>
       </div>
       <div className={css.botoes}>

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  decimosDeNumero,
   decimosParaBanco,
   excessoFixos,
   formatarDecimos,
@@ -102,4 +103,13 @@ test("decimosParaBanco: ponto e uma casa", () => {
   assert.equal(decimosParaBanco(15), "1.5");
   assert.equal(decimosParaBanco(5), "0.5");
   assert.equal(decimosParaBanco(100), "10.0");
+});
+
+test("decimosDeNumero: até 1 casa, > 0 e <= 1000", () => {
+  assert.equal(decimosDeNumero(10), 100);
+  assert.equal(decimosDeNumero(7.5), 75);
+  assert.equal(decimosDeNumero(0.1 + 0.2), 3);
+  assert.equal(decimosDeNumero(1.25), null);
+  assert.equal(decimosDeNumero(0), null);
+  assert.equal(decimosDeNumero(1001), null);
 });

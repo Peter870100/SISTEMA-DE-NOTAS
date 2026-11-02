@@ -84,3 +84,28 @@ figuras recortadas da prova original e o texto formatado. Sai em dois arquivos .
   **Gabarito (Word)**, **Prova (PDF)** e **Gabarito (PDF)**; dentro da pré-visualização, **Word** e **PDF** da folha
   aberta. Nos itens de PDF abre-se a janela de impressão: escolha "Salvar como PDF" como impressora.
 - As quebras de página da prévia e do PDF podem diferir um pouco das do Word.
+
+## Valor da prova
+
+- **Valor total:** número com até 1 casa decimal (ex.: 10 ou 7,5). Com valor, cada questão sai com o seu no título,
+  na prova e no gabarito: "QUESTÃO 01 (1,0)". Sem valor, a prova fica como antes, sem valor nenhum.
+- **Divisão automática:** o total é dividido entre as questões em décimos; a sobra (0,1) vai para as últimas. Ex.:
+  10,0 em 3 questões = 3,3 + 3,3 + 3,4.
+- **Valor fixo:** no painel **Editar** da pré-visualização, a caixinha ao lado de cada questão fixa o valor dela (em
+  branco = automática, mostrando o valor sugerido). As automáticas dividem o que sobra. Fixos acima do total
+  não são aceitos; se o total baixar depois, a folha sai sem valores por questão e o painel avisa.
+- **Mostrar o valor de cada questão:** opção do cabeçalho no painel Editar; ligada sozinha quando a prova ganha um
+  valor total. Desligada, só o total aparece no cabeçalho.
+- **Site:** campo "Valor da prova" (opcional) no formulário "Nova prova".
+- **Hermes:** `previa_prova_word` pergunta "Quanto vale a prova? (se não quiser valor, diga 'sem valor')" e
+  `gerar_prova_word` recebe `valor` e, se o professor fixar questões, `valores_questoes` (`[{ numero, valor }]`).
+
+### Para colar no prompt de sistema da Hermes
+
+```
+Prova em Word: antes de gerar, se o professor não disse, pergunte junto com o resto
+"Quanto vale a prova? (se não quiser valor, diga 'sem valor')".
+Mande o total em `valor` de gerar_prova_word; se ele disser "sem valor", não mande `valor`.
+Se ele fixar questões ("a 1 vale 2"), mande em `valores_questoes` ([{ numero: 1, valor: 2 }]);
+as outras dividem o que sobra.
+```

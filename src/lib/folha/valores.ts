@@ -15,6 +15,16 @@ export function formatarDecimos(d: number): string {
   return `${Math.floor(d / 10)},${d % 10}`;
 }
 
+/** Erro do valor total da prova (site, painel e Hermes). */
+export const ERRO_VALOR_PROVA = "O valor da prova deve ser um número, ex.: 10 ou 7,5.";
+
+/** Número vindo da Hermes (ex.: 7.5) em décimos; null se tiver mais de 1 casa, for <= 0 ou > 1000. */
+export function decimosDeNumero(v: number): number | null {
+  const d = Math.round(v * 10);
+  if (!Number.isFinite(v) || Math.abs(v * 10 - d) > 1e-6) return null;
+  return d > 0 && d <= 10000 ? d : null;
+}
+
 export type ValoresProva = { porQuestao: (number | null)[] | null; aviso: string | null };
 
 /**

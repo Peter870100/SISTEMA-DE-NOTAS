@@ -6,6 +6,7 @@ import { exigirProfessor } from "@/lib/questoes/acesso";
 import { supabase } from "@/lib/supabase/client";
 import { MATERIAS } from "@/lib/questoes/materias";
 import { LIMITE_QUESTOES_PROVA, materiaRotulo, rotuloPedido, textoPrevia, type Cenario } from "@/lib/folha/provas-word";
+import { ERRO_VALOR_PROVA, lerDecimos } from "@/lib/folha/valores";
 import {
   excluirProva,
   gerarProva,
@@ -50,6 +51,7 @@ const esquemaGerar = z.object({
   pedido: z.unknown(),
   tipo: z.enum(["fixacao", "simulado"]),
   permitirRepetidas: z.boolean(),
+  valor: z.string().max(15).optional(),
 });
 
 const UUID = z.uuid();
@@ -91,8 +93,18 @@ export async function gerarProvaWord(
 ): Promise<{ ok: true; id: string; titulo: string; total: number; repetidas: number; pedidas: number } | Falha> {
   try {
     const g = esquemaGerar.parse(entrada);
+    // Valor em branco: prova sem valor nenhum (como antes).
+    const textoValor = (g.valor ?? "").trim();
+    const total = textoValor ? lerDecimos(textoValor) : null;
+    if (textoValor && total === null) return { ok: false, erro: ERRO_VALOR_PROVA };
     const { pedido } = await montarPedido(g.pedido);
-    const r = await gerarProva({ ...pedido, tipo: g.tipo, permitirRepetidas: g.permitirRepetidas, origem: "site" });
+    const r = await gerarProva({
+      ...pedido,
+      tipo: g.tipo,
+      permitirRepetidas: g.permitirRepetidas,
+      origem: "site",
+      valor: total === null ? null : { total, fixos: [] },
+    });
     revalidatePath(CAMINHO);
     return { ok: true, ...r, pedidas: pedido.quantidade };
   } catch (e) {

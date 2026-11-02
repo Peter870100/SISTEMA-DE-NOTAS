@@ -2,7 +2,7 @@
 // também é importado por componentes do navegador).
 
 import { cm, FIM_LINHA } from "./medidas";
-import { formatarDecimos, lerDecimos } from "./valores";
+import { ERRO_VALOR_PROVA, formatarDecimos, lerDecimos } from "./valores";
 
 export type CabecalhoProva = { turma?: string; data?: string; valor?: string; instrucoes?: string; valorPorQuestao?: boolean };
 
@@ -46,7 +46,7 @@ export function validarCabecalho(
   let valorFinal = valor;
   if (valor && valor !== (valorAnterior ?? "").trim()) {
     const d = lerDecimos(valor);
-    if (d === null) return { ok: false, erro: "O valor da prova deve ser um número, ex.: 10 ou 7,5." };
+    if (d === null) return { ok: false, erro: ERRO_VALOR_PROVA };
     valorFinal = formatarDecimos(d);
   }
   const instrucoes = (entrada.instrucoes ?? "").trim();

@@ -5,6 +5,7 @@ import { LIMITE_QUESTOES_PROVA, materiaRotulo, rotuloPedido, textoPrevia } from 
 import { campoEscola, campoTelefone, dataBR, texto, type Ctx, type ObterCtx } from "../leitura/comum";
 import { atorDoEscopo, campoId, contaDoDono, escolaParaCriar, falha, registrado, type Perfil } from "./ator";
 import { camposFiltro, filtrosComAssunto, type ArgsFiltro } from "./simulados";
+import { decimosDeNumero, ERRO_VALOR_PROVA, validarValoresPedido } from "@/lib/folha/valores";
 
 /**
  * Prova em Word pela Hermes: prévia de inéditas, gerar (prova + gabarito por link), histórico e reenvio dos links.
@@ -36,6 +37,27 @@ async function pedidoDe(ctx: Ctx, args: ArgsFiltro & { quantidade: number; escol
   };
 }
 
+/**
+ * Valor da prova e das questões pedidos pela Hermes, em décimos. Lança (antes de gerar) se algo não serve;
+ * sem `valor`, a prova sai sem valor nenhum.
+ */
+function valorDoPedido(
+  quantidade: number,
+  valor: number | undefined,
+  itens: { numero: number; valor: number }[] | undefined,
+): { total: number; fixos: (number | null)[] } | null {
+  const total = valor === undefined ? null : decimosDeNumero(valor);
+  if (valor !== undefined && total === null) throw new Error(`${ERRO_VALOR_PROVA} Até 1 casa decimal, de 0,1 a 1000.`);
+  const emDecimos = (itens ?? []).map((it) => {
+    const d = decimosDeNumero(it.valor);
+    if (d === null) throw new Error(`O valor da questão ${it.numero} deve ter até 1 casa decimal, ex.: 2 ou 1,5.`);
+    return { numero: it.numero, valor: d };
+  });
+  const v = validarValoresPedido(quantidade, total, emDecimos);
+  if (!v.ok) throw new Error(v.erro);
+  return total === null ? null : { total, fixos: v.fixos };
+}
+
 function blocoLinks(id: string): string {
   const l = linksProva(id, BASE_LINKS_PROVA);
   return `Prova: ${l.prova}\nGabarito: ${l.gabarito}`;
@@ -51,7 +73,7 @@ export function registrarAcoesProvasWord(server: McpServer, obter: ObterCtx, per
     "previa_prova_word",
     {
       title: "Prévia da prova em Word",
-      description: "Mostra quantas questões do banco servem para uma prova em Word (com figuras, só publicadas) e quantas o professor ainda não usou. SEMPRE chame antes de gerar_prova_word e, numa única mensagem, conte ao professor o cenário (total, já usadas, inéditas) e pergunte: se faltarem inéditas, se completa com já usadas ou faz uma prova menor; e, se ele não disse, se é atividade de fixação ou simulado.",
+      description: "Mostra quantas questões do banco servem para uma prova em Word (com figuras, só publicadas) e quantas o professor ainda não usou. SEMPRE chame antes de gerar_prova_word e, numa única mensagem, conte ao professor o cenário (total, já usadas, inéditas) e pergunte: se faltarem inéditas, se completa com já usadas ou faz uma prova menor; se ele não disse, se é atividade de fixação ou simulado; e, a menos que ele já tenha dito, \"Quanto vale a prova? (se não quiser valor, diga 'sem valor')\". Se ele disser o valor de questões específicas (ex.: \"a 1 vale 2\"), repasse em valores_questoes de gerar_prova_word.",
       inputSchema: { ...camposFiltro, ...campoQuantidade, ...escolaDoDono, ...campoTelefone },
     },
     async (args) => {
@@ -76,6 +98,11 @@ export function registrarAcoesProvasWord(server: McpServer, obter: ObterCtx, per
         ...campoQuantidade,
         tipo: z.enum(["fixacao", "simulado"]).describe("fixacao = Atividade de Fixação; simulado = Simulado (só muda o título)."),
         permitir_repetidas: z.boolean().optional().describe("true = completa com questões que o professor já usou em provas em Word, se faltarem inéditas. Padrão: false (só inéditas)."),
+        valor: z.number().positive().max(1000).optional().describe("Quanto vale a prova (ex.: 10 ou 7.5; até 1 casa decimal). As questões dividem o valor e cada uma sai com o seu, ex.: \"QUESTÃO 01 (1,0)\". Sem valor = prova sem valor nenhum (quando o professor disser 'sem valor')."),
+        valores_questoes: z
+          .array(z.object({ numero: z.number().int().describe("Número da questão na prova (1 = a primeira)."), valor: z.number().positive().describe("Valor fixo dessa questão (até 1 casa decimal).") }))
+          .optional()
+          .describe("Só quando o professor fixar o valor de questões específicas; exige valor. As outras dividem o que sobra."),
         ...escolaDoDono,
         ...campoTelefone,
       },
@@ -83,9 +110,10 @@ export function registrarAcoesProvasWord(server: McpServer, obter: ObterCtx, per
     async (args) => {
       try {
         const ctx = await obter(args);
+        const valor = valorDoPedido(args.quantidade, args.valor, args.valores_questoes);
         const { ator, pedido } = await pedidoDe(ctx, args);
         const r = await registrado(perfil, ator, "gerar_prova_word", args, () =>
-          gerarProva({ ...pedido, tipo: args.tipo, permitirRepetidas: args.permitir_repetidas ?? false, origem: "hermes" }));
+          gerarProva({ ...pedido, tipo: args.tipo, permitirRepetidas: args.permitir_repetidas ?? false, origem: "hermes", valor }));
         const extras: string[] = [];
         if (r.repetidas > 0) extras.push(`${r.repetidas} já ${r.repetidas === 1 ? "usada" : "usadas"} antes`);
         if (r.total < pedido.quantidade) extras.push(`pedidas ${pedido.quantidade}; não havia mais`);
