@@ -1,7 +1,108 @@
--- Carga inicial da classificação fina: tópicos de Português e Matemática e as habilidades da Matriz de
--- Referência do ENEM (Linguagens e Matemática). Cole no SQL Editor do Supabase DEPOIS do bloco
--- "Classificação fina (2026-11-02)" do db/schema.sql.
--- Pode rodar de novo: o que já existe (mesmo nome no assunto, mesma descrição ou código na área) é pulado.
+-- ===== Classificação fina (2026-11-02): tabelas novas + carga inicial =====
+-- Cole este arquivo INTEIRO no SQL Editor do Supabase e clique em Run (pode rodar de novo sem erro).
+-- Parte 1: o bloco "Classificação fina (2026-11-02)" do db/schema.sql (só acrescenta; as questões atuais seguem
+-- sem tópico). Parte 2: tópicos de Português e Matemática e as habilidades da Matriz de Referência do ENEM.
+
+-- ---------- Parte 1: tabelas ----------
+
+
+-- Tópico: nível abaixo do assunto
+create table if not exists topicos (
+    id uuid primary key default gen_random_uuid(),
+    assunto_id uuid not null references assuntos(id) on delete cascade,
+    nome text not null,
+    situacao varchar(10) not null default 'aprovado' check (situacao in ('aprovado', 'proposto')),
+    created_at timestamptz not null default now()
+);
+create unique index if not exists uq_topicos_assunto_nome on topicos (assunto_id, lower(nome));
+
+-- Habilidade: por ÁREA (vale para todas as matérias da área), código opcional
+create table if not exists habilidades (
+    id uuid primary key default gen_random_uuid(),
+    area varchar(10) not null check (area in ('linguagens', 'humanas', 'natureza', 'matematica')),
+    codigo text,
+    descricao text not null,
+    situacao varchar(10) not null default 'aprovado' check (situacao in ('aprovado', 'proposto')),
+    created_at timestamptz not null default now()
+);
+create unique index if not exists uq_habilidades_area_descricao on habilidades (area, lower(descricao));
+create unique index if not exists uq_habilidades_area_codigo on habilidades (area, codigo) where codigo is not null;
+
+alter table questoes add column if not exists topico_id uuid references topicos(id) on delete set null;
+create index if not exists idx_questoes_topico on questoes (topico_id);
+
+create table if not exists questao_habilidades (
+    questao_id uuid not null references questoes(id) on delete cascade,
+    habilidade_id uuid not null references habilidades(id) on delete cascade,
+    primary key (questao_id, habilidade_id)
+);
+create index if not exists idx_questao_habilidades_habilidade on questao_habilidades (habilidade_id);
+
+create table if not exists topico_prerequisitos (
+    topico_id uuid not null references topicos(id) on delete cascade,
+    prerequisito_id uuid not null references topicos(id) on delete cascade,
+    primary key (topico_id, prerequisito_id),
+    check (topico_id <> prerequisito_id)
+);
+create index if not exists idx_topico_prerequisitos_prereq on topico_prerequisitos (prerequisito_id);
+
+-- Material de revisão: de um tópico OU de um assunto; uma aula OU (título e link https)
+create table if not exists materiais_revisao (
+    id uuid primary key default gen_random_uuid(),
+    escola_id uuid references escolas(id),
+    topico_id uuid references topicos(id) on delete cascade,
+    assunto_id uuid references assuntos(id) on delete cascade,
+    aula_id uuid references aulas(id) on delete cascade,
+    titulo text,
+    url text,
+    created_at timestamptz not null default now(),
+    constraint materiais_revisao_alvo_check check ((topico_id is null) <> (assunto_id is null)),
+    constraint materiais_revisao_conteudo_check check (
+        aula_id is not null
+        or (titulo is not null and length(btrim(titulo)) > 0 and url is not null and url like 'https://%')
+    )
+);
+create index if not exists idx_materiais_revisao_topico on materiais_revisao (topico_id);
+create index if not exists idx_materiais_revisao_assunto on materiais_revisao (assunto_id);
+
+alter table topicos enable row level security;
+alter table habilidades enable row level security;
+alter table questao_habilidades enable row level security;
+alter table topico_prerequisitos enable row level security;
+alter table materiais_revisao enable row level security;
+drop policy if exists "acesso_total_topicos" on topicos;
+create policy "acesso_total_topicos" on topicos for all using (true) with check (true);
+drop policy if exists "acesso_total_habilidades" on habilidades;
+create policy "acesso_total_habilidades" on habilidades for all using (true) with check (true);
+drop policy if exists "acesso_total_questao_habilidades" on questao_habilidades;
+create policy "acesso_total_questao_habilidades" on questao_habilidades for all using (true) with check (true);
+drop policy if exists "acesso_total_topico_prerequisitos" on topico_prerequisitos;
+create policy "acesso_total_topico_prerequisitos" on topico_prerequisitos for all using (true) with check (true);
+drop policy if exists "acesso_total_materiais_revisao" on materiais_revisao;
+create policy "acesso_total_materiais_revisao" on materiais_revisao for all using (true) with check (true);
+
+-- Tópico que não é do assunto da questão (ou que não existe mais) vira nulo, em qualquer caminho
+-- que grave questão: editor, importação, gerador, salvar_questoes, SQL e restauração da Lixeira
+-- (o gatilho roda antes da checagem da chave estrangeira, então o snapshot antigo restaura sem erro).
+create or replace function questao_topico_do_assunto()
+returns trigger
+language plpgsql as $$
+begin
+    if new.topico_id is not null and not exists (
+        select 1 from topicos t where t.id = new.topico_id and t.assunto_id = new.assunto_id
+    ) then
+        new.topico_id := null;
+    end if;
+    return new;
+end $$;
+
+drop trigger if exists trg_questao_topico_do_assunto on questoes;
+create trigger trg_questao_topico_do_assunto
+before insert or update of assunto_id, topico_id on questoes
+for each row execute function questao_topico_do_assunto();
+
+-- ---------- Parte 2: carga inicial ----------
+-- O que já existe (mesmo nome no assunto, mesma descrição ou código na área) é pulado.
 -- Assuntos pelo nome (sem ids fixos); assunto que não existir no banco fica sem tópicos (ver a conferência no fim).
 begin;
 
@@ -347,6 +448,8 @@ insert into habilidades (area, codigo, descricao, situacao) values
 on conflict do nothing;
 
 commit;
+
+NOTIFY pgrst, 'reload schema';
 
 -- Conferência: cada assunto de Português e Matemática com quantos tópicos tem (nenhum deve ficar com 0)
 -- e as habilidades por área (30 em cada).
