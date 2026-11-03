@@ -57,8 +57,15 @@ O Peter fala português; respostas em pt-BR.
    (ícone de gráfico) e, na escola, "Conteúdos com mais erro na turma" no relatório + `/turma/<id>/relatorio/aluno/<id>/desempenho`.
    Só usa respostas já gravadas (matéria/assunto); 1ª resposta por questão; regras em `src/lib/desempenho/regras.ts`.
    Dados de teste: `db/dados-teste-desempenho.sql` (turma TESTE DESEMPENHO, usuários `teste.desempenho.*`) e
-   `db/apagar-dados-teste-desempenho.sql`. É o projeto 1 de 4 do acompanhamento da aprendizagem: faltam 2 (classificação
-   fina + lote), 3 (recomendações e plano de estudo) e 4 (IA).
+   `db/apagar-dados-teste-desempenho.sql`. É o projeto 1 de 4 do acompanhamento da aprendizagem: faltam 3
+   (recomendações e plano de estudo) e 4 (IA).
+13. Classificação fina (2026-11-02; spec `docs/superpowers/specs/2026-11-02-classificacao-fina-design.md`; projeto 2 de 4):
+   **Tópico** (dentro do assunto) e **Habilidades** (por área, código opcional tipo "H18"), pré-requisitos entre tópicos
+   e materiais de revisão. Classifica no editor da questão, uma por vez (`/banco/classificar`), em lote na lista do
+   banco e pelo MCP do dono (`questoes_para_classificar`, `classificar_questoes`, até 50 por chamada). Dono gerencia em
+   `/banco/assuntos` ("Classificação"). Gatilho no banco zera o tópico que não é do assunto da questão. Regras em
+   `src/lib/questoes/classificacao.ts`, gravação em `classificacao-servidor.ts`. SQL colado: `db/2026-11-02-classificacao-fina.sql`
+   (tabelas + 268 tópicos de Português/Matemática + H1–H30 de Linguagens e Matemática da Matriz ENEM do INEP).
 
 ## Próximo passo
 - **Loja com Stripe** (alunos de fora: curso avulso ou pacote completo com treinos; Pix e cartão 12x):
