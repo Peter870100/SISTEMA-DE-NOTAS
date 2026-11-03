@@ -119,6 +119,15 @@ export function normalizarLinkHttps(url: string): string | null {
   return `https://${limpo.slice("https://".length)}`;
 }
 
+/** Habilidades por área e pelo número do código (H2 antes de H10); sem código no fim, por descrição. */
+export function ordenarHabilidades<T extends { area: string; codigo: string | null; descricao: string }>(lista: T[]): T[] {
+  return [...lista].sort((a, b) =>
+    a.area.localeCompare(b.area)
+    || Number(a.codigo === null) - Number(b.codigo === null)
+    || (a.codigo ?? "").localeCompare(b.codigo ?? "", "pt-BR", { numeric: true })
+    || a.descricao.localeCompare(b.descricao, "pt-BR"));
+}
+
 /** Itens cujo nome e rótulo contêm todas as palavras da busca (sem acento nem maiúsculas), até `limite`. */
 export function buscarPorTexto<T extends { nome: string; rotulo: string }>(itens: T[], texto: string, limite = 8): T[] {
   const palavras = nomeNormalizado(texto).split(/\s+/).filter(Boolean);

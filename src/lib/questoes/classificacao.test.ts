@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   LIMITE_LOTE, validarItens, mesmoAssunto, mesmaArea, habilidadesFinais, planoJuntarTopicos, nomeNormalizado, mesclarItens,
-  contarPorTopico, normalizarLinkHttps, buscarPorTexto,
+  contarPorTopico, normalizarLinkHttps, buscarPorTexto, ordenarHabilidades,
   type QuestaoLote, type ItemLote,
 } from "./classificacao";
 import type { Ator } from "./regras";
@@ -116,4 +116,15 @@ test("buscarPorTexto: todas as palavras, sem acento, começo do nome primeiro e 
   assert.deepEqual(buscarPorTexto(itens, "matematica deriv").map((i) => i.nome), ["Derivadas", "Regra da cadeia"]);
   assert.deepEqual(buscarPorTexto(itens, "   "), []);
   assert.deepEqual(buscarPorTexto(itens, "a", 2).length, 2);
+});
+
+test("ordenarHabilidades: por área, código pelo número (H2 antes de H10), sem código no fim", () => {
+  const h = (area: "linguagens" | "matematica", codigo: string | null, descricao: string) => ({ area, codigo, descricao });
+  const ordem = ordenarHabilidades([
+    h("matematica", "H10", "dez"), h("matematica", null, "sem código"), h("matematica", "H2", "dois"),
+    h("linguagens", "H30", "trinta"), h("matematica", "H1", "um"), h("linguagens", "H3", "três"),
+  ]);
+  assert.deepEqual(ordem.map((x) => `${x.area}:${x.codigo ?? "-"}`), [
+    "linguagens:H3", "linguagens:H30", "matematica:H1", "matematica:H2", "matematica:H10", "matematica:-",
+  ]);
 });

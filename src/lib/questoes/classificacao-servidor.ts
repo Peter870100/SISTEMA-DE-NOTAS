@@ -3,7 +3,7 @@ import { ehAdmin } from "@/lib/papeis";
 import type { Area, Habilidade, MaterialRevisao, Questao, Topico } from "@/lib/types";
 import type { Ator } from "./regras";
 import {
-  contarPorTopico, habilidadesFinais, mesclarItens, nomeNormalizado, planoJuntarTopicos, validarItens,
+  contarPorTopico, habilidadesFinais, mesclarItens, nomeNormalizado, ordenarHabilidades, planoJuntarTopicos, validarItens,
   type ItemLote, type QuestaoLote, type Recusa,
 } from "./classificacao";
 
@@ -54,11 +54,12 @@ export async function listarTopicos(assuntoIds?: string[]): Promise<Topico[]> {
 }
 
 export async function listarHabilidades(area?: Area): Promise<Habilidade[]> {
-  return lerTodas<Habilidade>((de, ate) => {
-    let q = supabase.from("habilidades").select("*").order("area").order("codigo", { nullsFirst: false }).order("descricao").order("id");
+  const lista = await lerTodas<Habilidade>((de, ate) => {
+    let q = supabase.from("habilidades").select("*").order("id");
     if (area) q = q.eq("area", area);
     return q.range(de, ate);
   });
+  return ordenarHabilidades(lista);
 }
 
 export async function classificacaoDasQuestoes(
