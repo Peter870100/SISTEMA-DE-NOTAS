@@ -166,12 +166,18 @@ export async function definirPrerequisitos(topicoId: string, prerequisitoIds: st
     const { data: inverso } = await supabase.from("topico_prerequisitos").select("topico_id").eq("prerequisito_id", topicoId).in("topico_id", ids);
     if ((inverso ?? []).length > 0) throw new Error("Esse pré-requisito já depende deste tópico.");
   }
-  const { error: e1 } = await supabase.from("topico_prerequisitos").delete().eq("topico_id", topicoId);
-  falhar(e1);
+  // Grava os novos antes de apagar os que saíram: uma falha no meio não deixa o tópico sem pré-requisitos.
   if (ids.length > 0) {
-    const { error } = await supabase.from("topico_prerequisitos").insert(ids.map((prerequisito_id) => ({ topico_id: topicoId, prerequisito_id })));
+    const { error } = await supabase.from("topico_prerequisitos").upsert(
+      ids.map((prerequisito_id) => ({ topico_id: topicoId, prerequisito_id })),
+      { onConflict: "topico_id,prerequisito_id", ignoreDuplicates: true },
+    );
     falhar(error);
   }
+  let apagar = supabase.from("topico_prerequisitos").delete().eq("topico_id", topicoId);
+  if (ids.length > 0) apagar = apagar.not("prerequisito_id", "in", `(${ids.join(",")})`);
+  const { error: e1 } = await apagar;
+  falhar(e1);
   atualizar();
 }
 

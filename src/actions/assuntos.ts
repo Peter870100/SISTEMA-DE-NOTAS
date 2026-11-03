@@ -37,7 +37,8 @@ export async function juntarAssunto(propostoId: string, destinoId: string): Prom
   await moverTopicosDoAssunto(propostoId, destinoId);
   const { error } = await supabase.from("questoes").update({ assunto_id: destinoId }).eq("assunto_id", propostoId);
   if (error) throw new Error(error.message);
-  await supabase.from("assuntos").delete().eq("id", propostoId);
+  const { error: eApagar } = await supabase.from("assuntos").delete().eq("id", propostoId);
+  if (eApagar) throw new Error(eApagar.message);
 }
 
 export async function carregarAssuntosIniciais(): Promise<number> {
