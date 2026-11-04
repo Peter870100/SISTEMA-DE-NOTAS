@@ -1,36 +1,27 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
-import { BookOpen, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { QuestaoErrada } from "@/lib/desempenho/dados";
 import type { ConteudoDesempenho } from "@/lib/desempenho/tipos";
 import { letrasVisiveis } from "@/lib/questoes/materias";
 import { enunciadoNaTela } from "@/lib/questoes/markdown";
-import { aulasDoTema } from "@/lib/simulados/revisao";
 import { ImagemIndisponivel, ImagemQuestao } from "@/components/questoes/ImagemQuestao";
 import { ConteudoQuestao, TextoAlternativa } from "@/components/questoes/ConteudoQuestao";
 import { TextoQuestao } from "@/components/questoes/TextoQuestao";
-import { TreinarAssunto } from "@/components/simulados/TreinarAssunto";
+import { MateriaisConteudo } from "@/components/plano/MateriaisConteudo";
+import type { ExtrasConteudo } from "@/lib/plano/extras";
+import type { ConteudoPlano, RegrasAprendizagem } from "@/lib/plano/tipos";
+import { AcaoTreino } from "./AcaoTreino";
+import { chaveMateria, linkDetalhe } from "./links";
 import css from "./PainelDesempenho.module.css";
 
-type Aula = { id: string; titulo: string };
-
-/** Aulas do tema (link só na visão do aluno) ou o aviso de que ainda não há aula. */
-export function AulasDoConteudo({ conteudo, aulas, visao }: { conteudo: ConteudoDesempenho; aulas: Aula[]; visao: "aluno" | "escola" }) {
-  const doTema = aulasDoTema(conteudo.nome, aulas);
-  if (doTema.length === 0) return visao === "aluno" ? <p className={css.semAula}><BookOpen size={17} aria-hidden="true" />Ainda não há aula sobre este assunto</p> : null;
-  return (
-    <>
-      {doTema.map((a) => visao === "aluno"
-        ? <Link key={a.id} href={`/aluno/aulas/${a.id}`} className={css.botaoAula}><BookOpen size={17} aria-hidden="true" /><span>{a.titulo}</span></Link>
-        : <span key={a.id} className={css.botaoAula}><BookOpen size={17} aria-hidden="true" /><span>{a.titulo}</span></span>)}
-    </>
-  );
-}
-
 /** Conteúdo aberto: questões erradas ou em branco (enunciado, marcada, certa, resolução) e a revisão sugerida. */
-export function DetalheConteudo({ conteudo, erradas, aulas, visao, hrefFechar }: {
-  conteudo: ConteudoDesempenho; erradas: QuestaoErrada[]; aulas: Aula[]; visao: "aluno" | "escola"; hrefFechar: string;
+export function DetalheConteudo({ conteudo, erradas, visao, plano, extras, regras, hrefFechar, hrefBase }: {
+  conteudo: ConteudoDesempenho; erradas: QuestaoErrada[]; visao: "aluno" | "escola"; hrefFechar: string; hrefBase: string;
+  plano: Record<string, ConteudoPlano>; extras: Record<string, ExtrasConteudo>; regras: RegrasAprendizagem;
 }) {
+  const cp = plano[conteudo.chave];
+  const ex = extras[conteudo.chave];
   return (
     <section id="detalhe-conteudo" className={css.detalhe} aria-labelledby="titulo-detalhe">
       <div className={css.detalheTopo}>
@@ -42,13 +33,21 @@ export function DetalheConteudo({ conteudo, erradas, aulas, visao, hrefFechar }:
         <Link href={hrefFechar} scroll={false} className={css.fechar}><X size={17} aria-hidden="true" />Fechar</Link>
       </div>
 
-      {(visao === "aluno" || aulasDoTema(conteudo.nome, aulas).length > 0) && (
+      {ex && (
         <div className={css.revisaoSugerida}>
           <span className={css.rotulo}>Revisão sugerida</span>
-          <div className={css.acoes}>
-            <AulasDoConteudo conteudo={conteudo} aulas={aulas} visao={visao} />
-            {visao === "aluno" && <TreinarAssunto assuntoId={conteudo.assuntoId} materia={conteudo.materia} nome={conteudo.nome} className={css.botaoTreinar} />}
-          </div>
+          <MateriaisConteudo nome={conteudo.nome} extras={ex} visao={visao} hrefResolucoes={`${linkDetalhe(hrefBase, chaveMateria(conteudo), conteudo.chave)}#detalhe-conteudo`} />
+          {visao === "aluno" && <div className={css.acoes}><AcaoTreino cp={cp} extras={ex} regras={regras} /></div>}
+          {cp?.depois && <p className={css.textoPrioridade}>Depois do estudo: acertou {cp.depois.acertos} de {cp.depois.total}</p>}
+        </div>
+      )}
+
+      {conteudo.topicos.length > 0 && (
+        <div className={css.revisaoSugerida}>
+          <span className={css.rotulo}>Tópicos deste conteúdo</span>
+          <ul className={css.topicos}>
+            {conteudo.topicos.map((t) => <li key={t.topicoId}><strong>{t.nome}</strong> <span>{t.legenda}</span></li>)}
+          </ul>
         </div>
       )}
 

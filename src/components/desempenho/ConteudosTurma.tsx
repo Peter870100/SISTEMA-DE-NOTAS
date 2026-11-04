@@ -13,7 +13,7 @@ export function ConteudosTurma({ conteudos, aviso }: { conteudos: ConteudoDesemp
       ) : conteudos.length === 0 ? (
         <p className="py-4 text-sm text-ink">Nenhum simulado entregue nesta turma ainda</p>
       ) : (
-        <GraficoConteudos conteudos={conteudos} minQuestoes={REGRAS.minQuestoesPrioridade} />
+        <GraficoConteudos conteudos={conteudos} regras={REGRAS} />
       )}
     </section>
   );

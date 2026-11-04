@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ehPrioritario } from "@/lib/desempenho/calculos";
+import type { Regras } from "@/lib/desempenho/regras";
 import type { ConteudoDesempenho } from "@/lib/desempenho/tipos";
 import { chaveMateria, linkDetalhe } from "./links";
 import css from "./PainelDesempenho.module.css";
@@ -11,15 +12,15 @@ import css from "./PainelDesempenho.module.css";
  * detalhe do conteúdo. Conteúdo em revisão prioritária ganha etiqueta e barra vermelhas; quando os de poucas
  * respostas vêm todos no fim, um separador os distingue.
  */
-export function GraficoConteudos({ conteudos, hrefBase, aberto = null, minQuestoes }: { conteudos: ConteudoDesempenho[]; hrefBase?: string; aberto?: string | null; minQuestoes: number }) {
-  const poucas = (c: ConteudoDesempenho) => c.questoes < minQuestoes;
+export function GraficoConteudos({ conteudos, hrefBase, aberto = null, regras }: { conteudos: ConteudoDesempenho[]; hrefBase?: string; aberto?: string | null; regras: Regras }) {
+  const poucas = (c: ConteudoDesempenho) => c.questoes < regras.minQuestoesPrioridade;
   const corte = conteudos.findIndex(poucas);
   const separar = corte > 0 && conteudos.slice(corte).every(poucas);
   return (
     <ol className={css.graficoConteudos}>
       {conteudos.map((c, i) => {
         const nome = <strong>{c.nome}</strong>;
-        const prioritario = ehPrioritario(c);
+        const prioritario = ehPrioritario(c, regras);
         return (
           <li key={c.chave} data-aberto={aberto === c.chave || undefined} data-prioritario={prioritario || undefined} data-poucas={poucas(c) || undefined}
             data-separar={(separar && i === corte) || undefined} style={{ "--i": Math.min(i, 15) } as CSSProperties}>

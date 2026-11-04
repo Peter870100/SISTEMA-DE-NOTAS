@@ -4,12 +4,11 @@
  * A coluna `resposta` (gabarito) só é lida em `questoesErradas`, no servidor.
  */
 import { supabase } from "@/lib/supabase/client";
-import { cursosDoAluno } from "@/lib/aulas/acesso";
 import { emBlocos } from "@/lib/simulados/regras";
 import { questoesParaAluno, type QuestaoAluno } from "@/lib/simulados/servidor";
 import type { GrupoTurma } from "@/lib/relatorios/acesso";
 import type { EtapaPlano } from "@/lib/plano/tipos";
-import type { AlunoConta, Letra } from "@/lib/types";
+import type { Letra } from "@/lib/types";
 import { entraNoPainel } from "./acesso";
 import { chaveConteudo, primeirasRespostas, respostasIniciais } from "./calculos";
 import type { RespostaDesempenho } from "./tipos";
@@ -137,20 +136,4 @@ export async function questoesErradas(rs: RespostaDesempenho[], chave: string): 
     const g = gab.get(r.questaoId);
     return [{ questao, marcada: r.alternativa, certa: (g?.resposta as Letra | null) ?? null, resolucao: g?.resolucao ?? null, atividadeTitulo: r.atividadeTitulo }];
   });
-}
-
-/** Aulas publicadas dos cursos do aluno (para sugerir revisão); `[]` em caso de erro. */
-export async function aulasDoAlunoParaRevisao(contaId: string, escolaId: string): Promise<{ id: string; titulo: string }[]> {
-  try {
-    // cursosDoAluno só usa id e escola_id da conta.
-    const cursos = await cursosDoAluno({ id: contaId, escola_id: escolaId } as AlunoConta);
-    if (cursos.length === 0) return [];
-    const { data, error } = await supabase.from("aulas").select("id, titulo")
-      .in("curso_id", cursos.map((c) => c.id)).eq("publicada", true).order("ordem");
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  } catch (e) {
-    console.error("aulasDoAlunoParaRevisao:", e);
-    return [];
-  }
 }

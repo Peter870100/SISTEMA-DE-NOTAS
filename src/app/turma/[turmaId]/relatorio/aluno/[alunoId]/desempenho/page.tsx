@@ -5,9 +5,13 @@ import { getProfessorAtual } from "@/lib/auth";
 import { exigirTurmaDaEscola } from "@/lib/escola-acesso";
 import { AlunoForaDoGrupo, contaDoAlunoDaTurma, grupoDaTurma } from "@/lib/relatorios/dados";
 import { TEXTO_SEM_CONTA } from "@/lib/relatorios/calculos";
-import { questoesErradas, respostasDaConta } from "@/lib/desempenho/dados";
+import { questoesErradas } from "@/lib/desempenho/dados";
 import { montarPainel } from "@/lib/desempenho/calculos";
 import { detalheDaUrl } from "@/lib/desempenho/url";
+import { carregarPlano } from "@/lib/plano/dados";
+import { REGRAS_PADRAO } from "@/lib/plano/regras";
+import type { ConteudoPlano, RegrasAprendizagem } from "@/lib/plano/tipos";
+import type { ExtrasConteudo } from "@/lib/plano/extras";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { estilos as ui } from "@/components/ui/estilos";
 import { PainelDesempenho } from "@/components/desempenho/PainelDesempenho";
@@ -39,8 +43,17 @@ export default async function DesempenhoDoAlunoPage({ params, searchParams }: Pa
   const titulo = `Desempenho de ${aluno.nome}`;
 
   // Sem conta: cabeçalho e aviso, sem consultar respostas.
-  const respostas = aluno.contaId ? await respostasDaConta(aluno.contaId, g.escolaId, "escola") : [];
-  const painel = montarPainel(respostas);
+  const chaveAberta = Array.isArray(busca.conteudo) ? busca.conteudo[0] : busca.conteudo;
+  let painel = montarPainel([]);
+  let respostas: Awaited<ReturnType<typeof carregarPlano>>["respostas"] = [];
+  let porChave: Record<string, ConteudoPlano> = {};
+  let extras: Record<string, ExtrasConteudo> = {};
+  let regras: RegrasAprendizagem = REGRAS_PADRAO;
+  if (aluno.contaId) {
+    const d = await carregarPlano({ id: aluno.contaId, escolaId: g.escolaId }, "escola", new Date(), chaveAberta);
+    ({ painel, respostas, extras, regras } = d);
+    porChave = Object.fromEntries([...d.plano.semana, ...d.plano.depois, ...d.plano.concluidos].map((c) => [c.chave, c]));
+  }
   const { materia, conteudo } = detalheDaUrl(painel, busca);
   const erradas = conteudo ? await questoesErradas(respostas, conteudo) : [];
 
@@ -48,7 +61,7 @@ export default async function DesempenhoDoAlunoPage({ params, searchParams }: Pa
     <PageLayout crumb={`Relatório · ${turma.nome}`} titulo={aluno.nome} subtitulo="Desempenho por conteúdo, somando simulados e treinos"
       acoes={<Link href={voltar.href} className={ui.botaoSecundario}><ArrowLeft size={15} />{voltar.rotulo}</Link>}>
       <PainelDesempenho painel={painel} visao="escola" titulo={titulo} hrefBase={hrefBase}
-        materiaAberta={materia} conteudoAberto={conteudo} erradas={erradas} aulas={[]}
+        materiaAberta={materia} conteudoAberto={conteudo} erradas={erradas} plano={porChave} extras={extras} regras={regras}
         textoSemHistorico={aluno.contaId ? undefined : TEXTO_SEM_CONTA} />
     </PageLayout>
   );

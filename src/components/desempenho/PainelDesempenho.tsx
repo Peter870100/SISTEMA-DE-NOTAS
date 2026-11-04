@@ -2,17 +2,20 @@ import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { type LucideIcon, ArrowLeft, ArrowRight, ChartColumn, CircleCheck, CircleX, ClipboardList, Flag, Library, ListChecks, Percent, Target, TrendingUp } from "lucide-react";
 import type { QuestaoErrada } from "@/lib/desempenho/dados";
-import { AVISO_DIFICULDADE, REGRAS } from "@/lib/desempenho/regras";
+import { AVISO_DIFICULDADE, FRASE_INICIAL, regrasDoPainel } from "@/lib/desempenho/regras";
 import type { PainelDesempenho as Painel, Prioridade } from "@/lib/desempenho/tipos";
 import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
-import { TreinarAssunto } from "@/components/simulados/TreinarAssunto";
-import { AulasDoConteudo, DetalheConteudo } from "./DetalheConteudo";
+import { MateriaisConteudo } from "@/components/plano/MateriaisConteudo";
+import { SeloPlano } from "@/components/plano/SeloPlano";
+import type { ExtrasConteudo } from "@/lib/plano/extras";
+import type { ConteudoPlano, RegrasAprendizagem } from "@/lib/plano/tipos";
+import { AcaoTreino } from "./AcaoTreino";
+import { DetalheConteudo } from "./DetalheConteudo";
 import { GraficoConteudos } from "./GraficoConteudos";
 import { GraficoEvolucao } from "./GraficoEvolucao";
 import { chaveMateria, linkDetalhe } from "./links";
 import css from "./PainelDesempenho.module.css";
 
-type Aula = { id: string; titulo: string };
 type Visao = "aluno" | "escola";
 
 const vars = (v: Record<string, string | number>) => v as CSSProperties;
@@ -28,8 +31,14 @@ function Secao({ id, titulo, Icone, children }: { id: string; titulo: string; Ic
   );
 }
 
-function CartaoPrioridade({ p, visao, aulas, hrefBase, i }: { p: Prioridade; visao: Visao; aulas: Aula[]; hrefBase: string; i: number }) {
+function CartaoPrioridade({ p, visao, hrefBase, i, plano, extras, regras, criterio }: {
+  p: Prioridade; visao: Visao; hrefBase: string; i: number; plano: Record<string, ConteudoPlano>; extras: Record<string, ExtrasConteudo>;
+  regras: RegrasAprendizagem; criterio: string;
+}) {
   const c = p.conteudo;
+  const cp = plano[c.chave];
+  const ex = extras[c.chave];
+  const detalhe = linkDetalhe(hrefBase, chaveMateria(c), c.chave);
   return (
     <li className={`${css.prioridade} cartao-interativo`} data-tipo={p.tipo} style={vars({ "--i": Math.min(i, 15) })}>
       <span className={css.etiqueta}>{p.tipo === "revisar" ? "Revisão prioritária" : "Precisamos de mais respostas"}</span>
@@ -38,22 +47,26 @@ function CartaoPrioridade({ p, visao, aulas, hrefBase, i }: { p: Prioridade; vis
         <h3 className={css.nomePrioridade}>{c.nome}</h3>
       </div>
       <p className={css.textoPrioridade}>{p.texto}</p>
+      <p className={css.criterio}>{criterio}</p>
+      {cp && <SeloPlano c={cp} />}
+      {ex && <MateriaisConteudo nome={c.nome} extras={ex} visao={visao} hrefResolucoes={`${detalhe}#detalhe-conteudo`} />}
       <div className={css.acoes}>
-        <AulasDoConteudo conteudo={c} aulas={aulas} visao={visao} />
-        {visao === "aluno" && <TreinarAssunto assuntoId={c.assuntoId} materia={c.materia} nome={c.nome} className={css.botaoTreinar} />}
-        <Link href={linkDetalhe(hrefBase, chaveMateria(c), c.chave)} scroll={false} className={css.botaoVer}>Ver questões<ArrowRight size={17} aria-hidden="true" /></Link>
+        {visao === "aluno" && <AcaoTreino cp={cp} extras={ex} regras={regras} />}
+        {visao === "aluno" && cp && <Link href={`/aluno/plano#conteudo-${c.chave}`} className={css.botaoVer}>Ver no plano<ArrowRight size={17} aria-hidden="true" /></Link>}
+        <Link href={detalhe} scroll={false} className={css.botaoVer}>Ver questões<ArrowRight size={17} aria-hidden="true" /></Link>
       </div>
     </li>
   );
 }
 
 /** Painel "Meu desempenho" (aluno) e "Desempenho de <nome>" (escola): mesmo componente, links pela URL. */
-export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAberta, conteudoAberto, erradas, aulas, voltar, textoSemHistorico }: {
+export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAberta, conteudoAberto, erradas, plano, extras, regras, voltar, textoSemHistorico }: {
   painel: Painel; visao: Visao; titulo: string; hrefBase: string;
   materiaAberta: string | null; conteudoAberto: string | null;
-  erradas: QuestaoErrada[]; aulas: Aula[]; voltar?: { href: string; rotulo: string }; textoSemHistorico?: string;
+  erradas: QuestaoErrada[]; plano: Record<string, ConteudoPlano>; extras: Record<string, ExtrasConteudo>; regras: RegrasAprendizagem; voltar?: { href: string; rotulo: string }; textoSemHistorico?: string;
 }) {
   const { resumo, comparacao } = painel;
+  const regrasGrafico = regrasDoPainel(regras);
   const atividades = painel.evolucao.length;
   const semHistorico = resumo.respondidas === 0;
   const materia = painel.materias.find((m) => m.materia === materiaAberta) ?? null;
@@ -76,6 +89,7 @@ export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAbert
           <p className={css.descricao}>
             {painel.primeiraAtividade ? `Desde ${data(painel.primeiraAtividade)}, somando simulados e treinos entregues.` : "Simulados e treinos entregues aparecem aqui."}
           </p>
+          <p className={css.descricao}>{FRASE_INICIAL}</p>
         </div>
         {atividades > 0 && <span className={`${css.quantidade} cartao-interativo`}><ClipboardList size={20} aria-hidden="true" />{plural(atividades, "atividade", "atividades")}</span>}
       </header>
@@ -96,7 +110,7 @@ export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAbert
                 ? <p className={css.vazio}>Nenhum erro até agora. Continue assim!</p>
                 : <>
                     <p className={css.legenda}>Da maior para a menor taxa de erro; os conteúdos com poucas respostas vêm no fim. Toque no nome para ver as questões.</p>
-                    <GraficoConteudos minQuestoes={REGRAS.minQuestoesPrioridade} conteudos={painel.maisErro} hrefBase={hrefBase} aberto={conteudo?.chave ?? null} />
+                    <GraficoConteudos regras={regrasGrafico} conteudos={painel.maisErro} hrefBase={hrefBase} aberto={conteudo?.chave ?? null} />
                   </>}
             </Secao>
 
@@ -114,7 +128,7 @@ export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAbert
             {painel.prioridades.length === 0
               ? <p className={css.vazio}>Nenhum assunto pede revisão agora.</p>
               : <ul className={css.prioridades}>
-                  {painel.prioridades.map((p, i) => <CartaoPrioridade key={p.conteudo.chave} p={p} visao={visao} aulas={aulas} hrefBase={hrefBase} i={i} />)}
+                  {painel.prioridades.map((p, i) => <CartaoPrioridade key={p.conteudo.chave} p={p} visao={visao} hrefBase={hrefBase} i={i} plano={plano} extras={extras} regras={regras} criterio={painel.criterio} />)}
                 </ul>}
           </Secao>
 
@@ -138,8 +152,8 @@ export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAbert
             {materia && (
               <div className={css.materiaAberta}>
                 <h3 className={css.subtitulo}>{materia.rotulo}: conteúdos</h3>
-                <GraficoConteudos minQuestoes={REGRAS.minQuestoesPrioridade} conteudos={materia.conteudos} hrefBase={hrefBase} aberto={conteudo?.chave ?? null} />
-                {conteudo && <DetalheConteudo conteudo={conteudo} erradas={erradas} aulas={aulas} visao={visao} hrefFechar={linkDetalhe(hrefBase, materia.materia)} />}
+                <GraficoConteudos regras={regrasGrafico} conteudos={materia.conteudos} hrefBase={hrefBase} aberto={conteudo?.chave ?? null} />
+                {conteudo && <DetalheConteudo conteudo={conteudo} erradas={erradas} visao={visao} plano={plano} extras={extras} regras={regras} hrefBase={hrefBase} hrefFechar={linkDetalhe(hrefBase, materia.materia)} />}
               </div>
             )}
           </Secao>
