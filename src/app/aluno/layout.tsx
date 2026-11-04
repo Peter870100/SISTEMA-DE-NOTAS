@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { BookOpen, ChartColumn, GraduationCap, KeyRound, LogOut, Timer } from "lucide-react";
+import { BookOpen, ChartColumn, GraduationCap, KeyRound, LogOut, Route, Timer } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual } from "@/lib/auth";
@@ -35,6 +35,7 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
               { href: "/aluno/cursos", icone: BookOpen, cor: "ciano", rotulo: "Cursos" },
               { href: "/aluno/simulados", icone: Timer, cor: "lilas", rotulo: "Simulados" },
               { href: "/aluno/desempenho", icone: ChartColumn, cor: "verde", rotulo: "Desempenho" },
+              { href: "/aluno/plano", icone: Route, cor: "laranja", rotulo: "Plano" },
             ].map(({ href, icone: Icone, cor, rotulo }) => {
               const ativo = href === "/aluno" ? pathname === href : pathname.startsWith(href);
               return (
