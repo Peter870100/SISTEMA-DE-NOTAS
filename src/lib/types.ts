@@ -1,5 +1,6 @@
 import type { PerguntaQuiz, ResultadoQuiz } from "@/lib/aulas/quiz";
 import type { DocConteudo } from "@/lib/questoes/conteudo";
+import type { EtapaPlano } from "@/lib/plano/tipos";
 export type Turma = {
   id: string;
   nome: string;
@@ -141,6 +142,8 @@ export type Escola = {
   codigo_convite_professor: string;
   ativa: boolean;
   media_aprovacao?: number;
+  /** Regras do plano de estudo (ver `normalizarRegras`); nulo = padrão. */
+  regras_aprendizagem?: unknown;
   created_at: string;
 };
 
@@ -417,6 +420,10 @@ export type Simulado = {
   embaralhar: boolean;
   status: "rascunho" | "publicado";
   criado_via: OrigemRegistro;
+  /** Treino do plano de estudo: conteúdo (chave do painel), etapa e rodada; nulos nos demais. */
+  plano_conteudo?: string | null;
+  plano_etapa?: EtapaPlano | null;
+  plano_rodada?: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -659,6 +666,18 @@ export type Database = {
         Row: { topico_id: string; prerequisito_id: string };
         Insert: { topico_id: string; prerequisito_id: string };
         Update: Partial<{ topico_id: string; prerequisito_id: string }>;
+        Relationships: [];
+      };
+      planos_estudo: {
+        Row: { conta_id: string; escola_id: string; minutos_semana: number; updated_at: string };
+        Insert: { conta_id: string; escola_id: string; minutos_semana: number; updated_at?: string };
+        Update: Partial<{ conta_id: string; escola_id: string; minutos_semana: number; updated_at: string }>;
+        Relationships: [];
+      };
+      plano_revisoes: {
+        Row: { conta_id: string; conteudo: string; revisado_em: string };
+        Insert: { conta_id: string; conteudo: string; revisado_em?: string };
+        Update: Partial<{ conta_id: string; conteudo: string; revisado_em: string }>;
         Relationships: [];
       };
       materiais_revisao: {
