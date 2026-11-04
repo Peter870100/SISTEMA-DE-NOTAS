@@ -137,9 +137,8 @@ Ela recebe:
 - **Filtro:** questões publicadas, não anuladas, visíveis à escola (banco geral + escola) e fora das provas sob
   sigilo.
 - **Do conteúdo:** do assunto, ou da matéria quando o conteúdo é `materia:<m>`, como em `TreinarAssunto`.
-- **Lidas no servidor:** as habilidades de cada candidata.
-- **Limite:** a facilidade só é calculada para as 60 melhores depois do passo 2 abaixo, para não ler respostas
-  demais.
+- **Lidas no servidor:** o tópico e as habilidades de cada candidata. A facilidade só é calculada para as
+  questões já escolhidas no passo 3 (no máximo 15), para não ler respostas demais.
 
 **Ordem da escolha:**
 
@@ -231,7 +230,8 @@ o antes e o depois:
 **Progresso:**
 
 - **Por conteúdo:** "1 de 3 etapas".
-- **Geral:** etapas feitas ÷ etapas da rodada atual de todos os conteúdos fora dos concluídos, em %.
+- **Geral:** etapas feitas ÷ etapas da rodada atual de todos os conteúdos, em %. Os concluídos entram com
+  todas as etapas feitas, para a porcentagem não cair quando um conteúdo termina.
 - **Diagnóstico:** conta como 1 etapa.
 
 ## Falta de material ou de questões
