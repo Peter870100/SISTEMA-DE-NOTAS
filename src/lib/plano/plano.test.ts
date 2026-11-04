@@ -216,6 +216,15 @@ test("concluído + prática entregue: nova rodada (passou fica na 2, reprovou va
   assert.deepEqual(estados(reprovou), ["disponivel", "disponivel", "aguardando"]);
 });
 
+test("concluído + prática entregue: \"Já revisei\" feito com a prática aberta continua valendo", () => {
+  const nova = tr({ simuladoId: "p2", criadoEm: "2026-11-01T09:00:00.000Z", entregueEm: "2026-11-01T12:00:00.000Z", acertos: 4, total: 5 });
+  const c = so({ treinos: [praticaOk, revisaoOk, nova], revisadoEm: { a: "2026-11-01T10:00:00.000Z" } });
+  assert.equal(c.rodada, 2);
+  assert.equal(c.etapas[0].estado, "feita");
+  assert.equal(c.etapas[1].estado, "feita");
+  assert.equal(so({ treinos: [praticaOk, revisaoOk, nova], revisadoEm: { a: "2026-11-01T08:00:00.000Z" } }).etapas[0].estado, "disponivel");
+});
+
 test("mais respostas: uma etapa de diagnóstico", () => {
   const m = cd("m", { questoes: 3, acertos: 1, erros: 2, taxaErro: 67 });
   const treinos = [

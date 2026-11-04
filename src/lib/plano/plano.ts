@@ -45,10 +45,11 @@ function percorrer(ts: TreinoDoPlano[], r: RegrasAprendizagem): Rodada {
   for (const t of entregues(ts.filter((x) => x.etapa === "pratica" || x.etapa === "revisao"))) {
     const quando = t.entregueEm!;
     if (t.etapa === "pratica") {
+      // "Estudar de novo": a rodada nova começa quando a prática foi criada, não quando foi entregue.
       if (s.concluido) {
         s.concluido = false;
         s.rodada += 1;
-        s.inicioRodada = quando;
+        s.inicioRodada = t.criadoEm;
       }
       if (passou(t, r)) s.praticaOk = quando;
       else novaRodada(quando);
