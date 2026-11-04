@@ -266,7 +266,8 @@ alter table simulados add column if not exists plano_rodada integer;
 alter table simulados drop constraint if exists simulados_plano_check;
 alter table simulados add constraint simulados_plano_check check (
     (plano_etapa is null and plano_conteudo is null and plano_rodada is null)
-    or (plano_etapa is not null and plano_conteudo is not null and plano_rodada >= 1 and tipo = 'treino')
+    or (plano_etapa is not null and plano_conteudo is not null and plano_rodada is not null and plano_rodada >= 1
+        and tipo = 'treino')
 );
 -- dois cliques ao mesmo tempo não criam dois treinos da mesma etapa
 create unique index if not exists uq_simulados_plano
