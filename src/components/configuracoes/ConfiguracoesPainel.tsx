@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { ArrowRight, Building2, ChevronDown, Contact, GraduationCap, History, KeyRound, Settings2, Trash2, Users, type LucideIcon } from "lucide-react";
+import type { RegrasAprendizagem } from "@/lib/plano/tipos";
 import type { ProfessorRole } from "@/lib/types";
 import { ehAdmin } from "@/lib/papeis";
 import base from "@/components/admin/ContasAdmin.module.css";
 import { MediaAprovacaoCard } from "./MediaAprovacaoCard";
+import { RegrasAprendizagemCard } from "./RegrasAprendizagemCard";
 import { NomeProvaCard } from "./NomeProvaCard";
 import styles from "./ConfiguracoesPainel.module.css";
 
 type Opcao = { href: string; icon: LucideIcon; titulo: string; descricao: string };
 type Grupo = { titulo: string; opcoes: Opcao[] };
 
-export function ConfiguracoesPainel({ role, mediaAprovacao, nomeProva }: { role: ProfessorRole; mediaAprovacao: number; nomeProva: string }) {
+export function ConfiguracoesPainel({ role, mediaAprovacao, nomeProva, regras }: { role: ProfessorRole; mediaAprovacao: number; nomeProva: string; regras: RegrasAprendizagem }) {
   const grupos: Grupo[] = [
     ...(ehAdmin(role) ? [{
       titulo: "Escola",
@@ -56,6 +58,7 @@ export function ConfiguracoesPainel({ role, mediaAprovacao, nomeProva }: { role:
         </details>
       )}
       {ehAdmin(role) && <MediaAprovacaoCard mediaInicial={mediaAprovacao} />}
+      {ehAdmin(role) && <RegrasAprendizagemCard regrasIniciais={regras} />}
       <NomeProvaCard nomeInicial={nomeProva} />
       <div className={styles.groups}>
         {grupos.map((grupo, index) => (
