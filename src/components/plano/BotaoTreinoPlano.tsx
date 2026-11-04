@@ -5,15 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Play } from "lucide-react";
 import { criarTreinoDoPlano } from "@/actions/plano-estudo";
-import type { ConteudoPlano, EtapaPlano, RegrasAprendizagem } from "@/lib/plano/tipos";
+import type { EtapaPlano } from "@/lib/plano/tipos";
 import css from "./PlanoEstudo.module.css";
-
-export function rotuloEtapa(etapa: EtapaPlano, regras: RegrasAprendizagem, aberto: boolean, situacao: ConteudoPlano["situacao"]): string {
-  if (aberto) return "Continuar treino";
-  if (etapa === "pratica") return situacao === "concluido" ? "Estudar de novo" : `Praticar ${regras.questoesPratica} questões`;
-  if (etapa === "diagnostico") return `Fazer diagnóstico (${regras.questoesDiagnostico} questões)`;
-  return `Fazer revisão (${regras.questoesRevisao} questões)`;
-}
 
 /** Abre o treino do plano em andamento ou cria um novo e entra nele. */
 export function BotaoTreinoPlano({ conteudo, etapa, treinoAberto, rotulo, className }: {

@@ -57,9 +57,8 @@ export function PlanoEstudo({ dados }: { dados: DadosPlano }) {
 
           {plano.semana.length > 0 && (
             <Secao id="titulo-semana" titulo="Para esta semana" Icone={CalendarClock}>
-              <p className={css.legenda}>{plano.criterio}</p>
               <ul className={css.lista}>
-                {plano.semana.map((c, i) => <CartaoConteudoPlano key={c.chave} c={c} extras={extras[c.chave]} regras={regras} i={i} />)}
+                {plano.semana.map((c, i) => <CartaoConteudoPlano key={c.chave} c={c} extras={extras[c.chave]} regras={regras} i={i} criterio={plano.criterio} />)}
               </ul>
             </Secao>
           )}
@@ -67,7 +66,7 @@ export function PlanoEstudo({ dados }: { dados: DadosPlano }) {
           {plano.depois.length > 0 && (
             <Secao id="titulo-depois" titulo="Depois" Icone={ListTodo}>
               <ul className={css.lista}>
-                {plano.depois.map((c, i) => <CartaoConteudoPlano key={c.chave} c={c} extras={extras[c.chave]} regras={regras} i={i} compacto />)}
+                {plano.depois.map((c, i) => <CartaoConteudoPlano key={c.chave} c={c} extras={extras[c.chave]} regras={regras} i={i} criterio={plano.criterio} compacto />)}
               </ul>
             </Secao>
           )}
@@ -75,7 +74,7 @@ export function PlanoEstudo({ dados }: { dados: DadosPlano }) {
           {plano.concluidos.length > 0 && (
             <Secao id="titulo-concluidos" titulo="Concluídos" Icone={Trophy}>
               <ul className={css.lista}>
-                {plano.concluidos.map((c, i) => <CartaoConteudoPlano key={c.chave} c={c} extras={extras[c.chave]} regras={regras} i={i} compacto />)}
+                {plano.concluidos.map((c, i) => <CartaoConteudoPlano key={c.chave} c={c} extras={extras[c.chave]} regras={regras} i={i} criterio={plano.criterio} compacto />)}
               </ul>
             </Secao>
           )}

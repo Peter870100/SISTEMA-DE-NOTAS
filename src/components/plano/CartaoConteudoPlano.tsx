@@ -4,7 +4,8 @@ import type { ExtrasConteudo } from "@/lib/plano/extras";
 import type { ConteudoPlano, Etapa, EtapaPlano, RegrasAprendizagem } from "@/lib/plano/tipos";
 import { formatarMinutos, textoQuestoesDisponiveis } from "@/lib/plano/textos";
 import { BotaoJaRevisei } from "./BotaoJaRevisei";
-import { BotaoTreinoPlano, rotuloEtapa } from "./BotaoTreinoPlano";
+import { BotaoTreinoPlano } from "./BotaoTreinoPlano";
+import { dataCurta, quantidadeDaEtapa, rotuloEtapa } from "./rotulos";
 import { MateriaisConteudo } from "./MateriaisConteudo";
 import { SeloPlano } from "./SeloPlano";
 import css from "./PlanoEstudo.module.css";
@@ -12,24 +13,18 @@ import css from "./PlanoEstudo.module.css";
 const SEM_EXTRAS: ExtrasConteudo = { materiais: [], resolucoes: 0, disponiveis: null, prerequisitos: [], habilidades: [] };
 const TITULO: Record<Etapa["tipo"], string> = { revisar: "Revisar o conteúdo", pratica: "Praticar", revisao: "Revisão", diagnostico: "Diagnóstico" };
 
-const dataCurta = (iso: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" }).format(new Date(iso));
-
 function estadoTexto(e: Etapa): string {
   if (e.estado === "feita") return "Feita ✓";
   if (e.estado === "disponivel") return "Agora";
   return e.disponivelEm ? `A partir de ${dataCurta(e.disponivelEm)}` : "Depois da prática";
 }
 
-function quantidade(etapa: EtapaPlano, r: RegrasAprendizagem): number {
-  return etapa === "pratica" ? r.questoesPratica : etapa === "diagnostico" ? r.questoesDiagnostico : r.questoesRevisao;
-}
-
 /** Botão de treino com os avisos de falta de questões. */
 function AcaoTreino({ c, etapa, aberto, extras, regras, rotulo }: {
   c: ConteudoPlano; etapa: EtapaPlano; aberto: string | null; extras: ExtrasConteudo; regras: RegrasAprendizagem; rotulo?: string;
 }) {
-  const n = quantidade(etapa, regras);
-  const aviso = extras.disponiveis === null ? null : textoQuestoesDisponiveis(c.nome, extras.disponiveis, n);
+  const n = quantidadeDaEtapa(etapa, regras);
+  const aviso = extras.disponiveis === null || aberto ? null : textoQuestoesDisponiveis(c.nome, extras.disponiveis, n);
   const esconder = extras.disponiveis === 0 && !aberto;
   return (
     <>
@@ -53,8 +48,8 @@ function AcoesEtapa({ c, e, extras, regras }: { c: ConteudoPlano; e: Etapa; extr
   return <AcaoTreino c={c} etapa={e.tipo} aberto={e.treinoAberto} extras={extras} regras={regras} />;
 }
 
-export function CartaoConteudoPlano({ c, extras, regras, i, compacto }: {
-  c: ConteudoPlano; extras: ExtrasConteudo | undefined; regras: RegrasAprendizagem; i: number; compacto?: boolean;
+export function CartaoConteudoPlano({ c, extras, regras, i, criterio, compacto }: {
+  c: ConteudoPlano; extras: ExtrasConteudo | undefined; regras: RegrasAprendizagem; i: number; criterio: string; compacto?: boolean;
 }) {
   const ex = extras ?? SEM_EXTRAS;
   const concluido = c.situacao === "concluido";
@@ -83,6 +78,7 @@ export function CartaoConteudoPlano({ c, extras, regras, i, compacto }: {
         ) : (
           <>
             <p className={css.texto}>{c.texto}</p>
+            <p className={css.criterio}>{criterio}</p>
             {c.aviso && <p className={css.aviso}>{c.aviso}</p>}
             {!compacto && ex.prerequisitos.length > 0 && (
               <p className={css.contexto}>{ex.prerequisitos.map((p) => `Antes, é bom saber: ${p.nome} (${p.assunto})`).join(" · ")}</p>
