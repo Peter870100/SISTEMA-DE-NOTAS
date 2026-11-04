@@ -16,9 +16,9 @@ import type { RespostaDesempenho } from "./tipos";
 
 // ---------- leitura paginada (mesmo padrão de relatorios/dados.ts) ----------
 
-type Resposta<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+export type Resposta<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
 
-async function lerTodas<T>(montar: (de: number, ate: number) => Resposta<T>): Promise<T[]> {
+export async function lerTodas<T>(montar: (de: number, ate: number) => Resposta<T>): Promise<T[]> {
   const todas: T[] = [];
   for (let de = 0; ; de += 1000) {
     const { data, error } = await montar(de, de + 999);
@@ -29,7 +29,7 @@ async function lerTodas<T>(montar: (de: number, ate: number) => Resposta<T>): Pr
 }
 
 /** Lê por ids em blocos de 200 (limite de URL do `.in()`), um bloco por vez. */
-async function lerPorIds<T>(ids: string[], montar: (bloco: string[], de: number, ate: number) => Resposta<T>): Promise<T[]> {
+export async function lerPorIds<T>(ids: string[], montar: (bloco: string[], de: number, ate: number) => Resposta<T>): Promise<T[]> {
   const saida: T[] = [];
   for (const bloco of emBlocos([...new Set(ids)], 200)) saida.push(...(await lerTodas<T>((de, ate) => montar(bloco, de, ate))));
   return saida;
