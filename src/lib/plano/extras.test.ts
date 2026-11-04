@@ -37,6 +37,7 @@ test("materiaisDoConteudo: outra escola fica de fora e topico vem antes do assun
   ] });
   assert.deepEqual(r.map((m) => m.titulo), ["Link T", "Link A"]);
   assert.equal(r[0].href, "https://t.com");
+  assert.equal(materiaisDoConteudo({ ...base, visao: "escola", linhas: [lin({ id: "2", topico_id: "t1", titulo: "Link T", url: "https://t.com" })] })[0].href, "https://t.com");
   assert.equal(r[0].minutos, 15);
   assert.equal(r[0].tipo, "link");
 });

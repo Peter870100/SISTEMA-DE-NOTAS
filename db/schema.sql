@@ -1490,4 +1490,7 @@ create policy "acesso_total_planos_estudo" on planos_estudo for all using (true)
 drop policy if exists "acesso_total_plano_revisoes" on plano_revisoes;
 create policy "acesso_total_plano_revisoes" on plano_revisoes for all using (true) with check (true);
 
+create index if not exists idx_tentativa_respostas_questao on tentativa_respostas (questao_id);
+create index if not exists idx_aula_progresso_aula on aula_progresso (aula_id);
+
 NOTIFY pgrst, 'reload schema';
