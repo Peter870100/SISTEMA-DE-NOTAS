@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { comparar, ehPrioritario, evolucao, legendaErro, maisErro, montarPainel, porConteudo, prioridades, resumoGeral } from "./calculos";
-import { textoRevisar } from "./regras";
+import { comparar, ehPrioritario, evolucao, focoDoConteudo, legendaErro, maisErro, montarPainel, porConteudo, prioridades, resumoGeral } from "./calculos";
+import { regrasDoPainel } from "./regras";
+import { REGRAS_PADRAO } from "@/lib/plano/regras";
+import { textoRecomendacao } from "@/lib/plano/textos";
 import type { ConteudoDesempenho, RespostaDesempenho } from "./tipos";
 
 let seq = 0;
@@ -9,12 +11,13 @@ function r(o: Partial<RespostaDesempenho> = {}): RespostaDesempenho {
   seq += 1;
   return {
     contaId: "c1", tentativaId: "t1", atividadeId: "a1", atividadeTitulo: "Simulado 1", tipo: "professor", entregueEm: "2026-10-01T12:00:00Z",
-    questaoId: `q${seq}`, materia: "portugues", assuntoId: "as1", assuntoNome: "Assunto 1", alternativa: "A", correta: true, anulada: false, ...o,
+    questaoId: `q${seq}`, materia: "portugues", assuntoId: "as1", assuntoNome: "Assunto 1", alternativa: "A", correta: true, anulada: false,
+    topicoId: null, topicoNome: null, planoEtapa: null, planoConteudo: null, ...o,
   };
 }
 
 function c(o: Partial<ConteudoDesempenho> = {}): ConteudoDesempenho {
-  return { chave: "x", materia: "portugues", materiaRotulo: "Português", assuntoId: "x", nome: "X", questoes: 10, acertos: 5, erros: 5, emBranco: 0, taxaErro: 50, legenda: "", ...o };
+  return { chave: "x", materia: "portugues", materiaRotulo: "Português", assuntoId: "x", nome: "X", questoes: 10, acertos: 5, erros: 5, emBranco: 0, taxaErro: 50, legenda: "", foco: null, topicos: [], ...o };
 }
 
 // legendaErro
@@ -90,11 +93,11 @@ test("prioridades: revisar vem antes de mais_respostas", () => {
   const ps = prioridades([conteudoCom(2, 2), conteudoCom(10, 7)]);
   assert.deepEqual(ps.map((p) => p.tipo), ["revisar", "mais_respostas"]);
 });
-test("textoRevisar: frase sugerida", () => {
-  assert.equal(
-    textoRevisar({ nome: "Derivação parassintética", erros: 7, questoes: 10 }),
-    "Você errou 7 de 10 questões de Derivação parassintética. Vale revisar esse assunto e depois treinar com questões novas.",
-  );
+test("prioridades: texto vem de textoRecomendacao com o foco do conteúdo", () => {
+  const foco = { topicoId: "t1", nome: "Juros", erros: 3, questoes: 4 };
+  const cont = { ...conteudoCom(10, 7), foco };
+  const [p] = prioridades([cont]);
+  assert.equal(p.texto, textoRecomendacao({ tipo: "revisar", nome: cont.nome, erros: 7, questoes: 10, foco }, REGRAS_PADRAO));
 });
 
 // evolução e comparação
@@ -157,11 +160,42 @@ test("montarPainel([]) vem vazio", () => {
   assert.deepEqual(montarPainel([]), {
     resumo: { respondidas: 0, acertos: 0, erros: 0, emBranco: 0, taxaAcerto: 0, refeitas: 0 },
     maisErro: [], materias: [], evolucao: [], comparacao: null, prioridades: [], primeiraAtividade: null,
+    conteudos: [], criterio: montarPainel([]).criterio,
   });
+  assert.match(montarPainel([]).criterio, /^Sugestão pelo critério: 5 ou mais/);
 });
 
 test("montarPainel: matérias com pior aproveitamento primeiro", () => {
   const p = montarPainel([r({ materia: "fisica", assuntoId: "f", correta: true }), r({ materia: "quimica", assuntoId: "q", correta: false, alternativa: "B" })]);
   assert.deepEqual(p.materias.map((m) => m.rotulo), ["Química", "Física"]);
   assert.equal(p.primeiraAtividade, "2026-10-01T12:00:00Z");
+});
+
+test("montarPainel: prática e revisão do plano ficam fora dos totais, dos conteúdos e das prioridades, mas dentro da evolução", () => {
+  const base = [1,2,3,4,5].map(() => r({ correta: false, alternativa: "B" }));
+  const plano = [1,2,3].map(() => r({ atividadeId: "a2", tentativaId: "t2", planoEtapa: "pratica", planoConteudo: "as1", entregueEm: "2026-10-09T12:00:00Z" }));
+  const diag = [r({ atividadeId: "a3", tentativaId: "t3", planoEtapa: "diagnostico", planoConteudo: "as1", correta: false, alternativa: "C" })];
+  const p = montarPainel([...base, ...plano, ...diag]);
+  assert.equal(p.resumo.respondidas, 6);
+  assert.equal(p.evolucao.length, 3);
+  assert.equal(p.prioridades[0].tipo, "revisar");
+});
+test("montarPainel: usa as regras da escola", () => {
+  const rs = [1,2].map(() => r({ correta: false, alternativa: "B" }));
+  assert.equal(montarPainel(rs).prioridades[0].tipo, "mais_respostas");
+  assert.equal(montarPainel(rs, regrasDoPainel({ ...REGRAS_PADRAO, minQuestoesPrioridade: 2 })).prioridades[0].tipo, "revisar");
+  assert.match(montarPainel(rs, regrasDoPainel({ ...REGRAS_PADRAO, minQuestoesPrioridade: 2 })).criterio, /^Sugestão pelo critério: 2 ou mais/);
+});
+test("focoDoConteudo: tópico com mais erros, mínimo de 2 erros, empate pela taxa e depois pelo nome", () => {
+  const t = (topicoId: string | null, topicoNome: string | null, ok: boolean) => r({ topicoId, topicoNome, correta: ok, alternativa: ok ? "A" : "B" });
+  assert.equal(focoDoConteudo([t("t1", "Juros", false), t(null, null, false)]), null);
+  assert.deepEqual(focoDoConteudo([t("t1", "Juros", false), t("t1", "Juros", false), t("t1", "Juros", true)]), { topicoId: "t1", nome: "Juros", erros: 2, questoes: 3 });
+  const emp = focoDoConteudo([t("tb", "B", false), t("tb", "B", false), t("ta", "A", false), t("ta", "A", false), t("ta", "A", true)]);
+  assert.equal(emp?.topicoId, "tb");
+  assert.equal(focoDoConteudo([t("tz", "Z", false), t("tz", "Z", false), t("ty", "Y", false), t("ty", "Y", false)])?.nome, "Y");
+});
+test("porConteudo: tópicos do conteúdo com legenda, só os classificados", () => {
+  const rs = [r({ topicoId: "t1", topicoNome: "Juros", correta: false, alternativa: "B" }), r({ topicoId: "t1", topicoNome: "Juros" }), r()];
+  const [c1] = porConteudo(rs);
+  assert.deepEqual(c1.topicos.map((t) => [t.nome, t.legenda]), [["Juros", "50% de erro — 1 erro em 2 questões"]]);
 });

@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ehPrioritario } from "@/lib/desempenho/calculos";
-import { REGRAS } from "@/lib/desempenho/regras";
 import type { ConteudoDesempenho } from "@/lib/desempenho/tipos";
 import { chaveMateria, linkDetalhe } from "./links";
 import css from "./PainelDesempenho.module.css";
@@ -12,8 +11,8 @@ import css from "./PainelDesempenho.module.css";
  * detalhe do conteúdo. Conteúdo em revisão prioritária ganha etiqueta e barra vermelhas; quando os de poucas
  * respostas vêm todos no fim, um separador os distingue.
  */
-export function GraficoConteudos({ conteudos, hrefBase, aberto = null }: { conteudos: ConteudoDesempenho[]; hrefBase?: string; aberto?: string | null }) {
-  const poucas = (c: ConteudoDesempenho) => c.questoes < REGRAS.minQuestoesPrioridade;
+export function GraficoConteudos({ conteudos, hrefBase, aberto = null, minQuestoes }: { conteudos: ConteudoDesempenho[]; hrefBase?: string; aberto?: string | null; minQuestoes: number }) {
+  const poucas = (c: ConteudoDesempenho) => c.questoes < minQuestoes;
   const corte = conteudos.findIndex(poucas);
   const separar = corte > 0 && conteudos.slice(corte).every(poucas);
   return (

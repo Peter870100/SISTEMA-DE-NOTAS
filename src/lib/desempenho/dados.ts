@@ -8,9 +8,10 @@ import { cursosDoAluno } from "@/lib/aulas/acesso";
 import { emBlocos } from "@/lib/simulados/regras";
 import { questoesParaAluno, type QuestaoAluno } from "@/lib/simulados/servidor";
 import type { GrupoTurma } from "@/lib/relatorios/acesso";
+import type { EtapaPlano } from "@/lib/plano/tipos";
 import type { AlunoConta, Letra } from "@/lib/types";
 import { entraNoPainel } from "./acesso";
-import { chaveConteudo, primeirasRespostas } from "./calculos";
+import { chaveConteudo, primeirasRespostas, respostasIniciais } from "./calculos";
 import type { RespostaDesempenho } from "./tipos";
 
 // ---------- leitura paginada (mesmo padrão de relatorios/dados.ts) ----------
@@ -37,7 +38,7 @@ async function lerPorIds<T>(ids: string[], montar: (bloco: string[], de: number,
 // ---------- montagem comum ----------
 
 type TentativaLida = { id: string; simulado_id: string; conta_id: string; entregue_em: string | null };
-type SimuladoLido = { id: string; titulo: string; tipo: "professor" | "treino"; correcao: string; fecha_em: string | null; escola_id: string };
+type SimuladoLido = { id: string; titulo: string; tipo: "professor" | "treino"; correcao: string; fecha_em: string | null; escola_id: string; plano_etapa?: EtapaPlano | null; plano_conteudo?: string | null };
 
 /** Lê respostas, questões e assuntos das tentativas dadas e monta as linhas do painel. */
 async function montarRespostas(tentativas: TentativaLida[], simulados: Map<string, SimuladoLido>): Promise<RespostaDesempenho[]> {
@@ -46,12 +47,15 @@ async function montarRespostas(tentativas: TentativaLida[], simulados: Map<strin
     tentativas.map((t) => t.id),
     (bloco, de, ate) => supabase.from("tentativa_respostas").select("tentativa_id, questao_id, alternativa, correta")
       .in("tentativa_id", bloco).order("tentativa_id").order("questao_id").range(de, ate));
-  const questoes = new Map((await lerPorIds<{ id: string; materia: string | null; assunto_id: string | null; anulada: boolean | null }>(
+  const questoes = new Map((await lerPorIds<{ id: string; materia: string | null; assunto_id: string | null; topico_id: string | null; anulada: boolean | null }>(
     lidas.map((r) => r.questao_id),
-    (bloco, de, ate) => supabase.from("questoes").select("id, materia, assunto_id, anulada").in("id", bloco).order("id").range(de, ate))).map((q) => [q.id, q]));
+    (bloco, de, ate) => supabase.from("questoes").select("id, materia, assunto_id, topico_id, anulada").in("id", bloco).order("id").range(de, ate))).map((q) => [q.id, q]));
   const assuntos = new Map((await lerPorIds<{ id: string; nome: string }>(
     [...questoes.values()].map((q) => q.assunto_id).filter((a): a is string => !!a),
     (bloco, de, ate) => supabase.from("assuntos").select("id, nome").in("id", bloco).order("id").range(de, ate))).map((a) => [a.id, a.nome]));
+  const topicos = new Map((await lerPorIds<{ id: string; nome: string }>(
+    [...questoes.values()].map((q) => q.topico_id).filter((t): t is string => !!t),
+    (bloco, de, ate) => supabase.from("topicos").select("id, nome").in("id", bloco).order("id").range(de, ate))).map((t) => [t.id, t.nome]));
   const porTentativa = new Map(tentativas.map((t) => [t.id, t]));
 
   return lidas.flatMap((r): RespostaDesempenho[] => {
@@ -64,13 +68,14 @@ async function montarRespostas(tentativas: TentativaLida[], simulados: Map<strin
       tipo: s.tipo, entregueEm: new Date(t.entregue_em).toISOString(),
       questaoId: q.id, materia: q.materia, assuntoId: q.assunto_id, assuntoNome: q.assunto_id ? assuntos.get(q.assunto_id) ?? null : null,
       alternativa: (r.alternativa as Letra | null) ?? null, correta: r.correta, anulada: !!q.anulada,
+      topicoId: q.topico_id, topicoNome: q.topico_id ? topicos.get(q.topico_id) ?? null : null, planoEtapa: s.plano_etapa ?? null, planoConteudo: s.plano_conteudo ?? null,
     }];
   });
 }
 
 async function lerSimulados(ids: string[]): Promise<Map<string, SimuladoLido>> {
   const lidos = await lerPorIds<SimuladoLido>(ids, (bloco, de, ate) =>
-    supabase.from("simulados").select("id, titulo, tipo, correcao, fecha_em, escola_id").in("id", bloco).order("id").range(de, ate));
+    supabase.from("simulados").select("id, titulo, tipo, correcao, fecha_em, escola_id, plano_etapa, plano_conteudo").in("id", bloco).order("id").range(de, ate));
   return new Map(lidos.map((s) => [s.id, s]));
 }
 
@@ -113,7 +118,7 @@ export type QuestaoErrada = { questao: QuestaoAluno; marcada: Letra | null; cert
 
 /** Questões que o aluno errou ou deixou em branco na primeira resposta, dentro de um conteúdo (chave do painel). */
 export async function questoesErradas(rs: RespostaDesempenho[], chave: string): Promise<QuestaoErrada[]> {
-  const erradas = primeirasRespostas(rs)
+  const erradas = primeirasRespostas(respostasIniciais(rs))
     .filter((r) => chaveConteudo(r) === chave && (r.alternativa == null || r.correta !== true))
     .sort((a, b) => (a.entregueEm < b.entregueEm ? -1 : a.entregueEm > b.entregueEm ? 1 : 0));
   const unicas = [...new Map(erradas.map((r) => [r.questaoId, r])).values()];

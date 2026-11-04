@@ -1,4 +1,5 @@
 import type { ConteudoDesempenho } from "@/lib/desempenho/tipos";
+import { REGRAS } from "@/lib/desempenho/regras";
 import { GraficoConteudos } from "./GraficoConteudos";
 import css from "@/components/relatorios/Relatorio.module.css";
 
@@ -12,7 +13,7 @@ export function ConteudosTurma({ conteudos, aviso }: { conteudos: ConteudoDesemp
       ) : conteudos.length === 0 ? (
         <p className="py-4 text-sm text-ink">Nenhum simulado entregue nesta turma ainda</p>
       ) : (
-        <GraficoConteudos conteudos={conteudos} />
+        <GraficoConteudos conteudos={conteudos} minQuestoes={REGRAS.minQuestoesPrioridade} />
       )}
     </section>
   );

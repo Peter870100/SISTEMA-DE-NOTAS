@@ -1,6 +1,8 @@
 import { MATERIAS, ehMateria } from "@/lib/questoes/materias";
-import { REGRAS, textoMaisRespostas, textoRevisar, type Regras } from "./regras";
-import type { AtividadeEvolucao, Comparacao, ConteudoDesempenho, MateriaDesempenho, PainelDesempenho, Prioridade, RespostaDesempenho, ResumoGeral } from "./tipos";
+import { textoCriterio, textoRecomendacao } from "@/lib/plano/textos";
+import type { Foco } from "@/lib/plano/tipos";
+import { REGRAS, type Regras } from "./regras";
+import type { AtividadeEvolucao, Comparacao, ConteudoDesempenho, MateriaDesempenho, PainelDesempenho, Prioridade, RespostaDesempenho, ResumoGeral, TopicoDesempenho } from "./tipos";
 
 const pct = (parte: number, todo: number) => (todo > 0 ? Math.round((parte / todo) * 100) : 0);
 const emBranco = (r: RespostaDesempenho) => r.alternativa == null;
@@ -10,6 +12,28 @@ const erro = (r: RespostaDesempenho) => !emBranco(r) && r.correta !== true;
 export const chaveConteudo = (r: Pick<RespostaDesempenho, "assuntoId" | "materia">) => r.assuntoId ?? `materia:${r.materia ?? "sem_materia"}`;
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const porErro = (a: ConteudoDesempenho, b: ConteudoDesempenho) => b.taxaErro - a.taxaErro || b.erros - a.erros || a.nome.localeCompare(b.nome, "pt-BR");
+
+/** Prática e revisão do plano de estudo: treinos feitos depois do desempenho inicial. */
+export const ehTreinoDepois = (r: Pick<RespostaDesempenho, "planoEtapa">): boolean => r.planoEtapa === "pratica" || r.planoEtapa === "revisao";
+
+/** Respostas que valem como desempenho inicial (sem prática e revisão do plano). */
+export const respostasIniciais = (rs: RespostaDesempenho[]): RespostaDesempenho[] => rs.filter((r) => !ehTreinoDepois(r));
+
+/** Tópico com mais erros entre as primeiras respostas de um conteúdo (mínimo 2 erros; empate: maior taxa, depois nome). */
+export function focoDoConteudo(primeiras: RespostaDesempenho[]): Foco | null {
+  const mapa = new Map<string, Foco>();
+  for (const r of primeiras) {
+    if (!r.topicoId) continue;
+    const f = mapa.get(r.topicoId) ?? { topicoId: r.topicoId, nome: r.topicoNome ?? "Tópico", erros: 0, questoes: 0 };
+    f.questoes += 1;
+    if (erro(r)) f.erros += 1;
+    mapa.set(r.topicoId, f);
+  }
+  const taxa = (f: Foco) => f.erros / f.questoes;
+  const melhores = [...mapa.values()].filter((f) => f.erros >= 2)
+    .sort((a, b) => b.erros - a.erros || taxa(b) - taxa(a) || a.nome.localeCompare(b.nome, "pt-BR"));
+  return melhores[0] ?? null;
+}
 
 /** Primeira resposta de cada conta a cada questão (menor entregueEm; empate: tentativaId). Sem anuladas. */
 export function primeirasRespostas(rs: RespostaDesempenho[]): RespostaDesempenho[] {
@@ -49,26 +73,44 @@ function rotuloMateria(m: string | null): string {
   return ehMateria(m) ? MATERIAS[m].rotulo : m;
 }
 
-/** Agrupa as primeiras respostas por assunto (sem assunto, pela matéria). */
+function topicosDe(primeiras: RespostaDesempenho[], unidade: "questões" | "respostas"): TopicoDesempenho[] {
+  const mapa = new Map<string, TopicoDesempenho>();
+  for (const r of primeiras) {
+    if (!r.topicoId) continue;
+    const t = mapa.get(r.topicoId) ?? { topicoId: r.topicoId, nome: r.topicoNome ?? "Tópico", questoes: 0, acertos: 0, erros: 0, emBranco: 0, taxaErro: 0, legenda: "" };
+    t.questoes += 1;
+    if (acerto(r)) t.acertos += 1;
+    else if (emBranco(r)) t.emBranco += 1;
+    else t.erros += 1;
+    mapa.set(r.topicoId, t);
+  }
+  return [...mapa.values()].map((t) => {
+    const taxaErro = pct(t.erros, t.questoes);
+    return { ...t, taxaErro, legenda: legendaErro({ ...t, taxaErro }, unidade) };
+  }).sort((a, b) => b.taxaErro - a.taxaErro || b.erros - a.erros || a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
+/** Agrupa as primeiras respostas por assunto (sem assunto, pela matéria), com foco e tópicos. */
 export function porConteudo(rs: RespostaDesempenho[], unidade: "questões" | "respostas" = "questões"): ConteudoDesempenho[] {
-  const grupos = new Map<string, ConteudoDesempenho>();
+  const grupos = new Map<string, { c: ConteudoDesempenho; primeiras: RespostaDesempenho[] }>();
   for (const r of primeirasRespostas(rs)) {
     const chave = chaveConteudo(r);
     let g = grupos.get(chave);
     if (!g) {
       const rotulo = rotuloMateria(r.materia);
       const nome = r.assuntoId ? (r.assuntoNome ?? rotulo) : r.materia ? `${rotulo} (sem assunto)` : rotulo;
-      g = { chave, materia: r.materia, materiaRotulo: rotulo, assuntoId: r.assuntoId, nome, questoes: 0, acertos: 0, erros: 0, emBranco: 0, taxaErro: 0, legenda: "" };
+      g = { c: { chave, materia: r.materia, materiaRotulo: rotulo, assuntoId: r.assuntoId, nome, questoes: 0, acertos: 0, erros: 0, emBranco: 0, taxaErro: 0, legenda: "", foco: null, topicos: [] }, primeiras: [] };
       grupos.set(chave, g);
     }
-    g.questoes += 1;
-    if (acerto(r)) g.acertos += 1;
-    else if (emBranco(r)) g.emBranco += 1;
-    else g.erros += 1;
+    g.primeiras.push(r);
+    g.c.questoes += 1;
+    if (acerto(r)) g.c.acertos += 1;
+    else if (emBranco(r)) g.c.emBranco += 1;
+    else g.c.erros += 1;
   }
-  return [...grupos.values()].map((g) => {
+  return [...grupos.values()].map(({ c: g, primeiras }) => {
     const taxaErro = pct(g.erros, g.questoes);
-    return { ...g, taxaErro, legenda: legendaErro({ ...g, taxaErro }, unidade) };
+    return { ...g, taxaErro, legenda: legendaErro({ ...g, taxaErro }, unidade), foco: focoDoConteudo(primeiras), topicos: topicosDe(primeiras, unidade) };
   });
 }
 
@@ -139,22 +181,25 @@ export function prioridades(cs: ConteudoDesempenho[], regras: Regras = REGRAS): 
   const revisar = cs.filter((c) => ehPrioritario(c, regras)).sort(porErro);
   const poucas = cs.filter((c) => c.questoes < regras.minQuestoesPrioridade && c.erros > 0).sort(porErro);
   return [
-    ...revisar.map((conteudo): Prioridade => ({ tipo: "revisar", conteudo, texto: textoRevisar(conteudo) })),
-    ...poucas.map((conteudo): Prioridade => ({ tipo: "mais_respostas", conteudo, texto: textoMaisRespostas(conteudo) })),
+    ...revisar.map((conteudo): Prioridade => ({ tipo: "revisar", conteudo, texto: textoRecomendacao({ tipo: "revisar", nome: conteudo.nome, erros: conteudo.erros, questoes: conteudo.questoes, foco: conteudo.foco }, regras) })),
+    ...poucas.map((conteudo): Prioridade => ({ tipo: "mais_respostas", conteudo, texto: textoRecomendacao({ tipo: "mais_respostas", nome: conteudo.nome, erros: conteudo.erros, questoes: conteudo.questoes, foco: conteudo.foco }, regras) })),
   ];
 }
 
-/** Monta tudo o que a tela mostra. */
+/** Monta tudo o que a tela mostra: números e conteúdos do desempenho inicial; evolução com todas as atividades. */
 export function montarPainel(rs: RespostaDesempenho[], regras: Regras = REGRAS): PainelDesempenho {
-  const conteudos = porConteudo(rs);
+  const iniciais = respostasIniciais(rs);
+  const conteudos = porConteudo(iniciais);
   const ev = evolucao(rs);
   return {
-    resumo: resumoGeral(rs),
+    resumo: resumoGeral(iniciais),
     maisErro: maisErro(conteudos, regras),
     materias: porMateria(conteudos),
     evolucao: ev,
     comparacao: comparar(ev),
     prioridades: prioridades(conteudos, regras),
     primeiraAtividade: ev[0]?.entregueEm ?? null,
+    conteudos,
+    criterio: textoCriterio(regras),
   };
 }

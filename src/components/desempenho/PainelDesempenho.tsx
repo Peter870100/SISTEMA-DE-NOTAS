@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { type LucideIcon, ArrowLeft, ArrowRight, ChartColumn, CircleCheck, CircleX, ClipboardList, Flag, Library, ListChecks, Percent, Target, TrendingUp } from "lucide-react";
 import type { QuestaoErrada } from "@/lib/desempenho/dados";
-import { AVISO_DIFICULDADE } from "@/lib/desempenho/regras";
+import { AVISO_DIFICULDADE, REGRAS } from "@/lib/desempenho/regras";
 import type { PainelDesempenho as Painel, Prioridade } from "@/lib/desempenho/tipos";
 import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
 import { TreinarAssunto } from "@/components/simulados/TreinarAssunto";
@@ -96,7 +96,7 @@ export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAbert
                 ? <p className={css.vazio}>Nenhum erro até agora. Continue assim!</p>
                 : <>
                     <p className={css.legenda}>Da maior para a menor taxa de erro; os conteúdos com poucas respostas vêm no fim. Toque no nome para ver as questões.</p>
-                    <GraficoConteudos conteudos={painel.maisErro} hrefBase={hrefBase} aberto={conteudo?.chave ?? null} />
+                    <GraficoConteudos minQuestoes={REGRAS.minQuestoesPrioridade} conteudos={painel.maisErro} hrefBase={hrefBase} aberto={conteudo?.chave ?? null} />
                   </>}
             </Secao>
 
@@ -138,7 +138,7 @@ export function PainelDesempenho({ painel, visao, titulo, hrefBase, materiaAbert
             {materia && (
               <div className={css.materiaAberta}>
                 <h3 className={css.subtitulo}>{materia.rotulo}: conteúdos</h3>
-                <GraficoConteudos conteudos={materia.conteudos} hrefBase={hrefBase} aberto={conteudo?.chave ?? null} />
+                <GraficoConteudos minQuestoes={REGRAS.minQuestoesPrioridade} conteudos={materia.conteudos} hrefBase={hrefBase} aberto={conteudo?.chave ?? null} />
                 {conteudo && <DetalheConteudo conteudo={conteudo} erradas={erradas} aulas={aulas} visao={visao} hrefFechar={linkDetalhe(hrefBase, materia.materia)} />}
               </div>
             )}

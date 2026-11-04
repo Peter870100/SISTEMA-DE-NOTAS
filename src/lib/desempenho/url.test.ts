@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { detalheDaUrl } from "./url";
 import type { ConteudoDesempenho, MateriaDesempenho, PainelDesempenho } from "./tipos";
 
-const cont = (chave: string, materia: string): ConteudoDesempenho => ({ chave, materia, materiaRotulo: materia, assuntoId: chave, nome: chave, questoes: 1, acertos: 0, erros: 1, emBranco: 0, taxaErro: 100, legenda: "" });
+const cont = (chave: string, materia: string): ConteudoDesempenho => ({ chave, materia, materiaRotulo: materia, assuntoId: chave, nome: chave, questoes: 1, acertos: 0, erros: 1, emBranco: 0, taxaErro: 100, legenda: "", foco: null, topicos: [] });
 const mat = (materia: string, conteudos: ConteudoDesempenho[]): MateriaDesempenho => ({ materia, rotulo: materia, questoes: 1, acertos: 0, erros: 1, emBranco: 0, taxaAcerto: 0, conteudos });
 const painel = { materias: [mat("matematica", [cont("a1", "matematica")]), mat("portugues", [cont("b1", "portugues")])] } as unknown as PainelDesempenho;
 
