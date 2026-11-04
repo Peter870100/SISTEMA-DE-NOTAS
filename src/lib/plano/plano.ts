@@ -31,42 +31,51 @@ function ultimoResultado(ts: TreinoDoPlano[], etapa: EtapaPlano): { acertos: num
   return t ? { acertos: t.acertos ?? 0, total: t.total ?? 0 } : null;
 }
 
-type Rodada = { rodada: number; inicioRodada: string | null; praticaOk: string | null; concluido: boolean };
+/** Prática ou revisão posterior: os treinos do "depois do estudo". */
+const ehPraticaOuRevisao = (t: TreinoDoPlano) => t.etapa === "pratica" || t.etapa === "revisao";
+
+type Rodada = { rodada: number; inicioRodada: string | null; praticaOk: string | null; concluido: boolean; concluidoEm: string | null };
 
 /** Percorre as práticas e revisões entregues, em ordem de entrega. */
 function percorrer(ts: TreinoDoPlano[], r: RegrasAprendizagem): Rodada {
-  const s: Rodada = { rodada: 1, inicioRodada: null, praticaOk: null, concluido: false };
+  const s: Rodada = { rodada: 1, inicioRodada: null, praticaOk: null, concluido: false, concluidoEm: null };
   const novaRodada = (quando: string) => {
     s.rodada += 1;
     s.inicioRodada = quando;
     s.praticaOk = null;
     s.concluido = false;
+    s.concluidoEm = null;
   };
-  for (const t of entregues(ts.filter((x) => x.etapa === "pratica" || x.etapa === "revisao"))) {
+  // "Estudar de novo": só uma prática criada depois da conclusão recomeça o conteúdo concluído.
+  const recomeca = (t: TreinoDoPlano) => s.concluidoEm != null && ms(t.criadoEm) > ms(s.concluidoEm);
+  for (const t of entregues(ts.filter(ehPraticaOuRevisao))) {
     const quando = t.entregueEm!;
     if (t.etapa === "pratica") {
-      // "Estudar de novo": a rodada nova começa quando a prática foi criada, não quando foi entregue.
       if (s.concluido) {
-        s.concluido = false;
-        s.rodada += 1;
-        s.inicioRodada = t.criadoEm;
+        // Prática de antes da conclusão, entregue depois: fica só no histórico e no "depois".
+        if (!recomeca(t)) continue;
+        // A rodada nova começa quando a prática foi criada, não quando foi entregue.
+        novaRodada(t.criadoEm);
       }
       if (passou(t, r)) s.praticaOk = quando;
       else novaRodada(quando);
     } else if (s.praticaOk != null) {
-      if (passou(t, r)) s.concluido = true;
-      else novaRodada(quando);
+      if (!passou(t, r)) novaRodada(quando);
+      else if (!s.concluido) {
+        s.concluido = true;
+        s.concluidoEm = quando;
+      }
     }
   }
-  // "Estudar de novo": uma prática aberta depois de concluído começa outra rodada, do zero.
   const praticaAberta = aberto(ts, "pratica");
-  if (s.concluido && praticaAberta) {
-    s.concluido = false;
-    s.rodada += 1;
-    s.inicioRodada = praticaAberta.criadoEm;
-    s.praticaOk = null;
-  }
+  if (s.concluido && praticaAberta && recomeca(praticaAberta)) novaRodada(praticaAberta.criadoEm);
   return s;
+}
+
+/** A revisão aberta só vale se foi criada depois da prática aprovada da rodada atual. */
+function revisaoAberta(ts: TreinoDoPlano[], s: Rodada): string | null {
+  const t = aberto(ts, "revisao");
+  return t && s.praticaOk != null && ms(t.criadoEm) > ms(s.praticaOk) ? t.simuladoId : null;
 }
 
 function etapasRevisar(chave: string, ts: TreinoDoPlano[], s: Rodada, e: EntradaPlano): Etapa[] {
@@ -88,11 +97,12 @@ function etapasRevisar(chave: string, ts: TreinoDoPlano[], s: Rodada, e: Entrada
     },
     {
       tipo: "pratica", estado: feita(s.praticaOk != null, "disponivel"), minutos: r.questoesPratica * r.minutosPorQuestao,
-      disponivelEm: null, treinoAberto: aberto(ts, "pratica")?.simuladoId ?? null, resultado: ultimoResultado(ts, "pratica"),
+      // Concluído: uma prática aberta de antes da conclusão não é treino desta rodada.
+      disponivelEm: null, treinoAberto: s.concluido ? null : (aberto(ts, "pratica")?.simuladoId ?? null), resultado: ultimoResultado(ts, "pratica"),
     },
     {
       tipo: "revisao", estado: feita(false, revisaoLiberada ? "disponivel" : "aguardando"), minutos: r.questoesRevisao * r.minutosPorQuestao,
-      disponivelEm, treinoAberto: aberto(ts, "revisao")?.simuladoId ?? null, resultado: ultimoResultado(ts, "revisao"),
+      disponivelEm, treinoAberto: revisaoAberta(ts, s), resultado: ultimoResultado(ts, "revisao"),
     },
   ];
 }
@@ -110,7 +120,7 @@ function minutosProximos(etapas: Etapa[]): number {
 
 function montarConteudo(inicial: ConteudoDesempenho, prioridade: Prioridade | undefined, ts: TreinoDoPlano[], e: EntradaPlano): ConteudoPlano {
   const r = e.regras;
-  const temPlano = ts.some((t) => t.etapa === "pratica" || t.etapa === "revisao");
+  const temPlano = ts.some(ehPraticaOuRevisao);
   let situacao: ConteudoPlano["situacao"];
   let rodada = 1;
   let etapas: Etapa[];
@@ -133,7 +143,7 @@ function montarConteudo(inicial: ConteudoDesempenho, prioridade: Prioridade | un
   else if (rodada >= 2) etiqueta = `Rodada ${rodada}`;
   else etiqueta = situacao === "mais_respostas" ? "Precisamos de mais respostas" : "Revisão prioritária";
 
-  const depoisDoEstudo = entregues(ts.filter((t) => t.etapa === "pratica" || t.etapa === "revisao"));
+  const depoisDoEstudo = entregues(ts.filter(ehPraticaOuRevisao));
   const contar = (etapa: EtapaPlano) => ts.filter((t) => t.etapa === etapa && t.entregueEm != null).length;
 
   return {
@@ -190,7 +200,7 @@ export function montarPlano(e: EntradaPlano): Plano {
   });
   const treinosPorChave = new Map<string, TreinoDoPlano[]>();
   for (const t of e.treinos) treinosPorChave.set(t.conteudo, [...(treinosPorChave.get(t.conteudo) ?? []), t]);
-  const comPraticaOuRevisao = e.treinos.filter((t) => t.etapa === "pratica" || t.etapa === "revisao").map((t) => t.conteudo);
+  const comPraticaOuRevisao = e.treinos.filter(ehPraticaOuRevisao).map((t) => t.conteudo);
 
   const itens: ConteudoPlano[] = [];
   for (const chave of new Set([...prioridade.keys(), ...comPraticaOuRevisao])) {

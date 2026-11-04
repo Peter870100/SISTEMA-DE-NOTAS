@@ -225,6 +225,63 @@ test("concluído + prática entregue: \"Já revisei\" feito com a prática abert
   assert.equal(so({ treinos: [praticaOk, revisaoOk, nova], revisadoEm: { a: "2026-11-01T08:00:00.000Z" } }).etapas[0].estado, "disponivel");
 });
 
+test("prática criada antes da conclusão não desfaz o concluído", () => {
+  const a = cd("a");
+  const p2 = { simuladoId: "p2", criadoEm: "2026-10-25T10:00:00.000Z" };
+  // (a) aberta e abandonada antes da revisão aprovada
+  const pa = plano({ conteudos: [a], prioridades: [pri(a)], treinos: [praticaOk, tr(p2), revisaoOk] });
+  assert.deepEqual(chaves(pa.concluidos), ["a"]);
+  assert.deepEqual(pa.semana, []);
+  assert.equal(pa.concluidos[0].rodada, 1);
+  assert.deepEqual(estados(pa.concluidos[0]), ["feita", "feita", "feita"]);
+  assert.equal(pa.concluidos[0].etapas[1].treinoAberto, null);
+  assert.deepEqual(pa.progresso, { feitas: 3, total: 3, pct: 100 });
+  // (b) entregue depois da revisão aprovada: ignorada pela máquina, mas conta no histórico e no depois
+  for (const [acertos, depois] of [[4, { acertos: 11, total: 13 }], [1, { acertos: 8, total: 13 }]] as const) {
+    const pb = plano({ conteudos: [a], prioridades: [pri(a)], treinos: [praticaOk, tr({ ...p2, entregueEm: "2026-10-30T12:00:00.000Z", acertos, total: 5 }), revisaoOk] });
+    assert.deepEqual(chaves(pb.concluidos), ["a"]);
+    const c = pb.concluidos[0];
+    assert.equal(c.situacao, "concluido");
+    assert.equal(c.rodada, 1);
+    assert.deepEqual(c.depois, depois);
+    assert.deepEqual(c.historico, { diagnosticos: 0, praticas: 2, revisoes: 1 });
+    assert.deepEqual(pb.progresso, { feitas: 3, total: 3, pct: 100 });
+  }
+  // (c) criada depois da revisão aprovada: recomeça
+  const pc = plano({ conteudos: [a], prioridades: [pri(a)], treinos: [praticaOk, revisaoOk, tr({ simuladoId: "p3", criadoEm: "2026-10-29T10:00:00.000Z" })] });
+  assert.deepEqual(pc.concluidos, []);
+  assert.equal(pc.semana[0].rodada, 2);
+  assert.equal(pc.semana[0].etapas[1].treinoAberto, "p3");
+});
+
+test("revisão aberta de antes da prática atual não aparece como treino aberto", () => {
+  const r1 = tr({ simuladoId: "r1", etapa: "revisao", criadoEm: "2026-10-28T10:00:00.000Z" });
+  const p2 = tr({ simuladoId: "p2", criadoEm: "2026-10-29T10:00:00.000Z", entregueEm: "2026-10-29T12:00:00.000Z", acertos: 1, total: 5 });
+  const c = so({ treinos: [praticaOk, r1, p2] });
+  assert.equal(c.rodada, 2);
+  assert.equal(c.etapas[2].estado, "aguardando");
+  assert.equal(c.etapas[2].disponivelEm, null);
+  assert.equal(c.etapas[2].treinoAberto, null);
+  // depois de nova prática aprovada, a revisão aberta antiga continua sem valer; uma nova vale
+  const p3 = tr({ simuladoId: "p3", criadoEm: "2026-10-30T10:00:00.000Z", entregueEm: "2026-10-30T12:00:00.000Z", acertos: 5, total: 5 });
+  assert.equal(so({ treinos: [praticaOk, r1, p2, p3] }).etapas[2].treinoAberto, null);
+  assert.equal(so({ treinos: [praticaOk, tr({ simuladoId: "r2", etapa: "revisao", criadoEm: "2026-10-28T10:00:00.000Z" })] }).etapas[2].treinoAberto, "r2");
+});
+
+test("duas práticas abertas: vale a mais recente pela criação", () => {
+  const c = so({ treinos: [tr({ simuladoId: "nova", criadoEm: "2026-11-02T10:00:00.000Z" }), tr({ simuladoId: "velha", criadoEm: "2026-10-02T10:00:00.000Z" })] });
+  assert.equal(c.etapas[1].treinoAberto, "nova");
+});
+
+test("diagnóstico aberto põe o mais respostas em andamento", () => {
+  const nov = cd("nov"), dia = cd("dia", { questoes: 2, acertos: 1, erros: 1 });
+  const p = plano({
+    conteudos: [nov, dia], prioridades: [pri(nov), pri(dia, "mais_respostas")],
+    treinos: [tr({ simuladoId: "d1", conteudo: "dia", etapa: "diagnostico" })], minutosSemana: 480,
+  });
+  assert.deepEqual(chaves(p.semana), ["dia", "nov"]);
+});
+
 test("mais respostas: uma etapa de diagnóstico", () => {
   const m = cd("m", { questoes: 3, acertos: 1, erros: 2, taxaErro: 67 });
   const treinos = [
