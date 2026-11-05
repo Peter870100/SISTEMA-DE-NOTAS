@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Esboço: tela de estudo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Rajdhani:wght@600;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --frame:#0a2a6e; --frame-deep:#062056; --line:#dce3f0; --ink:#0e1b3d; --brand:#0444a0;
+    --gold:#f5d90a; --gold-ink:#0a1c4a; --ok:#0e9f6e; --danger:#d6264a; --canvas:#eef3fb;
+    --heading:'Rajdhani',sans-serif; --display:'Space Grotesk',sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--canvas); color:var(--ink); font-family:'Manrope',sans-serif; font-size:15px; line-height:1.6; }
+  button { font:inherit; }
+  .aviso-esboco { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.6rem 1rem; padding:.6rem 1rem; background:var(--gold); color:var(--gold-ink); font-weight:700; font-size:.85rem; }
+  .troca { display:flex; gap:.35rem; }
+  .troca button { padding:.3rem .8rem; border:1px solid var(--gold-ink); border-radius:999px; background:transparent; color:var(--gold-ink); font-weight:700; cursor:pointer; }
+  .troca button[aria-pressed=true] { background:var(--gold-ink); color:var(--gold); }
+
+  .palco { margin:0 auto; background:var(--canvas); transition:max-width .25s; container-type:inline-size; }
+  .palco[data-modo=celular] { max-width:390px; box-shadow:0 0 0 1px var(--line), 0 12px 40px rgb(10 42 110 / .18); }
+
+  .topo { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.75rem 1.5rem; padding:.9rem 1rem; background:linear-gradient(115deg,var(--frame-deep),var(--frame) 60%,#1456b8); color:#fff; }
+  .logo { font-family:var(--heading); font-weight:700; font-size:1.35rem; letter-spacing:.04em; font-style:italic; }
+  .abas { display:flex; gap:.4rem; flex-wrap:wrap; justify-content:center; }
+  .abas span { padding:.45rem .75rem; border:1px solid #ffffff26; border-radius:.75rem; background:var(--frame-deep); font-family:var(--heading); font-weight:700; font-size:.82rem; letter-spacing:.06em; text-transform:uppercase; }
+  .abas span[aria-current] { background:var(--gold); border-color:var(--gold); color:var(--gold-ink); }
+
+  .pagina { display:flex; flex-direction:column; gap:1.25rem; padding:1.5rem clamp(1rem,2vw,2rem) 2.5rem; }
+  .cartao { background:#fff; border:1px solid var(--line); border-radius:1.25rem; box-shadow:0 6px 22px rgb(10 42 110 / .07); padding:1.5rem; }
+
+  .voltar { display:inline-block; margin-bottom:.6rem; color:var(--brand); font-weight:700; font-size:.875rem; text-decoration:none; }
+  .cabecalho { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; }
+  .rotulo { margin:0; color:var(--brand); font-family:var(--heading); font-size:.8125rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+  h1 { display:flex; align-items:center; gap:.75rem; margin:.25rem 0 0; color:var(--brand); font-family:var(--heading); font-size:2rem; font-weight:700; line-height:1.1; letter-spacing:.025em; text-transform:uppercase; }
+  .icone { display:grid; place-items:center; flex-shrink:0; width:2.75rem; height:2.75rem; border-radius:.8rem; background:var(--gold); color:var(--gold-ink); font-size:1.3rem; }
+  .descricao { margin:.65rem 0 0; color:var(--brand); font-weight:500; }
+  .chip { display:inline-flex; align-items:center; gap:.5rem; padding:.6rem .9rem; border:1px solid var(--line); border-radius:.9rem; color:var(--brand); font-family:var(--heading); font-weight:700; letter-spacing:.04em; white-space:nowrap; }
+
+  .passos { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; margin:0; padding:0; list-style:none; }
+  .passo { display:flex; align-items:center; gap:.7rem; padding:.8rem 1rem; background:#fff; border:1px solid var(--line); border-radius:1rem; }
+  .passo b { display:grid; place-items:center; flex-shrink:0; width:1.9rem; height:1.9rem; border-radius:50%; background:var(--brand); color:#fff; font-family:var(--display); }
+  .passo strong { display:block; color:var(--brand); font-family:var(--heading); font-size:.95rem; letter-spacing:.05em; text-transform:uppercase; line-height:1.2; }
+  .passo small { color:var(--brand); font-weight:600; font-size:.78rem; }
+  .passo[data-agora] { border-color:var(--gold); box-shadow:0 0 0 2px var(--gold); }
+  .passo[data-agora] b { background:var(--gold); color:var(--gold-ink); }
+
+  .colunas { display:grid; grid-template-columns:minmax(0,1fr) minmax(22rem,27rem); gap:1.25rem; align-items:start; }
+  .titulo-secao { display:flex; align-items:center; gap:.6rem; margin:0 0 1rem; color:var(--brand); font-family:var(--heading); font-size:1.25rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+  .titulo-secao .icone { width:2.1rem; height:2.1rem; border-radius:.6rem; font-size:1rem; }
+  .titulo-secao em { margin-left:auto; padding:.15rem .6rem; border-radius:999px; background:var(--gold); color:var(--gold-ink); font-family:var(--display); font-style:normal; font-size:.85rem; letter-spacing:0; white-space:nowrap; }
+
+  article h3 { margin:1.3rem 0 .3rem; color:var(--brand); font-family:var(--heading); font-size:1.1rem; letter-spacing:.04em; text-transform:uppercase; }
+  article p { margin:.4rem 0; }
+  .exemplo { margin:1rem 0; padding:.9rem 1rem; border-left:4px solid var(--gold); border-radius:.6rem; background:#fffbe0; }
+  .exemplo .rotulo { color:var(--gold-ink); }
+  .conta { display:block; margin:.35rem 0; color:var(--brand); font-family:var(--display); font-weight:700; }
+  .pegadinhas { margin:1rem 0; padding:.9rem 1rem; border-left:4px solid var(--danger); border-radius:.6rem; background:#fdf0f3; }
+  .pegadinhas .rotulo { color:var(--danger); }
+  .pegadinhas ul { margin:.4rem 0 0; padding-left:1.1rem; }
+  .pegadinhas li { margin:.3rem 0; }
+  .extras { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.6rem; margin-top:1rem; padding-top:.9rem; border-top:1px solid var(--line); color:var(--brand); font-size:.82rem; font-weight:600; }
+  .extras a { color:var(--brand); font-weight:700; }
+
+  .exercicio { padding:1rem 0; border-top:1px solid var(--line); }
+  .exercicio:first-of-type { border-top:0; padding-top:0; }
+  .exercicio .q { margin:0 0 .6rem; font-weight:600; }
+  .exercicio .q b { color:var(--brand); font-family:var(--display); margin-right:.3rem; }
+  .alt { display:flex; align-items:center; gap:.6rem; width:100%; margin:.3rem 0; padding:.45rem .6rem; border:1px solid var(--line); border-radius:.6rem; background:#fff; color:var(--ink); text-align:left; cursor:pointer; transition:border-color .15s,background .15s; }
+  .alt i { display:grid; place-items:center; flex-shrink:0; width:1.6rem; height:1.6rem; border-radius:50%; background:#e6edf9; color:var(--brand); font-family:var(--display); font-style:normal; font-weight:700; font-size:.82rem; }
+  .exercicio:not([data-feito]) .alt:hover { border-color:var(--gold); background:#fffce6; }
+  .exercicio[data-feito] .alt { cursor:default; }
+  .alt.certa { border-color:var(--ok); background:color-mix(in srgb,var(--ok) 12%,#fff); }
+  .alt.certa i { background:var(--ok); color:#fff; }
+  .alt.errada { border-color:var(--danger); background:color-mix(in srgb,var(--danger) 10%,#fff); }
+  .alt.errada i { background:var(--danger); color:#fff; }
+  .comentario { margin-top:.6rem; padding:.7rem .85rem; border-radius:.6rem; background:#eaf1fc; font-size:.9rem; }
+  .comentario strong { display:block; font-family:var(--heading); letter-spacing:.05em; text-transform:uppercase; }
+  .comentario[data-r=ok] strong { color:var(--ok); }
+  .comentario[data-r=erro] strong { color:var(--danger); }
+
+  .proximo { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; border-left:6px solid var(--gold); }
+  .proximo h2 { margin:.15rem 0 0; color:var(--brand); font-family:var(--heading); font-size:1.3rem; letter-spacing:.04em; text-transform:uppercase; line-height:1.2; }
+  .proximo p { margin:.3rem 0 0; color:var(--brand); font-weight:500; }
+  .acoes { display:flex; flex-wrap:wrap; gap:.6rem; }
+  .botao { min-height:44px; padding:.55rem 1.1rem; border:1px solid var(--gold); border-radius:.75rem; background:var(--gold); color:var(--gold-ink); font-family:var(--heading); font-weight:700; font-size:1rem; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; }
+  .botao.sec { border-color:var(--brand); background:#fff; color:var(--brand); }
+
+  @container (max-width: 900px) {
+    .colunas { grid-template-columns:minmax(0,1fr); }
+  }
+  @container (max-width: 560px) {
+    h1 { font-size:1.55rem; }
+    .cartao { padding:1.1rem; }
+    .passos { grid-template-columns:minmax(0,1fr); gap:.5rem; }
+    .abas span { padding:.35rem .5rem; font-size:.7rem; }
+    .acoes, .botao { width:100%; }
+    .chip { width:100%; justify-content:center; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+  <div class="aviso-esboco">
+    <span>Esboço para avaliar. O texto é um exemplo curto; o de verdade vai até umas 600 palavras.</span>
+    <span class="troca">
+      <button type="button" data-modo="computador" aria-pressed="true">Computador</button>
+      <button type="button" data-modo="celular" aria-pressed="false">Celular</button>
+    </span>
+  </div>
+
+  <div class="palco" id="palco" data-modo="computador">
+    <header class="topo">
+      <span class="logo">COLÉGIO STATUS</span>
+      <nav class="abas"><span>Início</span><span>Cursos</span><span>Simulados</span><span>Desempenho</span><span aria-current="page">Plano</span></nav>
+    </header>
+
+    <main class="pagina">
+      <section class="cartao">
+        <a class="voltar" href="#">← Voltar ao plano</a>
+        <div class="cabecalho">
+          <div>
+            <p class="rotulo">Matemática · Estudar este conteúdo</p>
+            <h1><span class="icone" aria-hidden="true">✎</span>Razão e proporção</h1>
+            <p class="descricao">Você errou 6 de 8 questões deste conteúdo. Leia a explicação e confira se entendeu nos exercícios.</p>
+          </div>
+          <span class="chip">≈ 15 min</span>
+        </div>
+      </section>
+
+      <ol class="passos" aria-label="Etapas deste conteúdo no plano">
+        <li class="passo" data-agora><b>1</b><span><strong>Estudar</strong><small>Você está aqui</small></span></li>
+        <li class="passo"><b>2</b><span><strong>Praticar</strong><small>5 questões reais do banco</small></span></li>
+        <li class="passo"><b>3</b><span><strong>Revisão</strong><small>7 dias depois da prática</small></span></li>
+      </ol>
+
+      <div class="colunas">
+        <article class="cartao">
+          <h2 class="titulo-secao"><span class="icone" aria-hidden="true">≡</span>Explicação</h2>
+
+          <h3>O que é razão</h3>
+          <p>Razão é a comparação entre dois números por meio de uma divisão. Se uma turma tem 12 meninas e 18 meninos, a razão de meninas para meninos é 12/18, que simplificada dá 2/3. Ou seja: para cada 2 meninas, há 3 meninos.</p>
+
+          <h3>O que é proporção</h3>
+          <p>Proporção é a igualdade entre duas razões: a/b = c/d. A propriedade que resolve quase toda questão é a multiplicação cruzada: a · d = b · c.</p>
+
+          <div class="exemplo">
+            <p class="rotulo">Exemplo resolvido</p>
+            <p>Uma receita usa 3 xícaras de farinha para 2 de leite. Quantas xícaras de leite são necessárias para 12 de farinha?</p>
+            <span class="conta">3/2 = 12/x → 3 · x = 2 · 12 → x = 8</span>
+            <p>São necessárias 8 xícaras de leite.</p>
+          </div>
+
+          <div class="pegadinhas">
+            <p class="rotulo">Pegadinhas comuns de prova</p>
+            <ul>
+              <li><strong>A ordem importa:</strong> a razão de A para B não é a mesma de B para A.</li>
+              <li><strong>Mesma unidade:</strong> 30 minutos para 2 horas é 30/120 = 1/4, e não 30/2.</li>
+              <li><strong>Grandezas inversas:</strong> com o dobro de pedreiros, o tempo cai pela metade. Aí a conta direta não vale.</li>
+            </ul>
+          </div>
+
+          <div class="extras">
+            <span>Texto escrito com apoio de IA. Fatos conferidos na Wikipédia.</span>
+            <a href="#">▶ Assistir vídeo de apoio</a>
+          </div>
+        </article>
+
+        <section class="cartao" aria-label="Exercícios de fixação">
+          <h2 class="titulo-secao"><span class="icone" aria-hidden="true">✓</span>Confira se entendeu<em id="contagem">0 de 3</em></h2>
+
+          <div class="exercicio" data-certa="A">
+            <p class="q"><b>1.</b>Uma escola tem 200 alunos e 8 professores. A razão entre professores e alunos é:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>1/25</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>1/20</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>1/10</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>4/25</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>25/1</button>
+            <div class="comentario" hidden><strong></strong>8/200 simplificado por 8 dá 1/25. A alternativa E inverte a ordem: seria a razão de alunos para professores.</div>
+          </div>
+
+          <div class="exercicio" data-certa="D">
+            <p class="q"><b>2.</b>Se 4 cadernos iguais custam R$ 30,00, quanto custam 6 desses cadernos?</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>R$ 36,00</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>R$ 40,00</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>R$ 42,00</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>R$ 45,00</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>R$ 60,00</button>
+            <div class="comentario" hidden><strong></strong>30/4 = x/6, então 4 · x = 180 e x = 45. Cada caderno custa R$ 7,50.</div>
+          </div>
+
+          <div class="exercicio" data-certa="C">
+            <p class="q"><b>3.</b>Em um mapa na escala 1 : 50.000, dois pontos estão a 4 cm um do outro. A distância real é de:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>200 m</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>500 m</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>2 km</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>5 km</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>20 km</button>
+            <div class="comentario" hidden><strong></strong>4 · 50.000 = 200.000 cm. Como 100.000 cm são 1 km, a distância é de 2 km.</div>
+          </div>
+        </section>
+      </div>
+
+      <section class="cartao proximo">
+        <div>
+          <p class="rotulo">Próximo passo</p>
+          <h2 id="proximo-titulo">Agora pratique com questões reais</h2>
+          <p id="proximo-texto">5 questões do banco, começando pelas mais simples.</p>
+        </div>
+        <div class="acoes">
+          <button type="button" class="botao sec" data-esboco>Já estudei</button>
+          <button type="button" class="botao" data-esboco>Praticar 5 questões</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+  const palco = document.getElementById('palco');
+  document.querySelectorAll('.troca button').forEach((b) => b.addEventListener('click', () => {
+    palco.dataset.modo = b.dataset.modo;
+    document.querySelectorAll('.troca button').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+  }));
+
+  const exercicios = [...document.querySelectorAll('.exercicio')];
+  let feitos = 0, acertos = 0;
+  exercicios.forEach((ex) => {
+    const certa = ex.dataset.certa;
+    ex.querySelectorAll('.alt').forEach((b) => b.addEventListener('click', () => {
+      if (ex.dataset.feito) return;
+      ex.dataset.feito = '1';
+      const ok = b.dataset.l === certa;
+      if (!ok) b.classList.add('errada');
+      ex.querySelector(`.alt[data-l="${certa}"]`).classList.add('certa');
+      const c = ex.querySelector('.comentario');
+      c.dataset.r = ok ? 'ok' : 'erro';
+      c.querySelector('strong').textContent = ok ? 'Você acertou' : `Resposta certa: ${certa}`;
+      c.hidden = false;
+      feitos += 1;
+      if (ok) acertos += 1;
+      document.getElementById('contagem').textContent = `${feitos} de 3`;
+      if (feitos === 3) {
+        document.getElementById('proximo-titulo').textContent = `Você acertou ${acertos} de 3`;
+        document.getElementById('proximo-texto').textContent = 'Esses exercícios não contam no seu desempenho. Agora pratique com 5 questões reais do banco.';
+      }
+    }));
+  });
+
+  document.querySelectorAll('[data-esboco]').forEach((b) => b.addEventListener('click', () => {
+    const t = b.textContent;
+    b.textContent = 'No esboço, sem ação';
+    setTimeout(() => { b.textContent = t; }, 1400);
+  }));
+</script>
+</body>
+</html>

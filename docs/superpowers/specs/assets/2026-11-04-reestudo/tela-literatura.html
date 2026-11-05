@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Esboço: Literatura, 10 exercícios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Rajdhani:wght@600;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --frame:#0a2a6e; --frame-deep:#062056; --line:#dce3f0; --ink:#0e1b3d; --brand:#0444a0;
+    --gold:#f5d90a; --gold-ink:#0a1c4a; --ok:#0e9f6e; --danger:#d6264a; --canvas:#eef3fb;
+    --heading:'Rajdhani',sans-serif; --display:'Space Grotesk',sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--canvas); color:var(--ink); font-family:'Manrope',sans-serif; font-size:15px; line-height:1.6; }
+  button { font:inherit; }
+  .aviso-esboco { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.6rem 1rem; padding:.6rem 1rem; background:var(--gold); color:var(--gold-ink); font-weight:700; font-size:.85rem; }
+  .troca { display:flex; gap:.35rem; }
+  .troca button { padding:.3rem .8rem; border:1px solid var(--gold-ink); border-radius:999px; background:transparent; color:var(--gold-ink); font-weight:700; cursor:pointer; }
+  .troca button[aria-pressed=true] { background:var(--gold-ink); color:var(--gold); }
+
+  .palco { margin:0 auto; background:var(--canvas); transition:max-width .25s; container-type:inline-size; }
+  .palco[data-modo=celular] { max-width:390px; box-shadow:0 0 0 1px var(--line), 0 12px 40px rgb(10 42 110 / .18); }
+
+  .topo { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.75rem 1.5rem; padding:.9rem 1rem; background:linear-gradient(115deg,var(--frame-deep),var(--frame) 60%,#1456b8); color:#fff; }
+  .logo { font-family:var(--heading); font-weight:700; font-size:1.35rem; letter-spacing:.04em; font-style:italic; }
+  .abas { display:flex; gap:.4rem; flex-wrap:wrap; justify-content:center; }
+  .abas span { padding:.45rem .75rem; border:1px solid #ffffff26; border-radius:.75rem; background:var(--frame-deep); font-family:var(--heading); font-weight:700; font-size:.82rem; letter-spacing:.06em; text-transform:uppercase; }
+  .abas span[aria-current] { background:var(--gold); border-color:var(--gold); color:var(--gold-ink); }
+
+  .pagina { display:flex; flex-direction:column; gap:1.25rem; padding:1.5rem clamp(1rem,2vw,2rem) 2.5rem; }
+  .cartao { background:#fff; border:1px solid var(--line); border-radius:1.25rem; box-shadow:0 6px 22px rgb(10 42 110 / .07); padding:1.5rem; }
+
+  .voltar { display:inline-block; margin-bottom:.6rem; color:var(--brand); font-weight:700; font-size:.875rem; text-decoration:none; }
+  .cabecalho { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; }
+  .rotulo { margin:0; color:var(--brand); font-family:var(--heading); font-size:.8125rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+  h1 { display:flex; align-items:center; gap:.75rem; margin:.25rem 0 0; color:var(--brand); font-family:var(--heading); font-size:2rem; font-weight:700; line-height:1.1; letter-spacing:.025em; text-transform:uppercase; }
+  .icone { display:grid; place-items:center; flex-shrink:0; width:2.75rem; height:2.75rem; border-radius:.8rem; background:var(--gold); color:var(--gold-ink); font-size:1.3rem; }
+  .descricao { margin:.65rem 0 0; color:var(--brand); font-weight:500; }
+  .chip { display:inline-flex; align-items:center; gap:.5rem; padding:.6rem .9rem; border:1px solid var(--line); border-radius:.9rem; color:var(--brand); font-family:var(--heading); font-weight:700; letter-spacing:.04em; white-space:nowrap; }
+
+  .passos { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; margin:0; padding:0; list-style:none; }
+  .passo { display:flex; align-items:center; gap:.7rem; padding:.8rem 1rem; background:#fff; border:1px solid var(--line); border-radius:1rem; }
+  .passo b { display:grid; place-items:center; flex-shrink:0; width:1.9rem; height:1.9rem; border-radius:50%; background:var(--brand); color:#fff; font-family:var(--display); }
+  .passo strong { display:block; color:var(--brand); font-family:var(--heading); font-size:.95rem; letter-spacing:.05em; text-transform:uppercase; line-height:1.2; }
+  .passo small { color:var(--brand); font-weight:600; font-size:.78rem; }
+  .passo[data-agora] { border-color:var(--gold); box-shadow:0 0 0 2px var(--gold); }
+  .passo[data-agora] b { background:var(--gold); color:var(--gold-ink); }
+
+  .colunas { display:grid; grid-template-columns:minmax(0,1fr) minmax(22rem,27rem); gap:1.25rem; align-items:start; }
+  .titulo-secao { display:flex; align-items:center; gap:.6rem; margin:0 0 1rem; color:var(--brand); font-family:var(--heading); font-size:1.25rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+  .titulo-secao .icone { width:2.1rem; height:2.1rem; border-radius:.6rem; font-size:1rem; }
+  .titulo-secao em { margin-left:auto; padding:.15rem .6rem; border-radius:999px; background:var(--gold); color:var(--gold-ink); font-family:var(--display); font-style:normal; font-size:.85rem; letter-spacing:0; white-space:nowrap; }
+
+  article h3 { margin:1.3rem 0 .3rem; color:var(--brand); font-family:var(--heading); font-size:1.1rem; letter-spacing:.04em; text-transform:uppercase; }
+  article p { margin:.4rem 0; }
+  .exemplo { margin:1rem 0; padding:.9rem 1rem; border-left:4px solid var(--gold); border-radius:.6rem; background:#fffbe0; }
+  .exemplo .rotulo { color:var(--gold-ink); }
+  .conta { display:block; margin:.35rem 0; color:var(--brand); font-family:var(--display); font-weight:700; }
+  .pegadinhas { margin:1rem 0; padding:.9rem 1rem; border-left:4px solid var(--danger); border-radius:.6rem; background:#fdf0f3; }
+  .pegadinhas .rotulo { color:var(--danger); }
+  .pegadinhas ul { margin:.4rem 0 0; padding-left:1.1rem; }
+  .pegadinhas li { margin:.3rem 0; }
+  .extras { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.6rem; margin-top:1rem; padding-top:.9rem; border-top:1px solid var(--line); color:var(--brand); font-size:.82rem; font-weight:600; }
+  .extras a { color:var(--brand); font-weight:700; }
+
+  .exercicio { padding:1rem 0; border-top:1px solid var(--line); }
+  .exercicio:first-of-type { border-top:0; padding-top:0; }
+  .exercicio .q { margin:0 0 .6rem; font-weight:600; }
+  .exercicio .q b { color:var(--brand); font-family:var(--display); margin-right:.3rem; }
+  .alt { display:flex; align-items:center; gap:.6rem; width:100%; margin:.3rem 0; padding:.45rem .6rem; border:1px solid var(--line); border-radius:.6rem; background:#fff; color:var(--ink); text-align:left; cursor:pointer; transition:border-color .15s,background .15s; }
+  .alt i { display:grid; place-items:center; flex-shrink:0; width:1.6rem; height:1.6rem; border-radius:50%; background:#e6edf9; color:var(--brand); font-family:var(--display); font-style:normal; font-weight:700; font-size:.82rem; }
+  .exercicio:not([data-feito]) .alt:hover { border-color:var(--gold); background:#fffce6; }
+  .exercicio[data-feito] .alt { cursor:default; }
+  .alt.certa { border-color:var(--ok); background:color-mix(in srgb,var(--ok) 12%,#fff); }
+  .alt.certa i { background:var(--ok); color:#fff; }
+  .alt.errada { border-color:var(--danger); background:color-mix(in srgb,var(--danger) 10%,#fff); }
+  .alt.errada i { background:var(--danger); color:#fff; }
+  .comentario { margin-top:.6rem; padding:.7rem .85rem; border-radius:.6rem; background:#eaf1fc; font-size:.9rem; }
+  .comentario strong { display:block; font-family:var(--heading); letter-spacing:.05em; text-transform:uppercase; }
+  .comentario[data-r=ok] strong { color:var(--ok); }
+  .comentario[data-r=erro] strong { color:var(--danger); }
+
+  .proximo { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; border-left:6px solid var(--gold); }
+  .proximo h2 { margin:.15rem 0 0; color:var(--brand); font-family:var(--heading); font-size:1.3rem; letter-spacing:.04em; text-transform:uppercase; line-height:1.2; }
+  .proximo p { margin:.3rem 0 0; color:var(--brand); font-weight:500; }
+  .acoes { display:flex; flex-wrap:wrap; gap:.6rem; }
+  .botao { min-height:44px; padding:.55rem 1.1rem; border:1px solid var(--gold); border-radius:.75rem; background:var(--gold); color:var(--gold-ink); font-family:var(--heading); font-weight:700; font-size:1rem; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; }
+  .botao.sec { border-color:var(--brand); background:#fff; color:var(--brand); }
+
+  @container (max-width: 900px) {
+    .colunas { grid-template-columns:minmax(0,1fr); }
+  }
+  @container (max-width: 560px) {
+    h1 { font-size:1.55rem; }
+    .cartao { padding:1.1rem; }
+    .passos { grid-template-columns:minmax(0,1fr); gap:.5rem; }
+    .abas span { padding:.35rem .5rem; font-size:.7rem; }
+    .acoes, .botao { width:100%; }
+    .chip { width:100%; justify-content:center; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+
+  article figure { margin:0; }
+  .linha-tempo { margin:0 0 1.2rem; padding:1rem 1.1rem 1.1rem; border:1px solid var(--line); border-radius:.9rem; background:#f6f9fe; }
+  .linha-tempo .rotulo { margin-bottom:.9rem; }
+  .linha-tempo ol { position:relative; display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:.4rem; margin:0; padding:0; list-style:none; }
+  .linha-tempo ol::before { content:""; position:absolute; top:.55rem; left:6%; right:6%; height:3px; background:var(--brand); opacity:.35; }
+  .linha-tempo li { position:relative; display:flex; flex-direction:column; align-items:center; gap:.15rem; text-align:center; color:var(--brand); }
+  .linha-tempo li::before { content:""; width:1.15rem; height:1.15rem; border:3px solid #f6f9fe; border-radius:50%; background:var(--brand); }
+  .linha-tempo li b { font-family:var(--display); font-size:.9rem; }
+  .linha-tempo li span { font-weight:600; font-size:.78rem; line-height:1.25; }
+  .linha-tempo li[data-atual]::before { background:var(--gold); box-shadow:0 0 0 2px var(--brand); }
+  .linha-tempo li[data-atual] span { padding:.1rem .45rem; border-radius:.4rem; background:var(--gold); color:var(--gold-ink); font-weight:700; }
+  .legenda { margin:.7rem 0 0; color:var(--brand); font-size:.8rem; font-weight:600; }
+
+  .geracoes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.7rem; margin:.6rem 0 0; }
+  .geracao { padding:.8rem .9rem; border:1px solid var(--line); border-top:4px solid var(--brand); border-radius:.7rem; background:#fff; }
+  .geracao strong { display:block; color:var(--brand); font-family:var(--heading); font-size:1rem; letter-spacing:.04em; text-transform:uppercase; line-height:1.2; }
+  .geracao small { display:block; margin-top:.1rem; color:var(--brand); font-weight:700; font-size:.78rem; }
+  .geracao p { margin:.45rem 0 0; font-size:.88rem; line-height:1.45; }
+  .geracao[data-atual] { border-top-color:var(--gold); }
+
+  .trecho { display:grid; grid-template-columns:9.5rem minmax(0,1fr); gap:1.1rem; align-items:start; margin:.6rem 0 0; padding:1rem; border-radius:.8rem; background:#f6f9fe; border:1px solid var(--line); }
+  .trecho figure img { display:block; width:100%; height:auto; border-radius:.6rem; }
+  .trecho figcaption { margin-top:.4rem; color:var(--brand); font-size:.74rem; font-weight:600; line-height:1.3; }
+  blockquote { margin:0; padding:.1rem 0 .1rem .9rem; border-left:4px solid var(--brand); color:var(--ink); font-size:1.02rem; font-style:italic; font-weight:600; line-height:1.55; }
+  .autor-trecho { margin:.45rem 0 0; color:var(--brand); font-size:.82rem; font-weight:700; }
+  .repare { margin:.7rem 0 0; font-size:.92rem; }
+  .repare strong { color:var(--brand); }
+
+  .comparar { border:2px dashed var(--brand); background:#fff; }
+  .comparar .interno { display:grid; grid-template-columns:minmax(0,27rem) minmax(0,1fr); gap:1.2rem; align-items:center; margin-top:.7rem; }
+  .comparar svg { display:block; width:100%; height:auto; }
+  .comparar svg text { fill:var(--brand); font-family:'Manrope',sans-serif; font-weight:600; font-size:13px; }
+  .comparar h2 { margin:.15rem 0 0; color:var(--brand); font-family:var(--heading); font-size:1.15rem; letter-spacing:.04em; text-transform:uppercase; line-height:1.2; }
+
+  @container (max-width: 560px) {
+    .linha-tempo ol { grid-template-columns:minmax(0,1fr); gap:.5rem; }
+    .linha-tempo ol::before { top:.4rem; bottom:.4rem; left:.5rem; right:auto; width:3px; height:auto; }
+    .linha-tempo li { flex-direction:row; gap:.55rem; text-align:left; }
+    .geracoes { grid-template-columns:minmax(0,1fr); }
+    .trecho { grid-template-columns:minmax(0,1fr); }
+    .trecho figure { max-width:9.5rem; }
+    .comparar .interno { grid-template-columns:minmax(0,1fr); }
+  }
+
+  .exercicio { display:none; padding:0; border:0; }
+  .exercicio.ativo { display:block; }
+  .barra-ex { height:.5rem; margin-bottom:.7rem; border-radius:999px; background:#e6edf9; overflow:hidden; }
+  .barra-ex span { display:block; width:0; height:100%; background:var(--gold); transition:width .25s; }
+  .bolinhas { display:flex; flex-wrap:wrap; gap:.3rem; margin-bottom:1rem; }
+  .bolinhas button { width:1.85rem; height:1.85rem; padding:0; border:1px solid var(--line); border-radius:50%; background:#fff; color:var(--brand); font-family:var(--display); font-size:.75rem; font-weight:700; cursor:pointer; }
+  .bolinhas button[aria-current] { border-color:var(--brand); box-shadow:0 0 0 2px var(--brand); }
+  .bolinhas button[data-r=ok] { border-color:var(--ok); background:var(--ok); color:#fff; }
+  .bolinhas button[data-r=erro] { border-color:var(--danger); background:var(--danger); color:#fff; }
+  .nav-ex { display:flex; justify-content:space-between; gap:.5rem; margin-top:1rem; }
+  .nav-ex .botao { flex:1; }
+  .nav-ex .botao:disabled { opacity:.45; cursor:default; }
+  .lateral { position:sticky; top:1rem; max-height:calc(100dvh - 2rem); overflow:auto; }
+  @container (max-width: 900px) { .lateral { position:static; max-height:none; overflow:visible; } }
+</style>
+</head>
+<body>
+  <div class="aviso-esboco">
+    <span>Esboço para avaliar. O texto é um exemplo curto; o de verdade vai até umas 600 palavras.</span>
+    <span class="troca">
+      <button type="button" data-modo="computador" aria-pressed="true">Computador</button>
+      <button type="button" data-modo="celular" aria-pressed="false">Celular</button>
+    </span>
+  </div>
+
+  <div class="palco" id="palco" data-modo="computador">
+    <header class="topo">
+      <span class="logo">COLÉGIO STATUS</span>
+      <nav class="abas"><span>Início</span><span>Cursos</span><span>Simulados</span><span>Desempenho</span><span aria-current="page">Plano</span></nav>
+    </header>
+
+    <main class="pagina">
+      <section class="cartao">
+        <a class="voltar" href="#">← Voltar ao plano</a>
+        <div class="cabecalho">
+          <div>
+            <p class="rotulo">Literatura · Estudar este conteúdo</p>
+            <h1><span class="icone" aria-hidden="true">✎</span>Romantismo</h1>
+            <p class="descricao">Você errou 4 de 6 questões deste conteúdo. Leia a explicação e confira se entendeu nos exercícios.</p>
+          </div>
+          <span class="chip">≈ 30 min</span>
+        </div>
+      </section>
+
+      <ol class="passos" aria-label="Etapas deste conteúdo no plano">
+        <li class="passo" data-agora><b>1</b><span><strong>Estudar</strong><small>Você está aqui</small></span></li>
+        <li class="passo"><b>2</b><span><strong>Praticar</strong><small>5 questões reais do banco</small></span></li>
+        <li class="passo"><b>3</b><span><strong>Revisão</strong><small>7 dias depois da prática</small></span></li>
+      </ol>
+
+      <div class="colunas">
+        <article class="cartao">
+          <h2 class="titulo-secao"><span class="icone" aria-hidden="true">≡</span>Explicação</h2>
+
+          <figure class="linha-tempo">
+            <p class="rotulo">Onde o Romantismo fica no tempo</p>
+            <ol>
+              <li><b>1601</b><span>Barroco</span></li>
+              <li><b>1768</b><span>Arcadismo</span></li>
+              <li data-atual><b>1836</b><span>Romantismo</span></li>
+              <li><b>1881</b><span>Realismo e Naturalismo</span></li>
+              <li><b>1893</b><span>Simbolismo</span></li>
+              <li><b>1922</b><span>Modernismo</span></li>
+            </ol>
+            <figcaption class="legenda">Ano em que cada escola literária começa no Brasil.</figcaption>
+          </figure>
+
+          <h3>O que foi</h3>
+          <p>O Romantismo começa no Brasil em 1836, pouco depois da Independência, com <em>Suspiros Poéticos e Saudades</em>, de Gonçalves de Magalhães. O país buscava uma identidade própria, e a literatura respondeu valorizando a pátria, a natureza e o sentimento acima da razão.</p>
+
+          <h3>As três gerações da poesia</h3>
+          <div class="geracoes">
+            <div class="geracao"><strong>1ª geração</strong><small>Nacionalista</small><p>Gonçalves Dias. O indígena como herói, a natureza e a saudade da pátria.</p></div>
+            <div class="geracao"><strong>2ª geração</strong><small>Mal do século</small><p>Álvares de Azevedo. Amor, tédio, pessimismo e morte.</p></div>
+            <div class="geracao" data-atual><strong>3ª geração</strong><small>Condoreira</small><p>Castro Alves. Liberdade e denúncia da escravidão.</p></div>
+          </div>
+
+          <h3>Leia o trecho</h3>
+          <div class="trecho">
+            <figure>
+              <img src="castro-alves.jpg" alt="Retrato em preto e branco de Castro Alves, jovem, de bigode, por volta de 1870">
+              <figcaption>Castro Alves, por volta de 1870. Foto: Alberto Henschel (domínio público).</figcaption>
+            </figure>
+            <div>
+              <blockquote>Senhor Deus dos desgraçados!<br>Dizei-me vós, Senhor Deus!<br>Se é loucura... se é verdade<br>Tanto horror perante os céus?!</blockquote>
+              <p class="autor-trecho">Castro Alves, "O Navio Negreiro" (1868)</p>
+              <p class="repare"><strong>Repare:</strong> o eu lírico fala com Deus quase em grito. As exclamações e a pergunta mostram indignação diante do tráfico de escravizados, 20 anos antes da abolição.</p>
+            </div>
+          </div>
+
+          <div class="pegadinhas">
+            <p class="rotulo">Pegadinhas comuns de prova</p>
+            <ul>
+              <li><strong>Indígena idealizado:</strong> no Romantismo ele é um herói nobre, não um retrato fiel dos povos indígenas.</li>
+              <li><strong>Tema social não é Realismo:</strong> Castro Alves denuncia a escravidão, mas com tom exaltado e emotivo. Ele é romântico.</li>
+              <li><strong>Não é só poesia:</strong> o Romantismo também tem romances, como <em>Iracema</em>, de José de Alencar.</li>
+            </ul>
+          </div>
+
+          <div class="extras">
+            <span>Texto escrito com apoio de IA. Fatos conferidos na Wikipédia.</span>
+            <a href="#">▶ Assistir vídeo de apoio</a>
+          </div>
+        </article>
+
+        <section class="cartao lateral" aria-label="Exercícios de fixação">
+          <h2 class="titulo-secao"><span class="icone" aria-hidden="true">✓</span>Confira se entendeu<em id="contagem">0 de 10</em></h2>
+          <div class="barra-ex" aria-hidden="true"><span id="barra"></span></div>
+          <div class="bolinhas" id="bolinhas" aria-label="Escolher exercício"></div>
+
+          <div class="exercicio ativo" data-certa="B">
+            <p class="q"><b>1.</b>"Minha terra tem palmeiras, / Onde canta o Sabiá; / As aves, que aqui gorjeiam, / Não gorjeiam como lá." Nesses versos de Gonçalves Dias, predomina:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>a crítica às elites do país</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>a saudade e a exaltação da pátria</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>a objetividade científica</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>o culto à forma perfeita</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>o verso livre e a fala coloquial</button>
+            <div class="comentario" hidden><strong></strong>Longe do Brasil, o poeta compara a terra natal com o lugar onde está. É o nacionalismo da 1ª geração.</div>
+          </div>
+
+          <div class="exercicio" data-certa="C">
+            <p class="q"><b>2.</b>O pessimismo, o tédio e a atração pela morte, chamados de "mal do século", marcam a obra de:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>Gonçalves Dias</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>Castro Alves</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>Álvares de Azevedo</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>Machado de Assis</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>Cruz e Sousa</button>
+            <div class="comentario" hidden><strong></strong>Álvares de Azevedo é o principal nome da 2ª geração. Machado de Assis é do Realismo, e Cruz e Sousa, do Simbolismo.</div>
+          </div>
+
+          <div class="exercicio" data-certa="D">
+            <p class="q"><b>3.</b>Em "O Navio Negreiro", Castro Alves usa a poesia para:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>exaltar a natureza tropical</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>lamentar a morte precoce</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>idealizar o herói indígena</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>denunciar a escravidão</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>defender a arte pela arte</button>
+            <div class="comentario" hidden><strong></strong>A 3ª geração leva a poesia para a causa social. Castro Alves ficou conhecido como o "poeta dos escravos".</div>
+          </div>
+
+          <div class="exercicio" data-certa="C">
+            <p class="q"><b>4.</b>Em "Iracema", de José de Alencar, e em "I-Juca-Pirama", de Gonçalves Dias, o indígena é apresentado como:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>vilão da colonização</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>personagem cômico</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>herói idealizado e nobre</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>trabalhador da cidade</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>retrato científico fiel</button>
+            <div class="comentario" hidden><strong></strong>É o indianismo: o indígena vira símbolo nacional, com valores parecidos com os do cavaleiro medieval.</div>
+          </div>
+
+          <div class="exercicio" data-certa="A">
+            <p class="q"><b>5.</b>A obra considerada marco inicial do Romantismo no Brasil é:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>Suspiros Poéticos e Saudades</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>Memórias Póstumas de Brás Cubas</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>Os Sertões</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>Prosopopeia</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>Macunaíma</button>
+            <div class="comentario" hidden><strong></strong>Foi publicada em 1836 por Gonçalves de Magalhães. Memórias Póstumas de Brás Cubas marca o Realismo, em 1881.</div>
+          </div>
+
+          <div class="exercicio" data-certa="D">
+            <p class="q"><b>6.</b>Uma característica central do Romantismo é:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>o equilíbrio da razão clássica</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>a imitação dos modelos gregos</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>a descrição objetiva da realidade</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>a valorização da emoção e do eu</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>a defesa da arte pela arte</button>
+            <div class="comentario" hidden><strong></strong>É o subjetivismo: o sentimento de quem escreve vem antes da razão.</div>
+          </div>
+
+          <div class="exercicio" data-certa="B">
+            <p class="q"><b>7.</b>Castro Alves é chamado de poeta condoreiro porque:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>escrevia sobre pássaros do Brasil</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>sua poesia tem tom grandioso e social</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>viveu na Cordilheira dos Andes</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>imitava poetas portugueses antigos</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>escreveu apenas sobre o amor</button>
+            <div class="comentario" hidden><strong></strong>O condor voa alto: a ave simboliza a liberdade e o olhar amplo dessa poesia de causas sociais.</div>
+          </div>
+
+          <div class="exercicio" data-certa="E">
+            <p class="q"><b>8.</b>"A Moreninha" (1844), de Joaquim Manuel de Macedo, é um exemplo de romance:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>regionalista</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>histórico</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>indianista</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>naturalista</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>urbano</button>
+            <div class="comentario" hidden><strong></strong>A história se passa entre jovens da sociedade do Rio de Janeiro, por isso é um romance urbano.</div>
+          </div>
+
+          <div class="exercicio" data-certa="A">
+            <p class="q"><b>9.</b>A idealização da mulher, em geral pura e inatingível, é típica:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>do Romantismo</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>do Naturalismo</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>do Realismo</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>do Modernismo</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>do Pré-Modernismo</button>
+            <div class="comentario" hidden><strong></strong>O Realismo faz o caminho oposto: mostra personagens com defeitos e contradições.</div>
+          </div>
+
+          <div class="exercicio" data-certa="C">
+            <p class="q"><b>10.</b>José de Alencar escreveu romances indianistas, urbanos e regionalistas. Com isso, ele buscava:</p>
+            <button type="button" class="alt" data-l="A"><i>A</i>imitar romances ingleses</button>
+            <button type="button" class="alt" data-l="B"><i>B</i>provar teorias científicas</button>
+            <button type="button" class="alt" data-l="C"><i>C</i>retratar o Brasil e criar uma literatura nacional</button>
+            <button type="button" class="alt" data-l="D"><i>D</i>abandonar a prosa</button>
+            <button type="button" class="alt" data-l="E"><i>E</i>defender a volta ao Arcadismo</button>
+            <div class="comentario" hidden><strong></strong>O Guarani é indianista, Senhora é urbano e O Gaúcho é regionalista: juntos, mostram várias faces do país.</div>
+          </div>
+          <div class="nav-ex">
+            <button type="button" class="botao sec" id="anterior">Anterior</button>
+            <button type="button" class="botao" id="seguinte">Próxima</button>
+          </div>
+        </section>
+      </div>
+
+      <section class="cartao proximo">
+        <div>
+          <p class="rotulo">Próximo passo</p>
+          <h2 id="proximo-titulo">Agora pratique com questões reais</h2>
+          <p id="proximo-texto">5 questões do banco, começando pelas mais simples.</p>
+        </div>
+        <div class="acoes">
+          <button type="button" class="botao sec" data-esboco>Já estudei</button>
+          <button type="button" class="botao" data-esboco>Praticar 5 questões</button>
+        </div>
+      </section>
+
+      <section class="cartao comparar" aria-label="Exemplo de gráfico em outra matéria">
+        <p class="rotulo">Fora desta tela, só para comparar</p>
+        <h2>Como um gráfico apareceria em Matemática</h2>
+        <div class="interno">
+          <svg viewBox="0 0 440 270" role="img" aria-label="Gráfico: o preço cresce em linha reta com a quantidade de cadernos; 4 cadernos custam 30 reais">
+            <line x1="50" y1="96.7" x2="290" y2="96.7" stroke="#0444a0" stroke-width="1.5" stroke-dasharray="5 5" opacity=".55"/>
+            <line x1="290" y1="96.7" x2="290" y2="230" stroke="#0444a0" stroke-width="1.5" stroke-dasharray="5 5" opacity=".55"/>
+            <line x1="50" y1="230" x2="420" y2="230" stroke="#0e1b3d" stroke-width="2"/>
+            <line x1="50" y1="230" x2="50" y2="18" stroke="#0e1b3d" stroke-width="2"/>
+            <line x1="50" y1="230" x2="410" y2="30" stroke="#0444a0" stroke-width="3.5" stroke-linecap="round"/>
+            <circle cx="170" cy="163.3" r="6" fill="#f5d90a" stroke="#0444a0" stroke-width="2.5"/>
+            <circle cx="290" cy="96.7" r="6" fill="#f5d90a" stroke="#0444a0" stroke-width="2.5"/>
+            <circle cx="410" cy="30" r="6" fill="#f5d90a" stroke="#0444a0" stroke-width="2.5"/>
+            <text x="170" y="248" text-anchor="middle">2</text><text x="290" y="248" text-anchor="middle">4</text><text x="410" y="248" text-anchor="middle">6</text>
+            <text x="42" y="168" text-anchor="end">15</text><text x="42" y="101" text-anchor="end">30</text><text x="42" y="35" text-anchor="end">45</text>
+            <text x="235" y="266" text-anchor="middle">Cadernos</text>
+            <text x="12" y="14">Preço (R$)</text>
+          </svg>
+          <p class="repare">Preço e quantidade são diretamente proporcionais, então o gráfico é uma reta que sai do zero. Gráficos, esquemas e linhas do tempo são desenhados para cada explicação, sem depender de imagem de terceiros.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+  const palco = document.getElementById('palco');
+  document.querySelectorAll('.troca button').forEach((b) => b.addEventListener('click', () => {
+    palco.dataset.modo = b.dataset.modo;
+    document.querySelectorAll('.troca button').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+  }));
+
+  const exercicios = [...document.querySelectorAll('.exercicio')];
+  const bolinhas = document.getElementById('bolinhas');
+  const anterior = document.getElementById('anterior');
+  const seguinte = document.getElementById('seguinte');
+  let feitos = 0, acertos = 0, atual = 0;
+  const pontos = exercicios.map((_, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = i + 1; b.setAttribute('aria-label', 'Exercício ' + (i + 1));
+    b.addEventListener('click', () => irPara(i));
+    bolinhas.append(b);
+    return b;
+  });
+  function irPara(i) {
+    atual = i;
+    exercicios.forEach((ex, k) => ex.classList.toggle('ativo', k === i));
+    pontos.forEach((p, k) => (k === i ? p.setAttribute('aria-current', 'true') : p.removeAttribute('aria-current')));
+    anterior.disabled = i === 0;
+    seguinte.disabled = i === exercicios.length - 1;
+  }
+  anterior.addEventListener('click', () => irPara(atual - 1));
+  seguinte.addEventListener('click', () => irPara(atual + 1));
+  exercicios.forEach((ex, i) => {
+    const certa = ex.dataset.certa;
+    ex.querySelectorAll('.alt').forEach((b) => b.addEventListener('click', () => {
+      if (ex.dataset.feito) return;
+      ex.dataset.feito = '1';
+      const ok = b.dataset.l === certa;
+      if (!ok) b.classList.add('errada');
+      ex.querySelector('.alt[data-l="' + certa + '"]').classList.add('certa');
+      const c = ex.querySelector('.comentario');
+      c.dataset.r = ok ? 'ok' : 'erro';
+      c.querySelector('strong').textContent = ok ? 'Você acertou' : 'Resposta certa: ' + certa;
+      c.hidden = false;
+      pontos[i].dataset.r = ok ? 'ok' : 'erro';
+      feitos += 1;
+      if (ok) acertos += 1;
+      document.getElementById('contagem').textContent = feitos + ' de ' + exercicios.length;
+      document.getElementById('barra').style.width = (feitos / exercicios.length) * 100 + '%';
+      if (feitos === exercicios.length) {
+        document.getElementById('proximo-titulo').textContent = 'Você acertou ' + acertos + ' de ' + exercicios.length;
+        document.getElementById('proximo-texto').textContent = 'Esses exercícios não contam no seu desempenho. Agora pratique com 5 questões reais do banco.';
+      }
+    }));
+  });
+  irPara(0);
+
+  document.querySelectorAll('[data-esboco]').forEach((b) => b.addEventListener('click', () => {
+    const t = b.textContent;
+    b.textContent = 'No esboço, sem ação';
+    setTimeout(() => { b.textContent = t; }, 1400);
+  }));
+</script>
+</body>
+</html>
