@@ -19,7 +19,13 @@ export default async function EstudarPage({ params }: { params: Promise<{ assunt
   const leitura = await estudoParaTela(valida.assuntoId, aluno.id, aluno.escola_id);
   if (leitura.estado !== "publicado") return <SemEstudo estado={leitura.estado} />;
 
-  const dados = await carregarPlano({ id: aluno.id, escolaId: aluno.escola_id }, "aluno", new Date(), valida.assuntoId);
-  const plano = [...dados.plano.semana, ...dados.plano.depois, ...dados.plano.concluidos].find((c) => c.chave === valida.assuntoId) ?? null;
-  return <PaginaEstudo estudo={leitura.estudo} plano={plano} extras={dados.extras[valida.assuntoId]} regras={dados.regras} />;
+  // Falha no plano não esconde a explicação: cai em "fora do plano".
+  let dados: Awaited<ReturnType<typeof carregarPlano>> | null = null;
+  try {
+    dados = await carregarPlano({ id: aluno.id, escolaId: aluno.escola_id }, "aluno", new Date(), valida.assuntoId);
+  } catch (e) {
+    console.error("estudar: carregarPlano:", e);
+  }
+  const plano = dados ? [...dados.plano.semana, ...dados.plano.depois, ...dados.plano.concluidos].find((c) => c.chave === valida.assuntoId) ?? null : null;
+  return <PaginaEstudo estudo={leitura.estudo} plano={plano} extras={dados?.extras[valida.assuntoId]} regras={dados?.regras ?? null} />;
 }

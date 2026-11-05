@@ -227,7 +227,11 @@ export async function carregarPlano(conta: { id: string; escolaId: string }, vis
     return ids.length === 0 ? {} : estudosPublicados(ids);
   };
 
-  const [mat, qs, pre, disponiveisDe, estudos] = await Promise.all([lerMateriais(), lerQuestoes(), lerPrereqs(), lerDisponiveis(), lerEstudos()]);
+  const [mat, qs, pre, disponiveisDe, estudos] = await Promise.all([
+    lerMateriais(), lerQuestoes(), lerPrereqs(), lerDisponiveis(),
+    // O estudo é um extra: se falhar (ou um bloco vier fora do formato), o plano segue sem ele.
+    lerEstudos().catch((e): Record<string, { minutos: number }> => { console.error("lerEstudos:", e); return {}; }),
+  ]);
   // O tempo do estudo vale antes do tempo do material; as marcas de revisão não mudam.
   for (const c of conteudos) {
     const e = c.assuntoId ? estudos[c.assuntoId] : undefined;
