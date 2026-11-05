@@ -66,7 +66,7 @@ export async function responderExercicio(e: { exercicioId: string; marcada: Letr
 
 async function situacaoDe(materialId: string, exercicioId: string | null): Promise<SituacaoEstudo | null> {
   const consulta = exercicioId
-    ? supabase.from("exercicios_fixacao").select("situacao").eq("id", exercicioId)
+    ? supabase.from("exercicios_fixacao").select("situacao").eq("id", exercicioId).eq("material_id", materialId)
     : supabase.from("materiais_estudo").select("situacao").eq("id", materialId);
   const { data, error } = await consulta.maybeSingle();
   if (error) throw new Error(error.message);
@@ -93,7 +93,7 @@ export async function relatarErro(e: EntradaRelato): Promise<{ ok: true } | { ok
     const deps: DepsRelato = {
       noAr: async (materialId, exercicioId) => (await situacaoDe(materialId, exercicioId)) === "publicado",
       jaRelatou: async (quem, materialId, exercicioId) => {
-        let c = supabase.from("relatos_erro").select("id", { head: true, count: "exact" }).eq("material_id", materialId).eq("situacao", "aberto");
+        let c = supabase.from("relatos_erro").select("id", { head: true, count: "exact" }).eq("material_id", materialId).in("situacao", ["aberto", "sem_erro"]);
         c = "conta_id" in quem ? c.eq("conta_id", quem.conta_id) : c.eq("professor_id", quem.professor_id);
         c = exercicioId ? c.eq("exercicio_id", exercicioId) : c.is("exercicio_id", null);
         const { count, error } = await c;
