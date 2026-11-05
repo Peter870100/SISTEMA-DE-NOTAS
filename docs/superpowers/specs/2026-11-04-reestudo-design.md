@@ -185,7 +185,7 @@ create table if not exists materiais_estudo (
     lido_em timestamptz,
     criado_em timestamptz not null default now(),
     atualizado_em timestamptz not null default now(),
-    constraint materiais_estudo_fonte_check check (
+    constraint materiais_estudo_fonte_url_check check (
         (fonte = 'wikipedia' and fonte_url like 'https://pt.wikipedia.org/%') or (fonte = 'ia' and fonte_url is null)
     )
 );
@@ -205,7 +205,7 @@ create table if not exists imagens_estudo (
     aprovada_por uuid references professores(id) on delete set null,
     aprovada_em timestamptz,
     criado_em timestamptz not null default now(),
-    constraint imagens_estudo_tipo_check check (
+    constraint imagens_estudo_tipo_dados_check check (
         (tipo = 'desenho' and svg is not null and storage_path is null)
         or (tipo = 'foto' and storage_path is not null and svg is null and credito is not null and licenca is not null)
     )

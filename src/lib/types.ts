@@ -282,6 +282,81 @@ export type MaterialRevisao = {
   created_at: string;
 };
 
+export type SituacaoEstudo = "rascunho" | "retido" | "publicado" | "em_conferencia";
+
+/** Material de reestudo de um assunto (um por assunto, geral). `blocos` segue src/lib/estudos/blocos.ts. */
+export type MaterialEstudo = {
+  id: string;
+  assunto_id: string;
+  blocos: unknown;
+  fonte: "wikipedia" | "ia";
+  fonte_titulo: string | null;
+  fonte_url: string | null;
+  situacao: SituacaoEstudo;
+  motivo: string | null;
+  checagem: unknown | null;
+  checado_em: string | null;
+  checagens: number;
+  amostra: boolean;
+  lido_por: string | null;
+  lido_em: string | null;
+  criado_em: string;
+  atualizado_em: string;
+};
+
+export type ImagemEstudo = {
+  id: string;
+  material_id: string;
+  tipo: "desenho" | "foto";
+  svg: string | null;
+  storage_path: string | null;
+  alt: string;
+  legenda: string | null;
+  credito: string | null;
+  licenca: string | null;
+  fonte_url: string | null;
+  aprovada_por: string | null;
+  aprovada_em: string | null;
+  criado_em: string;
+};
+
+export type ExercicioFixacao = {
+  id: string;
+  material_id: string;
+  ordem: number;
+  enunciado: string;
+  imagem_id: string | null;
+  alternativas: Alternativa[];
+  resposta_correta: Letra;
+  comentario: string;
+  situacao: SituacaoEstudo;
+  motivo: string | null;
+  checagens: number;
+};
+
+/** Primeira resposta de cada aluno a cada exercício de fixação. */
+export type RespostaFixacao = {
+  conta_id: string;
+  exercicio_id: string;
+  marcada: Letra;
+  acertou: boolean;
+  respondida_em: string;
+};
+
+/** Botão "Encontrei um erro". `exercicio_id` null = o texto. */
+export type RelatoErro = {
+  id: string;
+  material_id: string;
+  exercicio_id: string | null;
+  conta_id: string | null;
+  professor_id: string | null;
+  mensagem: string | null;
+  situacao: "aberto" | "corrigido" | "sem_erro";
+  resolvido_por: string | null;
+  resolvido_em: string | null;
+  criado_em: string;
+};
+
 export type StatusImportacao = "enviando" | "lendo" | "revisao" | "concluida" | "erro";
 export type Importacao = {
   id: string;
@@ -684,6 +759,36 @@ export type Database = {
         Row: MaterialRevisao;
         Insert: Partial<Omit<MaterialRevisao, "id" | "created_at">>;
         Update: Partial<Omit<MaterialRevisao, "id" | "created_at">>;
+        Relationships: [];
+      };
+      materiais_estudo: {
+        Row: MaterialEstudo;
+        Insert: Partial<Omit<MaterialEstudo, "id" | "criado_em" | "atualizado_em">> & { assunto_id: string; blocos: unknown; fonte: "wikipedia" | "ia" };
+        Update: Partial<Omit<MaterialEstudo, "id" | "criado_em" | "atualizado_em">>;
+        Relationships: [];
+      };
+      imagens_estudo: {
+        Row: ImagemEstudo;
+        Insert: Partial<Omit<ImagemEstudo, "id" | "criado_em">> & { material_id: string; tipo: "desenho" | "foto"; alt: string };
+        Update: Partial<Omit<ImagemEstudo, "id" | "criado_em">>;
+        Relationships: [];
+      };
+      exercicios_fixacao: {
+        Row: ExercicioFixacao;
+        Insert: Partial<Omit<ExercicioFixacao, "id">> & { material_id: string; ordem: number; enunciado: string; alternativas: Alternativa[]; resposta_correta: Letra; comentario: string };
+        Update: Partial<Omit<ExercicioFixacao, "id">>;
+        Relationships: [];
+      };
+      respostas_fixacao: {
+        Row: RespostaFixacao;
+        Insert: Partial<Omit<RespostaFixacao, "respondida_em">> & { conta_id: string; exercicio_id: string; marcada: Letra; acertou: boolean };
+        Update: Partial<Omit<RespostaFixacao, "respondida_em">>;
+        Relationships: [];
+      };
+      relatos_erro: {
+        Row: RelatoErro;
+        Insert: Partial<Omit<RelatoErro, "id" | "criado_em">> & { material_id: string };
+        Update: Partial<Omit<RelatoErro, "id" | "criado_em">>;
         Relationships: [];
       };
       importacoes: {
