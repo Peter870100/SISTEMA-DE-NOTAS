@@ -83,8 +83,7 @@ O Peter fala português; respostas em pt-BR.
 ## Próximo passo
 - **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`, começando por Matemática (25 assuntos) e
   depois uma matéria por vez. Enquanto não houver material publicado, o plano e o resultado seguem como antes.
-- **Projeto 4 de 4 do acompanhamento da aprendizagem: IA.** Depende de crédito na API Anthropic (ver abaixo). O "guia de estudos da
-  própria plataforma" foi deixado para depois: perguntar ao Peter antes de desenhar.
+- **Projeto 4 de 4 do acompanhamento da aprendizagem: IA.** Depende de crédito na API Anthropic (ver abaixo).
 - **Loja com Stripe** (alunos de fora: curso avulso ou pacote completo com treinos; Pix e cartão 12x):
   spec `docs/superpowers/specs/2026-10-05-loja-stripe-design.md` e plano
   `docs/superpowers/plans/2026-10-05-loja-stripe.md` prontos. Falta o Peter aprovar o plano e então

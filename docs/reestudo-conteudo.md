@@ -24,8 +24,9 @@ Assunto sem material continua mostrando ao aluno o aviso atual de falta de mater
 
 1. **Listar.** `assuntos_para_estudo(materia)` mostra os assuntos aprovados, o número de questões publicadas e a situação do
    material (`sem material`, `rascunho`, `retido`, `em_conferencia`, `publicado`). Pegue um `sem material`.
-2. **Ver o banco.** Veja algumas questões desse assunto (ferramentas de leitura do banco do MCP do dono) para acertar o nível
-   e o foco: o que o ENEM e os vestibulares realmente cobram.
+2. **Ver o banco.** Chame `buscar_questoes` (MCP do dono) com `materia` e `situacao: "publicada"` e uma palavra do assunto em
+   `texto` (ela não filtra por assunto; também aceita `banca`, `ano`, `area` e `limite`, até 100) para ver algumas questões e
+   acertar o nível e o foco: o que o ENEM e os vestibulares realmente cobram.
 3. **Escrever** a explicação, os desenhos e os 10 exercícios, sem copiar de nenhum site (critérios abaixo).
 4. **Conferir fatos e datas na Wikipédia, depois de escrito.** Busque o verbete em
    `https://pt.wikipedia.org/api/rest_v1/page/summary/{slug}` com um User-Agent genérico do app (ex.: `StatusAvalia/1.0`); se
@@ -64,7 +65,7 @@ Anote o `id` do material que o passo 5 devolve: o conferidor precisa dele.
 | `trecho` | `texto`, `autor`, `repare?`, `imagem_id?` |
 | `cartoes` | `itens[]` com `titulo`, `subtitulo?`, `texto` |
 | `linha_tempo` | `titulo`, `legenda?`, `itens[]` com `ano`, `nome`, `destaque?` |
-| `tabela` | `linhas[][]` |
+| `tabela` | `linhas[][]` (a primeira linha é o cabeçalho) |
 | `imagem` | `imagem_id` |
 
 Campo fora desta lista é recusado. Em `imagem_id` (blocos) vai a `chave` curta de um desenho ou foto enviados na mesma chamada;
@@ -124,17 +125,19 @@ exatamente 10), todos no mesmo formato. Aqui o texto é curto só para servir de
       "enunciado": "Quanto é 20% de 150?",
       "alternativas": [
         { "letra": "A", "texto": "20" },
-        { "letra": "B", "texto": "25" },
+        { "letra": "B", "texto": "75" },
         { "letra": "C", "texto": "30" },
-        { "letra": "D", "texto": "35" },
-        { "letra": "E", "texto": "40" }
+        { "letra": "D", "texto": "120" },
+        { "letra": "E", "texto": "180" }
       ],
       "resposta_correta": "C",
-      "comentario": "20% = 0,2, e 0,2 × 150 = 30. A (20) usa o próprio percentual como resultado; B, D e E não correspondem a nenhuma conta com 20% de 150."
+      "comentario": "20% = 0,2, e 0,2 × 150 = 30. A (20) usa o próprio percentual como se fosse o resultado. B (75) é 50% de 150, a metade, e não 20%. D (120) é o valor depois de tirar 20% (150 − 30), não os 20%. E (180) é o valor depois de somar 20% (150 + 30)."
     }
   ]
 }
 ```
+
+No `comentario`, explique **por que cada alternativa errada está errada**, como acima: o conferidor e o aluno leem isso.
 
 Para um exercício com figura, acrescente `"imagem": "<chave de um desenho>"` (nunca de foto). Para uma foto, o item de `fotos` leva
 `chave`, `url`, `alt`, `legenda?`, `credito`, `licenca` e `fonte_url`, e um bloco `imagem` (ou o `imagem_id` de um `trecho`)
@@ -183,6 +186,11 @@ Regras de decisão (automáticas, no servidor):
    resposta_correta, comentario)`. O item volta a `rascunho`.
 3. **Novo conferidor**, subagente diferente do anterior e diferente de quem corrigiu, com a mesma instrução. No material
    já publicado, só os exercícios corrigidos são reconferidos (o parecer do texto é ignorado).
+   Atenção: **pendente** é o exercício com `situacao: "rascunho"`; só ele recebe parecer na checagem. Exercício `retido` só
+   volta a ser pendente depois de corrigido.
+   `corrigir_exercicio_estudo` **não troca a figura** do exercício (mantém a que ele já tinha): se a figura precisa mudar,
+   regrave o material inteiro com `salvar_material_estudo`. E **se o texto foi reprovado, a correção é regravar** o material:
+   o MCP recusa nova checagem de material `retido` por texto reprovado enquanto ele não for regravado.
 4. **Na segunda divergência o item fica para uma pessoa.** O MCP passa a recusar regravar e corrigir; o item aparece em
    "Retidos" no painel `/banco/estudos`, onde o dono edita e publica. Não insista nem contorne.
 
