@@ -1,5 +1,5 @@
 import type { Letra, SituacaoEstudo } from "../types";
-import { visivelAoAluno } from "./situacao";
+import { exercicioMudou, visivelAoAluno, type CamposExercicio } from "./situacao";
 
 export const LIMITE_RELATOS_DIA = 5;
 const LIMITE_MENSAGEM = 500;
@@ -28,6 +28,13 @@ export async function responderExercicioCom(
 }
 
 export type Relator = { conta_id: string } | { professor_id: string };
+/** Aluno logado vale antes do professor; sem nenhum dos dois, não há quem avise. */
+export function relatorDaSessao(aluno: { id: string } | null, professor: { id: string } | null): Relator | null {
+  if (aluno) return { conta_id: aluno.id };
+  if (professor) return { professor_id: professor.id };
+  return null;
+}
+
 export type EntradaRelato = { materialId: string; exercicioId: string | null; mensagem: string | null };
 
 export type DepsRelato = {
@@ -65,4 +72,49 @@ export async function moverMaterialAoJuntar(deps: DepsJuntar, propostoId: string
   if (!(await deps.temMaterial(propostoId))) return;
   if (await deps.temMaterial(destinoId)) return;
   await deps.mover(propostoId, destinoId);
+}
+
+const LETRAS_ALT = ["A", "B", "C", "D", "E"] as const;
+
+export type CamposEditaveis = CamposExercicio & { comentario: string };
+
+export type DepsExercicio = {
+  ler(id: string): Promise<(CamposExercicio & { material_id: string }) | null>;
+  /** A figura existe neste material e é um desenho. */
+  desenhoDoMaterial(imagemId: string, materialId: string): Promise<boolean>;
+  apagarRespostas(exercicioId: string): Promise<void>;
+  publicar(exercicioId: string, campos: CamposExercicio & { comentario: string; situacao: "publicado"; motivo: null }): Promise<void>;
+  fecharAvisos(materialId: string, exercicioId: string): Promise<void>;
+};
+
+/** Corrigi (exercício): publica direto; mudou o que o aluno responde, as respostas dele são apagadas. */
+export async function salvarExercicioCom(deps: DepsExercicio, exercicioId: string, campos: CamposEditaveis): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const enunciado = typeof campos?.enunciado === "string" ? campos.enunciado.trim() : "";
+  const comentario = typeof campos?.comentario === "string" ? campos.comentario.trim() : "";
+  if (!enunciado) return { ok: false, erro: "Escreva o enunciado." };
+  if (!comentario) return { ok: false, erro: "Escreva o comentário." };
+  const alts = campos.alternativas;
+  if (!Array.isArray(alts) || alts.length !== 5 || alts.some((a, i) => a?.letra !== LETRAS_ALT[i] || typeof a.texto !== "string" || !a.texto.trim())) {
+    return { ok: false, erro: "São 5 alternativas, de A a E, todas com texto." };
+  }
+  if (!(LETRAS_ALT as readonly string[]).includes(campos.resposta_correta)) return { ok: false, erro: "Escolha a resposta correta." };
+
+  const antes = await deps.ler(exercicioId);
+  if (!antes) return { ok: false, erro: "Exercício não encontrado." };
+
+  const imagemId = campos.imagem_id ?? null;
+  if (imagemId !== null && !(await deps.desenhoDoMaterial(imagemId, antes.material_id))) {
+    return { ok: false, erro: "A figura do exercício precisa ser um desenho deste material." };
+  }
+
+  const depois: CamposExercicio = {
+    enunciado,
+    imagem_id: imagemId,
+    alternativas: alts.map((a) => ({ letra: a.letra, texto: a.texto.trim() })),
+    resposta_correta: campos.resposta_correta,
+  };
+  if (exercicioMudou(antes, depois)) await deps.apagarRespostas(exercicioId);
+  await deps.publicar(exercicioId, { ...depois, comentario, situacao: "publicado", motivo: null });
+  await deps.fecharAvisos(antes.material_id, exercicioId);
+  return { ok: true };
 }

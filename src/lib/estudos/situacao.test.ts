@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Letra, SituacaoEstudo } from "../types";
-import { aplicarChecagem, podeRegravar, podeCorrigirExercicio, visivelAoAluno, ehAmostra, exercicioMudou, imagemDisponivel } from "./situacao";
+import { aplicarChecagem, podeRegravar, podeCorrigirExercicio, visivelAoAluno, ehAmostra, exercicioMudou, imagemDisponivel, podeGerir } from "./situacao";
 
 const ex = (ordem: number, o: Partial<{ resposta_correta: Letra; situacao: SituacaoEstudo; checagens: number }> = {}) =>
   ({ ordem, resposta_correta: "A" as Letra, situacao: "rascunho" as SituacaoEstudo, checagens: 0, ...o });
@@ -113,4 +113,10 @@ test("não corrige exercício de material retido que esgotou as checagens ou tev
   assert.equal(podeCorrigirExercicio(e1, { situacao: "retido", checagens: 2 }), false);
   assert.equal(podeCorrigirExercicio(e1, { situacao: "retido", checagens: 1, textoReprovado: true }), false);
   assert.equal(podeCorrigirExercicio(e1, { situacao: "retido", checagens: 1 }), true);
+});
+
+test("só o dono gerencia o estudo", () => {
+  assert.equal(podeGerir("dono"), true);
+  assert.equal(podeGerir("admin"), false);
+  assert.equal(podeGerir("professor"), false);
 });

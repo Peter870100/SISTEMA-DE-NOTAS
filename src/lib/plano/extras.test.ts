@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chaveValida, materiaisDoConteudo, minutosDaAula } from "./extras";
+import { chaveValida, materiaisDoConteudo, minutosDaAula, semNenhumMaterial } from "./extras";
 import type { MaterialRevisao } from "../types";
 
 const UUID = "123e4567-e89b-12d3-a456-426614174000";
@@ -58,4 +58,11 @@ test("materiaisDoConteudo: aula repetida aparece uma vez e usa duracao", () => {
   assert.deepEqual(r.map((m) => m.id), ["x", "z"]);
   assert.equal(r[0].minutos, 25);
   assert.equal(r[1].minutos, 15);
+});
+
+test("semNenhumMaterial: só quando não há material nem estudo", () => {
+  const mat = { id: "m", titulo: "t", tipo: "link" as const, href: "x", minutos: 5 };
+  assert.equal(semNenhumMaterial({ materiais: [], estudo: null }), true);
+  assert.equal(semNenhumMaterial({ materiais: [mat], estudo: null }), false);
+  assert.equal(semNenhumMaterial({ materiais: [], estudo: { assuntoId: UUID, minutos: 20 } }), false);
 });

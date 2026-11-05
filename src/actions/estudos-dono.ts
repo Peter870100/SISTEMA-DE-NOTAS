@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabase/client";
 import { exigirProfessor } from "@/lib/questoes/acesso";
 import { blocosVisiveis, validarBlocos, type Bloco } from "@/lib/estudos/blocos";
 import { BUCKET_ESTUDOS } from "@/lib/estudos/fotos";
-import { exercicioMudou, type CamposExercicio } from "@/lib/estudos/situacao";
+import { salvarExercicioCom, type CamposEditaveis, type DepsExercicio } from "@/lib/estudos/nucleo";
+import { podeGerir } from "@/lib/estudos/situacao";
 import type { Professor } from "@/lib/types";
 
 type Resultado = { ok: true } | { ok: false; erro: string };
@@ -21,12 +22,13 @@ class Recusa extends Error {}
 async function comDono(fn: (dono: Professor) => Promise<void>): Promise<Resultado> {
   try {
     const professor = await exigirProfessor();
-    if (professor.role !== "dono") return { ok: false, erro: "Só o dono da plataforma gerencia os estudos." };
+    if (!podeGerir(professor.role)) return { ok: false, erro: "Só o dono da plataforma gerencia os estudos." };
     await fn(professor);
     revalidatePath("/banco/estudos", "layout");
     return { ok: true };
   } catch (e) {
     if (e instanceof Recusa) return { ok: false, erro: e.message };
+    console.error("estudos-dono:", e);
     return { ok: false, erro: "Não foi possível salvar. Tente de novo." };
   }
 }
@@ -83,54 +85,28 @@ export async function salvarTextoEstudo(materialId: string, blocos: unknown): Pr
   });
 }
 
-type CamposEditaveis = CamposExercicio & { comentario: string };
-
 /** Corrigi (exercício). Mudou o que o aluno responde: as respostas dele são apagadas. */
 export async function salvarExercicio(exercicioId: string, campos: CamposEditaveis): Promise<Resultado> {
   return comDono(async (dono) => {
     exigirId(exercicioId, "Exercício");
-    const enunciado = typeof campos?.enunciado === "string" ? campos.enunciado.trim() : "";
-    const comentario = typeof campos?.comentario === "string" ? campos.comentario.trim() : "";
-    if (!enunciado) throw new Recusa("Escreva o enunciado.");
-    if (!comentario) throw new Recusa("Escreva o comentário.");
-    const alts = campos.alternativas;
-    if (!Array.isArray(alts) || alts.length !== 5 || alts.some((a, i) => a?.letra !== LETRAS[i] || typeof a.texto !== "string" || !a.texto.trim())) {
-      throw new Recusa("São 5 alternativas, de A a E, todas com texto.");
-    }
-    if (!LETRAS.includes(campos.resposta_correta)) throw new Recusa("Escolha a resposta correta.");
-
-    const { data: antes, error } = await supabase.from("exercicios_fixacao").select("*").eq("id", exercicioId).maybeSingle();
-    checar(error);
-    if (!antes) throw new Recusa("Exercício não encontrado.");
-
-    const imagemId = campos.imagem_id ?? null;
-    if (imagemId !== null) {
-      exigirId(imagemId, "Figura");
-      const { data: img, error: eImg } = await supabase
-        .from("imagens_estudo")
-        .select("id, tipo")
-        .eq("id", imagemId)
-        .eq("material_id", antes.material_id)
-        .maybeSingle();
-      checar(eImg);
-      if (!img || img.tipo !== "desenho") throw new Recusa("A figura do exercício precisa ser um desenho deste material.");
-    }
-
-    const depois: CamposExercicio = {
-      enunciado,
-      imagem_id: imagemId,
-      alternativas: alts.map((a) => ({ letra: a.letra, texto: a.texto.trim() })),
-      resposta_correta: campos.resposta_correta,
+    if (campos?.imagem_id != null) exigirId(campos.imagem_id, "Figura");
+    const deps: DepsExercicio = {
+      ler: async (id) => {
+        const { data, error } = await supabase.from("exercicios_fixacao").select("material_id, enunciado, imagem_id, alternativas, resposta_correta").eq("id", id).maybeSingle();
+        checar(error);
+        return data as Awaited<ReturnType<DepsExercicio["ler"]>>;
+      },
+      desenhoDoMaterial: async (imagemId, materialId) => {
+        const { data, error } = await supabase.from("imagens_estudo").select("id, tipo").eq("id", imagemId).eq("material_id", materialId).maybeSingle();
+        checar(error);
+        return !!data && data.tipo === "desenho";
+      },
+      apagarRespostas: async (id) => { checar((await supabase.from("respostas_fixacao").delete().eq("exercicio_id", id)).error); },
+      publicar: async (id, c) => { checar((await supabase.from("exercicios_fixacao").update(c).eq("id", id)).error); },
+      fecharAvisos: (materialId, id) => fecharAvisos({ materialId, exercicioId: id }, "corrigido", dono),
     };
-    if (exercicioMudou(antes as CamposExercicio, depois)) {
-      checar((await supabase.from("respostas_fixacao").delete().eq("exercicio_id", exercicioId)).error);
-    }
-    const { error: eUp } = await supabase
-      .from("exercicios_fixacao")
-      .update({ ...depois, comentario, situacao: "publicado", motivo: null })
-      .eq("id", exercicioId);
-    checar(eUp);
-    await fecharAvisos({ materialId: antes.material_id, exercicioId }, "corrigido", dono);
+    const r = await salvarExercicioCom(deps, exercicioId, campos);
+    if (!r.ok) throw new Recusa(r.erro);
   });
 }
 

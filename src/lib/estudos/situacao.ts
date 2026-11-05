@@ -1,4 +1,4 @@
-import type { Letra, SituacaoEstudo } from "../types";
+import type { Letra, ProfessorRole, SituacaoEstudo } from "../types";
 
 export const MIN_EXERCICIOS = 5;
 export const MAX_CHECAGENS = 2;
@@ -144,4 +144,9 @@ export function podeEstudar(): boolean {
 /** Desenho vai ao ar com o material; foto só depois de aprovada por uma pessoa. */
 export function imagemDisponivel(i: { tipo: "desenho" | "foto"; aprovada_em: string | null }): boolean {
   return i.tipo === "desenho" || i.aprovada_em !== null;
+}
+
+/** Só o dono da plataforma gerencia o estudo (admin de escola não). */
+export function podeGerir(role: ProfessorRole): boolean {
+  return role === "dono";
 }

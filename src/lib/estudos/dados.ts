@@ -8,19 +8,11 @@ import { MATERIAS } from "@/lib/questoes/materias";
 import type { Alternativa, ExercicioFixacao, Letra, MaterialEstudo, SituacaoEstudo } from "@/lib/types";
 import { blocosVisiveis, contarPalavras, type Bloco } from "./blocos";
 import { imagemDisponivel, visivelAoAluno } from "./situacao";
+import { exerciciosParaTela, type ExercicioTela, type LinhaExercicio, type ImagemTela } from "./tela";
 import { dataUrlDoSvg } from "./svg";
 import { minutosDoEstudo } from "./tempo";
 
-export type ImagemTela = { id: string; src: string; alt: string; legenda: string | null; credito: string | null; licenca: string | null };
-
-export type ExercicioTela = {
-  id: string;
-  ordem: number;
-  enunciado: string;
-  alternativas: { letra: Letra; texto: string }[];
-  imagem: ImagemTela | null;
-  resposta: { marcada: Letra; acertou: boolean; certa: Letra; comentario: string } | null;
-};
+export type { ExercicioTela, ImagemTela } from "./tela";
 
 export type EstudoTela = {
   materialId: string;
@@ -111,18 +103,7 @@ export async function estudoParaTela(assuntoId: string, contaId: string | null, 
     for (const g of gab ?? []) gabaritos.set(g.id, { resposta_correta: g.resposta_correta, comentario: g.comentario });
   }
 
-  const exercicios: ExercicioTela[] = visiveis.map((e) => {
-    const feita = respondidas.get(e.id);
-    const gab = gabaritos.get(e.id);
-    return {
-      id: e.id,
-      ordem: e.ordem,
-      enunciado: e.enunciado,
-      alternativas: (e.alternativas as Alternativa[]).map((a) => ({ letra: a.letra, texto: a.texto })),
-      imagem: e.imagem_id ? imagens[e.imagem_id] ?? null : null,
-      resposta: feita && gab ? { marcada: feita.marcada, acertou: feita.acertou, certa: gab.resposta_correta, comentario: gab.comentario } : null,
-    };
-  });
+  const exercicios = exerciciosParaTela(visiveis as LinhaExercicio[], respondidas, gabaritos, imagens);
 
   const { data: mats, error: eMat } = await supabase
     .from("materiais_revisao")

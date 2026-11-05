@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Letra, SituacaoEstudo } from "../types";
-import { moverMaterialAoJuntar, relatarErroCom, responderExercicioCom, type DepsRelato, type DepsResposta, type EntradaRelato, type Relator } from "./nucleo";
+import { moverMaterialAoJuntar, relatarErroCom, relatorDaSessao, salvarExercicioCom, type DepsExercicio, responderExercicioCom, type DepsRelato, type DepsResposta, type EntradaRelato, type Relator } from "./nucleo";
 
 function deps(o: { certa: Letra; situacao?: SituacaoEstudo; material_situacao?: SituacaoEstudo; nulo?: boolean; jaGravada?: { marcada: Letra; acertou: boolean } }): DepsResposta {
   return {
@@ -82,4 +82,64 @@ test("juntar move o material só se o destino não tiver", async () => {
   assert.deepEqual(mov, [["p", "d"]]);
   await moverMaterialAoJuntar({ temMaterial: async () => true, mover: async () => { throw new Error("não"); } }, "p", "d");
   await moverMaterialAoJuntar({ temMaterial: async (id) => id === "d", mover: async () => { throw new Error("não"); } }, "p", "d");
+});
+
+// ---------- relatorDaSessao ----------
+
+test("relatorDaSessao: aluno vale antes do professor; sem nenhum, nulo", () => {
+  assert.deepEqual(relatorDaSessao({ id: "a" }, null), { conta_id: "a" });
+  assert.deepEqual(relatorDaSessao({ id: "a" }, { id: "p" }), { conta_id: "a" });
+  assert.deepEqual(relatorDaSessao(null, { id: "p" }), { professor_id: "p" });
+  assert.equal(relatorDaSessao(null, null), null);
+});
+
+// ---------- salvarExercicioCom ----------
+
+const ALTS = (["A", "B", "C", "D", "E"] as const).map((letra) => ({ letra, texto: `alt ${letra}` }));
+const ANTES = { material_id: "m1", enunciado: "Enun", imagem_id: null, alternativas: ALTS, resposta_correta: "B" as Letra };
+const CAMPOS = { enunciado: "Enun", imagem_id: null, alternativas: ALTS, resposta_correta: "B" as Letra, comentario: "Novo comentário" };
+
+function depsEx(o: { existe?: boolean } = {}) {
+  const chamadas: string[] = [];
+  let gravado: Record<string, unknown> | null = null;
+  const d: DepsExercicio & { chamadas: string[]; gravado: () => Record<string, unknown> | null } = {
+    chamadas,
+    gravado: () => gravado,
+    ler: async () => (o.existe === false ? null : ANTES),
+    desenhoDoMaterial: async () => true,
+    apagarRespostas: async () => { chamadas.push("apagar"); },
+    publicar: async (_id, c) => { chamadas.push("publicar"); gravado = c; },
+    fecharAvisos: async () => { chamadas.push("fechar"); },
+  };
+  return d;
+}
+
+test("salvarExercicio: mudar o gabarito apaga as respostas", async () => {
+  const d = depsEx();
+  const r = await salvarExercicioCom(d, "e1", { ...CAMPOS, resposta_correta: "C" });
+  assert.deepEqual(r, { ok: true });
+  assert.deepEqual(d.chamadas, ["apagar", "publicar", "fechar"]);
+});
+
+test("salvarExercicio: mudar só o comentário não apaga as respostas", async () => {
+  const d = depsEx();
+  const r = await salvarExercicioCom(d, "e1", CAMPOS);
+  assert.deepEqual(r, { ok: true });
+  assert.deepEqual(d.chamadas, ["publicar", "fechar"]);
+  assert.equal(d.gravado()!.comentario, "Novo comentário");
+});
+
+test("salvarExercicio: o dono publica exercício retido mesmo com checagens esgotadas", async () => {
+  // O núcleo não consulta checagens: salvar sempre publica e zera o motivo.
+  const d = depsEx();
+  await salvarExercicioCom(d, "e1", CAMPOS);
+  assert.equal(d.gravado()!.situacao, "publicado");
+  assert.equal(d.gravado()!.motivo, null);
+});
+
+test("salvarExercicio: recusa campos inválidos e exercício inexistente", async () => {
+  assert.equal((await salvarExercicioCom(depsEx(), "e1", { ...CAMPOS, enunciado: " " })).ok, false);
+  assert.equal((await salvarExercicioCom(depsEx(), "e1", { ...CAMPOS, comentario: "" })).ok, false);
+  assert.equal((await salvarExercicioCom(depsEx(), "e1", { ...CAMPOS, alternativas: ALTS.slice(0, 4) })).ok, false);
+  assert.equal((await salvarExercicioCom(depsEx({ existe: false }), "e1", CAMPOS)).ok, false);
 });

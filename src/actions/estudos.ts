@@ -4,11 +4,11 @@ import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual, getProfessorAtual } from "@/lib/auth";
 import {
   relatarErroCom,
+  relatorDaSessao,
   responderExercicioCom,
   type DepsRelato,
   type DepsResposta,
   type EntradaRelato,
-  type Relator,
   type ResultadoResposta,
 } from "@/lib/estudos/nucleo";
 import type { Letra, SituacaoEstudo } from "@/lib/types";
@@ -59,7 +59,8 @@ export async function responderExercicio(e: { exercicioId: string; marcada: Letr
       },
     };
     return await responderExercicioCom(deps, aluno.id, e);
-  } catch {
+  } catch (e) {
+    console.error("responderExercicio:", e);
     return { ok: false, erro: "Não foi possível registrar a resposta." };
   }
 }
@@ -75,14 +76,9 @@ async function situacaoDe(materialId: string, exercicioId: string | null): Promi
 
 export async function relatarErro(e: EntradaRelato): Promise<{ ok: true } | { ok: false; erro: string }> {
   try {
-    let q: Relator;
     const aluno = await getAlunoAtual();
-    if (aluno) q = { conta_id: aluno.id };
-    else {
-      const professor = await getProfessorAtual();
-      if (!professor) return { ok: false, erro: "Faça login novamente." };
-      q = { professor_id: professor.id };
-    }
+    const q = relatorDaSessao(aluno, aluno ? null : await getProfessorAtual());
+    if (!q) return { ok: false, erro: "Faça login novamente." };
     if (typeof e?.materialId !== "string" || !UUID.test(e.materialId)) return { ok: false, erro: "Material inválido." };
     if (e.exercicioId !== null && (typeof e.exercicioId !== "string" || !UUID.test(e.exercicioId))) {
       return { ok: false, erro: "Exercício inválido." };
@@ -126,7 +122,8 @@ export async function relatarErro(e: EntradaRelato): Promise<{ ok: true } | { ok
       },
     };
     return await relatarErroCom(deps, q, entrada);
-  } catch {
+  } catch (e2) {
+    console.error("relatarErro:", e2);
     return { ok: false, erro: "Não foi possível enviar o aviso." };
   }
 }

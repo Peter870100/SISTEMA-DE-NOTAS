@@ -9,6 +9,11 @@ export type ExtrasConteudo = {
   estudo: { assuntoId: string; minutos: number } | null;
 };
 
+/** Nem aula, link ou estudo: o painel mostra o aviso de "sem material". */
+export function semNenhumMaterial(extras: Pick<ExtrasConteudo, "materiais" | "estudo">): boolean {
+  return extras.materiais.length === 0 && !extras.estudo;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export function chaveValida(chave: string): { assuntoId: string } | { materia: string } | null {
