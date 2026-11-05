@@ -82,7 +82,7 @@
 .campoErro:focus-visible { outline: 3px solid var(--color-brand-bright); outline-offset: 1px; }
 .contador { align-self: flex-end; color: var(--color-brand); font-family: var(--font-display), sans-serif; font-size: .75rem; font-weight: 700; }
 .acoesErro { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
-.obrigado { padding: .4rem .7rem; border-radius: .6rem; background: color-mix(in srgb, var(--color-ok) 12%, #fff); color: var(--color-ok); font-size: .85rem; font-weight: 700; }
+.obrigado { margin-bottom: .6rem; padding: .4rem .7rem; border-radius: .6rem; background: color-mix(in srgb, var(--color-ok) 12%, #fff); color: var(--color-ok); font-size: .85rem; font-weight: 700; }
 
 /* ===== Próximo passo ===== */
 .proximo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; border-left: 6px solid var(--color-gold); }

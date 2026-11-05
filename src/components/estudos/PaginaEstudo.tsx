@@ -75,7 +75,7 @@ function ProximoPasso({ estudo, plano, extras, regras }: { estudo: EstudoTela; p
   }
 
   const revisar = plano.etapas.find((e) => e.tipo === "revisar");
-  const jaEstudei = revisar && revisar.estado !== "feita" ? <BotaoJaRevisei conteudo={estudo.assuntoId} /> : null;
+  const jaEstudei = revisar && revisar.estado !== "feita" ? <BotaoJaRevisei conteudo={estudo.assuntoId} rotulo="Já estudei" /> : null;
   const etapa = etapaDeTreino(plano);
   const dados = etapa ? plano.etapas.find((e) => e.tipo === etapa) : null;
   const aberto = dados?.treinoAberto ?? null;

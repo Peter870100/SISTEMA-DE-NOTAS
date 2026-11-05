@@ -19,9 +19,11 @@ export function ExerciciosFixacao({ materialId, exercicios }: { materialId: stri
   const [atual, setAtual] = useState(0);
   const [pendente, setPendente] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [avisou, setAvisou] = useState(false);
 
   const lista = exercicios.filter((e) => !saiu.has(e.id));
-  if (lista.length === 0) return <p className={css.vazioEx}>Nenhum exercício disponível agora</p>;
+  const confirmacao = avisou && <p role="status" className={css.obrigado}>Obrigado! Vamos conferir. Esse exercício saiu do ar.</p>;
+  if (lista.length === 0) return <div className={css.exercicios}>{confirmacao}<p className={css.vazioEx}>Nenhum exercício disponível agora</p></div>;
 
   const indice = Math.min(atual, lista.length - 1);
   const ex = lista[indice];
@@ -33,6 +35,7 @@ export function ExerciciosFixacao({ materialId, exercicios }: { materialId: stri
   function irPara(i: number) {
     setAtual(i);
     setErro(null);
+    setAvisou(false);
   }
 
   async function marcar(letra: Letra) {
@@ -53,10 +56,12 @@ export function ExerciciosFixacao({ materialId, exercicios }: { materialId: stri
   function tirar(id: string) {
     setSaiu((antes) => new Set([...antes, id]));
     setErro(null);
+    setAvisou(true);
   }
 
   return (
     <div className={css.exercicios}>
+      {confirmacao}
       <p className={css.contagem}><span>{feitos} de {lista.length}</span></p>
       <div className={css.barraEx} role="progressbar" aria-label="Exercícios respondidos" aria-valuemin={0} aria-valuemax={lista.length} aria-valuenow={feitos}>
         <span style={{ transform: `scaleX(${feitos / lista.length})` }} />

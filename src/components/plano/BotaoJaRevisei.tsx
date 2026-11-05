@@ -6,7 +6,7 @@ import { Check } from "lucide-react";
 import { marcarRevisado } from "@/actions/plano-estudo";
 import css from "./PlanoEstudo.module.css";
 
-export function BotaoJaRevisei({ conteudo }: { conteudo: string }) {
+export function BotaoJaRevisei({ conteudo, rotulo = "Já revisei" }: { conteudo: string; rotulo?: string }) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export function BotaoJaRevisei({ conteudo }: { conteudo: string }) {
   return (
     <>
       <button type="button" onClick={marcar} disabled={pendente} className={css.botaoSecundario}>
-        <Check size={17} aria-hidden="true" />{pendente ? "Salvando…" : "Já revisei"}
+        <Check size={17} aria-hidden="true" />{pendente ? "Salvando…" : rotulo}
       </button>
       {erro && <p role="alert" className={css.erro}>{erro}</p>}
     </>
