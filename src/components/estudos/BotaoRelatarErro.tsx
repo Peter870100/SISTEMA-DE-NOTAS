@@ -9,11 +9,11 @@ import css from "./PaginaEstudo.module.css";
 const LIMITE = 500;
 
 /** "Encontrei um erro": campo opcional de até 500 caracteres. Sobre o texto (sem exercício), atualiza a página ao avisar. */
-export function BotaoRelatarErro({ materialId, exercicioId, aoRelatar }: { materialId: string; exercicioId: string | null; aoRelatar?: () => void }) {
+export function BotaoRelatarErro({ materialId, exercicioId, aoRelatar }: { materialId: string; exercicioId: string | null; aoRelatar?: (saiuDoAr: boolean) => void }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [mensagem, setMensagem] = useState("");
-  const [enviado, setEnviado] = useState(false);
+  const [enviado, setEnviado] = useState<null | { saiuDoAr: boolean }>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
 
@@ -27,16 +27,18 @@ export function BotaoRelatarErro({ materialId, exercicioId, aoRelatar }: { mater
           setErro(r.erro);
           return;
         }
-        setEnviado(true);
-        aoRelatar?.();
-        if (exercicioId === null) router.refresh();
+        setEnviado({ saiuDoAr: r.saiuDoAr });
+        aoRelatar?.(r.saiuDoAr);
+        if (exercicioId === null || !aoRelatar) router.refresh();
       } catch {
         setErro("Não foi possível enviar o aviso.");
       }
     });
   }
 
-  if (enviado) return <p role="status" className={css.obrigado}>Obrigado! Vamos conferir.</p>;
+  if (enviado) {
+    return <p role="status" className={css.obrigado}>{enviado.saiuDoAr ? "Obrigado! Vamos conferir." : "Esse item já foi conferido. Obrigado por avisar!"}</p>;
+  }
 
   if (!aberto) {
     return (

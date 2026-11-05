@@ -105,7 +105,7 @@ export function ExerciciosFixacao({ materialId, exercicios }: { materialId: stri
           </div>
         )}
         <div className={css.relatar}>
-          <BotaoRelatarErro key={ex.id} materialId={materialId} exercicioId={ex.id} aoRelatar={() => tirar(ex.id)} />
+          <BotaoRelatarErro key={ex.id} materialId={materialId} exercicioId={ex.id} aoRelatar={(saiuDoAr) => { if (saiuDoAr) tirar(ex.id); }} />
         </div>
       </div>
 

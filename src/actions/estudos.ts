@@ -74,7 +74,7 @@ async function situacaoDe(materialId: string, exercicioId: string | null): Promi
   return data?.situacao ?? null;
 }
 
-export async function relatarErro(e: EntradaRelato): Promise<{ ok: true } | { ok: false; erro: string }> {
+export async function relatarErro(e: EntradaRelato): Promise<{ ok: true; saiuDoAr: boolean } | { ok: false; erro: string }> {
   try {
     const aluno = await getAlunoAtual();
     const q = relatorDaSessao(aluno, aluno ? null : await getProfessorAtual());

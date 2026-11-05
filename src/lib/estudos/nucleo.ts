@@ -45,24 +45,25 @@ export type DepsRelato = {
   tirarDoAr(materialId: string, exercicioId: string | null): Promise<void>;
 };
 
-export async function relatarErroCom(deps: DepsRelato, q: Relator, e: EntradaRelato): Promise<{ ok: true } | { ok: false; erro: string }> {
+export async function relatarErroCom(deps: DepsRelato, q: Relator, e: EntradaRelato): Promise<{ ok: true; saiuDoAr: boolean } | { ok: false; erro: string }> {
   if (e.mensagem !== null && e.mensagem.length > LIMITE_MENSAGEM) {
     return { ok: false, erro: `A mensagem pode ter no máximo ${LIMITE_MENSAGEM} caracteres.` };
   }
-  if (!(await deps.noAr(e.materialId, e.exercicioId))) return { ok: true };
+  if (!(await deps.noAr(e.materialId, e.exercicioId))) return { ok: true, saiuDoAr: true };
   const anterior = await deps.relatoAnterior(q, e.materialId, e.exercicioId);
-  if (anterior === "sem_erro") return { ok: true };
+  // Já conferido pelo dono como sem erro: o item continua no ar.
+  if (anterior === "sem_erro") return { ok: true, saiuDoAr: false };
   if (anterior === "aberto") {
     // O aviso já está gravado; se o item ainda está no ar, uma tentativa anterior falhou ao tirá-lo.
     await deps.tirarDoAr(e.materialId, e.exercicioId);
-    return { ok: true };
+    return { ok: true, saiuDoAr: true };
   }
   if ((await deps.relatosHoje(q)) >= LIMITE_RELATOS_DIA) {
     return { ok: false, erro: `Você já enviou ${LIMITE_RELATOS_DIA} avisos hoje. Tente de novo amanhã.` };
   }
   await deps.inserir(q, e);
   await deps.tirarDoAr(e.materialId, e.exercicioId);
-  return { ok: true };
+  return { ok: true, saiuDoAr: true };
 }
 
 export type DepsJuntar = { temMaterial(assuntoId: string): Promise<boolean>; mover(de: string, para: string): Promise<void> };

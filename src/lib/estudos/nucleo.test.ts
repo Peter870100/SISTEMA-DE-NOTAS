@@ -45,19 +45,19 @@ test("exercício fora do ar não responde", async () => {
 });
 test("avisar erro tira do ar", async () => {
   const d = depsRelato({});
-  assert.deepEqual(await relatarErroCom(d, { conta_id: "c" }, { materialId: "m", exercicioId: "e", mensagem: null }), { ok: true });
+  assert.deepEqual(await relatarErroCom(d, { conta_id: "c" }, { materialId: "m", exercicioId: "e", mensagem: null }), { ok: true, saiuDoAr: true });
   assert.equal(d.inseridos.length, 1);
   assert.deepEqual(d.tirados, [["m", "e"]]);
 });
 test("aviso aberto com o item ainda no ar tira do ar sem inserir de novo", async () => {
   const d = depsRelato({ anterior: "aberto" });
-  assert.deepEqual(await relatarErroCom(d, { conta_id: "c" }, { materialId: "m", exercicioId: "e", mensagem: null }), { ok: true });
+  assert.deepEqual(await relatarErroCom(d, { conta_id: "c" }, { materialId: "m", exercicioId: "e", mensagem: null }), { ok: true, saiuDoAr: true });
   assert.equal(d.inseridos.length, 0);
   assert.deepEqual(d.tirados, [["m", "e"]]);
 });
 test("aviso conferido como sem erro não tira do ar de novo", async () => {
   const d = depsRelato({ anterior: "sem_erro" });
-  assert.deepEqual(await relatarErroCom(d, { conta_id: "c" }, { materialId: "m", exercicioId: null, mensagem: null }), { ok: true });
+  assert.deepEqual(await relatarErroCom(d, { conta_id: "c" }, { materialId: "m", exercicioId: null, mensagem: null }), { ok: true, saiuDoAr: false });
   assert.equal(d.inseridos.length, 0);
   assert.equal(d.tirados.length, 0);
 });
@@ -69,7 +69,7 @@ test("sexto aviso do dia é recusado", async () => {
 });
 test("item que já saiu do ar não gera novo aviso", async () => {
   const d = depsRelato({ noAr: false });
-  assert.deepEqual(await relatarErroCom(d, { conta_id: "c" }, { materialId: "m", exercicioId: null, mensagem: null }), { ok: true });
+  assert.deepEqual(await relatarErroCom(d, { conta_id: "c" }, { materialId: "m", exercicioId: null, mensagem: null }), { ok: true, saiuDoAr: true });
   assert.equal(d.inseridos.length, 0);
 });
 test("mensagem acima de 500 caracteres é recusada", async () => {
