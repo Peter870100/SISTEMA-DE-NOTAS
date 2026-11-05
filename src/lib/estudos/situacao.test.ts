@@ -63,9 +63,10 @@ test("uma correção só", () => {
   assert.equal(podeRegravar({ situacao: "retido", checagens: 2 }), false);
   assert.equal(podeRegravar({ situacao: "publicado", checagens: 1 }), false);
   assert.equal(podeRegravar({ situacao: "em_conferencia", checagens: 1 }), false);
-  assert.equal(podeCorrigirExercicio({ situacao: "retido", checagens: 1 }), true);
-  assert.equal(podeCorrigirExercicio({ situacao: "retido", checagens: 2 }), false);
-  assert.equal(podeCorrigirExercicio({ situacao: "publicado", checagens: 1 }), false);
+  const mr1 = { situacao: "retido" as SituacaoEstudo, checagens: 1 };
+  assert.equal(podeCorrigirExercicio({ situacao: "retido", checagens: 1 }, mr1), true);
+  assert.equal(podeCorrigirExercicio({ situacao: "retido", checagens: 2 }, mr1), false);
+  assert.equal(podeCorrigirExercicio({ situacao: "publicado", checagens: 1 }, mr1), false);
 });
 test("aluno só vê publicado de material publicado", () => {
   assert.equal(visivelAoAluno("publicado", "publicado"), true);
@@ -89,4 +90,27 @@ test("imagemDisponivel: desenho vai ao ar com o material; foto só aprovada", ()
   assert.equal(imagemDisponivel({ tipo: "desenho", aprovada_em: null }), true);
   assert.equal(imagemDisponivel({ tipo: "foto", aprovada_em: null }), false);
   assert.equal(imagemDisponivel({ tipo: "foto", aprovada_em: "2026-11-04T10:00:00Z" }), true);
+});
+
+test("material retido com duas checagens não é checado de novo", () => {
+  const r = aplicarChecagem({ situacao: "retido", checagens: 2 }, dez, parecer());
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.erro, /já teve duas checagens/);
+});
+test("material retido por texto reprovado exige regravar", () => {
+  const r = aplicarChecagem({ situacao: "retido", checagens: 1, textoReprovado: true }, dez, parecer());
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.erro, /regrave o material/);
+});
+test("material retido sem exercício em rascunho: nada mudou", () => {
+  const exs = dez.map((e) => ex(e.ordem, { situacao: "retido", checagens: 1 }));
+  const r = aplicarChecagem({ situacao: "retido", checagens: 1 }, exs, parecer({ exercicios: [] }));
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.erro, /Nada mudou/);
+});
+test("não corrige exercício de material retido que esgotou as checagens ou teve o texto reprovado", () => {
+  const e1 = { situacao: "retido" as SituacaoEstudo, checagens: 1 };
+  assert.equal(podeCorrigirExercicio(e1, { situacao: "retido", checagens: 2 }), false);
+  assert.equal(podeCorrigirExercicio(e1, { situacao: "retido", checagens: 1, textoReprovado: true }), false);
+  assert.equal(podeCorrigirExercicio(e1, { situacao: "retido", checagens: 1 }), true);
 });

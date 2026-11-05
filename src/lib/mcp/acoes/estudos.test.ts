@@ -315,6 +315,76 @@ test("corrigir volta o exercício retido a rascunho e mantém checagens", async 
   assert.equal(banco.tabelas.respostas_fixacao.length, 0);
 });
 
+test("material retido com 2 checagens recusa nova checagem mesmo com exercícios em rascunho", async () => {
+  const banco = comMaterial("retido", 2, "rascunho");
+  const { chamar } = await montar(banco);
+  const r = await chamar("registrar_checagem_estudo", { material: MAT, verificador: "C", texto: { ok: true }, exercicios: parecerOk() });
+  assert.equal(r.isError, true);
+  assert.match(textoDe(r), /já teve duas checagens/);
+  assert.equal(materiais(banco)[0].situacao, "retido");
+});
+
+test("material retido por texto reprovado só volta a ser checado depois de regravar", async () => {
+  const banco = comMaterial("retido", 1, "rascunho");
+  materiais(banco)[0].checagem = [{ em: "2026-11-03T00:00:00Z", verificador: "B", texto: { ok: false, problema: "data" }, exercicios: [] }];
+  const { chamar } = await montar(banco);
+  const r = await chamar("registrar_checagem_estudo", { material: MAT, verificador: "C", texto: { ok: true }, exercicios: parecerOk() });
+  assert.equal(r.isError, true);
+  assert.match(textoDe(r), /regrave o material/);
+  const g = await chamar("salvar_material_estudo", entrada());
+  assert.notEqual(g.isError, true, textoDe(g));
+  assert.equal(materiais(banco)[0].checagem, null);
+  const r2 = await chamar("registrar_checagem_estudo", { material: MAT, verificador: "C", texto: { ok: true }, exercicios: parecerOk() });
+  assert.notEqual(r2.isError, true, textoDe(r2));
+});
+
+test("material retido sem exercício em rascunho: nada mudou", async () => {
+  const banco = comMaterial("retido", 1, "retido");
+  const { chamar } = await montar(banco);
+  const r = await chamar("registrar_checagem_estudo", { material: MAT, verificador: "C", texto: { ok: true }, exercicios: [] });
+  assert.equal(r.isError, true);
+  assert.match(textoDe(r), /Nada mudou/);
+});
+
+test("não corrige exercício retido(1) de material retido(2)", async () => {
+  const banco = comMaterial("retido", 2, "retido");
+  exercicios(banco).forEach((e) => { e.checagens = 1; });
+  const { chamar } = await montar(banco);
+  const c = await chamar("corrigir_exercicio_estudo", {
+    material: MAT, ordem: 1, enunciado: "Novo", alternativas: alternativas(), resposta_correta: "C", comentario: "c",
+  });
+  assert.equal(c.isError, true);
+  assert.equal(exercicios(banco)[0].enunciado, "E1");
+});
+
+test("o histórico de pareceres guarda um item por chamada, inclusive em material publicado", async () => {
+  const banco = comMaterial("rascunho", 0);
+  const { chamar } = await montar(banco);
+  const ruim = parecerOk().map((p) => (p.ordem <= 6 ? { ...p, resposta_encontrada: "C" as const } : p));
+  await chamar("registrar_checagem_estudo", { material: MAT, verificador: "B", texto: { ok: true }, exercicios: ruim });
+  const lista1 = materiais(banco)[0].checagem as { verificador: string; em: string; texto: unknown; exercicios: unknown[] }[];
+  assert.equal(lista1.length, 1);
+  assert.equal(lista1[0].verificador, "B");
+  assert.ok(lista1[0].em);
+  // corrige os 6 retidos e reconfere
+  for (const n of [1, 2, 3, 4, 5, 6]) {
+    await chamar("corrigir_exercicio_estudo", { material: MAT, ordem: n, enunciado: "N", alternativas: alternativas(), resposta_correta: "B", comentario: "c" });
+  }
+  const p2 = [1, 2, 3, 4, 5, 6].map((ordem) => ({ ordem, ok: true, resposta_encontrada: "B" as const }));
+  const r = await chamar("registrar_checagem_estudo", { material: MAT, verificador: "C", texto: { ok: true }, exercicios: p2 });
+  assert.notEqual(r.isError, true, textoDe(r));
+  assert.equal(materiais(banco)[0].situacao, "publicado");
+  const lista2 = materiais(banco)[0].checagem as { verificador: string }[];
+  assert.deepEqual(lista2.map((x) => x.verificador), ["B", "C"]);
+  // publicado: reconferência acrescenta, sem mudar a situação
+  exercicios(banco)[0].situacao = "rascunho";
+  const r3 = await chamar("registrar_checagem_estudo", { material: MAT, verificador: "D", texto: null, exercicios: [{ ordem: 1, ok: true, resposta_encontrada: "B" }] });
+  assert.notEqual(r3.isError, true, textoDe(r3));
+  const lista3 = materiais(banco)[0].checagem as { verificador: string }[];
+  assert.deepEqual(lista3.map((x) => x.verificador), ["B", "C", "D"]);
+  assert.equal(materiais(banco)[0].situacao, "publicado");
+});
+
 test("avisos_estudo lista retidos, avisos abertos e fotos pendentes com o assunto", async () => {
   const banco = comMaterial("retido", 1, "retido");
   materiais(banco)[0].motivo = "Texto reprovado";

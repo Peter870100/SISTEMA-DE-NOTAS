@@ -9,6 +9,23 @@ export type ParecerChecagem = {
   exercicios: { ordem: number; ok: boolean; resposta_encontrada: Letra | null; problema?: string }[];
 };
 
+/** Um item do histórico guardado em `materiais_estudo.checagem` (jsonb): um por chamada. */
+export type ItemChecagem = ParecerChecagem & { em: string };
+
+export function listaDeChecagens(checagem: unknown): ItemChecagem[] {
+  return Array.isArray(checagem) ? (checagem as ItemChecagem[]) : [];
+}
+
+/** O último parecer gravado reprovou o texto. */
+export function textoReprovadoNaUltima(checagem: unknown): boolean {
+  const ultimo = listaDeChecagens(checagem).at(-1);
+  return ultimo?.texto?.ok === false;
+}
+
+export function acrescentarParecer(checagem: unknown, p: ParecerChecagem, em: string): ItemChecagem[] {
+  return [...listaDeChecagens(checagem), { em, verificador: p.verificador, texto: p.texto, exercicios: p.exercicios }];
+}
+
 type ExercicioEntrada = { ordem: number; resposta_correta: Letra; situacao: SituacaoEstudo; checagens: number };
 type ExercicioSaida = { ordem: number; situacao: SituacaoEstudo; motivo: string | null; checagens: number };
 
@@ -22,11 +39,16 @@ export type ResultadoChecagem =
 
 /** Decide o que a segunda checagem faz com o material e com cada exercício pendente (em rascunho). */
 export function aplicarChecagem(
-  m: { situacao: SituacaoEstudo; checagens: number },
+  m: { situacao: SituacaoEstudo; checagens: number; textoReprovado?: boolean },
   exs: ExercicioEntrada[],
   p: ParecerChecagem,
 ): ResultadoChecagem {
   if (m.situacao === "em_conferencia") return { ok: false, erro: "Material em conferência: só o dono devolve." };
+  if (m.situacao === "retido") {
+    if (m.checagens >= MAX_CHECAGENS) return { ok: false, erro: "Este material já teve duas checagens e espera uma pessoa." };
+    if (m.textoReprovado) return { ok: false, erro: "O texto foi reprovado: regrave o material antes de nova checagem." };
+    if (!exs.some((e) => e.situacao === "rascunho")) return { ok: false, erro: "Nada mudou desde a última checagem." };
+  }
   if (!p.verificador.trim()) return { ok: false, erro: "Informe quem fez a checagem (verificador)." };
   if (m.situacao !== "publicado" && !p.texto) return { ok: false, erro: "Falta o parecer do texto." };
 
@@ -78,7 +100,11 @@ export function podeRegravar(m: { situacao: SituacaoEstudo; checagens: number } 
   return m.situacao === "retido" && m.checagens < MAX_CHECAGENS;
 }
 
-export function podeCorrigirExercicio(e: { situacao: SituacaoEstudo; checagens: number }): boolean {
+export function podeCorrigirExercicio(
+  e: { situacao: SituacaoEstudo; checagens: number },
+  m: { situacao: SituacaoEstudo; checagens: number; textoReprovado?: boolean },
+): boolean {
+  if (m.situacao === "retido" && (m.checagens >= MAX_CHECAGENS || m.textoReprovado)) return false;
   return e.situacao === "retido" && e.checagens < MAX_CHECAGENS;
 }
 

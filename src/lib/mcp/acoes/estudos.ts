@@ -4,7 +4,7 @@ import { z } from "zod";
 import { gravarMaterial } from "@/lib/estudos/gravar";
 import { HOSTS_FOTO } from "@/lib/estudos/fotos";
 import {
-  aplicarChecagem, ehAmostra, exercicioMudou, podeCorrigirExercicio, type ParecerChecagem,
+  acrescentarParecer, aplicarChecagem, ehAmostra, textoReprovadoNaUltima, exercicioMudou, podeCorrigirExercicio, type ParecerChecagem,
 } from "@/lib/estudos/situacao";
 import type { ExercicioFixacao, ImagemEstudo, MaterialEstudo } from "@/lib/types";
 import { MATERIAS } from "@/lib/questoes/materias";
@@ -224,7 +224,7 @@ export function registrarAcoesEstudos(server: McpServer, obter: ObterCtx, perfil
         const m = await materialPorId(ctx, args.material);
         const exs = await exerciciosDoMaterial(ctx, m.id);
         const parecer: ParecerChecagem = { verificador: args.verificador, texto: args.texto ?? null, exercicios: args.exercicios };
-        const r = aplicarChecagem(m, exs, parecer);
+        const r = aplicarChecagem({ ...m, textoReprovado: textoReprovadoNaUltima(m.checagem) }, exs, parecer);
         if (!r.ok) throw new Error(r.erro);
         const resposta = await registrado(
           perfil, ator, "registrar_checagem_estudo",
@@ -235,14 +235,18 @@ export function registrarAcoesEstudos(server: McpServer, obter: ObterCtx, perfil
                 .update({ situacao: e.situacao, motivo: e.motivo, checagens: e.checagens })
                 .eq("material_id", m.id).eq("ordem", e.ordem));
             }
-            if (m.situacao !== "publicado") {
+            const agora = new Date().toISOString();
+            const historico = acrescentarParecer(m.checagem, parecer, agora);
+            if (m.situacao === "publicado") {
+              lerOk(await ctx.supabase.from("materiais_estudo").update({ checagem: historico }).eq("id", m.id));
+            } else {
               const publica = r.material.situacao === "publicado";
               lerOk(await ctx.supabase.from("materiais_estudo").update({
                 situacao: r.material.situacao,
                 motivo: r.material.motivo,
                 checagens: r.material.checagens,
-                checagem: parecer,
-                checado_em: new Date().toISOString(),
+                checagem: historico,
+                checado_em: agora,
                 ...(publica && { amostra: ehAmostra(m.assunto_id) }),
               }).eq("id", m.id));
             }
@@ -288,7 +292,7 @@ export function registrarAcoesEstudos(server: McpServer, obter: ObterCtx, perfil
         if (m.situacao === "em_conferencia") throw new Error("Material em conferência: só o dono devolve.");
         const ex = (await exerciciosDoMaterial(ctx, m.id)).find((x) => x.ordem === args.ordem);
         if (!ex) throw new Error(`Exercício ${args.ordem} não encontrado.`);
-        if (!podeCorrigirExercicio(ex)) throw new Error(`O exercício ${args.ordem} não pode ser corrigido: só um retido que ainda não esgotou as checagens.`);
+        if (!podeCorrigirExercicio(ex, { ...m, textoReprovado: textoReprovadoNaUltima(m.checagem) })) throw new Error(`O exercício ${args.ordem} não pode ser corrigido: só um retido que ainda não esgotou as checagens, em material que ainda aceita correção.`);
         const resposta = await registrado(
           perfil, ator, "corrigir_exercicio_estudo", { material: m.id, ordem: args.ordem },
           async () => {

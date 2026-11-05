@@ -174,7 +174,7 @@ export function EditorEstudo({ dados }: { dados: DadosEditor }) {
           {dados.motivo && <p><b>Motivo:</b> {dados.motivo}</p>}
           {dados.checagem != null && (
             <details>
-              <summary>Parecer da checagem</summary>
+              <summary>Pareceres das checagens ({Array.isArray(dados.checagem) ? dados.checagem.length : 1})</summary>
               <pre className={css.parecer}>{JSON.stringify(dados.checagem, null, 2)}</pre>
             </details>
           )}
