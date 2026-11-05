@@ -78,7 +78,7 @@ O Peter fala português; respostas em pt-BR.
    em `src/lib/estudos/`. Painel em `/banco/estudos` (todo professor lê; o dono edita, publica, resolve avisos e aprova fotos).
    MCP do dono: `assuntos_para_estudo`, `salvar_material_estudo`, `ler_material_estudo`, `registrar_checagem_estudo`,
    `corrigir_exercicio_estudo`, `avisos_estudo` (`src/lib/mcp/acoes/estudos.ts`). Roteiro de produção: `docs/reestudo-conteudo.md`.
-   SQL: `db/2026-11-04-reestudo.sql` (o Peter cola no SQL Editor). Ainda sem conteúdo: ele é produzido por matéria.
+   SQL: `db/2026-11-04-reestudo.sql` (colado em 2026-11-05). Ainda sem conteúdo: ele é produzido por matéria.
 
 ## Próximo passo
 - **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`, começando por Matemática (25 assuntos) e
