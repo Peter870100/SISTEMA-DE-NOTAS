@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
-import { BookOpen, Target } from "lucide-react";
+import { BookOpen, BookOpenCheck, Target } from "lucide-react";
 import type { ResultadoAluno as Resultado } from "@/actions/simulados-aluno";
 import type { QuestaoAluno } from "@/lib/simulados/servidor";
 import { AREAS, letrasVisiveis } from "@/lib/questoes/materias";
@@ -71,7 +71,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
         <section className={css.reviseIsto} aria-labelledby="revise-isto">
           <div className={css.reviseTopo}>
             <span className={css.reviseIcone} data-icone><Target size={22} aria-hidden="true" /></span>
-            <div><h2 id="revise-isto">Revise isto</h2><p>Os assuntos em que você mais errou. Treine cada um ou volte à aula.</p></div>
+            <div><h2 id="revise-isto">Revise isto</h2><p>Os assuntos em que você mais errou. Estude, treine ou volte à aula.</p></div>
           </div>
           <ul className={css.reviseLista}>
             {resultado.revisar.map((r, i) => {
@@ -84,6 +84,9 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
                     <span className={css.reviseErros}>✗ Errou {r.erros} de {r.total}</span>
                   </div>
                   <div className={css.reviseAcoes}>
+                    {r.assuntoId && r.temEstudo && (
+                      <Link href={`/aluno/estudar/${r.assuntoId}`} className={css.botaoAula}><BookOpenCheck size={17} aria-hidden="true" /><span>Estudar este conteúdo</span></Link>
+                    )}
                     <TreinarAssunto assuntoId={r.assuntoId} materia={r.materia} nome={nome} className={css.botaoTreinar} />
                     {r.aulas.map((a) => (
                       <Link key={a.id} href={`/aluno/aulas/${a.id}`} className={css.botaoAula}><BookOpen size={17} aria-hidden="true" /><span>{a.titulo}</span></Link>

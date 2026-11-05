@@ -7,6 +7,7 @@ import { AREAS, ehMateria, MATERIAS } from "@/lib/questoes/materias";
 import { candidatosComMateria, candidatosSorteio, entregarTentativa, fecharVencidas, salvarTempos, questoesDeProvasEmSigilo, questoesParaAluno, simuladoVisivelParaAluno, type FiltrosSorteio, type QuestaoAluno } from "@/lib/simulados/servidor";
 import { aceitaResposta, acumularTempo, correcaoLiberada, MAX_TREINO, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, sortearEquilibrado, tempoDeProvaSeg, tempoEsgotado, type TemposQuestoes } from "@/lib/simulados/regras";
 import { assuntosParaRevisar, aulasDoTema, type InfoQuestao, type ItemRevisar } from "@/lib/simulados/revisao";
+import { estudosPublicados } from "@/lib/estudos/dados";
 import { cursosDoAluno } from "@/lib/aulas/acesso";
 import type { Presenca } from "@/lib/hermes/presenca";
 import type { AlunoConta, Letra, PorArea, Simulado, Tentativa, TipoSimulado } from "@/lib/types";
@@ -186,7 +187,7 @@ export type ResultadoAluno =
   | { liberado: false; liberaEm: string | null; tempoSeg: number | null }
   | { liberado: true; tempoSeg: number | null; acertos: number; total: number; porcentagem: number; porArea: PorArea; itens: { questaoId: string; marcada: Letra | null; certa: Letra | null; anulada: boolean; correta: boolean; tempoSeg: number | null }[]; revisar: Revisar[] };
 
-export type Revisar = ItemRevisar & { materiaRotulo: string | null; aulas: { id: string; titulo: string }[] };
+export type Revisar = ItemRevisar & { materiaRotulo: string | null; aulas: { id: string; titulo: string }[]; temEstudo: boolean };
 
 /** Assuntos errados com as aulas do aluno que tratam deles (pelo título). Falha aqui não derruba o resultado. */
 async function montarRevisao(aluno: AlunoConta, itens: { questaoId: string; correta: boolean; anulada: boolean }[], qs: { id: string; materia: string | null; assunto_id: string | null }[]): Promise<Revisar[]> {
@@ -197,7 +198,8 @@ async function montarRevisao(aluno: AlunoConta, itens: { questaoId: string; corr
     const info = new Map<string, InfoQuestao>(qs.map((q) => [q.id, { materia: q.materia, assuntoId: q.assunto_id, assuntoNome: q.assunto_id ? nomes.get(q.assunto_id) ?? null : null }]));
     const lista = assuntosParaRevisar(itens, info);
     if (lista.length === 0) return [];
-    const cursos = await cursosDoAluno(aluno);
+    const idsLista = lista.flatMap((r) => (r.assuntoId ? [r.assuntoId] : []));
+    const [cursos, estudos] = await Promise.all([cursosDoAluno(aluno), estudosPublicados(idsLista).catch((e) => { console.error("estudosPublicados:", e); return {}; })]);
     const { data: aulas } = cursos.length
       ? await supabase.from("aulas").select("id, titulo").in("curso_id", cursos.map((c) => c.id)).eq("publicada", true).order("ordem")
       : { data: [] };
@@ -205,6 +207,7 @@ async function montarRevisao(aluno: AlunoConta, itens: { questaoId: string; corr
       ...r,
       materiaRotulo: r.materia && ehMateria(r.materia) ? MATERIAS[r.materia].rotulo : r.materia,
       aulas: aulasDoTema(r.assuntoNome, aulas ?? []),
+      temEstudo: !!r.assuntoId && r.assuntoId in estudos,
     }));
   } catch (e) {
     console.error("montarRevisao:", e);

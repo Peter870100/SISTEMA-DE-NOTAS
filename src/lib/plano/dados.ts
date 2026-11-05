@@ -10,6 +10,7 @@ import { lerPorIds, lerTodas, respostasDaConta } from "@/lib/desempenho/dados";
 import { regrasDoPainel } from "@/lib/desempenho/regras";
 import type { PainelDesempenho, RespostaDesempenho } from "@/lib/desempenho/tipos";
 import { ordenarHabilidades } from "@/lib/questoes/classificacao";
+import { estudosPublicados } from "@/lib/estudos/dados";
 import { aulasDoTema } from "@/lib/simulados/revisao";
 import { filtroVisivel, questoesDeProvasEmSigilo } from "@/lib/simulados/servidor";
 import type { AlunoConta, Area, MaterialRevisao } from "@/lib/types";
@@ -220,7 +221,18 @@ export async function carregarPlano(conta: { id: string; escolaId: string }, vis
     return new Map([...cands].map(([k, v]) => [k, contarDisponiveis(v, agora, regras.diasSemRepetir)]));
   };
 
-  const [mat, qs, pre, disponiveisDe] = await Promise.all([lerMateriais(), lerQuestoes(), lerPrereqs(), lerDisponiveis()]);
+  // Material de estudo publicado (só quem tem e o tempo); sem ids, nem consulta.
+  const lerEstudos = async (): Promise<Record<string, { minutos: number }>> => {
+    const ids = [...new Set(conteudos.flatMap((c) => (c.assuntoId ? [c.assuntoId] : [])))];
+    return ids.length === 0 ? {} : estudosPublicados(ids);
+  };
+
+  const [mat, qs, pre, disponiveisDe, estudos] = await Promise.all([lerMateriais(), lerQuestoes(), lerPrereqs(), lerDisponiveis(), lerEstudos()]);
+  // O tempo do estudo vale antes do tempo do material; as marcas de revisão não mudam.
+  for (const c of conteudos) {
+    const e = c.assuntoId ? estudos[c.assuntoId] : undefined;
+    if (e) mat.minutosRevisar[c.chave] = e.minutos;
+  }
   const habsDaQuestao = new Map<string, string[]>();
   for (const h of qs.habsQ) habsDaQuestao.set(h.questao_id, [...(habsDaQuestao.get(h.questao_id) ?? []), h.habilidade_id]);
 
@@ -240,6 +252,7 @@ export async function carregarPlano(conta: { id: string; escolaId: string }, vis
       disponiveis: visao === "aluno" ? disponiveisDe.get(c.chave) ?? 0 : null,
       prerequisitos: unicos.map((t) => ({ nome: t.nome, assunto: pre.nomesAssunto.get(t.assunto_id) ?? "" })),
       habilidades: ordenarHabilidades(hs.flatMap((h) => qs.habPorId.get(h) ?? [])).slice(0, 3).map((h) => ({ codigo: h.codigo, descricao: h.descricao })),
+      estudo: c.assuntoId && estudos[c.assuntoId] ? { assuntoId: c.assuntoId, minutos: estudos[c.assuntoId].minutos } : null,
     };
   }
 

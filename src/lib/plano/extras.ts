@@ -6,6 +6,7 @@ export type MaterialTela = { id: string; titulo: string; tipo: "aula" | "link"; 
 export type ExtrasConteudo = {
   materiais: MaterialTela[]; resolucoes: number; disponiveis: number | null;
   prerequisitos: { nome: string; assunto: string }[]; habilidades: { codigo: string | null; descricao: string }[];
+  estudo: { assuntoId: string; minutos: number } | null;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
