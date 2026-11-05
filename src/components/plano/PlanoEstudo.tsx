@@ -24,10 +24,10 @@ export function PlanoEstudo({ dados }: { dados: DadosPlano }) {
   const semHistorico = painel.resumo.respondidas === 0;
 
   const itens: ItemResumo[] = [
-    { rotulo: "Progresso", valor: `${plano.progresso.pct}%`, detalhe: `${plano.progresso.feitas} de ${plano.progresso.total} etapas`, Icone: Percent },
+    { rotulo: "Progresso", valor: `${plano.progresso.pct}%`, detalhe: `${plano.progresso.feitas} de ${plano.progresso.total} ${plano.progresso.total === 1 ? "etapa" : "etapas"}`, Icone: Percent },
     { rotulo: "Conteúdos no plano", valor: String(total), detalhe: "para estudar", Icone: Layers },
     { rotulo: "Tempo desta semana", valor: `≈ ${formatarMinutos(plano.minutosDaSemana)}`, detalhe: "estimado", Icone: Timer },
-    { rotulo: "Concluídos", valor: String(plano.concluidos.length), detalhe: "conteúdos revisados", Icone: CircleCheck },
+    { rotulo: "Concluídos", valor: String(plano.concluidos.length), detalhe: plano.concluidos.length === 1 ? "conteúdo revisado" : "conteúdos revisados", Icone: CircleCheck },
   ];
 
   return (

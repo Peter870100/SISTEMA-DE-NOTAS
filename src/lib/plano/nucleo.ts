@@ -1,5 +1,6 @@
 // Núcleo do treino do plano de estudo (sem acesso a banco: tudo entra por `deps`).
 import { chaveValida } from "./extras";
+import { etapaDeTreino } from "./plano";
 import { ordenarPorFacilidade, selecionarQuestoes, type Candidata } from "./selecao";
 import { textoQuestoesDisponiveis, tituloTreino } from "./textos";
 import type { ConteudoPlano, EtapaPlano, RegrasAprendizagem } from "./tipos";
@@ -21,12 +22,6 @@ export type ResultadoTreinoPlano = { ok: true; simuladoId: string; aviso: string
 
 const ETAPAS: EtapaPlano[] = ["diagnostico", "pratica", "revisao"];
 
-function etapaPermitida(plano: ConteudoPlano, etapa: EtapaPlano): boolean {
-  if (etapa === "diagnostico") return plano.situacao === "mais_respostas";
-  if (etapa === "pratica") return plano.situacao === "revisar" || plano.situacao === "concluido";
-  return plano.etapas.some((e) => e.tipo === "revisao" && e.estado === "disponivel");
-}
-
 export async function criarTreinoDoPlanoCom(deps: DepsTreinoPlano, entrada: { conteudo: string; etapa: EtapaPlano }): Promise<ResultadoTreinoPlano> {
   const { conteudo: chave, etapa } = entrada;
   if (!chaveValida(chave)) return { ok: false, erro: "Conteúdo inválido." };
@@ -35,7 +30,7 @@ export async function criarTreinoDoPlanoCom(deps: DepsTreinoPlano, entrada: { co
   const c = await deps.conteudo(chave);
   if (!c) return { ok: false, erro: "Este conteúdo não está no seu plano." };
   const { plano, habilidadeIds } = c;
-  if (!etapaPermitida(plano, etapa)) return { ok: false, erro: "Esta etapa ainda não está disponível." };
+  if (etapaDeTreino(plano) !== etapa) return { ok: false, erro: "Esta etapa ainda não está disponível." };
 
   // Só o treino aberto que o estado do plano enxerga: treinos antigos ficam escondidos de propósito.
   const aberto = plano.etapas.find((e) => e.tipo === etapa)?.treinoAberto ?? null;

@@ -12,6 +12,7 @@ import css from "./PlanoEstudo.module.css";
 
 const SEM_EXTRAS: ExtrasConteudo = { materiais: [], resolucoes: 0, disponiveis: null, prerequisitos: [], habilidades: [] };
 const TITULO: Record<Etapa["tipo"], string> = { revisar: "Revisar o conteúdo", pratica: "Praticar", revisao: "Revisão", diagnostico: "Diagnóstico" };
+const ULTIMO: Record<Etapa["tipo"], string> = { revisar: "Última revisão", pratica: "Última prática", revisao: "Última revisão", diagnostico: "Último diagnóstico" };
 
 function estadoTexto(e: Etapa): string {
   if (e.estado === "feita") return "Feita ✓";
@@ -98,7 +99,7 @@ export function CartaoConteudoPlano({ c, extras, regras, i, criterio, compacto }
                       <span className={css.estadoEtapa}>{estadoTexto(e)}</span>
                       <span className={css.minutos}>≈ {formatarMinutos(e.minutos)}</span>
                     </div>
-                    {e.resultado && <p className={css.resultado}>Última prática: acertou {e.resultado.acertos} de {e.resultado.total}</p>}
+                    {e.resultado && <p className={css.resultado}>{ULTIMO[e.tipo]}: acertou {e.resultado.acertos} de {e.resultado.total}</p>}
                     <div className={css.acoes}><AcoesEtapa c={c} e={e} extras={ex} regras={regras} /></div>
                   </li>
                 ))}

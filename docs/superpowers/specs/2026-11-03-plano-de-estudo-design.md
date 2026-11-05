@@ -351,7 +351,8 @@ A página mostra, nesta ordem:
 - **Cartões de prioridade:** passam a usar o texto novo, o critério, os materiais (como no plano) e o selo do
   plano ("No plano: 1 de 3 etapas", "Revisado ✓").
 - **Ações do aluno:** "Praticar 5 questões" ou "Fazer diagnóstico" (as mesmas do plano) e o link "Ver no plano".
-  Essas ações substituem o "Treinar este assunto" nos cartões e no detalhe do conteúdo.
+  Essas ações substituem o "Treinar este assunto" nos cartões e no detalhe do conteúdo. Depois da prática aprovada,
+  a ação é "Fazer revisão" quando liberada; enquanto a revisão aguarda a data, fica só "Ver no plano" (`etapaDeTreino`).
 - **Na escola:** os mesmos textos, materiais (sem link de aula, como hoje) e selo, sem botões.
 - **`TreinarAssunto`:** continua no resultado do simulado (`ResultadoAluno`).
 - **Detalhe do conteúdo:**

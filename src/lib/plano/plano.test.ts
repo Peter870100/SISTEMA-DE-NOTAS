@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { montarPlano, ordenarComPrerequisitos } from "./plano";
+import { etapaDeTreino, montarPlano, ordenarComPrerequisitos } from "./plano";
 import { REGRAS_PADRAO } from "./regras";
 import type { ConteudoPlano, EntradaPlano, Plano, TreinoDoPlano } from "./tipos";
 import type { ConteudoDesempenho, Prioridade } from "@/lib/desempenho/tipos";
@@ -449,4 +449,17 @@ test("progresso soma as etapas de todos, com os concluídos completos", () => {
   });
   assert.deepEqual(chaves(p.concluidos), ["b"]);
   assert.deepEqual(p.progresso, { feitas: 3, total: 7, pct: 43 });
+});
+
+test("etapaDeTreino: a ação do painel é a próxima etapa do plano", () => {
+  assert.equal(etapaDeTreino(so()), "pratica");
+  // Prática aprovada há pouco: a revisão aguarda a data e não há treino a oferecer.
+  const recente = tr({ simuladoId: "p2", criadoEm: "2026-11-02T10:00:00.000Z", entregueEm: "2026-11-02T12:00:00.000Z", acertos: 4, total: 5 });
+  assert.equal(etapaDeTreino(so({ treinos: [recente] })), null);
+  // Passados os dias da revisão, é ela que vem, e não outra prática.
+  assert.equal(etapaDeTreino(so({ treinos: [praticaOk] })), "revisao");
+  // Concluído: "Estudar de novo" começa pela prática.
+  assert.equal(etapaDeTreino(so({ treinos: [praticaOk, revisaoOk] })), "pratica");
+  const m = cd("a", { questoes: 2, acertos: 0, erros: 2, taxaErro: 100 });
+  assert.equal(etapaDeTreino(todos(plano({ conteudos: [m], prioridades: [pri(m, "mais_respostas")] }))[0]), "diagnostico");
 });

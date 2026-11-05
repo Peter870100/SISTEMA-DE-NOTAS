@@ -93,3 +93,11 @@ test("colisão devolve o treino criado pela outra chamada", async () => {
   const b = montar({ insercao: "colisao", aberto: null });
   assert.deepEqual(await pedir(b.deps), { ok: false, erro: "Tente de novo." });
 });
+
+test("prática já aprovada não pode ser refeita antes da revisão", async () => {
+  for (const revisao of ["aguardando", "disponivel"] as const) {
+    const c = montar({ plano: plano("revisar", [etapa("revisar", "feita"), etapa("pratica", "feita"), etapa("revisao", revisao)]) });
+    assert.deepEqual(await pedir(c.deps, "pratica"), { ok: false, erro: "Esta etapa ainda não está disponível." });
+    assert.equal(c.chamadas.inserir.length, 0);
+  }
+});

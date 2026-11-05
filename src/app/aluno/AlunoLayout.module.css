@@ -56,8 +56,8 @@
   .conta .rotulo { display: inline; }
 }
 @media (max-width: 639px) {
-  .navegacao { min-width: 0; }
-  .navegacao .botao.botao { min-width: 0; flex-direction: column; gap: .25rem; padding-inline: .25rem; font-size: .8125rem; }
+  .navegacao { min-width: 0; gap: .25rem; }
+  .navegacao .botao.botao { min-width: 0; flex: 1 1 auto; flex-direction: column; gap: .125rem; padding-inline: .1875rem; font-size: .6875rem; letter-spacing: .02em; }
 }
 
 .botao > svg { flex-shrink: 0; }

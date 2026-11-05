@@ -31,6 +31,18 @@ function ultimoResultado(ts: TreinoDoPlano[], etapa: EtapaPlano): { acertos: num
   return t ? { acertos: t.acertos ?? 0, total: t.total ?? 0 } : null;
 }
 
+/**
+ * Treino que o aluno pode fazer agora no conteúdo; null enquanto a revisão posterior aguarda a data.
+ * Refazer uma prática aprovada recomeçaria a espera da revisão e, abaixo da meta, abriria uma rodada nova.
+ */
+export function etapaDeTreino(c: Pick<ConteudoPlano, "situacao" | "etapas">): EtapaPlano | null {
+  if (c.situacao === "mais_respostas") return "diagnostico";
+  if (c.situacao === "concluido") return "pratica";
+  const estado = (tipo: Etapa["tipo"]) => c.etapas.find((e) => e.tipo === tipo)?.estado;
+  if (estado("pratica") !== "feita") return "pratica";
+  return estado("revisao") === "disponivel" ? "revisao" : null;
+}
+
 /** Prática ou revisão posterior: os treinos do "depois do estudo". */
 const ehPraticaOuRevisao = (t: TreinoDoPlano) => t.etapa === "pratica" || t.etapa === "revisao";
 
