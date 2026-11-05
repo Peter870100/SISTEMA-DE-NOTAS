@@ -37,7 +37,7 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
               { href: "/aluno/desempenho", icone: ChartColumn, cor: "verde", rotulo: "Desempenho" },
               { href: "/aluno/plano", icone: Route, cor: "laranja", rotulo: "Plano" },
             ].map(({ href, icone: Icone, cor, rotulo }) => {
-              const ativo = href === "/aluno" ? pathname === href : pathname.startsWith(href);
+              const ativo = href === "/aluno" ? pathname === href : pathname.startsWith(href) || (href === "/aluno/plano" && pathname.startsWith("/aluno/estudar"));
               return (
                 <Link key={href} href={href} aria-label={rotulo} data-cor={cor} aria-current={ativo ? "page" : undefined}
                   className={`sidebar-botao ${css.botao}`}>
