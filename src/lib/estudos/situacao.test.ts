@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Letra, SituacaoEstudo } from "../types";
-import { aplicarChecagem, podeRegravar, podeCorrigirExercicio, visivelAoAluno, ehAmostra, exercicioMudou, imagemDisponivel, podeGerir } from "./situacao";
+import { aplicarChecagem, podeRegravar, podeCorrigirExercicio, visivelAoAluno, ehAmostra, exercicioMudou, imagemDisponivel, podeGerir, exercicioPedeAtencao } from "./situacao";
 
 const ex = (ordem: number, o: Partial<{ resposta_correta: Letra; situacao: SituacaoEstudo; checagens: number }> = {}) =>
   ({ ordem, resposta_correta: "A" as Letra, situacao: "rascunho" as SituacaoEstudo, checagens: 0, ...o });
@@ -119,4 +119,15 @@ test("só o dono gerencia o estudo", () => {
   assert.equal(podeGerir("dono"), true);
   assert.equal(podeGerir("admin"), false);
   assert.equal(podeGerir("professor"), false);
+});
+
+test("exercicioPedeAtencao: retido sempre; rascunho só em material publicado; em conferência só sem aviso aberto", () => {
+  const sem = new Set<string>();
+  const com = new Set(["e1"]);
+  assert.equal(exercicioPedeAtencao("retido", { id: "e1", situacao: "retido" }, sem), true);
+  assert.equal(exercicioPedeAtencao("publicado", { id: "e1", situacao: "rascunho" }, sem), true);
+  assert.equal(exercicioPedeAtencao("rascunho", { id: "e1", situacao: "rascunho" }, sem), false);
+  assert.equal(exercicioPedeAtencao("publicado", { id: "e1", situacao: "em_conferencia" }, sem), true);
+  assert.equal(exercicioPedeAtencao("publicado", { id: "e1", situacao: "em_conferencia" }, com), false);
+  assert.equal(exercicioPedeAtencao("publicado", { id: "e1", situacao: "publicado" }, sem), false);
 });

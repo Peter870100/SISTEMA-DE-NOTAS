@@ -5,9 +5,9 @@
 import { supabase } from "@/lib/supabase/client";
 import { lerPorIds, lerTodas } from "@/lib/desempenho/dados";
 import { MATERIAS } from "@/lib/questoes/materias";
-import type { Alternativa, ExercicioFixacao, Letra, MaterialEstudo, SituacaoEstudo } from "@/lib/types";
+import type { ExercicioFixacao, Letra, MaterialEstudo, SituacaoEstudo } from "@/lib/types";
 import { blocosVisiveis, contarPalavras, type Bloco } from "./blocos";
-import { imagemDisponivel, visivelAoAluno } from "./situacao";
+import { exercicioPedeAtencao, imagemDisponivel, visivelAoAluno } from "./situacao";
 import { exerciciosParaTela, type ExercicioTela, type LinhaExercicio, type ImagemTela } from "./tela";
 import { dataUrlDoSvg } from "./svg";
 import { minutosDoEstudo } from "./tempo";
@@ -110,7 +110,8 @@ export async function estudoParaTela(assuntoId: string, contaId: string | null, 
     .select("id, titulo, url")
     .eq("assunto_id", assuntoId)
     .not("url", "is", null)
-    .or(`escola_id.is.null,escola_id.eq.${escolaId}`);
+    .or(`escola_id.is.null,escola_id.eq.${escolaId}`)
+    .order("id");
   if (eMat) throw new Error(eMat.message);
   const links = (mats ?? []).filter((m) => m.url).map((m) => ({ id: m.id, titulo: m.titulo ?? m.url ?? "", href: m.url ?? "" }));
 
@@ -142,11 +143,11 @@ export async function estudoParaTela(assuntoId: string, contaId: string | null, 
 export async function estudosPublicados(assuntoIds: string[]): Promise<Record<string, { minutos: number }>> {
   if (assuntoIds.length === 0) return {};
   const materiais = await lerPorIds<{ id: string; assunto_id: string; blocos: unknown }>(assuntoIds, (bloco, de, ate) =>
-    supabase.from("materiais_estudo").select("id, assunto_id, blocos").eq("situacao", "publicado").in("assunto_id", bloco).range(de, ate),
+    supabase.from("materiais_estudo").select("id, assunto_id, blocos").eq("situacao", "publicado").in("assunto_id", bloco).order("id").range(de, ate),
   );
   if (materiais.length === 0) return {};
   const exercicios = await lerPorIds<{ id: string; material_id: string }>(materiais.map((m) => m.id), (bloco, de, ate) =>
-    supabase.from("exercicios_fixacao").select("id, material_id").eq("situacao", "publicado").in("material_id", bloco).range(de, ate),
+    supabase.from("exercicios_fixacao").select("id, material_id").eq("situacao", "publicado").in("material_id", bloco).order("id").range(de, ate),
   );
   const porMaterial = new Map<string, number>();
   for (const e of exercicios) porMaterial.set(e.material_id, (porMaterial.get(e.material_id) ?? 0) + 1);
@@ -195,16 +196,19 @@ export async function listaDeEstudos(dono: boolean): Promise<ListaEstudos> {
   };
   if (dono) {
     const [relatos, exercicios, fotos] = await Promise.all([
-      lerTodas<{ material_id: string }>((de, ate) =>
-        supabase.from("relatos_erro").select("material_id").eq("situacao", "aberto").order("id").range(de, ate)),
-      lerTodas<{ material_id: string }>((de, ate) =>
-        supabase.from("exercicios_fixacao").select("material_id").eq("situacao", "retido").order("id").range(de, ate)),
+      lerTodas<{ material_id: string; exercicio_id: string | null }>((de, ate) =>
+        supabase.from("relatos_erro").select("material_id, exercicio_id").eq("situacao", "aberto").order("id").range(de, ate)),
+      lerTodas<{ id: string; material_id: string; situacao: SituacaoEstudo }>((de, ate) =>
+        supabase.from("exercicios_fixacao").select("id, material_id, situacao").in("situacao", ["retido", "rascunho", "em_conferencia"]).order("id").range(de, ate)),
       lerTodas<{ material_id: string }>((de, ate) =>
         supabase.from("imagens_estudo").select("material_id").eq("tipo", "foto").is("aprovada_em", null).order("id").range(de, ate)),
     ]);
     const somar = (m: Map<string, number>, id: string) => m.set(id, (m.get(id) ?? 0) + 1);
     for (const r of relatos) somar(soma.avisos, r.material_id);
-    for (const e of exercicios) somar(soma.retidos, e.material_id);
+    // Retido, corrigido esperando reconferência (rascunho em material publicado) ou fora do ar sem aviso aberto.
+    const comAviso = new Set(relatos.flatMap((r) => (r.exercicio_id ? [r.exercicio_id] : [])));
+    const situacaoDe = new Map(materiais.map((m) => [m.id, m.situacao]));
+    for (const e of exercicios) if (exercicioPedeAtencao(situacaoDe.get(e.material_id) ?? "rascunho", e, comAviso)) somar(soma.retidos, e.material_id);
     for (const f of fotos) somar(soma.fotos, f.material_id);
   }
 

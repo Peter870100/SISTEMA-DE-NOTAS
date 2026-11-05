@@ -13,7 +13,6 @@ type Resultado = { ok: true } | { ok: false; erro: string };
 type Alvo = { materialId: string; exercicioId: string | null };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const LETRAS = ["A", "B", "C", "D", "E"] as const;
 const LIMITE_MOTIVO = 500;
 
 class Recusa extends Error {}

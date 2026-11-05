@@ -392,9 +392,24 @@ test("avisos_estudo lista retidos, avisos abertos e fotos pendentes com o assunt
   banco.tabelas.imagens_estudo.push({ id: uid(9), material_id: MAT, tipo: "foto", alt: "Retrato", credito: "Autor", aprovada_em: null });
   const { chamar } = await montar(banco);
   const t = textoDe(await chamar("avisos_estudo", {}));
-  assert.match(t, /AVISOS DE ERRO ABERTOS \(1\)[\s\S]*Funções · texto — erro na data/);
+  assert.match(t, /AVISOS DE ERRO ABERTOS \(1\)[\s\S]*Funções · texto \(1 aviso\)/);
+  assert.ok(!t.includes("erro na data"), "o texto livre do aluno não sai pelo MCP");
+  assert.match(t, /painel/);
   assert.match(t, /MATERIAIS RETIDOS[\s\S]*Funções[\s\S]*Texto reprovado/);
   assert.match(t, /FOTOS SEM APROVAÇÃO[\s\S]*Funções — Retrato/);
+});
+
+test("avisos_estudo mostra exercício em rascunho de material publicado e em conferência sem aviso", async () => {
+  const banco = comMaterial("publicado", 1, "publicado");
+  exercicios(banco)[0].situacao = "rascunho";
+  exercicios(banco)[1].situacao = "em_conferencia";
+  exercicios(banco)[2].situacao = "em_conferencia";
+  banco.tabelas.relatos_erro.push({ material_id: MAT, exercicio_id: exercicios(banco)[2].id, mensagem: "x", situacao: "aberto" });
+  const { chamar } = await montar(banco);
+  const t = textoDe(await chamar("avisos_estudo", {}));
+  assert.match(t, /EM RASCUNHO[\s\S]*Funções · exercício 1/);
+  assert.match(t, /EM CONFERÊNCIA SEM AVISO[\s\S]*Funções · exercício 2/);
+  assert.ok(!/EM CONFERÊNCIA SEM AVISO[\s\S]*exercício 3/.test(t));
 });
 
 test("assuntos_para_estudo mostra questões publicadas e a situação do material", async () => {

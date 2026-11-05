@@ -4,11 +4,11 @@ import { z } from "zod";
 import { gravarMaterial } from "@/lib/estudos/gravar";
 import { HOSTS_FOTO } from "@/lib/estudos/fotos";
 import {
-  acrescentarParecer, aplicarChecagem, ehAmostra, textoReprovadoNaUltima, exercicioMudou, podeCorrigirExercicio, type ParecerChecagem,
+  acrescentarParecer, aplicarChecagem, ehAmostra, exercicioPedeAtencao, textoReprovadoNaUltima, exercicioMudou, podeCorrigirExercicio, type ParecerChecagem,
 } from "@/lib/estudos/situacao";
-import type { ExercicioFixacao, ImagemEstudo, MaterialEstudo } from "@/lib/types";
+import type { ExercicioFixacao, ImagemEstudo, MaterialEstudo, SituacaoEstudo } from "@/lib/types";
 import { MATERIAS } from "@/lib/questoes/materias";
-import { campoTelefone, lerPorIds, texto, type Ctx, type ObterCtx } from "../leitura/comum";
+import { campoTelefone, lerPorIds, lerTodas, texto, type Ctx, type ObterCtx } from "../leitura/comum";
 import { materiaDoTexto } from "../leitura/banco";
 import { atorDoEscopo, campoId, contaDoDono, falha, registrado, type Perfil } from "./ator";
 import { assuntoDaMateria } from "./questoes";
@@ -321,7 +321,7 @@ export function registrarAcoesEstudos(server: McpServer, obter: ObterCtx, perfil
     "avisos_estudo",
     {
       title: "Avisos do reestudo",
-      description: "Lista o que pede atenção do dono no reestudo: avisos de erro abertos, materiais e exercícios retidos e fotos esperando aprovação, cada um com o assunto. Só leitura.",
+      description: "Lista o que pede atenção do dono no reestudo: avisos de erro abertos (só a quantidade; o texto se lê no painel), materiais e exercícios retidos, exercícios corrigidos esperando reconferência, exercícios em conferência sem aviso e fotos esperando aprovação, cada um com o assunto. Só leitura.",
       inputSchema: { ...campoTelefone },
     },
     async (args) => {
@@ -329,32 +329,46 @@ export function registrarAcoesEstudos(server: McpServer, obter: ObterCtx, perfil
         const ctx = await obter(args);
         await contaDoDono(ctx);
         const sb = ctx.supabase;
-        const [relatos, materiaisRetidos, exerciciosRetidos, fotos] = await Promise.all([
-          sb.from("relatos_erro").select("material_id, exercicio_id, mensagem").eq("situacao", "aberto"),
-          sb.from("materiais_estudo").select("id, assunto_id, motivo").eq("situacao", "retido"),
-          sb.from("exercicios_fixacao").select("material_id, ordem, motivo").eq("situacao", "retido"),
-          sb.from("imagens_estudo").select("material_id, alt, credito").eq("tipo", "foto").is("aprovada_em", null),
+        const [rel, mat, exe, fts, materiais] = await Promise.all([
+          // O texto livre do aluno (`mensagem`) não é lido aqui: este MCP age com poderes de dono.
+          lerTodas<{ material_id: string; exercicio_id: string | null }>((de, ate) =>
+            sb.from("relatos_erro").select("material_id, exercicio_id").eq("situacao", "aberto").order("id").range(de, ate)),
+          lerTodas<{ id: string; assunto_id: string; motivo: string | null }>((de, ate) =>
+            sb.from("materiais_estudo").select("id, assunto_id, motivo").eq("situacao", "retido").order("id").range(de, ate)),
+          lerTodas<{ id: string; material_id: string; ordem: number; motivo: string | null; situacao: SituacaoEstudo }>((de, ate) =>
+            sb.from("exercicios_fixacao").select("id, material_id, ordem, motivo, situacao").in("situacao", ["retido", "rascunho", "em_conferencia"]).order("id").range(de, ate)),
+          lerTodas<{ material_id: string; alt: string; credito: string | null }>((de, ate) =>
+            sb.from("imagens_estudo").select("material_id, alt, credito").eq("tipo", "foto").is("aprovada_em", null).order("id").range(de, ate)),
+          lerTodas<{ id: string; assunto_id: string; situacao: SituacaoEstudo }>((de, ate) =>
+            sb.from("materiais_estudo").select("id, assunto_id, situacao").order("id").range(de, ate)),
         ]);
-        const rel = (lerOk(relatos) ?? []) as { material_id: string; exercicio_id: string | null; mensagem: string | null }[];
-        const mat = (lerOk(materiaisRetidos) ?? []) as { id: string; assunto_id: string; motivo: string | null }[];
-        const exe = (lerOk(exerciciosRetidos) ?? []) as { material_id: string; ordem: number; motivo: string | null }[];
-        const fts = (lerOk(fotos) ?? []) as { material_id: string; alt: string; credito: string | null }[];
-
-        const idsMateriais = [...new Set([...rel.map((r) => r.material_id), ...exe.map((x) => x.material_id), ...fts.map((f) => f.material_id), ...mat.map((x) => x.id)])];
-        const doMaterial = new Map<string, string>(); // material -> assunto
-        if (idsMateriais.length) {
-          const linhas = await lerPorIds<{ id: string; assunto_id: string }>(idsMateriais, (bloco, de, ate) =>
-            sb.from("materiais_estudo").select("id, assunto_id").in("id", bloco).order("id").range(de, ate));
-          for (const l of linhas) doMaterial.set(l.id, l.assunto_id);
-        }
-        const nomes = await nomesDosAssuntos(ctx, [...new Set([...doMaterial.values()])]);
+        const situacaoDe = new Map(materiais.map((m) => [m.id, m.situacao]));
+        const doMaterial = new Map(materiais.map((m) => [m.id, m.assunto_id])); // material -> assunto
+        const nomes = await nomesDosAssuntos(ctx, [...new Set(doMaterial.values())]);
         const assunto = (materialId: string) => nomes.get(doMaterial.get(materialId) ?? "") ?? "assunto desconhecido";
+        const comAviso = new Set(rel.flatMap((r) => (r.exercicio_id ? [r.exercicio_id] : [])));
+        const atencao = exe.filter((x) => exercicioPedeAtencao(situacaoDe.get(x.material_id) ?? "rascunho", x, comAviso));
+        const retidos = atencao.filter((x) => x.situacao === "retido");
+        const rascunhos = atencao.filter((x) => x.situacao === "rascunho");
+        const semAviso = atencao.filter((x) => x.situacao === "em_conferencia");
 
+        // Um item por assunto e lugar (texto ou exercício), só com a quantidade de avisos.
+        const avisos = new Map<string, number>();
+        for (const r of rel) {
+          const chave = `${assunto(r.material_id)} · ${r.exercicio_id ? "exercício" : "texto"}`;
+          avisos.set(chave, (avisos.get(chave) ?? 0) + 1);
+        }
+        const doExercicio = (x: { material_id: string; ordem: number; motivo: string | null }, motivo: boolean) =>
+          `- ${assunto(x.material_id)} · exercício ${x.ordem}${motivo && x.motivo ? ` — ${x.motivo}` : ""}`;
+
+        const secao = (titulo: string, linhas: string[]) => (linhas.length ? [titulo, ...linhas].join("\n") : "");
         const partes = [
-          rel.length ? `AVISOS DE ERRO ABERTOS (${rel.length}):\n${rel.map((r) => `- ${assunto(r.material_id)} · ${r.exercicio_id ? "exercício" : "texto"}${r.mensagem ? ` — ${r.mensagem}` : ""}`).join("\n")}` : "",
-          mat.length ? `MATERIAIS RETIDOS (${mat.length}):\n${mat.map((x) => `- ${assunto(x.id)} (${x.id})${x.motivo ? ` — ${x.motivo}` : ""}`).join("\n")}` : "",
-          exe.length ? `EXERCÍCIOS RETIDOS (${exe.length}):\n${exe.map((x) => `- ${assunto(x.material_id)} · exercício ${x.ordem}${x.motivo ? ` — ${x.motivo}` : ""}`).join("\n")}` : "",
-          fts.length ? `FOTOS SEM APROVAÇÃO (${fts.length}):\n${fts.map((f) => `- ${assunto(f.material_id)} — ${f.alt}${f.credito ? ` (${f.credito})` : ""}`).join("\n")}` : "",
+          secao(`AVISOS DE ERRO ABERTOS (${rel.length}):`, rel.length ? [...[...avisos].map(([item, n]) => `- ${item} (${n} ${n === 1 ? "aviso" : "avisos"})`), "O texto dos avisos se lê no painel (/banco/estudos)."] : []),
+          secao(`MATERIAIS RETIDOS (${mat.length}):`, mat.map((x) => `- ${assunto(x.id)} (${x.id})${x.motivo ? ` — ${x.motivo}` : ""}`)),
+          secao(`EXERCÍCIOS RETIDOS (${retidos.length}):`, retidos.map((x) => doExercicio(x, true))),
+          secao(`EXERCÍCIOS EM RASCUNHO NUM MATERIAL PUBLICADO, esperando reconferência (${rascunhos.length}):`, rascunhos.map((x) => doExercicio(x, false))),
+          secao(`EXERCÍCIOS EM CONFERÊNCIA SEM AVISO ABERTO (${semAviso.length}):`, semAviso.map((x) => doExercicio(x, true))),
+          secao(`FOTOS SEM APROVAÇÃO (${fts.length}):`, fts.map((f) => `- ${assunto(f.material_id)} — ${f.alt}${f.credito ? ` (${f.credito})` : ""}`)),
         ].filter(Boolean);
         return texto(partes.length ? partes.join("\n\n") : "Nada pendente no reestudo.");
       } catch (e) {

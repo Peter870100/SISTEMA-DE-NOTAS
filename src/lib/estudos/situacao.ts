@@ -150,3 +150,18 @@ export function imagemDisponivel(i: { tipo: "desenho" | "foto"; aprovada_em: str
 export function podeGerir(role: ProfessorRole): boolean {
   return role === "dono";
 }
+
+/**
+ * O exercício pede atenção do dono: retido; ou rascunho dentro de material já publicado (correção esperando
+ * reconferência); ou em conferência sem nenhum aviso aberto (ninguém sabe por que saiu do ar).
+ */
+export function exercicioPedeAtencao(
+  materialSituacao: SituacaoEstudo,
+  e: { id: string; situacao: SituacaoEstudo },
+  exerciciosComAvisoAberto: Set<string>,
+): boolean {
+  if (e.situacao === "retido") return true;
+  if (e.situacao === "rascunho") return materialSituacao === "publicado";
+  if (e.situacao === "em_conferencia") return !exerciciosComAvisoAberto.has(e.id);
+  return false;
+}
