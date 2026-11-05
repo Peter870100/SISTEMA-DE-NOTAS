@@ -764,7 +764,7 @@ export type Database = {
       materiais_estudo: {
         Row: MaterialEstudo;
         Insert: Partial<Omit<MaterialEstudo, "id" | "criado_em" | "atualizado_em">> & { assunto_id: string; blocos: unknown; fonte: "wikipedia" | "ia" };
-        Update: Partial<Omit<MaterialEstudo, "id" | "criado_em" | "atualizado_em">>;
+        Update: Partial<Omit<MaterialEstudo, "id" | "criado_em">>;
         Relationships: [];
       };
       imagens_estudo: {

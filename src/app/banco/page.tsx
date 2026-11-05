@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FilePlus2, Upload, Tags, Database, CheckCircle2, ClipboardList, School, Sparkles, Search, SlidersHorizontal, TriangleAlert, ArrowRight, FileText, ListChecks } from "lucide-react";
+import { FilePlus2, Upload, Tags, Database, CheckCircle2, ClipboardList, School, Sparkles, Search, SlidersHorizontal, TriangleAlert, ArrowRight, FileText, ListChecks, GraduationCap } from "lucide-react";
 import { getProfessorAtual } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { podeImportar } from "@/lib/questoes/acesso";
@@ -100,6 +100,7 @@ export default async function BancoPage({ searchParams }: { searchParams: Promis
       acoes={<>
         <Link href="/banco/nova" className={estilos.botaoPrimario}><FilePlus2 size={16} aria-hidden="true" /> Nova questão</Link>
         <Link href="/banco/gerar" className={estilos.botaoSecundario}><Sparkles size={16} aria-hidden="true" /> Gerar com IA</Link>
+        <Link href="/banco/estudos" className={estilos.botaoSecundario}><GraduationCap size={16} aria-hidden="true" /> Estudos</Link>
         <Link href="/banco/provas-word" className={estilos.botaoSecundario}><FileText size={16} aria-hidden="true" /> Provas em Word</Link>
         {(podeImportar(professor, "geral") || podeImportar(professor, "escola")) && <Link href="/banco/importar" className={estilos.botaoSecundario}><Upload size={16} aria-hidden="true" /> Importar prova</Link>}
         <Link href={`/banco/classificar?${new URLSearchParams({ ...(f.materia ? { materia: f.materia } : {}), semTopico: "1" })}`} className={estilos.botaoSecundario}><ListChecks size={16} aria-hidden="true" /> Classificar</Link>

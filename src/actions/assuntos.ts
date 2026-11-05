@@ -3,6 +3,7 @@
 import { supabase } from "@/lib/supabase/client";
 import { exigirProfessor } from "@/lib/questoes/acesso";
 import { moverTopicosDoAssunto } from "@/lib/questoes/classificacao-servidor";
+import { moverMaterialAoJuntar } from "@/lib/estudos/nucleo";
 import { inserirAssuntosIniciais } from "@/lib/questoes/assuntos-servidor";
 import type { Assunto } from "@/lib/types";
 
@@ -37,6 +38,22 @@ export async function juntarAssunto(propostoId: string, destinoId: string): Prom
   await moverTopicosDoAssunto(propostoId, destinoId);
   const { error } = await supabase.from("questoes").update({ assunto_id: destinoId }).eq("assunto_id", propostoId);
   if (error) throw new Error(error.message);
+  // O estudo do proposto passa ao destino (se ele não tiver um); senão o `on delete cascade` o apagaria.
+  await moverMaterialAoJuntar(
+    {
+      temMaterial: async (assuntoId) => {
+        const { data, error: e } = await supabase.from("materiais_estudo").select("id").eq("assunto_id", assuntoId).maybeSingle();
+        if (e) throw new Error(e.message);
+        return !!data;
+      },
+      mover: async (de, para) => {
+        const { error: e } = await supabase.from("materiais_estudo").update({ assunto_id: para }).eq("assunto_id", de);
+        if (e) throw new Error(e.message);
+      },
+    },
+    propostoId,
+    destinoId,
+  );
   const { error: eApagar } = await supabase.from("assuntos").delete().eq("id", propostoId);
   if (eApagar) throw new Error(eApagar.message);
 }
