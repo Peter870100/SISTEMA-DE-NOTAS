@@ -313,8 +313,9 @@ do aluno passa por uma só função em `src/lib/estudos/dados.ts`.
 - **Retirar do ar:** o botão do dono leva a `em_conferencia`, com o motivo. Só o dono devolve; a checagem não toca nesse estado.
 - **Exercício `retido` em material `publicado`:** o resto segue no ar; o exercício entra quando for corrigido e passar na
   checagem.
-- **Uma correção só:** na primeira divergência, o Claude pode corrigir e pedir nova checagem. Na segunda (`checagens = 2`), o
-  MCP recusa regravar, e o item fica para uma pessoa, em "Retidos" no painel.
+- **Uma correção só:** na primeira divergência, o Claude pode corrigir e pedir nova checagem. Corrigido, o item volta a `rascunho` e
+  passa pela nova checagem. Na segunda divergência (`checagens = 2`), o MCP recusa regravar, e o item fica para uma pessoa, em
+  "Retidos" no painel.
 
 ## As quatro travas
 
@@ -411,8 +412,9 @@ src/lib/estudos/
   svg.ts           + svg.test.ts                   lista fechada de elementos
   situacao.ts      + situacao.test.ts              checagem, amostra, o que o aluno vê
   tempo.ts         + tempo.test.ts                 minutosDoEstudo
-  nucleo.ts        + nucleo.test.ts                responder e relatar, com dependências injetadas
+  nucleo.ts        + nucleo.test.ts                responder, relatar e juntar, com dependências injetadas
   dados.ts                                         leituras do servidor
+  gravar.ts                                        gravar o material e suas imagens
   fotos.ts                                         baixar, converter e gravar foto
 src/actions/
   estudos.ts                                       aluno e professor: responderExercicio, relatarErro
@@ -434,7 +436,8 @@ src/components/estudos/
 
 **Alterados:** `db/schema.sql`, `src/lib/types.ts`, `src/lib/plano/extras.ts`, `src/lib/plano/dados.ts`,
 `src/components/plano/MateriaisConteudo.tsx`, `src/components/simulados/ResultadoAluno.tsx`,
-`src/actions/assuntos.ts`, `src/app/aluno/layout.tsx`, `src/components/layout/Sidebar.tsx`, o registro das ações do MCP,
+`src/components/plano/CartaoConteudoPlano.tsx`, `src/actions/simulados-aluno.ts`, `src/actions/assuntos.ts`,
+`src/app/aluno/layout.tsx`, `src/app/banco/page.tsx`, `src/lib/mcp/acoes.ts`,
 `package.json` (novos testes) e `CLAUDE.md`.
 
 ## Testes obrigatórios
