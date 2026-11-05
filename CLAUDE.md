@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Estado do projeto (atualizado em 2026-11-04)
+# Estado do projeto (atualizado em 2026-11-05)
 
 Plataforma escolar "Status Avalia" (Next.js 16.2, React 19, Supabase, TypeScript). Produção em
 www.statusavalia.com.br (projeto Vercel `sistema-de-notas`, deploy automático a cada push no `master`).
@@ -71,8 +71,18 @@ O Peter fala português; respostas em pt-BR.
    Os treinos do plano ficam em `simulados` (`plano_conteudo`, `plano_etapa`, `plano_rodada`) e ficam fora do desempenho inicial;
    "Já revisei" em `plano_revisoes`, tempo por semana em `planos_estudo`. Regras por escola no cartão "Recomendações de estudo" em
    `/configuracoes` (`escolas.regras_aprendizagem`; padrões e limites em `src/lib/plano/regras.ts`). SQL colado: `db/2026-11-03-plano-estudo.sql`.
+15. Reestudo "Estudar este conteúdo" (2026-11-05; spec `docs/superpowers/specs/2026-11-04-reestudo-design.md`): um material por
+   assunto (explicação em blocos, desenhos SVG, fotos com aprovação e 10 exercícios de fixação), em `/aluno/estudar/<assuntoId>`,
+   ligado ao plano, ao painel "Meu desempenho" e ao resultado do simulado. Publicação automática com quatro travas (checagem às
+   cegas por outra sessão, botão "Encontrei um erro", amostra lida pelo dono, imagens com critério); a regra de visibilidade fica
+   em `src/lib/estudos/`. Painel em `/banco/estudos` (todo professor lê; o dono edita, publica, resolve avisos e aprova fotos).
+   MCP do dono: `assuntos_para_estudo`, `salvar_material_estudo`, `ler_material_estudo`, `registrar_checagem_estudo`,
+   `corrigir_exercicio_estudo`, `avisos_estudo` (`src/lib/mcp/acoes/estudos.ts`). Roteiro de produção: `docs/reestudo-conteudo.md`.
+   SQL: `db/2026-11-04-reestudo.sql` (o Peter cola no SQL Editor). Ainda sem conteúdo: ele é produzido por matéria.
 
 ## Próximo passo
+- **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`, começando por Matemática (25 assuntos) e
+  depois uma matéria por vez. Enquanto não houver material publicado, o plano e o resultado seguem como antes.
 - **Projeto 4 de 4 do acompanhamento da aprendizagem: IA.** Depende de crédito na API Anthropic (ver abaixo). O "guia de estudos da
   própria plataforma" foi deixado para depois: perguntar ao Peter antes de desenhar.
 - **Loja com Stripe** (alunos de fora: curso avulso ou pacote completo com treinos; Pix e cartão 12x):
