@@ -5,6 +5,7 @@ import { registrarAcoesClassificacao } from "./acoes/classificacao";
 import { registrarAcoesContas } from "./acoes/contas";
 import { registrarAcoesCursos } from "./acoes/cursos";
 import { registrarAcoesEscritas } from "./acoes/escritas";
+import { registrarAcoesEstudos } from "./acoes/estudos";
 import { registrarAcoesGeracao } from "./acoes/geracao";
 import { registrarAcoesImportacao } from "./acoes/importacao";
 import { registrarAcoesProfessores } from "./acoes/professores";
@@ -18,7 +19,7 @@ import type { Perfil } from "./acoes/ator";
  * Etapa C1, só no perfil dono: contas de aluno e ajuda ao aluno (tentativas e progresso de aula).
  * Etapa C2, só no perfil dono: professores (papel, acesso às turmas, telefone e senha provisória).
  * Também no dono: cursos (publicar aula e turmas do curso), questões escritas pelo Claude e classificação fina
- * (tópico e habilidades) em lote.
+ * (tópico e habilidades) em lote, e material de reestudo (rascunho, checagem às cegas, correção).
  * Nos dois perfis: prova em Word (prévia de inéditas, gerar, histórico e links).
  * Cada uma resolve o ator na escola do item (`atorDoEscopo`), registra em `hermes_registro`
  * e chama as mesmas funções do núcleo que a tela usa.
@@ -36,5 +37,6 @@ export function registrarAcoes(server: McpServer, obter: ObterCtx, perfil: Perfi
     registrarAcoesCursos(server, obter, perfil);
     registrarAcoesEscritas(server, obter, perfil);
     registrarAcoesClassificacao(server, obter, perfil);
+    registrarAcoesEstudos(server, obter, perfil);
   }
 }
