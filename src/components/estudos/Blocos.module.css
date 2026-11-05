@@ -51,14 +51,17 @@
 
 .tabela { max-width: 100%; overflow-x: auto; border: 1px solid var(--color-line); border-radius: .6rem; }
 .tabela table { width: 100%; border-collapse: collapse; font-size: .875rem; }
-.tabela th, .tabela td { padding: .45rem .7rem; border: 1px solid var(--color-line); text-align: left; vertical-align: top; }
-.tabela th { background: var(--color-brand); color: white; font-family: var(--font-heading), sans-serif; font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.tabela th, .tabela td { padding: .45rem .7rem; border: 1px solid var(--color-line); text-align: left; vertical-align: top; overflow-wrap: normal; }
+.tabela th { background: var(--color-brand); color: white; font-family: var(--font-heading), sans-serif; font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; }
 .tabela tbody tr:nth-child(even) td { background: var(--color-zebra); }
 .tabela:focus-visible { outline: 3px solid var(--color-brand-bright); outline-offset: 2px; }
 
 /* Tela estreita: linha do tempo na vertical, cartões e foto empilhados. */
 @media (max-width: 700px) {
   .linhaTempo ol { grid-template-columns: minmax(0, 1fr) !important; gap: .5rem; }
+  .tabela table { font-size: .8125rem; }
+  .tabela th, .tabela td { padding: .35rem .45rem; }
+  .tabela th { font-size: .72rem; letter-spacing: 0; }
   .linhaTempo ol::before { top: .4rem; bottom: .4rem; left: .5rem; right: auto; width: 3px; height: auto; }
   .linhaTempo li { flex-direction: row; gap: .55rem; text-align: left; }
   .trecho[data-com-foto] { grid-template-columns: minmax(0, 1fr); }

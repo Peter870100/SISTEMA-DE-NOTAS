@@ -78,11 +78,12 @@ O Peter fala português; respostas em pt-BR.
    em `src/lib/estudos/`. Painel em `/banco/estudos` (todo professor lê; o dono edita, publica, resolve avisos e aprova fotos).
    MCP do dono: `assuntos_para_estudo`, `salvar_material_estudo`, `ler_material_estudo`, `registrar_checagem_estudo`,
    `corrigir_exercicio_estudo`, `avisos_estudo` (`src/lib/mcp/acoes/estudos.ts`). Roteiro de produção: `docs/reestudo-conteudo.md`.
-   SQL: `db/2026-11-04-reestudo.sql` (colado em 2026-11-05). Ainda sem conteúdo: ele é produzido por matéria.
+   SQL: `db/2026-11-04-reestudo.sql` (colado em 2026-11-05). Publicado até agora: Razão e proporção (Matemática, 1 foto esperando
+   aprovação no painel); o resto é produzido por matéria.
 
 ## Próximo passo
-- **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`, começando por Matemática (25 assuntos) e
-  depois uma matéria por vez. Enquanto não houver material publicado, o plano e o resultado seguem como antes.
+- **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`: faltam 24 assuntos de Matemática e, depois,
+  uma matéria por vez. Assunto sem material publicado segue como antes no plano e no resultado.
 - **Projeto 4 de 4 do acompanhamento da aprendizagem: IA.** Depende de crédito na API Anthropic (ver abaixo).
 - **Loja com Stripe** (alunos de fora: curso avulso ou pacote completo com treinos; Pix e cartão 12x):
   spec `docs/superpowers/specs/2026-10-05-loja-stripe-design.md` e plano

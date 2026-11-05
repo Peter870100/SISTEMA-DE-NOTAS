@@ -89,6 +89,8 @@ o servidor troca pelo id real.
 - A foto **só aparece ao aluno depois que uma pessoa aprova no painel** (`/banco/estudos`). Até lá o bloco `imagem` some e
   o `trecho` fica sem a foto; o resto do material segue no ar. Por isso o texto deve fazer sentido sem a foto.
 - Use foto só quando acrescenta algo (um retrato, um quadro citado no texto).
+- Na `url`, use a `thumburl` exata devolvida pela API do Commons (`prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=960`). Largura
+  escolhida à mão pode dar erro 400. A licença vem na mesma resposta, em `LicenseShortName`.
 
 ## Exemplo de chamada: `salvar_material_estudo`
 
@@ -161,14 +163,17 @@ Assunto: <ASSUNTO>. Matéria: <MATERIA>. Id do material: <ID_DO_MATERIAL>.
    você mesmo cada um dos exercícios, sem nenhum gabarito: anote a letra que VOCÊ encontrou para cada ordem (ou null se não
    houver resposta certa ou houver mais de uma). Anote também problemas: enunciado ambíguo, alternativa duplicada ou errada,
    figura que não bate com o enunciado, nível inadequado, texto confuso.
-2. SÓ DEPOIS, leitura completa: chame ler_material_estudo com as_cegas: false. Confira os comentários e o gabarito, e confira
-   os fatos, datas, nomes e contas do texto (use https://pt.wikipedia.org/api/rest_v1/page/summary/{slug} com User-Agent
-   genérico quando precisar). Não mude a resposta que você encontrou na etapa 1 por ter visto o gabarito.
+2. SÓ DEPOIS, leitura completa: chame ler_material_estudo com as_cegas: false. Confira os comentários e o gabarito e refaça as
+   contas. Confira em verbete, sem exceção, cada fato histórico, data ou nome de pessoa citado no texto (use
+   https://pt.wikipedia.org/api/rest_v1/page/summary/{slug} com User-Agent genérico; se o resumo não trouxer o fato, leia o
+   verbete completo, em português ou inglês). Fato que não aparece em nenhum verbete reprova o texto: diga qual é. Não mude a
+   resposta que você encontrou na etapa 1 por ter visto o gabarito.
 3. Chame registrar_checagem_estudo com material = <ID_DO_MATERIAL>, verificador = um nome para você (ex.: "conferidor-1"),
    texto = { ok, problema? } e, para CADA exercício pendente, { ordem, ok, resposta_encontrada, problema? }. Use ok: false
    quando o enunciado, as alternativas, o comentário ou o gabarito tiverem erro, mesmo que você tenha chegado à letra certa.
    resposta_encontrada é a letra da etapa 1. Descreva cada problema de forma que o autor consiga corrigir.
-4. Responda só com o resultado devolvido pela ferramenta e a lista de problemas. Não proponha textos novos nem corrija.
+4. Responda só com o resultado devolvido pela ferramenta, a lista de problemas e os fatos que conferiu, com o verbete de cada
+   um. Não proponha textos novos nem corrija.
 ```
 
 Regras de decisão (automáticas, no servidor):
