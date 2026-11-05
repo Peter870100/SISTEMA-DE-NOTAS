@@ -71,7 +71,7 @@ export function ResultadoAluno({ resultado, questoes }: { resultado: Resultado; 
         <section className={css.reviseIsto} aria-labelledby="revise-isto">
           <div className={css.reviseTopo}>
             <span className={css.reviseIcone} data-icone><Target size={22} aria-hidden="true" /></span>
-            <div><h2 id="revise-isto">Revise isto</h2><p>Os assuntos em que você mais errou. Estude, treine ou volte à aula.</p></div>
+            <div><h2 id="revise-isto">Revise isto</h2><p>{resultado.revisar.some((r) => r.temEstudo) ? "Os assuntos em que você mais errou. Estude, treine ou volte à aula." : "Os assuntos em que você mais errou. Treine cada um ou volte à aula."}</p></div>
           </div>
           <ul className={css.reviseLista}>
             {resultado.revisar.map((r, i) => {

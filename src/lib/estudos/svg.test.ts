@@ -44,3 +44,29 @@ test("dataUrlDoSvg mantém o svg que já tem xmlns", () => {
   const s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"></svg>';
   assert.equal(decodificar(dataUrlDoSvg(s)), s);
 });
+
+// O <img> lê o SVG como XML estrito: o que não for XML válido some do desenho.
+test("recusa & solto e entidade HTML", () => {
+  assert.equal(validarSvg("<svg><text>A & B</text></svg>").ok, false);
+  assert.equal(validarSvg("<svg><text>A&nbsp;B</text></svg>").ok, false);
+  assert.equal(validarSvg('<svg><text x="a&b">A</text></svg>').ok, false);
+});
+test("aceita as entidades do XML e as numéricas", () => {
+  assert.equal(validarSvg("<svg><text>A &amp; B &lt; C &gt; D &quot;E&quot; &apos;F&apos; &#169; &#xA9;</text></svg>").ok, true);
+});
+test("recusa atributo repetido", () => {
+  assert.equal(validarSvg('<svg><rect fill="a" fill="b"/></svg>').ok, false);
+});
+test("dataUrlDoSvg acha o xmlns da raiz mesmo com '>' entre aspas antes dele", () => {
+  const s = '<svg data-a="a>b" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"></svg>';
+  assert.equal(decodificar(dataUrlDoSvg(s)), s);
+});
+test("dataUrlDoSvg acrescenta xmlns quando a raiz tem '>' entre aspas e não declara", () => {
+  const s = '<svg data-a="a>b" viewBox="0 0 1 1"></svg>';
+  const saida = decodificar(dataUrlDoSvg(s));
+  assert.equal(saida, '<svg xmlns="http://www.w3.org/2000/svg" data-a="a>b" viewBox="0 0 1 1"></svg>');
+});
+test("dataUrlDoSvg não confunde xmlns dentro de um valor com a declaração", () => {
+  const s = '<svg data-a=" xmlns=x"></svg>';
+  assert.match(decodificar(dataUrlDoSvg(s)), /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" data-a/);
+});

@@ -7,6 +7,12 @@ const ELEMENTOS = new Set([
 
 const XMLNS_SVG = "http://www.w3.org/2000/svg";
 
+// Tag: nome + atributos (aspas podem conter ">") + "/" opcional. Um só leitor, para validar e para achar a raiz.
+const TAG = /<(\/?)([A-Za-z][\w:-]*)((?:[^>"']|"[^"]*"|'[^']*')*?)(\/?)>/y;
+
+// No <img> o SVG é XML estrito: só estas entidades (e as numéricas) existem.
+const ENTIDADE_INVALIDA = /&(?!(?:amp|lt|gt|quot|apos|#\d+|#[xX][0-9a-fA-F]+);)/;
+
 type Resultado = { ok: true } | { ok: false; erro: string };
 
 /** Lê os atributos de uma tag (sem o nome); devolve null se estiver malformada. */
@@ -46,8 +52,8 @@ export function validarSvg(svg: string): Resultado {
   const abertas: string[] = [];
   let raizVista = false;
   let pos = 0;
-  // Tag: nome + atributos (aspas podem conter ">") + "/" opcional.
-  const tag = /<(\/?)([A-Za-z][\w:-]*)((?:[^>"']|"[^"]*"|'[^']*')*?)(\/?)>/y;
+  if (ENTIDADE_INVALIDA.test(texto)) return { ok: false, erro: "& solto ou entidade não permitida (use &amp;)" };
+  const tag = new RegExp(TAG.source, "y");
   while (pos < texto.length) {
     const prox = texto.indexOf("<", pos);
     if (prox === -1) break;
@@ -66,6 +72,7 @@ export function validarSvg(svg: string): Resultado {
       if (raizVista && abertas.length === 0) return { ok: false, erro: "mais de um elemento na raiz" };
       const atributos = lerAtributos(resto);
       if (!atributos) return { ok: false, erro: "atributos malformados" };
+      if (new Set(atributos.map(([a]) => a)).size !== atributos.length) return { ok: false, erro: "atributo repetido" };
       for (const [a, v] of atributos) {
         const e = erroDoAtributo(a, v, !raizVista);
         if (e) return { ok: false, erro: e };
@@ -86,7 +93,10 @@ export function validarSvg(svg: string): Resultado {
 /** Data URL para <img>; o navegador só desenha o SVG se a raiz declarar o xmlns. */
 export function dataUrlDoSvg(svg: string): string {
   let s = svg.trim();
-  const raiz = /^<svg(?=[\s/>])[^>]*>/.exec(s)?.[0] ?? "";
-  if (!/\sxmlns\s*=/.test(raiz)) s = s.replace(/^<svg/, `<svg xmlns="${XMLNS_SVG}"`);
+  const tag = new RegExp(TAG.source, "y");
+  tag.lastIndex = s.indexOf("<");
+  const raiz = tag.exec(s);
+  const atributos = raiz && !raiz[1] && raiz[2] === "svg" ? lerAtributos(raiz[3]) : null;
+  if (!atributos?.some(([nome]) => nome === "xmlns")) s = s.replace(/^<svg/, `<svg xmlns="${XMLNS_SVG}"`);
   return `data:image/svg+xml;base64,${Buffer.from(s, "utf8").toString("base64")}`;
 }

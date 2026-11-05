@@ -42,6 +42,7 @@ export async function gravarFoto(supabase: SupabaseClient, url: string, material
   const resposta = await fetch(url, { headers: { "User-Agent": "StatusAvalia/1.0" }, redirect: "error" });
   if (!resposta.ok) throw new Error(`Não foi possível baixar a foto (${resposta.status}).`);
   const webp = await sharp(await lerLimitado(resposta))
+    .rotate() // aplica a orientação do EXIF antes de apagar os metadados
     .resize({ width: LARGURA_MAXIMA, withoutEnlargement: true })
     .webp()
     .toBuffer();
