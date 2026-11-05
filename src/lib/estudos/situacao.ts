@@ -114,3 +114,8 @@ export function exercicioMudou(antes: CamposExercicio, depois: CamposExercicio):
 export function podeEstudar(): boolean {
   return true;
 }
+
+/** Desenho vai ao ar com o material; foto só depois de aprovada por uma pessoa. */
+export function imagemDisponivel(i: { tipo: "desenho" | "foto"; aprovada_em: string | null }): boolean {
+  return i.tipo === "desenho" || i.aprovada_em !== null;
+}

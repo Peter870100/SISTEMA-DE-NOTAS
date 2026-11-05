@@ -92,13 +92,14 @@ export async function relatarErro(e: EntradaRelato): Promise<{ ok: true } | { ok
 
     const deps: DepsRelato = {
       noAr: async (materialId, exercicioId) => (await situacaoDe(materialId, exercicioId)) === "publicado",
-      jaRelatou: async (quem, materialId, exercicioId) => {
-        let c = supabase.from("relatos_erro").select("id", { head: true, count: "exact" }).eq("material_id", materialId).in("situacao", ["aberto", "sem_erro"]);
+      relatoAnterior: async (quem, materialId, exercicioId) => {
+        let c = supabase.from("relatos_erro").select("situacao").eq("material_id", materialId).in("situacao", ["aberto", "sem_erro"]);
         c = "conta_id" in quem ? c.eq("conta_id", quem.conta_id) : c.eq("professor_id", quem.professor_id);
         c = exercicioId ? c.eq("exercicio_id", exercicioId) : c.is("exercicio_id", null);
-        const { count, error } = await c;
+        const { data, error } = await c;
         if (error) throw new Error(error.message);
-        return (count ?? 0) > 0;
+        const situacoes = (data ?? []).map((r) => r.situacao);
+        return situacoes.includes("aberto") ? "aberto" : situacoes.includes("sem_erro") ? "sem_erro" : null;
       },
       relatosHoje: async (quem) => {
         let c = supabase.from("relatos_erro").select("id", { head: true, count: "exact" }).gte("criado_em", inicioDoDiaSP());

@@ -32,7 +32,7 @@ export type EntradaRelato = { materialId: string; exercicioId: string | null; me
 
 export type DepsRelato = {
   noAr(materialId: string, exercicioId: string | null): Promise<boolean>;
-  jaRelatou(q: Relator, materialId: string, exercicioId: string | null): Promise<boolean>;
+  relatoAnterior(q: Relator, materialId: string, exercicioId: string | null): Promise<"aberto" | "sem_erro" | null>;
   relatosHoje(q: Relator): Promise<number>;
   inserir(q: Relator, e: EntradaRelato): Promise<void>;
   tirarDoAr(materialId: string, exercicioId: string | null): Promise<void>;
@@ -43,7 +43,13 @@ export async function relatarErroCom(deps: DepsRelato, q: Relator, e: EntradaRel
     return { ok: false, erro: `A mensagem pode ter no máximo ${LIMITE_MENSAGEM} caracteres.` };
   }
   if (!(await deps.noAr(e.materialId, e.exercicioId))) return { ok: true };
-  if (await deps.jaRelatou(q, e.materialId, e.exercicioId)) return { ok: true };
+  const anterior = await deps.relatoAnterior(q, e.materialId, e.exercicioId);
+  if (anterior === "sem_erro") return { ok: true };
+  if (anterior === "aberto") {
+    // O aviso já está gravado; se o item ainda está no ar, uma tentativa anterior falhou ao tirá-lo.
+    await deps.tirarDoAr(e.materialId, e.exercicioId);
+    return { ok: true };
+  }
   if ((await deps.relatosHoje(q)) >= LIMITE_RELATOS_DIA) {
     return { ok: false, erro: `Você já enviou ${LIMITE_RELATOS_DIA} avisos hoje. Tente de novo amanhã.` };
   }

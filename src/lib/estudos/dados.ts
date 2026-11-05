@@ -7,7 +7,7 @@ import { lerPorIds } from "@/lib/desempenho/dados";
 import { MATERIAS } from "@/lib/questoes/materias";
 import type { Alternativa, Letra } from "@/lib/types";
 import { blocosVisiveis, contarPalavras, type Bloco } from "./blocos";
-import { visivelAoAluno } from "./situacao";
+import { imagemDisponivel, visivelAoAluno } from "./situacao";
 import { dataUrlDoSvg } from "./svg";
 import { minutosDoEstudo } from "./tempo";
 
@@ -49,6 +49,7 @@ type ImagemLida = {
   legenda: string | null;
   credito: string | null;
   licenca: string | null;
+  aprovada_em: string | null;
 };
 
 function paraTela(i: ImagemLida): ImagemTela {
@@ -75,12 +76,11 @@ export async function estudoParaTela(assuntoId: string, contaId: string | null, 
 
   const { data: imgs, error: eImg } = await supabase
     .from("imagens_estudo")
-    .select("id, tipo, svg, storage_path, alt, legenda, credito, licenca")
-    .eq("material_id", material.id)
-    .not("aprovada_em", "is", null);
+    .select("id, tipo, svg, storage_path, alt, legenda, credito, licenca, aprovada_em")
+    .eq("material_id", material.id);
   if (eImg) throw new Error(eImg.message);
   const imagens: Record<string, ImagemTela> = {};
-  for (const i of (imgs ?? []) as ImagemLida[]) imagens[i.id] = paraTela(i);
+  for (const i of ((imgs ?? []) as ImagemLida[]).filter(imagemDisponivel)) imagens[i.id] = paraTela(i);
 
   // Sem `resposta_correta` nem `comentario`: estes só entram abaixo, para o que a conta já respondeu.
   const { data: exs, error: eEx } = await supabase

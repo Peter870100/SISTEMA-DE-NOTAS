@@ -11,14 +11,14 @@ function deps(o: { certa: Letra; situacao?: SituacaoEstudo; material_situacao?: 
   };
 }
 
-function depsRelato(o: { jaRelatou?: boolean; hoje?: number; noAr?: boolean }) {
+function depsRelato(o: { anterior?: "aberto" | "sem_erro" | null; hoje?: number; noAr?: boolean }) {
   const inseridos: [Relator, EntradaRelato][] = [];
   const tirados: [string, string | null][] = [];
   const d: DepsRelato & { inseridos: typeof inseridos; tirados: typeof tirados } = {
     inseridos,
     tirados,
     noAr: async () => o.noAr ?? true,
-    jaRelatou: async () => o.jaRelatou ?? false,
+    relatoAnterior: async () => o.anterior ?? null,
     relatosHoje: async () => o.hoje ?? 0,
     inserir: async (q, e) => { inseridos.push([q, e]); },
     tirarDoAr: async (m, e) => { tirados.push([m, e]); },
@@ -49,10 +49,17 @@ test("avisar erro tira do ar", async () => {
   assert.equal(d.inseridos.length, 1);
   assert.deepEqual(d.tirados, [["m", "e"]]);
 });
-test("aviso repetido não conta nem insere", async () => {
-  const d = depsRelato({ jaRelatou: true });
+test("aviso aberto com o item ainda no ar tira do ar sem inserir de novo", async () => {
+  const d = depsRelato({ anterior: "aberto" });
+  assert.deepEqual(await relatarErroCom(d, { conta_id: "c" }, { materialId: "m", exercicioId: "e", mensagem: null }), { ok: true });
+  assert.equal(d.inseridos.length, 0);
+  assert.deepEqual(d.tirados, [["m", "e"]]);
+});
+test("aviso conferido como sem erro não tira do ar de novo", async () => {
+  const d = depsRelato({ anterior: "sem_erro" });
   assert.deepEqual(await relatarErroCom(d, { conta_id: "c" }, { materialId: "m", exercicioId: null, mensagem: null }), { ok: true });
   assert.equal(d.inseridos.length, 0);
+  assert.equal(d.tirados.length, 0);
 });
 test("sexto aviso do dia é recusado", async () => {
   const d = depsRelato({ hoje: 5 });

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Letra, SituacaoEstudo } from "../types";
-import { aplicarChecagem, podeRegravar, podeCorrigirExercicio, visivelAoAluno, ehAmostra, exercicioMudou } from "./situacao";
+import { aplicarChecagem, podeRegravar, podeCorrigirExercicio, visivelAoAluno, ehAmostra, exercicioMudou, imagemDisponivel } from "./situacao";
 
 const ex = (ordem: number, o: Partial<{ resposta_correta: Letra; situacao: SituacaoEstudo; checagens: number }> = {}) =>
   ({ ordem, resposta_correta: "A" as Letra, situacao: "rascunho" as SituacaoEstudo, checagens: 0, ...o });
@@ -83,4 +83,10 @@ test("exercicioMudou ignora o comentário", () => {
   assert.equal(exercicioMudou(a, { ...a }), false);
   assert.equal(exercicioMudou(a, { ...a, resposta_correta: "B" }), true);
   assert.equal(exercicioMudou(a, { ...a, alternativas: [{ letra: "A", texto: "y" }] }), true);
+});
+
+test("imagemDisponivel: desenho vai ao ar com o material; foto só aprovada", () => {
+  assert.equal(imagemDisponivel({ tipo: "desenho", aprovada_em: null }), true);
+  assert.equal(imagemDisponivel({ tipo: "foto", aprovada_em: null }), false);
+  assert.equal(imagemDisponivel({ tipo: "foto", aprovada_em: "2026-11-04T10:00:00Z" }), true);
 });
