@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chaveValida, materiaisDoConteudo, minutosDaAula, semNenhumMaterial } from "./extras";
+import { chaveValida, etapaMostraMateriais, materiaisDoConteudo, minutosDaAula, semNenhumMaterial } from "./extras";
 import type { MaterialRevisao } from "../types";
 
 const UUID = "123e4567-e89b-12d3-a456-426614174000";
@@ -65,4 +65,21 @@ test("semNenhumMaterial: só quando não há material nem estudo", () => {
   assert.equal(semNenhumMaterial({ materiais: [], estudo: null }), true);
   assert.equal(semNenhumMaterial({ materiais: [mat], estudo: null }), false);
   assert.equal(semNenhumMaterial({ materiais: [], estudo: { assuntoId: UUID, minutos: 20 } }), false);
+});
+
+test("etapaMostraMateriais: o estudo publicado também aparece no diagnóstico", () => {
+  const comEstudo = { estudo: { assuntoId: UUID, minutos: 25 } };
+  assert.equal(etapaMostraMateriais("diagnostico", comEstudo), true);
+  assert.equal(etapaMostraMateriais("revisar", comEstudo), true);
+});
+
+test("etapaMostraMateriais: diagnóstico sem estudo não ganha aviso de falta de material", () => {
+  assert.equal(etapaMostraMateriais("diagnostico", { estudo: null }), false);
+  assert.equal(etapaMostraMateriais("revisar", { estudo: null }), true);
+});
+
+test("etapaMostraMateriais: prática e revisão continuam só com o botão de treino", () => {
+  const comEstudo = { estudo: { assuntoId: UUID, minutos: 25 } };
+  assert.equal(etapaMostraMateriais("pratica", comEstudo), false);
+  assert.equal(etapaMostraMateriais("revisao", comEstudo), false);
 });

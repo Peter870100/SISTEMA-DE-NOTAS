@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { linkDetalhe, chaveMateria } from "@/components/desempenho/links";
-import type { ExtrasConteudo } from "@/lib/plano/extras";
+import { etapaMostraMateriais, type ExtrasConteudo } from "@/lib/plano/extras";
 import type { ConteudoPlano, Etapa, EtapaPlano, RegrasAprendizagem } from "@/lib/plano/tipos";
 import { formatarMinutos, textoQuestoesDisponiveis } from "@/lib/plano/textos";
 import { BotaoJaRevisei } from "./BotaoJaRevisei";
@@ -36,17 +36,25 @@ function AcaoTreino({ c, etapa, aberto, extras, regras, rotulo }: {
 }
 
 function AcoesEtapa({ c, e, extras, regras }: { c: ConteudoPlano; e: Etapa; extras: ExtrasConteudo; regras: RegrasAprendizagem }) {
+  const materiais = etapaMostraMateriais(e.tipo, extras) && (
+    <MateriaisConteudo nome={c.nome} extras={extras} visao="aluno" hrefResolucoes={linkDetalhe("/aluno/desempenho", chaveMateria(c.inicial), c.chave) + "#detalhe-conteudo"} />
+  );
   if (e.tipo === "revisar") {
     return (
       <>
-        <MateriaisConteudo nome={c.nome} extras={extras} visao="aluno" hrefResolucoes={linkDetalhe("/aluno/desempenho", chaveMateria(c.inicial), c.chave) + "#detalhe-conteudo"} />
+        {materiais}
         {e.estado !== "feita" && <BotaoJaRevisei conteudo={c.chave} />}
       </>
     );
   }
   if (e.estado === "feita") return null;
   if (e.tipo === "revisao" && e.estado !== "disponivel") return null;
-  return <AcaoTreino c={c} etapa={e.tipo} aberto={e.treinoAberto} extras={extras} regras={regras} />;
+  return (
+    <>
+      {materiais}
+      <AcaoTreino c={c} etapa={e.tipo} aberto={e.treinoAberto} extras={extras} regras={regras} />
+    </>
+  );
 }
 
 export function CartaoConteudoPlano({ c, extras, regras, i, criterio, compacto }: {

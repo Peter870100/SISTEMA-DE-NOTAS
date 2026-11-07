@@ -1,6 +1,7 @@
 // Materiais, chave do conteúdo e tipos de "extras" do plano de estudo (funções puras).
 import { ehMateria } from "@/lib/questoes/materias";
 import type { MaterialRevisao } from "@/lib/types";
+import type { TipoEtapa } from "./tipos";
 
 export type MaterialTela = { id: string; titulo: string; tipo: "aula" | "link"; href: string | null; minutos: number };
 export type ExtrasConteudo = {
@@ -12,6 +13,14 @@ export type ExtrasConteudo = {
 /** Nem aula, link ou estudo: o painel mostra o aviso de "sem material". */
 export function semNenhumMaterial(extras: Pick<ExtrasConteudo, "materiais" | "estudo">): boolean {
   return extras.materiais.length === 0 && !extras.estudo;
+}
+
+/**
+ * Etapas do cartão do plano com a lista de materiais. Quem precisa de mais respostas só tem "Diagnóstico":
+ * sem isto, o estudo publicado ficaria sem link no plano.
+ */
+export function etapaMostraMateriais(tipo: TipoEtapa, extras: Pick<ExtrasConteudo, "estudo">): boolean {
+  return tipo === "revisar" || (tipo === "diagnostico" && extras.estudo !== null);
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
