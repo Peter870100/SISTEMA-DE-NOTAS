@@ -75,20 +75,17 @@ O Peter fala português; respostas em pt-BR.
    assunto (explicação em blocos, desenhos SVG, fotos com aprovação e 10 exercícios de fixação), em `/aluno/estudar/<assuntoId>`,
    ligado ao plano, ao painel "Meu desempenho" e ao resultado do simulado. Publicação automática com quatro travas (checagem às
    cegas por outra sessão, botão "Encontrei um erro", amostra lida pelo dono, imagens com critério); a regra de visibilidade fica
-   em `src/lib/estudos/`. Painel em `/banco/estudos` (todo professor lê; o dono edita, publica, resolve avisos e aprova fotos).
+   em `src/lib/estudos/`. Painel em `/banco/estudos` (todo professor lê; o dono corrige exercícios, resolve avisos e aprova fotos; o texto não se edita por lá).
    MCP do dono: `assuntos_para_estudo`, `salvar_material_estudo`, `ler_material_estudo`, `registrar_checagem_estudo`,
    `corrigir_exercicio_estudo`, `avisos_estudo` (`src/lib/mcp/acoes/estudos.ts`). Roteiro de produção: `docs/reestudo-conteudo.md`.
-   SQL: `db/2026-11-04-reestudo.sql` (colado em 2026-11-05). Publicado até agora: Razão e proporção (Matemática, 1 foto esperando
-   aprovação no painel); o resto é produzido por matéria.
+   SQL: `db/2026-11-04-reestudo.sql` (colado em 2026-11-05). A situação por assunto sai de `assuntos_para_estudo`.
 
 ## Próximo passo
-- **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`: faltam 24 assuntos de Matemática e, depois,
-  uma matéria por vez. Assunto sem material publicado segue como antes no plano e no resultado.
+- **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`. Em 2026-11-08: Português em produção, depois
+  Literatura (dividir Escolas literárias por época) e as demais; o Peter quer em todas. Assunto sem material publicado segue como antes.
+  Ainda por fazer no código: depois dos 10 exercícios, voltar às questões erradas do simulado; "Treinar este assunto" não repetir as já vistas.
 - **Projeto 4 de 4 do acompanhamento da aprendizagem: IA.** Depende de crédito na API Anthropic (ver abaixo).
-- **Loja com Stripe** (alunos de fora: curso avulso ou pacote completo com treinos; Pix e cartão 12x):
-  spec `docs/superpowers/specs/2026-10-05-loja-stripe-design.md` e plano
-  `docs/superpowers/plans/2026-10-05-loja-stripe.md` prontos. Falta o Peter aprovar o plano e então
-  executar com subagentes. O SQL da loja (seção 1 da spec) ainda NÃO foi colado.
+- Loja com Stripe: adiada pelo Peter em 2026-11-08 (primeiro o reestudo). Spec e plano seguem guardados; não retomar sem ele pedir.
 - Conta da API Anthropic está SEM CRÉDITO (2026-10-30): gerador do site e da Hermes falham com
   "credit balance is too low" até o Peter recarregar. A chave na Vercel foi trocada e é válida.
 - Gerador na Hermes: falta uma geração real pelo Telegram chegar a "concluída" (confirma que o `after()`

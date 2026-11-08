@@ -42,7 +42,6 @@ export default async function EstudoDoBancoPage({ params }: { params: Promise<{ 
             checagem: material.checagem,
             amostra: material.amostra,
             lido: material.lido_em !== null,
-            blocos: material.blocos as Bloco[],
             imagens: e.imagens,
             exercicios: e.exercicios,
             relatos: e.relatos,

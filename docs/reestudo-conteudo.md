@@ -33,7 +33,7 @@ Assunto sem material continua mostrando ao aluno o aviso atual de falta de mater
    precisar de mais, o conteúdo completo. Corrija o seu texto onde errou. Se houver verbete, use `fonte: "wikipedia"` com
    `fonte_titulo` e `fonte_url` (começa com `https://pt.wikipedia.org/`). Sem verbete, `fonte: "ia"` e sem `fonte_url`.
 5. **Gravar.** `salvar_material_estudo` (exemplo abaixo). Grava tudo como `rascunho`. Só aceita assunto sem material, em
-   `rascunho`, ou `retido` com uma checagem feita. O que já foi publicado se corrige pelo painel `/banco/estudos`, não por aqui.
+   `rascunho`, ou `retido` com uma checagem feita. O que já foi publicado não se regrava por aqui; exercício publicado se corrige no painel `/banco/estudos`.
 6. **Checar.** Um **subagente novo** faz a checagem às cegas (instrução pronta abaixo). Nunca a sessão que escreveu ou corrigiu.
 7. **Se algo ficou retido.** Ver "Quando algo é retido".
 
@@ -197,7 +197,7 @@ Regras de decisão (automáticas, no servidor):
    regrave o material inteiro com `salvar_material_estudo`. E **se o texto foi reprovado, a correção é regravar** o material:
    o MCP recusa nova checagem de material `retido` por texto reprovado enquanto ele não for regravado.
 4. **Na segunda divergência o item fica para uma pessoa.** O MCP passa a recusar regravar e corrigir; o item aparece em
-   "Retidos" no painel `/banco/estudos`, onde o dono edita e publica. Não insista nem contorne.
+   "Retidos" no painel `/banco/estudos`, onde o dono corrige e publica exercícios (o texto não tem editor no painel desde 2026-11-08). Não insista nem contorne.
 
 Exercício `retido` em material `publicado`: o resto segue no ar, e o exercício entra quando for corrigido e passar na checagem.
 

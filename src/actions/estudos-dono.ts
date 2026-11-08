@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase/client";
 import { exigirProfessor } from "@/lib/questoes/acesso";
-import { blocosVisiveis, validarBlocos, type Bloco } from "@/lib/estudos/blocos";
+import { blocosVisiveis, type Bloco } from "@/lib/estudos/blocos";
 import { BUCKET_ESTUDOS } from "@/lib/estudos/fotos";
 import { salvarExercicioCom, type CamposEditaveis, type DepsExercicio } from "@/lib/estudos/nucleo";
 import { podeGerir } from "@/lib/estudos/situacao";
@@ -64,24 +64,6 @@ async function fecharAvisos(a: Alvo, situacao: "corrigido" | "sem_erro", dono: P
     .eq("situacao", "aberto");
   q = a.exercicioId ? q.eq("exercicio_id", a.exercicioId) : q.is("exercicio_id", null);
   checar((await q).error);
-}
-
-/** Corrigi (texto): grava os blocos, publica direto, sem nova checagem, e fecha os avisos do texto. */
-export async function salvarTextoEstudo(materialId: string, blocos: unknown): Promise<Resultado> {
-  return comDono(async (dono) => {
-    exigirId(materialId, "Material");
-    const { data: material, error: eMat } = await supabase.from("materiais_estudo").select("id").eq("id", materialId).maybeSingle();
-    checar(eMat);
-    if (!material) throw new Recusa("Material não encontrado.");
-    const { data: imgs, error } = await supabase.from("imagens_estudo").select("id").eq("material_id", materialId);
-    checar(error);
-    const v = validarBlocos(blocos, new Set((imgs ?? []).map((i) => i.id)));
-    if (!v.ok) throw new Recusa(v.erro);
-    const campos = { blocos: v.blocos, situacao: "publicado" as const, motivo: null, atualizado_em: new Date().toISOString() };
-    const { error: eUp } = await supabase.from("materiais_estudo").update(campos).eq("id", materialId);
-    checar(eUp);
-    await fecharAvisos({ materialId, exercicioId: null }, "corrigido", dono);
-  });
 }
 
 /** Corrigi (exercício). Mudou o que o aluno responde: as respostas dele são apagadas. */

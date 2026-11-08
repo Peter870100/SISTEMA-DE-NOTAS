@@ -2,8 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { aprovarFoto, marcarLido, recusarFoto, retirarDoAr, salvarExercicio, salvarTextoEstudo, semErro } from "@/actions/estudos-dono";
-import type { Bloco } from "@/lib/estudos/blocos";
+import { aprovarFoto, marcarLido, recusarFoto, retirarDoAr, salvarExercicio, semErro } from "@/actions/estudos-dono";
 import type { ImagemDono, RelatoAberto } from "@/lib/estudos/dados";
 import type { ExercicioFixacao, Letra, SituacaoEstudo } from "@/lib/types";
 import css from "./Painel.module.css";
@@ -20,7 +19,6 @@ export type DadosEditor = {
   checagem: unknown;
   amostra: boolean;
   lido: boolean;
-  blocos: Bloco[];
   imagens: ImagemDono[];
   exercicios: ExercicioFixacao[];
   relatos: RelatoAberto[];
@@ -133,28 +131,12 @@ function EditorExercicio({ ex, desenhos }: { ex: ExercicioFixacao; desenhos: Ima
   );
 }
 
-/** Edição do dono: cada bloco e cada exercício num campo próprio. Salvar publica direto, sem nova checagem. */
+/** Painel do dono: situação, avisos, fotos e exercícios. O texto só se lê, acima. Corrigir um exercício o publica direto. */
 export function EditorEstudo({ dados }: { dados: DadosEditor }) {
   const { pendente, executar, aviso } = useAcao();
-  const [textos, setTextos] = useState(() => dados.blocos.map((b) => JSON.stringify(b, null, 2)));
-  const [erroJson, setErroJson] = useState<string | null>(null);
   const desenhos = dados.imagens.filter((i) => i.tipo === "desenho");
   const fotos = dados.imagens.filter((i) => i.tipo === "foto");
   const alvoTexto = { materialId: dados.materialId, exercicioId: null };
-
-  function salvarTexto() {
-    setErroJson(null);
-    const blocos: unknown[] = [];
-    for (let i = 0; i < textos.length; i++) {
-      try {
-        blocos.push(JSON.parse(textos[i]));
-      } catch {
-        setErroJson(`O bloco ${i + 1} não é um JSON válido.`);
-        return;
-      }
-    }
-    executar("texto", () => salvarTextoEstudo(dados.materialId, blocos), "Corrigido e publicado.");
-  }
 
   return (
     <div className={css.grade}>
@@ -198,23 +180,6 @@ export function EditorEstudo({ dados }: { dados: DadosEditor }) {
           </ul>
         </section>
       )}
-
-      <section className={css.cartao} aria-labelledby="ed-texto">
-        <h2 id="ed-texto">Texto (um campo por bloco)</h2>
-        <div className={css.grade}>
-          {textos.map((t, i) => (
-            <label key={i} className={css.bloco}>
-              <span className={css.rotuloCampo}>Bloco {i + 1}</span>
-              <textarea className={`${css.campo} ${css.json}`} rows={Math.min(14, Math.max(3, t.split("\n").length))} value={t} onChange={(e) => setTextos((a) => a.map((x, k) => (k === i ? e.target.value : x)))} />
-            </label>
-          ))}
-          <div className={css.linha}>
-            <button type="button" className={css.botao} disabled={pendente} onClick={salvarTexto}>Corrigi e publicar o texto</button>
-            {erroJson && <span role="alert" className={css.erro}>{erroJson}</span>}
-            {aviso("texto")}
-          </div>
-        </div>
-      </section>
 
       {fotos.length > 0 && (
         <section className={css.cartao} aria-labelledby="ed-fotos">
