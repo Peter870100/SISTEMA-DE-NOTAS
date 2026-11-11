@@ -81,8 +81,9 @@ O Peter fala português; respostas em pt-BR.
    SQL: `db/2026-11-04-reestudo.sql` (colado em 2026-11-05). A situação por assunto sai de `assuntos_para_estudo`.
 
 ## Próximo passo
-- **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`. Em 2026-11-08: Português em produção, depois
-  Literatura (dividir Escolas literárias por época) e as demais; o Peter quer em todas. Assunto sem material publicado segue como antes.
+- **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`. Em 2026-11-10 (lido no banco): Química completa
+  (19 de 20; Química orgânica foi dividida em quatro assuntos e ficou sem questões), Português 12 de 12, História em produção (13 de 31),
+  Matemática 12 de 25, Literatura 0 de 11 (dividir Escolas literárias por época); o Peter quer em todas. Assunto sem material publicado segue como antes.
   Ainda por fazer no código: depois dos 10 exercícios, voltar às questões erradas do simulado; "Treinar este assunto" não repetir as já vistas.
 - **Projeto 4 de 4 do acompanhamento da aprendizagem: IA.** Depende de crédito na API Anthropic (ver abaixo).
 - Loja com Stripe: adiada pelo Peter em 2026-11-08 (primeiro o reestudo). Spec e plano seguem guardados; não retomar sem ele pedir.
