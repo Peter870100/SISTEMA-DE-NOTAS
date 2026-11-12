@@ -52,7 +52,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       </label>
       <button type="submit" className={`${authBotao} mt-1 min-h-12 active:scale-[0.98]`}>Entrar no portal →</button>
       <Link href="/cadastro" className="text-center text-sm text-frame-muted hover:text-white hover:underline">
-        Não tem conta? Cadastre-se
+        Sou professor e quero me cadastrar
       </Link>
       <Link href="/aluno/entrar-com-codigo" className="text-center text-sm text-frame-muted hover:text-white hover:underline">
         Sou aluno e tenho um código

@@ -37,7 +37,7 @@ export default async function CadastroPage({ searchParams }: CadastroPageProps) 
 
   return (
     <AuthShell marca={marca} videoCadastro
-      titulo="Criar conta"
+      titulo="Criar conta de professor"
       subtitulo="Peça o código de convite pra quem administra o sistema."
       comoForm={cadastrar}
     >
@@ -56,13 +56,16 @@ export default async function CadastroPage({ searchParams }: CadastroPageProps) 
       </label>
       <label className={rotulo}>
         Código de convite
-        <input name="codigo" inputMode="numeric" className={authInput} />
+        <input name="codigo" type="text" inputMode="text" className={authInput} />
       </label>
       <button type="submit" className={`${authBotao} mt-1`}>
         Criar conta
       </button>
       <Link href="/login" className={linkSecundario}>
         Já tenho conta
+      </Link>
+      <Link href="/aluno/entrar-com-codigo" className={linkSecundario}>
+        Sou aluno e tenho um código da turma
       </Link>
     </AuthShell>
   );
