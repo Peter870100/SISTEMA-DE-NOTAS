@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Letra, SituacaoEstudo } from "../types";
-import { aplicarChecagem, podeRegravar, podeCorrigirExercicio, visivelAoAluno, ehAmostra, exercicioMudou, imagemDisponivel, podeGerir, exercicioPedeAtencao } from "./situacao";
+import { aplicarChecagem, podeRegravar, podeCorrigirExercicio, podeCorrigirTexto, visivelAoAluno, ehAmostra, exercicioMudou, imagemDisponivel, podeGerir, exercicioPedeAtencao } from "./situacao";
 
 const ex = (ordem: number, o: Partial<{ resposta_correta: Letra; situacao: SituacaoEstudo; checagens: number }> = {}) =>
   ({ ordem, resposta_correta: "A" as Letra, situacao: "rascunho" as SituacaoEstudo, checagens: 0, ...o });
@@ -130,4 +130,32 @@ test("exercicioPedeAtencao: retido sempre; rascunho só em material publicado; e
   assert.equal(exercicioPedeAtencao("publicado", { id: "e1", situacao: "em_conferencia" }, sem), true);
   assert.equal(exercicioPedeAtencao("publicado", { id: "e1", situacao: "em_conferencia" }, com), false);
   assert.equal(exercicioPedeAtencao("publicado", { id: "e1", situacao: "publicado" }, sem), false);
+});
+
+test("corrigir só o texto: retido com o texto reprovado no último parecer, até uma checagem além das duas", () => {
+  const retido = (checagens: number, textoReprovado: boolean) => ({ situacao: "retido" as SituacaoEstudo, checagens, textoReprovado });
+  assert.equal(podeCorrigirTexto(retido(1, true)), true);
+  assert.equal(podeCorrigirTexto(retido(2, true)), true);
+  assert.equal(podeCorrigirTexto(retido(3, true)), false);
+  assert.equal(podeCorrigirTexto(retido(2, false)), false, "retido por exercícios não é caso de texto");
+  for (const situacao of ["rascunho", "publicado", "em_conferencia"] as SituacaoEstudo[]) {
+    assert.equal(podeCorrigirTexto({ situacao, checagens: 2, textoReprovado: true }), false, situacao);
+  }
+});
+
+test("rascunho que já teve duas checagens (texto corrigido) não se regrava inteiro", () => {
+  assert.equal(podeRegravar({ situacao: "rascunho", checagens: 1 }), true);
+  assert.equal(podeRegravar({ situacao: "rascunho", checagens: 2 }), false);
+});
+
+test("depois de corrigir o texto, a checagem só do texto publica com os exercícios já aprovados", () => {
+  const aprovados = dez.map((e) => ex(e.ordem, { situacao: "publicado", checagens: 2 }));
+  const r = aplicarChecagem({ situacao: "rascunho", checagens: 2 }, aprovados, { verificador: "s3", texto: { ok: true }, exercicios: [] });
+  assert.ok(r.ok);
+  assert.equal(r.material.situacao, "publicado");
+  assert.equal(r.material.checagens, 3);
+  const r2 = aplicarChecagem({ situacao: "rascunho", checagens: 2 }, aprovados, { verificador: "s3", texto: { ok: false, problema: "x" }, exercicios: [] });
+  assert.ok(r2.ok);
+  assert.equal(r2.material.situacao, "retido");
+  assert.equal(podeCorrigirTexto({ situacao: "retido", checagens: r2.material.checagens, textoReprovado: true }), false);
 });

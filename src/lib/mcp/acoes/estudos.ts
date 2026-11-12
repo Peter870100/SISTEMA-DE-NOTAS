@@ -4,8 +4,10 @@ import { z } from "zod";
 import { gravarMaterial } from "@/lib/estudos/gravar";
 import { HOSTS_FOTO } from "@/lib/estudos/fotos";
 import {
-  acrescentarParecer, aplicarChecagem, ehAmostra, exercicioPedeAtencao, textoReprovadoNaUltima, exercicioMudou, podeCorrigirExercicio, type ParecerChecagem,
+  acrescentarParecer, aplicarChecagem, ehAmostra, exercicioPedeAtencao, textoReprovadoNaUltima, exercicioMudou, podeCorrigirExercicio,
+  podeCorrigirTexto, type ParecerChecagem,
 } from "@/lib/estudos/situacao";
+import { contarPalavras, validarBlocos } from "@/lib/estudos/blocos";
 import type { ExercicioFixacao, ImagemEstudo, MaterialEstudo, SituacaoEstudo } from "@/lib/types";
 import { MATERIAS } from "@/lib/questoes/materias";
 import { campoTelefone, lerPorIds, lerTodas, texto, type Ctx, type ObterCtx } from "../leitura/comum";
@@ -202,7 +204,7 @@ export function registrarAcoesEstudos(server: McpServer, obter: ObterCtx, perfil
     "registrar_checagem_estudo",
     {
       title: "Registrar checagem do material",
-      description: "Grava o parecer da checagem às cegas (feita por uma sessão que NÃO escreveu nem corrigiu o material). Informe o verificador (quem conferiu), o parecer do texto {ok, problema?} e, para cada exercício pendente (em rascunho), {ordem, ok, resposta_encontrada (a letra que VOCÊ achou, ou null), problema?}. Um exercício passa só se ok e a resposta encontrada bater com o gabarito. O material é publicado se o texto estiver ok e ao menos 5 exercícios passarem; senão fica retido, e o que reprovou também. Em material já publicado (reconferência de exercícios corrigidos), o parecer do texto é ignorado: um problema de texto em material publicado só se resolve pelo botão \"Encontrei um erro\" ou pelo painel.",
+      description: "Grava o parecer da checagem às cegas (feita por uma sessão que NÃO escreveu nem corrigiu o material). Informe o verificador (quem conferiu), o parecer do texto {ok, problema?} e, para cada exercício pendente (em rascunho), {ordem, ok, resposta_encontrada (a letra que VOCÊ achou, ou null), problema?}. Um exercício passa só se ok e a resposta encontrada bater com o gabarito. O material é publicado se o texto estiver ok e ao menos 5 exercícios passarem; senão fica retido, e o que reprovou também. Em material já publicado (reconferência de exercícios corrigidos), o parecer do texto é ignorado: um problema de texto em material publicado só se resolve pelo botão \"Encontrei um erro\" ou pelo painel. Depois de corrigir_texto_estudo, mande o parecer do texto e só os exercícios em rascunho (nenhum: exercicios: []); os já aprovados não são reconferidos.",
       inputSchema: {
         material: campoId("Id do material (veja em ler_material_estudo)."),
         verificador: TEXTO.max(100).describe("Quem conferiu (nome da sessão ou pessoa)."),
@@ -313,6 +315,65 @@ export function registrarAcoesEstudos(server: McpServer, obter: ObterCtx, perfil
         return texto(resposta);
       } catch (e) {
         return falha("corrigir o exercício", e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "corrigir_texto_estudo",
+    {
+      title: "Corrigir o texto de um material retido",
+      description: "Troca SÓ o texto (blocos e fonte) de um material retido cujo último parecer reprovou o texto, inclusive depois da segunda checagem, quando o salvar_material_estudo já não aceita regravar. Os exercícios, os desenhos e as fotos ficam como estão (os blocos podem citar pelo id as imagens que o material já tem; imagem nova não entra). O material volta a rascunho, guarda o histórico de pareceres e precisa de nova checagem às cegas por outra sessão: registrar_checagem_estudo com o parecer do texto e um item só para cada exercício em rascunho (se não houver nenhum, exercicios: []). Publica se o texto passar e houver ao menos 5 exercícios aprovados. Vale uma rodada além das duas checagens comuns; se o texto cair de novo, fica para o dono. Mesmas regras de texto do salvar_material_estudo (sem HTML, até 800 palavras).",
+      inputSchema: {
+        material: campoId("Id do material (veja em ler_material_estudo)."),
+        blocos: z.array(z.record(z.string(), z.unknown())).min(1).describe("Os blocos da explicação, inteiros (substituem os atuais)."),
+        fonte: z.enum(["wikipedia", "ia"]).describe('"wikipedia" se os fatos foram conferidos em um verbete; senão "ia".'),
+        fonte_titulo: z.string().trim().max(200).optional().describe("Título do verbete usado na conferência."),
+        fonte_url: z.string().trim().url().max(1000).optional().describe("Link do verbete (https://pt.wikipedia.org/...)."),
+        ...campoTelefone,
+      },
+    },
+    async (args) => {
+      try {
+        const ctx = await obter(args);
+        const dono = await contaDoDono(ctx);
+        const ator = await atorDoEscopo(ctx, dono.escola_id);
+        if (args.fonte === "wikipedia" && !args.fonte_url?.startsWith("https://pt.wikipedia.org/")) {
+          throw new Error('Com fonte "wikipedia", fonte_url deve começar com https://pt.wikipedia.org/.');
+        }
+        if (args.fonte === "ia" && args.fonte_url) throw new Error('Com fonte "ia" não há fonte_url.');
+        const m = await materialPorId(ctx, args.material);
+        if (!podeCorrigirTexto({ ...m, textoReprovado: textoReprovadoNaUltima(m.checagem) })) {
+          throw new Error("Só se corrige o texto de material retido cujo último parecer reprovou o texto, e com no máximo uma checagem além das duas comuns. Fora disso, use salvar_material_estudo (rascunho ou retido uma vez) ou o painel.");
+        }
+        const imagens = (lerOk(await ctx.supabase.from("imagens_estudo").select("id").eq("material_id", m.id)) ?? []) as { id: string }[];
+        const v = validarBlocos(args.blocos, new Set(imagens.map((i) => i.id)));
+        if (!v.ok) throw new Error(v.erro);
+        const exs = await exerciciosDoMaterial(ctx, m.id);
+        const resposta = await registrado(
+          perfil, ator, "corrigir_texto_estudo", { material: m.id, palavras: contarPalavras(v.blocos) },
+          async () => {
+            lerOk(await ctx.supabase.from("materiais_estudo").update({
+              blocos: v.blocos,
+              fonte: args.fonte,
+              fonte_titulo: args.fonte_titulo ?? null,
+              fonte_url: args.fonte_url ?? null,
+              situacao: "rascunho",
+              motivo: null,
+              atualizado_em: new Date().toISOString(),
+            }).eq("id", m.id));
+            await atualizarTelas();
+            const aprovados = exs.filter((e) => e.situacao === "publicado").length;
+            const pendentes = exs.filter((e) => e.situacao === "rascunho").map((e) => e.ordem);
+            return [
+              `Texto do material ${m.id} corrigido (${contarPalavras(v.blocos)} palavras); o material voltou a rascunho com os exercícios como estavam (${aprovados} aprovados).`,
+              `Falta a checagem às cegas do texto, por outra sessão: registrar_checagem_estudo com o parecer do texto e ${pendentes.length ? `os exercícios em rascunho (${pendentes.join(", ")})` : "exercicios: []"}.`,
+            ].join(" ");
+          },
+        );
+        return texto(resposta);
+      } catch (e) {
+        return falha("corrigir o texto do material", e);
       }
     },
   );

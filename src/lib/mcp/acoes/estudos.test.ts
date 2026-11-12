@@ -419,3 +419,79 @@ test("assuntos_para_estudo mostra questões publicadas e a situação do materia
   assert.match(t, /Funções — 1 questões publicadas — retido/);
   assert.match(t, /Geometria — 0 questões publicadas — sem material/);
 });
+
+// ---------- corrigir só o texto ----------
+
+const blocosNovos = [{ tipo: "paragrafo", texto: "Texto corrigido." }];
+/** Os dois últimos pareceres reprovaram o texto (exercícios já aprovados). */
+function reprovadoNoTexto(banco: Banco, vezes = 2) {
+  materiais(banco)[0].checagem = Array.from({ length: vezes }, (_, n) => ({
+    em: `2026-11-0${n + 3}T00:00:00Z`, verificador: `V${n}`, texto: { ok: false, problema: "um artigo" }, exercicios: [],
+  }));
+}
+
+test("corrigir_texto_estudo troca só o texto do retido duas vezes; a checagem do texto publica", async () => {
+  const banco = comMaterial("retido", 2, "publicado");
+  reprovadoNoTexto(banco);
+  const { chamar } = await montar(banco);
+  const r = await chamar("corrigir_texto_estudo", { material: MAT, blocos: blocosNovos, fonte: "ia" });
+  assert.notEqual(r.isError, true, textoDe(r));
+  const m = materiais(banco)[0];
+  assert.equal(m.situacao, "rascunho");
+  assert.equal(m.motivo, null);
+  assert.equal(m.checagens, 2);
+  assert.deepEqual(m.blocos, blocosNovos);
+  assert.equal((m.checagem as unknown[]).length, 2, "o histórico de pareceres fica");
+  assert.ok(exercicios(banco).every((e) => e.situacao === "publicado" && e.enunciado === `E${e.ordem}`), "exercícios intactos");
+
+  const s = await chamar("salvar_material_estudo", entrada());
+  assert.equal(s.isError, true, "texto corrigido não se regrava inteiro");
+
+  const c = await chamar("registrar_checagem_estudo", { material: MAT, verificador: "V2", texto: { ok: true }, exercicios: [] });
+  assert.notEqual(c.isError, true, textoDe(c));
+  assert.equal(materiais(banco)[0].situacao, "publicado");
+  assert.equal(materiais(banco)[0].checagens, 3);
+});
+
+test("corrigir_texto_estudo aceita desenho do próprio material e recusa imagem de fora", async () => {
+  const banco = comMaterial("retido", 2, "publicado");
+  reprovadoNoTexto(banco);
+  banco.tabelas.imagens_estudo.push({ id: uid(9), material_id: MAT, tipo: "desenho", svg: SVG, alt: "x" });
+  const { chamar } = await montar(banco);
+  const fora = await chamar("corrigir_texto_estudo", { material: MAT, blocos: [...blocosNovos, { tipo: "imagem", imagem_id: uid(99) }], fonte: "ia" });
+  assert.equal(fora.isError, true);
+  assert.equal(materiais(banco)[0].situacao, "retido");
+  const dentro = await chamar("corrigir_texto_estudo", { material: MAT, blocos: [...blocosNovos, { tipo: "imagem", imagem_id: uid(9) }], fonte: "ia" });
+  assert.notEqual(dentro.isError, true, textoDe(dentro));
+  assert.equal(banco.tabelas.imagens_estudo.length, 1, "o desenho continua");
+});
+
+test("corrigir_texto_estudo recusa retido por exercícios, publicado, rascunho e quem esgotou a rodada extra", async () => {
+  const casos: [string, Banco][] = [];
+  const porExercicios = comMaterial("retido", 2, "retido");
+  materiais(porExercicios)[0].checagem = [{ em: "x", verificador: "B", texto: { ok: true }, exercicios: [] }];
+  casos.push(["retido por exercícios", porExercicios]);
+  const publicado = comMaterial("publicado", 1, "publicado");
+  reprovadoNoTexto(publicado, 1);
+  casos.push(["publicado", publicado]);
+  casos.push(["rascunho", comMaterial("rascunho", 0)]);
+  const tres = comMaterial("retido", 3, "publicado");
+  reprovadoNoTexto(tres, 3);
+  casos.push(["três checagens", tres]);
+  for (const [nome, banco] of casos) {
+    const { chamar } = await montar(banco);
+    const antes = JSON.stringify(materiais(banco)[0].blocos);
+    const r = await chamar("corrigir_texto_estudo", { material: MAT, blocos: blocosNovos, fonte: "ia" });
+    assert.equal(r.isError, true, nome);
+    assert.equal(JSON.stringify(materiais(banco)[0].blocos), antes, nome);
+  }
+});
+
+test("corrigir_texto_estudo confere a fonte como o salvar", async () => {
+  const banco = comMaterial("retido", 2, "publicado");
+  reprovadoNoTexto(banco);
+  const { chamar } = await montar(banco);
+  const r = await chamar("corrigir_texto_estudo", { material: MAT, blocos: blocosNovos, fonte: "wikipedia", fonte_url: "https://exemplo.com/x" });
+  assert.equal(r.isError, true);
+  assert.match(textoDe(r), /pt\.wikipedia\.org/);
+});

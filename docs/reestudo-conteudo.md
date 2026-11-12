@@ -198,6 +198,13 @@ Regras de decisão (automáticas, no servidor):
    o MCP recusa nova checagem de material `retido` por texto reprovado enquanto ele não for regravado.
 4. **Na segunda divergência o item fica para uma pessoa.** O MCP passa a recusar regravar e corrigir; o item aparece em
    "Retidos" no painel `/banco/estudos`, onde o dono corrige e publica exercícios (o texto não tem editor no painel desde 2026-11-08). Não insista nem contorne.
+5. **Exceção: texto reprovado.** `corrigir_texto_estudo(material, blocos, fonte, fonte_titulo?, fonte_url?)` troca **só o texto**
+   de um material `retido` cujo último parecer reprovou o texto, inclusive depois da segunda checagem (desde 2026-11-12, decisão
+   do Peter). Exercícios, desenhos e fotos ficam como estão (os blocos citam pelo id as imagens que o material já tem); o material
+   volta a `rascunho`, guarda o histórico e passa por **nova checagem às cegas** por outro subagente, com o parecer do texto e um
+   item para cada exercício em `rascunho` (nenhum: `exercicios: []`). Publica se o texto passar e houver ao menos 5 exercícios
+   aprovados. Vale **uma rodada** além das duas; se o texto cair de novo, fica para o dono. Ao corrigir, corte a frase problemática
+   em vez de trocá-la por outra afirmação sem verbete, e escreva títulos e nomes exatamente como no verbete.
 
 Exercício `retido` em material `publicado`: o resto segue no ar, e o exercício entra quando for corrigido e passar na checagem.
 

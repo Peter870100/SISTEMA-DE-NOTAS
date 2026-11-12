@@ -93,11 +93,25 @@ export function aplicarChecagem(
   };
 }
 
-/** Regravar o material só vale antes de publicar e com correções disponíveis. */
+/**
+ * Regravar o material só vale antes de publicar e com correções disponíveis. Rascunho que já teve as duas checagens
+ * é um texto corrigido por `podeCorrigirTexto` esperando checagem: não se regrava inteiro.
+ */
 export function podeRegravar(m: { situacao: SituacaoEstudo; checagens: number } | null): boolean {
   if (!m) return true;
-  if (m.situacao === "rascunho") return true;
+  if (m.situacao === "rascunho") return m.checagens < MAX_CHECAGENS;
   return m.situacao === "retido" && m.checagens < MAX_CHECAGENS;
+}
+
+/** Teto de checagens contando a rodada extra que só confere o texto corrigido. */
+export const MAX_CHECAGENS_TEXTO = MAX_CHECAGENS + 1;
+
+/**
+ * Trocar só o texto (os exercícios ficam como estão): material retido cujo último parecer reprovou o texto, com no
+ * máximo uma checagem além das duas comuns. Serve sobretudo para o texto que caiu na segunda checagem por um detalhe.
+ */
+export function podeCorrigirTexto(m: { situacao: SituacaoEstudo; checagens: number; textoReprovado?: boolean }): boolean {
+  return m.situacao === "retido" && !!m.textoReprovado && m.checagens < MAX_CHECAGENS_TEXTO;
 }
 
 export function podeCorrigirExercicio(
