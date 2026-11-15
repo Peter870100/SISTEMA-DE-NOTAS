@@ -81,15 +81,14 @@ O Peter fala português; respostas em pt-BR.
    SQL: `db/2026-11-04-reestudo.sql` (colado em 2026-11-05). A situação por assunto sai de `assuntos_para_estudo`.
 
 ## Próximo passo
-- **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`. Em 2026-11-10 (lido no banco): Química completa
-  (19 de 20; Química orgânica foi dividida em quatro assuntos e ficou sem questões), Português 12 de 12, História em produção (13 de 31),
-  Matemática 24 de 25 (2026-11-12; Leitura de gráficos e tabelas retido duas vezes pelo texto: corrigir com `corrigir_texto_estudo`;
-  exercícios Funções 4, Números complexos 7, Geometria espacial 10 e Trigonometria 9 retidos duas vezes, só o dono corrige no painel).
-  Literatura dividida em 2026-11-12 (SQL colado; 9 assuntos novos: Quinhentismo e Classicismo, Barroco, Arcadismo, Parnasianismo e
-  Simbolismo, Pré-Modernismo e Modernismo em primeira fase, romance de 30, poesia de 30 e terceira fase; 164 questões movidas, que
-  perderam o tópico fino e pedem reclassificação; "Escolas literárias" e "Modernismo" ficam com as questões gerais) e em produção,
-  junto com História (escrita por subagentes, roteiro em `docs/reestudo-conteudo.md`; Revoluções e Intertextualidade retidos duas
-  vezes pelo texto, para `corrigir_texto_estudo`). O Peter quer em todas. Assunto sem material publicado segue como antes.
+- **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`. Em 2026-11-15 (lido no banco): Matemática 25 de 25,
+  Português 12 de 12, Literatura 20 de 20 (dividida em 2026-11-12; 164 questões movidas perderam o tópico fino e pedem reclassificação),
+  História 30 de 31 (falta só História das mulheres, que tem 0 questões: não escrever sem o Peter pedir) e Química 19 de 20 (Química
+  orgânica foi dividida em quatro assuntos e ficou sem questões). Geografia tem 1 rascunho (Cartografia); Física, Biologia, Filosofia,
+  Sociologia, Inglês, Espanhol, Artes e Educação Física estão em zero. 14 exercícios retidos duas vezes, que só o dono corrige no painel:
+  Funções 4, Números complexos 7, Geometria espacial 10, Trigonometria 9, Morfologia 1, Ditadura militar 6, Brasil República 9,
+  Imperialismo 1, 4, 5 e 8, Nacionalismo e unificações 8, Crise de 1929 9 e História da África 7. O Peter quer em todas as matérias.
+  Assunto sem material publicado segue como antes.
   Ainda por fazer no código: depois dos 10 exercícios, voltar às questões erradas do simulado; "Treinar este assunto" não repetir as já vistas.
 - **Projeto 4 de 4 do acompanhamento da aprendizagem: IA.** Depende de crédito na API Anthropic (ver abaixo).
 - Loja com Stripe: adiada pelo Peter em 2026-11-08 (primeiro o reestudo). Spec e plano seguem guardados; não retomar sem ele pedir.

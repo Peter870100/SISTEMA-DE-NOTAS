@@ -50,6 +50,13 @@ Anote o `id` do material que o passo 5 devolve: o conferidor precisa dele.
 - **Desenhos só quando ajudam** (gráfico, esquema, geometria). Não enfeite.
 - **Exercícios:** 10, cada um com 5 alternativas (A a E, nessa ordem), uma só certa, e `comentario` dizendo por que a certa está
   certa e por que as outras não. Variem a letra do gabarito. Dificuldade crescente. Enunciado autocontido.
+- **A certa não pode destoar pela forma** (é o que mais reprova, visto em História, 2026-11-15): as cinco no mesmo molde e com
+  tamanho parecido (todas com ou todas sem "pois…", "que…", vírgula), a certa nem sempre a mais longa nem sempre a mais curta,
+  nenhuma errada desmentida pelo próprio enunciado, a certa sem repetir as palavras do enunciado e sem juntar as partes que se
+  repetem nas outras (em "I e II, apenas", não deixe a afirmação falsa em quatro das cinco). Erradas plausíveis: fatos reais de
+  outro contexto, e não absurdos.
+- **Comentário também reprova:** cada justificativa precisa estar em verbete; frase absoluta ("não tinha relação", "só surgiu
+  no século XVIII") costuma cair. Quando os verbetes divergem sobre um número ou uma data, tire o número em vez de escolher um.
 - **Obras ainda sob direitos autorais** (Modernismo e outros autores): só **trechos curtos**, sempre com a fonte (`autor`).
 - **Sem HTML** em nenhum campo. Markdown mínimo (negrito e itálico) só em `paragrafo`.
 
