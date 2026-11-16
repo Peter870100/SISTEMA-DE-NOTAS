@@ -10,10 +10,12 @@ import css from "./PainelDesempenho.module.css";
 export function AcaoTreino({ cp, extras, regras }: { cp: ConteudoPlano | undefined; extras: ExtrasConteudo | undefined; regras: RegrasAprendizagem }) {
   const etapa = cp ? etapaDeTreino(cp) : null;
   if (!cp || !etapa) return null;
-  const aberto = cp.etapas.find((e) => e.tipo === etapa)?.treinoAberto ?? null;
-  if (!aberto && extras?.disponiveis === 0) {
+  const dados = cp.etapas.find((e) => e.tipo === etapa);
+  const aberto = dados?.treinoAberto ?? null;
+  const pendentes = dados?.pendentes ?? 0;
+  if (etapa !== "refazer" && !aberto && extras?.disponiveis === 0) {
     const aviso = textoQuestoesDisponiveis(cp.nome, 0, quantidadeDaEtapa(etapa, regras));
     return aviso ? <p className={css.semAula}>{aviso}</p> : null;
   }
-  return <BotaoTreinoPlano conteudo={cp.chave} etapa={etapa} treinoAberto={aberto} rotulo={rotuloEtapa(etapa, regras, !!aberto, cp.situacao)} className={css.botaoTreinar} />;
+  return <BotaoTreinoPlano conteudo={cp.chave} etapa={etapa} treinoAberto={aberto} rotulo={rotuloEtapa(etapa, regras, !!aberto, cp.situacao, pendentes)} className={css.botaoTreinar} />;
 }

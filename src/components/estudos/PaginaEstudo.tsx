@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { ArrowLeft, BookOpenText, ExternalLink, ListChecks, PlayCircle, Timer } from "lucide-react";
 import { BotaoJaRevisei } from "@/components/plano/BotaoJaRevisei";
+import { BotaoEstudeiRefazer } from "./BotaoEstudeiRefazer";
 import { BotaoTreinoPlano } from "@/components/plano/BotaoTreinoPlano";
 import { dataCurta, quantidadeDaEtapa, rotuloEtapa } from "@/components/plano/rotulos";
 import { TreinarAssunto } from "@/components/simulados/TreinarAssunto";
 import type { EstudoTela } from "@/lib/estudos/dados";
 import type { ExtrasConteudo } from "@/lib/plano/extras";
-import { etapaDeTreino } from "@/lib/plano/plano";
+import { etapaDeTreino, sugestaoDepoisDeEstudar } from "@/lib/plano/plano";
 import { textoQuestoesDisponiveis } from "@/lib/plano/textos";
 import type { ConteudoPlano, RegrasAprendizagem } from "@/lib/plano/tipos";
 import { Blocos } from "./Blocos";
@@ -79,12 +80,31 @@ function ProximoPasso({ estudo, plano, extras, regras }: { estudo: EstudoTela; p
   const etapa = etapaDeTreino(plano);
   const dados = etapa ? plano.etapas.find((e) => e.tipo === etapa) : null;
   const aberto = dados?.treinoAberto ?? null;
-  const n = etapa ? quantidadeDaEtapa(etapa, regras) : 0;
-  const aviso = etapa && extras && extras.disponiveis !== null && !aberto ? textoQuestoesDisponiveis(plano.nome, extras.disponiveis, n) : null;
-  const esconder = extras?.disponiveis === 0 && !aberto;
+  const pendentes = plano.etapas.find((e) => e.tipo === "refazer")?.pendentes ?? 0;
+  const n = etapa ? quantidadeDaEtapa(etapa, regras, pendentes) : 0;
+  const checaNovas = etapa !== "refazer";
+  const aviso = etapa && checaNovas && extras && extras.disponiveis !== null && !aberto ? textoQuestoesDisponiveis(plano.nome, extras.disponiveis, n) : null;
+  const esconder = checaNovas && extras?.disponiveis === 0 && !aberto;
   const botao = etapa && !esconder ? (
-    <BotaoTreinoPlano conteudo={plano.chave} etapa={etapa} treinoAberto={aberto} rotulo={rotuloEtapa(etapa, regras, aberto !== null, plano.situacao)} className={css.botao} />
+    <BotaoTreinoPlano conteudo={plano.chave} etapa={etapa} treinoAberto={aberto} rotulo={rotuloEtapa(etapa, regras, aberto !== null, plano.situacao, pendentes)} className={css.botao} />
   ) : null;
+  const textoRefazer = `${quantidadeDaEtapa("refazer", regras, pendentes)} questões de ${plano.nome} que você errou ou deixou em branco. Uma chance em cada; no fim você vê a resposta certa.`;
+
+  const estudoFeito = !revisar || revisar.estado === "feita";
+  if (plano.situacao === "revisar" && !estudoFeito && sugestaoDepoisDeEstudar(plano) === "refazer") {
+    return (
+      <Cartao titulo="Agora refaça as que você errou" texto={textoRefazer}>
+        <BotaoEstudeiRefazer conteudo={plano.chave} className={css.botao} />
+      </Cartao>
+    );
+  }
+  if (etapa === "refazer") {
+    return (
+      <Cartao titulo="Agora refaça as que você errou" texto={textoRefazer}>
+        {botao}
+      </Cartao>
+    );
+  }
 
   let titulo = "Agora pratique com questões reais";
   let texto = `${n} questões reais do banco sobre ${plano.nome}.`;
@@ -113,7 +133,8 @@ export function PaginaEstudo({ estudo, plano, extras, regras }: {
   estudo: EstudoTela; plano: ConteudoPlano | null; extras: ExtrasConteudo | undefined; regras: RegrasAprendizagem | null;
 }) {
   const links = linksDoEstudo(estudo, extras);
-  const estado = (t: "pratica" | "revisao") => plano?.etapas.find((e) => e.tipo === t)?.estado;
+  const estado = (t: "pratica" | "revisao" | "refazer") => plano?.etapas.find((e) => e.tipo === t)?.estado;
+  const refazer = plano?.etapas.find((e) => e.tipo === "refazer");
   const mostrarFaixa = plano?.situacao === "revisar" && regras !== null;
   const descricao = plano
     ? `No simulado: ${plano.inicial.legenda}. Leia a explicação e confira se entendeu nos exercícios.`
@@ -137,13 +158,18 @@ export function PaginaEstudo({ estudo, plano, extras, regras }: {
       </section>
 
       {mostrarFaixa && regras && (
-        <ol className={css.passos} aria-label="Etapas deste conteúdo no plano">
+        <ol className={css.passos} data-quatro={refazer ? "" : undefined} aria-label="Etapas deste conteúdo no plano">
           <li className={css.passo} data-agora><b>1</b><span><strong>Estudar</strong><small>Você está aqui</small></span></li>
+          {refazer && (
+            <li className={css.passo} data-feito={refazer.estado === "feita" ? "" : undefined}>
+              <b>2</b><span><strong>Refazer as erradas</strong><small>{quantidadeDaEtapa("refazer", regras, refazer.pendentes ?? 0)} questões do simulado</small></span>
+            </li>
+          )}
           <li className={css.passo} data-feito={estado("pratica") === "feita" ? "" : undefined}>
-            <b>2</b><span><strong>Praticar</strong><small>{regras.questoesPratica} questões reais do banco</small></span>
+            <b>{refazer ? 3 : 2}</b><span><strong>Praticar</strong><small>{regras.questoesPratica} questões reais do banco</small></span>
           </li>
           <li className={css.passo} data-feito={estado("revisao") === "feita" ? "" : undefined}>
-            <b>3</b><span><strong>Revisão</strong><small>{regras.diasRevisao} dias depois da prática</small></span>
+            <b>{refazer ? 4 : 3}</b><span><strong>Revisão</strong><small>{regras.diasRevisao} dias depois da prática</small></span>
           </li>
         </ol>
       )}

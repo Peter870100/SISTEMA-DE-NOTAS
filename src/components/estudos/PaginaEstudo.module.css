@@ -16,6 +16,7 @@
 
 /* ===== Faixa de etapas ===== */
 .passos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.passos[data-quatro] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .passo { display: flex; align-items: center; gap: .7rem; min-width: 0; padding: .8rem 1rem; border: 1px solid var(--color-line); border-radius: 1rem; background: white; }
 .passo b { display: grid; place-items: center; flex-shrink: 0; width: 1.9rem; height: 1.9rem; border-radius: 50%; background: var(--color-brand); color: white; font-family: var(--font-display), sans-serif; }
 .passo strong { display: block; color: var(--color-brand); font-family: var(--font-heading), sans-serif; font-size: .95rem; letter-spacing: .05em; line-height: 1.2; text-transform: uppercase; }
@@ -118,7 +119,7 @@
 }
 @media (max-width: 639px) {
   .cartao { padding: 1.1rem; }
-  .passos { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+  .passos, .passos[data-quatro] { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
   .acoes, .acoes > *, .botao, .botaoSec, .chip { width: 100%; }
   .chip { justify-content: center; }
 }
