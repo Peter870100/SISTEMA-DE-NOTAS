@@ -2,6 +2,7 @@
 // Ver "Etapas do plano" em docs/superpowers/specs/2026-11-03-plano-de-estudo-design.md.
 
 import type { ConteudoDesempenho, Prioridade } from "@/lib/desempenho/tipos";
+import { MAX_REFAZER } from "./refazer";
 import { TEMPO_SEMANA_PADRAO } from "./regras";
 import { textoCriterio, textoRecomendacao } from "./textos";
 import type { ConteudoPlano, EntradaPlano, Etapa, EtapaPlano, Plano, RegrasAprendizagem, TreinoDoPlano } from "./tipos";
@@ -31,16 +32,42 @@ function ultimoResultado(ts: TreinoDoPlano[], etapa: EtapaPlano): { acertos: num
   return t ? { acertos: t.acertos ?? 0, total: t.total ?? 0 } : null;
 }
 
+type EtapasDe = Pick<ConteudoPlano, "situacao" | "etapas">;
+
 /**
  * Treino que o aluno pode fazer agora no conteúdo; null enquanto a revisão posterior aguarda a data.
  * Refazer uma prática aprovada recomeçaria a espera da revisão e, abaixo da meta, abriria uma rodada nova.
+ * O refazer só é sugerido quando disponível (depois do estudo) e a prática aberta vem antes dele.
  */
-export function etapaDeTreino(c: Pick<ConteudoPlano, "situacao" | "etapas">): EtapaPlano | null {
+export function etapaDeTreino(c: EtapasDe): EtapaPlano | null {
   if (c.situacao === "mais_respostas") return "diagnostico";
   if (c.situacao === "concluido") return "pratica";
-  const estado = (tipo: Etapa["tipo"]) => c.etapas.find((e) => e.tipo === tipo)?.estado;
-  if (estado("pratica") !== "feita") return "pratica";
-  return estado("revisao") === "disponivel" ? "revisao" : null;
+  const get = (tipo: Etapa["tipo"]) => c.etapas.find((e) => e.tipo === tipo);
+  const refazerOk = get("refazer")?.estado === "disponivel";
+  if (get("pratica")?.estado !== "feita") return get("pratica")?.treinoAberto == null && refazerOk ? "refazer" : "pratica";
+  if (get("revisao")?.estado === "disponivel") return "revisao";
+  return refazerOk ? "refazer" : null;
+}
+
+/** Como `etapaDeTreino`, tratando o refazer que aguarda o estudo como se já estivesse disponível. */
+export function sugestaoDepoisDeEstudar(c: EtapasDe): EtapaPlano | null {
+  return etapaDeTreino({
+    situacao: c.situacao,
+    etapas: c.etapas.map((e) => (e.tipo === "refazer" && e.estado === "aguardando" ? { ...e, estado: "disponivel" as const } : e)),
+  });
+}
+
+/** Treinos que o aluno pode abrir agora: a sugestão primeiro, depois as outras aceitas (refazer, prática). */
+export function etapasLiberadas(c: EtapasDe): EtapaPlano[] {
+  const get = (tipo: Etapa["tipo"]) => c.etapas.find((e) => e.tipo === tipo);
+  const lista: EtapaPlano[] = [];
+  const sugestao = etapaDeTreino(c);
+  if (sugestao) lista.push(sugestao);
+  if (c.situacao === "revisar") {
+    if (get("refazer")?.estado === "disponivel") lista.push("refazer");
+    if (get("pratica") && get("pratica")!.estado !== "feita") lista.push("pratica");
+  }
+  return [...new Set(lista)];
 }
 
 /** Prática ou revisão posterior: os treinos do "depois do estudo". */
@@ -90,6 +117,25 @@ function revisaoAberta(ts: TreinoDoPlano[], s: Rodada): string | null {
   return t && s.praticaOk != null && ms(t.criadoEm) > ms(s.praticaOk) ? t.simuladoId : null;
 }
 
+/** Etapa "refazer as erradas": existe com pendentes ou com treino de refazer; null caso contrário. */
+function etapaRefazer(chave: string, ts: TreinoDoPlano[], s: Rodada, e: EntradaPlano, estudou: boolean): Etapa | null {
+  const pendentes = e.refazer[chave]?.pendentes ?? 0;
+  const doConteudo = ts.filter((t) => t.etapa === "refazer");
+  if (pendentes <= 0 && doConteudo.length === 0) return null;
+  const aberta = aberto(ts, "refazer");
+  const resultado = ultimoResultado(ts, "refazer");
+  let estado: Etapa["estado"];
+  if (s.concluido) estado = "feita";
+  else if (aberta) estado = "disponivel";
+  else if (pendentes === 0) estado = "feita";
+  else estado = estudou ? "disponivel" : "aguardando";
+  const questoes = aberta ? aberta.questaoIds.length : pendentes > 0 ? Math.min(pendentes, MAX_REFAZER) : (resultado?.total ?? 0);
+  return {
+    tipo: "refazer", estado, minutos: questoes * e.regras.minutosPorQuestao,
+    disponivelEm: null, treinoAberto: s.concluido ? null : (aberta?.simuladoId ?? null), resultado, pendentes,
+  };
+}
+
 function etapasRevisar(chave: string, ts: TreinoDoPlano[], s: Rodada, e: EntradaPlano): Etapa[] {
   const r = e.regras;
   const revisado = e.revisadoEm[chave];
@@ -102,11 +148,13 @@ function etapasRevisar(chave: string, ts: TreinoDoPlano[], s: Rodada, e: Entrada
     revisaoLiberada = e.agora.getTime() >= quando;
   }
   const feita = (v: boolean, senao: Etapa["estado"]): Etapa["estado"] => (s.concluido || v ? "feita" : senao);
+  const refazer = etapaRefazer(chave, ts, s, e, s.concluido || revisou);
   return [
     {
       tipo: "revisar", estado: feita(revisou, "disponivel"), minutos: e.minutosRevisar[chave] ?? r.minutosMaterial,
       disponivelEm: null, treinoAberto: null, resultado: null,
     },
+    ...(refazer ? [refazer] : []),
     {
       tipo: "pratica", estado: feita(s.praticaOk != null, "disponivel"), minutos: r.questoesPratica * r.minutosPorQuestao,
       // Concluído: uma prática aberta de antes da conclusão não é treino desta rodada.
@@ -124,7 +172,12 @@ function minutosProximos(etapas: Etapa[]): number {
   let soma = 0;
   for (const et of etapas) {
     if (et.estado === "feita") continue;
-    if (et.estado === "aguardando") break;
+    if (et.estado === "aguardando") {
+      // O refazer que aguarda o estudo soma os minutos e não interrompe a conta.
+      if (et.tipo === "refazer") soma += et.minutos;
+      else break;
+      continue;
+    }
     soma += et.minutos;
   }
   return soma;
@@ -158,11 +211,14 @@ function montarConteudo(inicial: ConteudoDesempenho, prioridade: Prioridade | un
   const depoisDoEstudo = entregues(ts.filter(ehPraticaOuRevisao));
   const contar = (etapa: EtapaPlano) => ts.filter((t) => t.etapa === etapa && t.entregueEm != null).length;
 
+  const etapaRef = etapas.find((et) => et.tipo === "refazer");
+  const refazerAtivo = etapaRef != null && etapaRef.estado !== "feita";
+
   return {
     chave: inicial.chave, materia: inicial.materia, materiaRotulo: inicial.materiaRotulo, assuntoId: inicial.assuntoId, nome: inicial.nome,
     situacao, etiqueta, rodada,
     texto: textoRecomendacao(
-      { tipo: situacao === "mais_respostas" ? "mais_respostas" : "revisar", nome: inicial.nome, erros: inicial.erros, questoes: inicial.questoes, foco: inicial.foco },
+      { tipo: situacao === "mais_respostas" ? "mais_respostas" : "revisar", nome: inicial.nome, erros: inicial.erros, questoes: inicial.questoes, foco: inicial.foco, refazer: refazerAtivo },
       r,
     ),
     aviso: rodada >= 2 && situacao !== "concluido" ? AVISO_NOVA_RODADA : null,
@@ -212,7 +268,7 @@ export function montarPlano(e: EntradaPlano): Plano {
   });
   const treinosPorChave = new Map<string, TreinoDoPlano[]>();
   for (const t of e.treinos) treinosPorChave.set(t.conteudo, [...(treinosPorChave.get(t.conteudo) ?? []), t]);
-  const comPraticaOuRevisao = e.treinos.filter(ehPraticaOuRevisao).map((t) => t.conteudo);
+  const comPraticaOuRevisao = e.treinos.filter((t) => ehPraticaOuRevisao(t) || t.etapa === "refazer").map((t) => t.conteudo);
 
   const itens: ConteudoPlano[] = [];
   for (const chave of new Set([...prioridade.keys(), ...comPraticaOuRevisao])) {

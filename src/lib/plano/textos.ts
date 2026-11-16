@@ -5,16 +5,16 @@ function plural(n: number, um: string, varios: string): string {
 }
 
 export function textoRecomendacao(
-  c: { tipo: "revisar" | "mais_respostas"; nome: string; erros: number; questoes: number; foco: Foco | null },
+  c: { tipo: "revisar" | "mais_respostas"; nome: string; erros: number; questoes: number; foco: Foco | null; refazer?: boolean },
   r: RegrasAprendizagem,
 ): string {
   if (c.tipo === "mais_respostas") {
     return `Você respondeu só ${c.questoes} ${plural(c.questoes, "questão", "questões")} de ${c.nome} e errou ${c.erros}. Precisamos de mais respostas: resolva ${r.questoesDiagnostico} questões de diagnóstico para entender melhor.`;
   }
   const base = `Você errou ${c.erros} de ${c.questoes} questões de ${c.nome}`;
-  const fim = `e depois resolva uma sequência de ${r.questoesPratica} questões, começando pelas mais simples.`;
-  if (c.foco) return `${base}, ${c.foco.erros} delas sobre ${c.foco.nome}. Revise esse tópico ${fim}`;
-  return `${base}. Revise esse conteúdo ${fim}`;
+  const fim = `${c.refazer ? ", refaça as questões que errou e depois" : " e depois"} resolva uma sequência de ${r.questoesPratica} questões, começando pelas mais simples.`;
+  if (c.foco) return `${base}, ${c.foco.erros} delas sobre ${c.foco.nome}. Revise esse tópico${fim}`;
+  return `${base}. Revise esse conteúdo${fim}`;
 }
 
 export function textoCriterio(r: RegrasAprendizagem): string {

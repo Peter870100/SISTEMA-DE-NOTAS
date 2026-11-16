@@ -27,3 +27,11 @@ test("textos do plano de estudo", () => {
   assert.equal(tituloTreino("diagnostico", "X"), "Diagnóstico: X"); assert.equal(tituloTreino("revisao", "X"), "Revisão: X");
   assert.equal(tituloTreino("pratica", "a".repeat(200)).length, 120);
 });
+
+test("texto da recomendação com refazer", () => {
+  const foco = { topicoId: "t", nome: "Derivação parassintética", erros: 4, questoes: 5 };
+  assert.equal(textoRecomendacao({ tipo: "revisar", nome: "Morfologia", erros: 7, questoes: 10, foco, refazer: true }, R),
+    "Você errou 7 de 10 questões de Morfologia, 4 delas sobre Derivação parassintética. Revise esse tópico, refaça as questões que errou e depois resolva uma sequência de 5 questões, começando pelas mais simples.");
+  assert.equal(textoRecomendacao({ tipo: "revisar", nome: "Porcentagem", erros: 7, questoes: 10, foco: null, refazer: false }, R),
+    "Você errou 7 de 10 questões de Porcentagem. Revise esse conteúdo e depois resolva uma sequência de 5 questões, começando pelas mais simples.");
+});
