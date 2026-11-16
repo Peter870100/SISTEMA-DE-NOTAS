@@ -27,6 +27,7 @@ export async function criarTreinoDoPlano(entrada: { conteudo: string; etapa: Eta
         return plano ? { plano, habilidadeIds: d.habilidadesAlvo[chave] ?? [] } : null;
       },
       candidatas: async (chave) => candidatasDoConteudo(aluno, chave, (vistas ??= await vistasDaConta(aluno.id))),
+      pendentesRefazer: async (chave) => (await ler(chave)).pendentesRefazer[chave] ?? [],
       facilidade: facilidadeDasQuestoes,
       treinoAberto: async (chave, etapa) => {
         const { data: sims, error } = await supabase.from("simulados").select("id")

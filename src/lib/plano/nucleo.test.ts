@@ -16,12 +16,13 @@ const cand = (id: string): Candidata => ({ id, topicoId: null, habilidadeIds: []
 
 function montar(o: {
   plano?: ConteudoPlano | null; candidatas?: Candidata[]; aberto?: string | null; contar?: number;
-  insercao?: { simuladoId: string } | "colisao"; facil?: Record<string, number | null>;
+  insercao?: { simuladoId: string } | "colisao"; facil?: Record<string, number | null>; pendentes?: string[];
 }) {
-  const chamadas: { inserir: Parameters<DepsTreinoPlano["inserirTreino"]>[0][] } = { inserir: [] };
+  const chamadas: { inserir: Parameters<DepsTreinoPlano["inserirTreino"]>[0][]; candidatas: number } = { inserir: [], candidatas: 0 };
   const deps: DepsTreinoPlano = {
     conteudo: async () => (o.plano === null ? null : { plano: o.plano ?? plano("revisar", [etapa("revisar", "feita"), etapa("pratica", "disponivel")]), habilidadeIds: [] }),
-    candidatas: async () => o.candidatas ?? [cand("a"), cand("b"), cand("c"), cand("d"), cand("e"), cand("f")],
+    candidatas: async () => { chamadas.candidatas += 1; return o.candidatas ?? [cand("a"), cand("b"), cand("c"), cand("d"), cand("e"), cand("f")]; },
+    pendentesRefazer: async () => o.pendentes ?? [],
     facilidade: async () => o.facil ?? {},
     treinoAberto: async () => o.aberto ?? null,
     contarTreinos: async () => o.contar ?? 0,
@@ -100,4 +101,39 @@ test("prática já aprovada não pode ser refeita antes da revisão", async () =
     assert.deepEqual(await pedir(c.deps, "pratica"), { ok: false, erro: "Esta etapa ainda não está disponível." });
     assert.equal(c.chamadas.inserir.length, 0);
   }
+});
+
+const comRefazer = (estado: Etapa["estado"], aberto: string | null = null) =>
+  plano("revisar", [etapa("revisar", "feita"), etapa("refazer", estado, aberto), etapa("pratica", "disponivel"), etapa("revisao", "aguardando")]);
+const doze = Array.from({ length: 12 }, (_, i) => `q${i + 1}`);
+
+test("refazer: 10 de erro mais recente, ordenadas por facilidade, sem sortear do banco", async () => {
+  const { deps, chamadas } = montar({ plano: comRefazer("disponivel"), pendentes: doze, facil: { q2: 90 }, contar: 1 });
+  assert.deepEqual(await pedir(deps, "refazer"), { ok: true, simuladoId: "novo", aviso: null });
+  assert.deepEqual(chamadas.inserir[0].questaoIds, ["q2", "q1", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10"]);
+  assert.equal(chamadas.inserir[0].etapa, "refazer");
+  assert.equal(chamadas.inserir[0].titulo, "Refazer: Porcentagem");
+  assert.equal(chamadas.inserir[0].rodada, 2);
+  assert.equal(chamadas.candidatas, 0);
+});
+test("refazer sem pendentes", async () => {
+  const { deps } = montar({ plano: comRefazer("disponivel"), pendentes: [] });
+  assert.deepEqual(await pedir(deps, "refazer"), { ok: false, erro: "Não há questões para refazer em Porcentagem." });
+});
+test("refazer antes de estudar é recusado", async () => {
+  const { deps } = montar({ plano: comRefazer("aguardando"), pendentes: ["q1"] });
+  assert.deepEqual(await pedir(deps, "refazer"), { ok: false, erro: "Estude o conteúdo antes de refazer as questões." });
+});
+test("refazer feito é recusado; praticar com refazer pendente é aceito", async () => {
+  const a = montar({ plano: comRefazer("feita"), pendentes: ["q1"] });
+  assert.deepEqual(await pedir(a.deps, "refazer"), { ok: false, erro: "Esta etapa ainda não está disponível." });
+  const b = montar({ plano: comRefazer("disponivel"), pendentes: ["q1"] });
+  assert.equal((await pedir(b.deps, "pratica")).ok, true);
+  assert.equal(b.chamadas.inserir[0].etapa, "pratica");
+});
+test("refazer aberto é reutilizado; duplo clique (colisão) devolve o aberto", async () => {
+  const a = montar({ plano: comRefazer("disponivel", "r1"), pendentes: ["q1"] });
+  assert.deepEqual(await pedir(a.deps, "refazer"), { ok: true, simuladoId: "r1", aviso: null });
+  const b = montar({ plano: comRefazer("disponivel"), pendentes: ["q1"], insercao: "colisao", aberto: "outro" });
+  assert.deepEqual(await pedir(b.deps, "refazer"), { ok: true, simuladoId: "outro", aviso: null });
 });

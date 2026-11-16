@@ -16,6 +16,7 @@ import { filtroVisivel, questoesDeProvasEmSigilo } from "@/lib/simulados/servido
 import type { AlunoConta, Area, MaterialRevisao } from "@/lib/types";
 import { chaveValida, materiaisDoConteudo, type ExtrasConteudo, type MaterialTela } from "./extras";
 import { montarPlano } from "./plano";
+import { ehRefazer, pendentesRefazer, type ErradaInicial } from "./refazer";
 import { regrasDaEscola } from "./regras-servidor";
 import { contarDisponiveis, facilidadeDe, type Candidata } from "./selecao";
 import type { EtapaPlano, Plano, RegrasAprendizagem, TreinoDoPlano } from "./tipos";
@@ -23,6 +24,8 @@ import type { EtapaPlano, Plano, RegrasAprendizagem, TreinoDoPlano } from "./tip
 export type DadosPlano = {
   painel: PainelDesempenho; respostas: RespostaDesempenho[]; plano: Plano; extras: Record<string, ExtrasConteudo>;
   regras: RegrasAprendizagem; habilidadesAlvo: Record<string, string[]>;
+  /** Questões a refazer por conteúdo (ids, erro mais recente primeiro). */
+  pendentesRefazer: Record<string, string[]>;
 };
 
 const maior = (a: string | undefined, b: string | null | undefined) => (b && (!a || b > a) ? b : a);
@@ -58,11 +61,14 @@ export async function vistasDaConta(contaId: string): Promise<Record<string, str
 type Alvo = { chave: string; v: NonNullable<ReturnType<typeof chaveValida>> };
 
 /** Candidatas (publicadas, não anuladas, visíveis à escola, fora de provas em sigilo) por chave, em leitura por bloco. */
-async function lerCandidatas(aluno: AlunoConta, chaves: string[], vistas: Record<string, string>, comHabilidades: boolean): Promise<Map<string, Candidata[]>> {
+async function lerCandidatas(
+  aluno: AlunoConta, chaves: string[], vistas: Record<string, string>, comHabilidades: boolean,
+  emSigilo: () => Promise<string[]> = () => questoesDeProvasEmSigilo(aluno),
+): Promise<Map<string, Candidata[]>> {
   const alvos = chaves.map((c) => ({ chave: c, v: chaveValida(c) })).filter((x): x is Alvo => !!x.v);
   const saida = new Map<string, Candidata[]>(chaves.map((c) => [c, []]));
   if (alvos.length === 0) return saida;
-  const sigiloP = questoesDeProvasEmSigilo(aluno);
+  const sigiloP = emSigilo();
   type Linha = { id: string; topico_id: string | null; assunto_id: string | null; materia: string };
   const ler = (coluna: "assunto_id" | "materia", valores: string[]) => lerPorIds<Linha>(valores, (bloco, de, ate) =>
     supabase.from("questoes").select("id, topico_id, assunto_id, materia").eq("status", "publicada").eq("anulada", false)
@@ -140,12 +146,15 @@ export async function carregarPlano(conta: { id: string; escolaId: string }, vis
   const chaves = conteudos.map((c) => c.chave);
   const eChave = new Set(chaves);
 
-  // Erradas (primeiras respostas iniciais) por conteúdo: base de resoluções, habilidades e pré-requisitos.
+  // Erradas (primeiras respostas iniciais) por conteúdo: base de resoluções, habilidades, pré-requisitos e do refazer.
   const erradas = primeirasRespostas(respostasIniciais(respostas)).filter((r) => eChave.has(chaveConteudo(r)) && (r.alternativa == null || r.correta !== true));
   const erradasDe = new Map<string, RespostaDesempenho[]>();
   for (const r of erradas) erradasDe.set(chaveConteudo(r), [...(erradasDe.get(chaveConteudo(r)) ?? []), r]);
   const idsErradas = [...new Set(erradas.map((r) => r.questaoId))];
   const topicosDe = new Map(conteudos.map((c) => [c.chave, c.foco ? [c.foco.topicoId] : [...new Set((erradasDe.get(c.chave) ?? []).flatMap((r) => (r.topicoId ? [r.topicoId] : [])))]]));
+  // Questões em prova sob sigilo: lidas uma vez só, quando algum ramo precisar (candidatas e refazer).
+  let sigiloP: Promise<string[]> | null = null;
+  const emSigilo = () => (sigiloP ??= questoesDeProvasEmSigilo(aluno));
 
   // ---- ramos independentes, em paralelo ----
   const lerMateriais = async () => {
@@ -218,8 +227,20 @@ export async function carregarPlano(conta: { id: string; escolaId: string }, vis
 
   const lerDisponiveis = async () => {
     if (visao !== "aluno" || chaves.length === 0) return new Map<string, number>();
-    const cands = await lerCandidatas(aluno, chaves, vistas, false);
+    const cands = await lerCandidatas(aluno, chaves, vistas, false, emSigilo);
     return new Map([...cands].map(([k, v]) => [k, contarDisponiveis(v, agora, regras.diasSemRepetir)]));
+  };
+
+  // Refazer: das erradas, só as que um treino ainda mostraria (mesmos filtros de `lerCandidatas`); sem erradas, nem consulta.
+  const lerMostraveis = async (): Promise<Set<string>> => {
+    if (idsErradas.length === 0) return new Set();
+    const [visiveis, sig] = await Promise.all([
+      lerPorIds<{ id: string }>(idsErradas, (b, de, ate) => supabase.from("questoes").select("id").eq("status", "publicada").eq("anulada", false)
+        .or(filtroVisivel(conta.escolaId)).in("id", b).order("id").range(de, ate)),
+      emSigilo(),
+    ]);
+    const sigilo = new Set(sig);
+    return new Set(visiveis.map((q) => q.id).filter((id) => !sigilo.has(id)));
   };
 
   // Material de estudo publicado (só quem tem e o tempo); sem ids, nem consulta.
@@ -228,10 +249,11 @@ export async function carregarPlano(conta: { id: string; escolaId: string }, vis
     return ids.length === 0 ? {} : estudosPublicados(ids);
   };
 
-  const [mat, qs, pre, disponiveisDe, estudos] = await Promise.all([
+  const [mat, qs, pre, disponiveisDe, estudos, mostraveis] = await Promise.all([
     lerMateriais(), lerQuestoes(), lerPrereqs(), lerDisponiveis(),
     // O estudo é um extra: se falhar (ou um bloco vier fora do formato), o plano segue sem ele.
     lerEstudos().catch((e): Record<string, { minutos: number }> => { console.error("lerEstudos:", e); return {}; }),
+    lerMostraveis(),
   ]);
   // O tempo do estudo vale antes do tempo do material; as marcas de revisão não mudam.
   for (const c of conteudos) {
@@ -261,7 +283,18 @@ export async function carregarPlano(conta: { id: string; escolaId: string }, vis
     };
   }
 
+  // Refazer: uma chance só em cada questão, gasta pela `ordem` de qualquer treino de refazer entregue (mesmo em branco).
+  const refeitas = new Set(treinos.filter((t) => ehRefazer(t.etapa) && t.entregueEm != null).flatMap((t) => t.questaoIds));
+  const pendentesDe: Record<string, string[]> = {};
+  const refazer: Record<string, { pendentes: number }> = {};
+  for (const c of conteudos) {
+    const iniciais = (erradasDe.get(c.chave) ?? []).map((r): ErradaInicial => ({ questaoId: r.questaoId, erradaEm: r.entregueEm }));
+    const lista = pendentesRefazer(iniciais, refeitas, mostraveis);
+    pendentesDe[c.chave] = lista;
+    refazer[c.chave] = { pendentes: lista.length };
+  }
+
   // O plano usa todos os conteúdos do painel; só as marcas e minutos vêm dos conteúdos do plano.
-  const plano = montarPlano({ conteudos: painel.conteudos, prioridades: painel.prioridades, treinos, revisadoEm: mat.revisadoEm, minutosRevisar: mat.minutosRevisar, prerequisitos, minutosSemana, regras, agora, refazer: {} });
-  return { painel, respostas, plano, extras, regras, habilidadesAlvo };
+  const plano = montarPlano({ conteudos: painel.conteudos, prioridades: painel.prioridades, treinos, revisadoEm: mat.revisadoEm, minutosRevisar: mat.minutosRevisar, prerequisitos, minutosSemana, regras, agora, refazer });
+  return { painel, respostas, plano, extras, regras, habilidadesAlvo, pendentesRefazer: pendentesDe };
 }
