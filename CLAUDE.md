@@ -95,7 +95,8 @@ O Peter fala português; respostas em pt-BR.
   Sociologia, Inglês, Espanhol, Artes e Educação Física estão em zero. 14 exercícios retidos duas vezes, que só o dono corrige no painel:
   Funções 4, Números complexos 7, Geometria espacial 10, Trigonometria 9, Morfologia 1, Ditadura militar 6, Brasil República 9,
   Imperialismo 1, 4, 5 e 8, Nacionalismo e unificações 8, Crise de 1929 9 e História da África 7. O Peter quer em todas as matérias.
-  Assunto sem material publicado segue como antes.- **Projeto 4 de 4 do acompanhamento da aprendizagem: IA.** Depende de crédito na API Anthropic (ver abaixo).
+  Assunto sem material publicado segue como antes.
+- **Projeto 4 de 4 do acompanhamento da aprendizagem: IA.** Depende de crédito na API Anthropic (ver abaixo).
 - Loja com Stripe: adiada pelo Peter em 2026-11-08 (primeiro o reestudo). Spec e plano seguem guardados; não retomar sem ele pedir.
 - Conta da API Anthropic está SEM CRÉDITO (2026-10-30): gerador do site e da Hermes falham com
   "credit balance is too low" até o Peter recarregar. A chave na Vercel foi trocada e é válida.
