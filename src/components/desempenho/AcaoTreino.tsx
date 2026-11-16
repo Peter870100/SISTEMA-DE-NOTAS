@@ -12,10 +12,10 @@ export function AcaoTreino({ cp, extras, regras }: { cp: ConteudoPlano | undefin
   if (!cp || !etapa) return null;
   const dados = cp.etapas.find((e) => e.tipo === etapa);
   const aberto = dados?.treinoAberto ?? null;
-  const pendentes = dados?.pendentes ?? 0;
+  const questoes = dados?.questoes ?? 0;
   if (etapa !== "refazer" && !aberto && extras?.disponiveis === 0) {
     const aviso = textoQuestoesDisponiveis(cp.nome, 0, quantidadeDaEtapa(etapa, regras));
     return aviso ? <p className={css.semAula}>{aviso}</p> : null;
   }
-  return <BotaoTreinoPlano conteudo={cp.chave} etapa={etapa} treinoAberto={aberto} rotulo={rotuloEtapa(etapa, regras, !!aberto, cp.situacao, pendentes)} className={css.botaoTreinar} />;
+  return <BotaoTreinoPlano conteudo={cp.chave} etapa={etapa} treinoAberto={aberto} rotulo={rotuloEtapa(etapa, regras, !!aberto, cp.situacao, questoes)} className={css.botaoTreinar} />;
 }

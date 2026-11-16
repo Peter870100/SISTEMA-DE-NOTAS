@@ -75,6 +75,14 @@ const semLixo = (s: string) => {
 
 // ---------- aluno ----------
 
+test("linha de treinos: a média ignora o refazer, e as contagens o incluem", () => {
+  const t = textoRelatorioAluno(aluno({ treinos: [sim("Treino 1", "fez", 5), { ...sim("Refazer 1", "fez", 10), refazer: true }] }), LINK);
+  const linha = t.split("\n").find((l) => l.startsWith("Treinos:"))!;
+  assert.match(linha, /2 entregues/);
+  assert.match(linha, /média 5/);
+  assert.doesNotMatch(linha, /7,5/);
+});
+
 test("textoRelatorioAluno: frase, detalhes e link, no maximo 10 linhas", () => {
   const t = textoRelatorioAluno(aluno(), LINK);
   const ls = linhas(t);

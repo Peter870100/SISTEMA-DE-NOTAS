@@ -28,15 +28,15 @@ function estadoTexto(e: Etapa): string {
 function AcaoTreino({ c, etapa, aberto, extras, regras, rotulo }: {
   c: ConteudoPlano; etapa: EtapaPlano; aberto: string | null; extras: ExtrasConteudo; regras: RegrasAprendizagem; rotulo?: string;
 }) {
-  const pendentes = c.etapas.find((e) => e.tipo === etapa)?.pendentes ?? 0;
-  const n = quantidadeDaEtapa(etapa, regras, pendentes);
+  const questoes = c.etapas.find((e) => e.tipo === etapa)?.questoes ?? 0;
+  const n = quantidadeDaEtapa(etapa, regras, questoes);
   const checaNovas = etapa !== "refazer";
   const aviso = !checaNovas || extras.disponiveis === null || aberto ? null : textoQuestoesDisponiveis(c.nome, extras.disponiveis, n);
   const esconder = checaNovas && extras.disponiveis === 0 && !aberto;
   return (
     <>
       {aviso && <p className={css.aviso}>{aviso}</p>}
-      {!esconder && <BotaoTreinoPlano conteudo={c.chave} etapa={etapa} treinoAberto={aberto} rotulo={rotulo ?? rotuloEtapa(etapa, regras, aberto !== null, c.situacao, pendentes)} />}
+      {!esconder && <BotaoTreinoPlano conteudo={c.chave} etapa={etapa} treinoAberto={aberto} rotulo={rotulo ?? rotuloEtapa(etapa, regras, aberto !== null, c.situacao, questoes)} />}
     </>
   );
 }

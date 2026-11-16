@@ -80,15 +80,15 @@ function ProximoPasso({ estudo, plano, extras, regras }: { estudo: EstudoTela; p
   const etapa = etapaDeTreino(plano);
   const dados = etapa ? plano.etapas.find((e) => e.tipo === etapa) : null;
   const aberto = dados?.treinoAberto ?? null;
-  const pendentes = plano.etapas.find((e) => e.tipo === "refazer")?.pendentes ?? 0;
-  const n = etapa ? quantidadeDaEtapa(etapa, regras, pendentes) : 0;
+  const questoesRefazer = plano.etapas.find((e) => e.tipo === "refazer")?.questoes ?? 0;
+  const n = etapa ? quantidadeDaEtapa(etapa, regras, questoesRefazer) : 0;
   const checaNovas = etapa !== "refazer";
   const aviso = etapa && checaNovas && extras && extras.disponiveis !== null && !aberto ? textoQuestoesDisponiveis(plano.nome, extras.disponiveis, n) : null;
   const esconder = checaNovas && extras?.disponiveis === 0 && !aberto;
   const botao = etapa && !esconder ? (
-    <BotaoTreinoPlano conteudo={plano.chave} etapa={etapa} treinoAberto={aberto} rotulo={rotuloEtapa(etapa, regras, aberto !== null, plano.situacao, pendentes)} className={css.botao} />
+    <BotaoTreinoPlano conteudo={plano.chave} etapa={etapa} treinoAberto={aberto} rotulo={rotuloEtapa(etapa, regras, aberto !== null, plano.situacao, questoesRefazer)} className={css.botao} />
   ) : null;
-  const textoRefazer = `${quantidadeDaEtapa("refazer", regras, pendentes)} questões de ${plano.nome} que você errou ou deixou em branco. Uma chance em cada; no fim você vê a resposta certa.`;
+  const textoRefazer = `${questoesRefazer === 1 ? "1 questão" : `${questoesRefazer} questões`} de ${plano.nome} que você errou ou deixou em branco. Uma chance em cada; no fim você vê a resposta certa.`;
 
   const estudoFeito = !revisar || revisar.estado === "feita";
   const refazerAgora = plano.situacao === "revisar" && !estudoFeito && sugestaoDepoisDeEstudar(plano) === "refazer";
@@ -96,7 +96,7 @@ function ProximoPasso({ estudo, plano, extras, regras }: { estudo: EstudoTela; p
     // Um só componente nos dois casos: o erro sobrevive ao router.refresh() que troca um caso pelo outro.
     return (
       <Cartao titulo="Agora refaça as que você errou" texto={textoRefazer}>
-        <BotaoEstudeiRefazer conteudo={plano.chave} marcarAntes={refazerAgora} treinoAberto={aberto} rotulo={rotuloEtapa("refazer", regras, aberto !== null, plano.situacao, pendentes)} className={css.botao} />
+        <BotaoEstudeiRefazer conteudo={plano.chave} marcarAntes={refazerAgora} treinoAberto={aberto} rotulo={rotuloEtapa("refazer", regras, aberto !== null, plano.situacao, questoesRefazer)} className={css.botao} />
       </Cartao>
     );
   }
@@ -157,7 +157,7 @@ export function PaginaEstudo({ estudo, plano, extras, regras }: {
           <li className={css.passo} data-agora><b>1</b><span><strong>Estudar</strong><small>Você está aqui</small></span></li>
           {refazer && (
             <li className={css.passo} data-feito={refazer.estado === "feita" ? "" : undefined}>
-              <b>2</b><span><strong>Refazer as erradas</strong><small>{quantidadeDaEtapa("refazer", regras, refazer.pendentes ?? 0)} questões do simulado</small></span>
+              <b>2</b><span><strong>Refazer as erradas</strong><small>{refazer.questoes === 1 ? "1 questão do simulado" : `${refazer.questoes ?? 0} questões do simulado`}</small></span>
             </li>
           )}
           <li className={css.passo} data-feito={estado("pratica") === "feita" ? "" : undefined}>

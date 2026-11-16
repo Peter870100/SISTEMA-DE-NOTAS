@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { mediaAluno, mediaDeValores, paraEscala10 } from "@/lib/analytics";
 import { estadoAula, porcentagemAula } from "@/lib/aulas/progresso";
 import { normalizarBusca } from "@/lib/hermes/relatorios";
+import { ehRefazer } from "@/lib/plano/refazer";
 import { emBlocos, tempoDeProvaSeg } from "@/lib/simulados/regras";
 import type { ValorCelula } from "@/lib/status";
 import type { GrupoTurma } from "./acesso";
@@ -327,7 +328,7 @@ function simuladosDaPessoa(e: Extras, contaId: string | null, agora: Date): Linh
 /** Treinos com tentativa (um treino nunca começado não aparece); a data é a de início. */
 function treinosDaPessoa(e: Extras, contaId: string | null, agora: Date): LinhaSimuladoAluno[] {
   if (!contaId) return [];
-  return e.treinos.filter((x) => x.t.conta_id === contaId).map(({ t, s }) => linhaSimulado(s, t, true, agora, s.abre_em ?? t.iniciada_em));
+  return e.treinos.filter((x) => x.t.conta_id === contaId).map(({ t, s }) => ({ ...linhaSimulado(s, t, true, agora, s.abre_em ?? t.iniciada_em), refazer: ehRefazer(s.plano_etapa) }));
 }
 
 function respostasDasContas(e: Extras, contaIds: Set<string>): RespostaLida[] {

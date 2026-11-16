@@ -22,6 +22,8 @@ export type AcertoMateria = { materia: string; rotulo: string; acertos: number; 
 export type SituacaoSimulado = "fez" | "fazendo" | "nao_entregou" | "nao_fez" | "sem_login";
 
 export type LinhaSimuladoAluno = {
+  /** Treino de refazer as erradas: não entra na média de treinos. */
+  refazer?: boolean;
   simuladoId: string;
   titulo: string;
   abreEm: string | null;

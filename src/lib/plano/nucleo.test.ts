@@ -108,7 +108,7 @@ const comRefazer = (estado: Etapa["estado"], aberto: string | null = null) =>
 const doze = Array.from({ length: 12 }, (_, i) => `q${i + 1}`);
 
 test("refazer: 10 de erro mais recente, ordenadas por facilidade, sem sortear do banco", async () => {
-  const { deps, chamadas } = montar({ plano: comRefazer("disponivel"), pendentes: doze, facil: { q2: 90 }, contar: 1 });
+  const { deps, chamadas } = montar({ plano: comRefazer("disponivel"), pendentes: doze, facil: { q2: 90, q11: 99 }, contar: 1 });
   assert.deepEqual(await pedir(deps, "refazer"), { ok: true, simuladoId: "novo", aviso: null });
   assert.deepEqual(chamadas.inserir[0].questaoIds, ["q2", "q1", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10"]);
   assert.equal(chamadas.inserir[0].etapa, "refazer");

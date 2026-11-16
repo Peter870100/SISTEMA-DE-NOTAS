@@ -23,7 +23,7 @@ export type TreinoDoPlano = { simuladoId: string; conteudo: string; etapa: Etapa
 
 export type TipoEtapa = "revisar" | EtapaPlano;
 
-export type Etapa = { tipo: TipoEtapa; estado: "feita" | "disponivel" | "aguardando"; minutos: number; disponivelEm: string | null; treinoAberto: string | null; resultado: { acertos: number; total: number } | null; pendentes?: number };
+export type Etapa = { tipo: TipoEtapa; estado: "feita" | "disponivel" | "aguardando"; minutos: number; disponivelEm: string | null; treinoAberto: string | null; resultado: { acertos: number; total: number } | null; pendentes?: number; /** Só no refazer: quantas questões o treino tem (ou terá). */ questoes?: number };
 
 export type ConteudoPlano = {
   chave: string; materia: string | null; materiaRotulo: string; assuntoId: string | null; nome: string;

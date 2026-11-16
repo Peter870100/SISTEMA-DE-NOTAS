@@ -1,16 +1,15 @@
-import { MAX_REFAZER } from "@/lib/plano/refazer";
 import type { ConteudoPlano, EtapaPlano, RegrasAprendizagem } from "@/lib/plano/tipos";
 
-/** Quantidade de questões pedidas pela etapa. */
-export function quantidadeDaEtapa(etapa: EtapaPlano, regras: RegrasAprendizagem, pendentes = 0): number {
-  if (etapa === "refazer") return Math.min(pendentes, MAX_REFAZER);
+/** Quantidade de questões pedidas pela etapa (no refazer, `questoes` da etapa do plano). */
+export function quantidadeDaEtapa(etapa: EtapaPlano, regras: RegrasAprendizagem, questoesRefazer = 0): number {
+  if (etapa === "refazer") return questoesRefazer;
   return etapa === "pratica" ? regras.questoesPratica : etapa === "diagnostico" ? regras.questoesDiagnostico : regras.questoesRevisao;
 }
 
-export function rotuloEtapa(etapa: EtapaPlano, regras: RegrasAprendizagem, aberto: boolean, situacao: ConteudoPlano["situacao"], pendentes = 0): string {
+export function rotuloEtapa(etapa: EtapaPlano, regras: RegrasAprendizagem, aberto: boolean, situacao: ConteudoPlano["situacao"], questoesRefazer = 0): string {
   if (aberto) return "Continuar treino";
   if (etapa === "refazer") {
-    const n = quantidadeDaEtapa(etapa, regras, pendentes);
+    const n = quantidadeDaEtapa(etapa, regras, questoesRefazer);
     return n === 1 ? "Refazer 1 questão" : `Refazer ${n} questões`;
   }
   if (etapa === "pratica") return situacao === "concluido" ? "Estudar de novo" : `Praticar ${regras.questoesPratica} questões`;

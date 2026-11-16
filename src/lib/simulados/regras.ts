@@ -1,3 +1,4 @@
+import { ehRefazer } from "@/lib/plano/refazer";
 import type { Area, Letra, PorArea, Simulado, Tentativa } from "@/lib/types";
 
 export const TOLERANCIA_SEG = 30;
@@ -175,13 +176,14 @@ export function tempoDeProvaSeg(
 }
 
 type TentResumo = Pick<Tentativa, "status" | "porcentagem" | "iniciada_em" | "entregue_em" | "prazo_em" | "tempo_usado_seg">;
-type SimResumo = Pick<Simulado, "id" | "tipo" | "status" | "abre_em" | "fecha_em" | "correcao">;
+type SimResumo = Pick<Simulado, "id" | "tipo" | "status" | "abre_em" | "fecha_em" | "correcao"> & { plano_etapa?: string | null };
 
-/** Números do painel do aluno. Só notas já liberadas entram em concluídos/média (prova em sigilo fica de fora). */
+/** Números do painel do aluno. Só notas já liberadas entram em concluídos/média (o refazer não entra na média) (prova em sigilo fica de fora). */
 export function resumoSimulados(daTurma: SimResumo[], treinos: SimResumo[], tentativas: Map<string, TentResumo>, agora: Date) {
   const todos = [...daTurma, ...treinos];
   const comNota = todos.filter((s) => tentativas.get(s.id)?.status === "entregue" && correcaoLiberada(s, agora));
-  const notas = comNota.map((s) => tentativas.get(s.id)?.porcentagem).filter((p): p is number => p != null).map(Number);
+  // O refazer (só as erradas de antes) não mede o aprendizado do aluno: fica fora da média.
+  const notas = comNota.filter((s) => !ehRefazer(s.plano_etapa)).map((s) => tentativas.get(s.id)?.porcentagem).filter((p): p is number => p != null).map(Number);
   const tempoTotalSeg = todos.reduce((soma, s) => {
     const t = tentativas.get(s.id);
     return soma + (t?.status === "entregue" ? tempoDeProvaSeg(s.tipo, t) ?? 0 : 0);

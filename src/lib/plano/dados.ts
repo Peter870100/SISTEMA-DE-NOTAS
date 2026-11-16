@@ -16,7 +16,7 @@ import { filtroVisivel, questoesDeProvasEmSigilo } from "@/lib/simulados/servido
 import type { AlunoConta, Area, MaterialRevisao } from "@/lib/types";
 import { chaveValida, materiaisDoConteudo, type ExtrasConteudo, type MaterialTela } from "./extras";
 import { montarPlano } from "./plano";
-import { ehRefazer, pendentesRefazer, type ErradaInicial } from "./refazer";
+import { pendentesRefazer, refeitasDe, type ErradaInicial } from "./refazer";
 import { regrasDaEscola } from "./regras-servidor";
 import { contarDisponiveis, facilidadeDe, type Candidata } from "./selecao";
 import type { EtapaPlano, Plano, RegrasAprendizagem, TreinoDoPlano } from "./tipos";
@@ -60,6 +60,20 @@ export async function vistasDaConta(contaId: string): Promise<Record<string, str
 
 type Alvo = { chave: string; v: NonNullable<ReturnType<typeof chaveValida>> };
 
+/** Questões que um aluno da escola pode ver num treino: publicadas, não anuladas, visíveis à escola e fora de provas em sigilo. */
+async function lerQuestoesMostraveis<L extends { id: string }>(
+  escolaId: string, colunas: string, coluna: "id" | "assunto_id" | "materia", valores: string[], sigiloP: Promise<string[]>,
+): Promise<L[]> {
+  const [linhas, sig] = await Promise.all([
+    lerPorIds<L>(valores, (bloco, de, ate) =>
+      supabase.from("questoes").select(colunas as "*").eq("status", "publicada").eq("anulada", false)
+        .or(filtroVisivel(escolaId)).in(coluna, bloco).order("id").range(de, ate) as unknown as PromiseLike<{ data: L[] | null; error: { message: string } | null }>),
+    sigiloP,
+  ]);
+  const sigilo = new Set(sig);
+  return linhas.filter((q) => !sigilo.has(q.id));
+}
+
 /** Candidatas (publicadas, não anuladas, visíveis à escola, fora de provas em sigilo) por chave, em leitura por bloco. */
 async function lerCandidatas(
   aluno: AlunoConta, chaves: string[], vistas: Record<string, string>, comHabilidades: boolean,
@@ -70,14 +84,12 @@ async function lerCandidatas(
   if (alvos.length === 0) return saida;
   const sigiloP = emSigilo();
   type Linha = { id: string; topico_id: string | null; assunto_id: string | null; materia: string };
-  const ler = (coluna: "assunto_id" | "materia", valores: string[]) => lerPorIds<Linha>(valores, (bloco, de, ate) =>
-    supabase.from("questoes").select("id, topico_id, assunto_id, materia").eq("status", "publicada").eq("anulada", false)
-      .or(filtroVisivel(aluno.escola_id)).in(coluna, bloco).order("id").range(de, ate));
+  const ler = (coluna: "assunto_id" | "materia", valores: string[]) =>
+    lerQuestoesMostraveis<Linha>(aluno.escola_id, "id, topico_id, assunto_id, materia", coluna, valores, sigiloP);
   const porAssunto = alvos.flatMap((x) => ("assuntoId" in x.v ? [x.v.assuntoId] : []));
   const porMateria = alvos.flatMap((x) => ("materia" in x.v ? [x.v.materia] : []));
-  const [qa, qm, sig] = await Promise.all([ler("assunto_id", porAssunto), ler("materia", porMateria), sigiloP]);
-  const sigilo = new Set(sig);
-  const todas = new Map([...qa, ...qm].filter((q) => !sigilo.has(q.id)).map((q) => [q.id, q]));
+  const [qa, qm] = await Promise.all([ler("assunto_id", porAssunto), ler("materia", porMateria)]);
+  const todas = new Map([...qa, ...qm].map((q) => [q.id, q]));
   const habs = new Map<string, string[]>();
   if (comHabilidades && todas.size > 0) {
     const linhas = await lerPorIds<{ questao_id: string; habilidade_id: string }>([...todas.keys()], (bloco, de, ate) =>
@@ -234,13 +246,8 @@ export async function carregarPlano(conta: { id: string; escolaId: string }, vis
   // Refazer: das erradas, só as que um treino ainda mostraria (mesmos filtros de `lerCandidatas`); sem erradas, nem consulta.
   const lerMostraveis = async (): Promise<Set<string>> => {
     if (idsErradas.length === 0) return new Set();
-    const [visiveis, sig] = await Promise.all([
-      lerPorIds<{ id: string }>(idsErradas, (b, de, ate) => supabase.from("questoes").select("id").eq("status", "publicada").eq("anulada", false)
-        .or(filtroVisivel(conta.escolaId)).in("id", b).order("id").range(de, ate)),
-      emSigilo(),
-    ]);
-    const sigilo = new Set(sig);
-    return new Set(visiveis.map((q) => q.id).filter((id) => !sigilo.has(id)));
+    const visiveis = await lerQuestoesMostraveis<{ id: string }>(conta.escolaId, "id", "id", idsErradas, emSigilo());
+    return new Set(visiveis.map((q) => q.id));
   };
 
   // Material de estudo publicado (só quem tem e o tempo); sem ids, nem consulta.
@@ -284,7 +291,7 @@ export async function carregarPlano(conta: { id: string; escolaId: string }, vis
   }
 
   // Refazer: uma chance só em cada questão, gasta pela `ordem` de qualquer treino de refazer entregue (mesmo em branco).
-  const refeitas = new Set(treinos.filter((t) => ehRefazer(t.etapa) && t.entregueEm != null).flatMap((t) => t.questaoIds));
+  const refeitas = refeitasDe(treinos);
   const pendentesDe: Record<string, string[]> = {};
   const refazer: Record<string, { pendentes: number }> = {};
   for (const c of conteudos) {

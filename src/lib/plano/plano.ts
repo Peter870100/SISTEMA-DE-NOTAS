@@ -132,7 +132,7 @@ function etapaRefazer(chave: string, ts: TreinoDoPlano[], s: Rodada, e: EntradaP
   const questoes = aberta ? aberta.questaoIds.length : pendentes > 0 ? Math.min(pendentes, MAX_REFAZER) : (resultado?.total ?? 0);
   return {
     tipo: "refazer", estado, minutos: questoes * e.regras.minutosPorQuestao,
-    disponivelEm: null, treinoAberto: s.concluido ? null : (aberta?.simuladoId ?? null), resultado, pendentes,
+    disponivelEm: null, treinoAberto: s.concluido ? null : (aberta?.simuladoId ?? null), resultado, pendentes, questoes,
   };
 }
 

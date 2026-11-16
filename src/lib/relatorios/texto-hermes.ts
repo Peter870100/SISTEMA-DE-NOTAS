@@ -52,9 +52,11 @@ function linhaSimuladosAluno(simulados: LinhaSimuladoAluno[], semConta: boolean)
 
 function linhaTreinos(treinos: LinhaSimuladoAluno[]): string {
   if (treinos.length === 0) return "Treinos: nenhum.";
-  const notas = treinos.filter((t) => t.situacao === "fez" && t.nota10 != null).map((t) => t.nota10 as number);
+  const entregues = treinos.filter((t) => t.situacao === "fez" && t.nota10 != null);
+  // O refazer conta como começado/entregue, mas não entra na média.
+  const notas = entregues.filter((t) => !t.refazer).map((t) => t.nota10 as number);
   const media = notas.length ? `, média ${formatarNota(notas.reduce((s, n) => s + n, 0) / notas.length)}` : "";
-  return `Treinos: ${treinos.length} ${treinos.length === 1 ? "começado" : "começados"}, ${notas.length} ${notas.length === 1 ? "entregue" : "entregues"}${media}.`;
+  return `Treinos: ${treinos.length} ${treinos.length === 1 ? "começado" : "começados"}, ${entregues.length} ${entregues.length === 1 ? "entregue" : "entregues"}${media}.`;
 }
 
 function linhaAulas(r: RelatorioAluno, semConta: boolean): string {

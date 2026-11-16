@@ -131,6 +131,15 @@ test("resumoSimulados: para fazer, concluídos, média só liberada e tempo tota
   assert.equal(resumoSimulados([], [], new Map(), T0).media, null);
 });
 
+test("resumoSimulados: o refazer conta como concluído e no tempo, mas não entra na média", () => {
+  const sim = (id: string, extra: object) => ({ id, tipo: "treino", status: "publicado", abre_em: null, fecha_em: null, correcao: "na_hora", ...extra }) as never;
+  const entregue = (pct: number, seg: number) => ({ status: "entregue", porcentagem: pct, iniciada_em: T0.toISOString(), entregue_em: mais(seg).toISOString(), prazo_em: null, tempo_usado_seg: seg }) as never;
+  const t = new Map<string, never>([["comum", entregue(50, 100)], ["refazer", entregue(100, 200)]]);
+  const r = resumoSimulados([], [sim("comum", { plano_etapa: "pratica" }), sim("refazer", { plano_etapa: "refazer" })], t, mais(1000));
+  assert.equal(r.media, 50);
+  assert.equal(r.concluidos, 2);
+});
+
 test("sortearEquilibrado: divide igual entre as matérias e completa quando uma acaba", () => {
   const g = (p: string, n: number) => Array.from({ length: n }, (_, i) => `${p}${i}`);
   const conta = (ids: string[]) => ["a", "b", "c"].map((p) => ids.filter((id) => id.startsWith(p)).length);

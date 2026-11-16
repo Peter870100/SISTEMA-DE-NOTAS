@@ -478,6 +478,7 @@ test("refazer antes de estudar: 4 etapas, refazer aguardando e fora da sugestão
   assert.equal(c.minutosProximos, 39);
   assert.equal(c.total, 4);
   assert.equal(c.etapas[1].pendentes, 3);
+  assert.equal(c.etapas[1].questoes, 3);
   assert.equal(etapaDeTreino(c), "pratica");
   assert.deepEqual(etapasLiberadas(c), ["pratica"]);
   assert.equal(sugestaoDepoisDeEstudar(c), "refazer");
@@ -487,6 +488,7 @@ test("depois de estudar, refazer disponível e sugerido; no máximo 10", () => {
   const c = so({ refazer: { a: { pendentes: 12 } }, revisadoEm: ESTUDOU });
   assert.deepEqual(estados(c), ["feita", "disponivel", "disponivel", "aguardando"]);
   assert.equal(c.etapas[1].minutos, 30);
+  assert.equal(c.etapas[1].questoes, 10);
   assert.equal(etapaDeTreino(c), "refazer");
   assert.deepEqual(etapasLiberadas(c), ["refazer", "pratica"]);
 });
@@ -501,6 +503,7 @@ test("refazer entregue sem pendentes: feita, com resultado; com pendentes volta 
   assert.equal(feito.etapas[1].estado, "feita");
   assert.deepEqual(feito.etapas[1].resultado, { acertos: 1, total: 3 });
   assert.equal(feito.etapas[1].minutos, 9);
+  assert.equal(feito.etapas[1].questoes, 3);
   assert.ok(!feito.texto.includes("refaça"));
   assert.equal(etapaDeTreino(feito), "pratica");
   const mais = so({ refazer: { a: { pendentes: 1 } }, revisadoEm: ESTUDOU, treinos: [refeito()] });
@@ -540,6 +543,7 @@ test("conteúdo sem prioridade com refazer aberto continua no plano", () => {
   const e = c.etapas.find((x) => x.tipo === "refazer")!;
   assert.equal(e.treinoAberto, "f2");
   assert.equal(e.minutos, 6);
+  assert.equal(e.questoes, 2);
 });
 test("rodada 2 com refazer aberto: refazer disponível e sugerido", () => {
   const falhou = tr({ simuladoId: "p1", criadoEm: "2026-11-02T11:00:00.000Z", entregueEm: "2026-11-02T12:00:00.000Z", acertos: 1, total: 5 });
