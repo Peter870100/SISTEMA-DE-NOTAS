@@ -5,8 +5,9 @@ import { supabase } from "@/lib/supabase/client";
 import { getAlunoAtual } from "@/lib/auth";
 import { AREAS, ehMateria, MATERIAS } from "@/lib/questoes/materias";
 import { candidatosComMateria, candidatosSorteio, entregarTentativa, fecharVencidas, salvarTempos, questoesDeProvasEmSigilo, questoesParaAluno, simuladoVisivelParaAluno, type FiltrosSorteio, type QuestaoAluno } from "@/lib/simulados/servidor";
-import { aceitaResposta, acumularTempo, correcaoLiberada, MAX_TREINO, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, sortearEquilibrado, tempoDeProvaSeg, tempoEsgotado, type TemposQuestoes } from "@/lib/simulados/regras";
+import { aceitaResposta, acumularTempo, correcaoLiberada, MAX_TREINO, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, ordenarPorNovidade, sortearEquilibradoEmOrdem, tempoDeProvaSeg, tempoEsgotado, type TemposQuestoes } from "@/lib/simulados/regras";
 import { assuntosParaRevisar, aulasDoTema, type InfoQuestao, type ItemRevisar } from "@/lib/simulados/revisao";
+import { vistasDaConta } from "@/lib/plano/dados";
 import { estudosPublicados } from "@/lib/estudos/dados";
 import { cursosDoAluno } from "@/lib/aulas/acesso";
 import type { Presenca } from "@/lib/hermes/presenca";
@@ -44,12 +45,13 @@ export async function criarTreino(f: FiltrosSorteio & { quantidade: number; dura
   if (materias.some((m) => typeof m !== "string" || !ehMateria(m) || (f.area && MATERIAS[m].area !== f.area))) throw new Error("Matéria inválida.");
   const filtros: FiltrosSorteio = { area: f.area || undefined, materia: materias.length ? undefined : f.materia, materias: materias.length ? materias : undefined, assunto_id: f.assunto_id, banca: f.banca, anoDe: num(f.anoDe), anoAte: num(f.anoAte) };
   const sigilo = await questoesDeProvasEmSigilo(aluno);
+  const vistas = await vistasDaConta(aluno.id); // prefere questões nunca vistas, depois as vistas há mais tempo
   let ids: string[];
   if (materias.length > 1) {
     const candidatos = await candidatosComMateria(aluno.escola_id, filtros, sigilo);
-    ids = sortearEquilibrado(materias.map((m) => candidatos.filter((q) => q.materia === m).map((q) => q.id)), pedidas);
+    ids = sortearEquilibradoEmOrdem(materias.map((m) => ordenarPorNovidade(candidatos.filter((q) => q.materia === m).map((q) => q.id), vistas)), pedidas);
   } else {
-    ids = sortear(await candidatosSorteio(aluno.escola_id, filtros, sigilo), pedidas);
+    ids = sortear(ordenarPorNovidade(await candidatosSorteio(aluno.escola_id, filtros, sigilo), vistas).slice(0, pedidas), pedidas);
   }
   if (ids.length === 0) throw new Error("Não há questões publicadas com esses filtros.");
   const { data: s, error } = await supabase.from("simulados")

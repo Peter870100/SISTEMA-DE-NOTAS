@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aceitaResposta, acumularTempo, correcaoLiberada, corrigir, formatarDuracao, mesclarTempos, resumoSimulados, tempoDeProvaSeg, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, sortearEquilibrado, tempoEsgotado } from "./regras";
+import { aceitaResposta, acumularTempo, correcaoLiberada, corrigir, formatarDuracao, mesclarTempos, resumoSimulados, tempoDeProvaSeg, ordemEmbaralhada, prazoFinal, situacaoSimulado, sortear, sortearEquilibrado, sortearEquilibradoEmOrdem, ordenarPorNovidade, tempoEsgotado } from "./regras";
 
 const T0 = new Date("2026-10-20T13:00:00Z");
 const mais = (seg: number) => new Date(T0.getTime() + seg * 1000);
@@ -142,4 +142,18 @@ test("sortearEquilibrado: divide igual entre as matérias e completa quando uma 
   assert.deepEqual(conta(sortearEquilibrado([g("a", 1), g("b", 10)], 6)), [1, 5, 0]);
   assert.equal(sortearEquilibrado([g("a", 2), g("b", 1)], 10).length, 3);
   assert.deepEqual(sortearEquilibrado([], 5), []);
+});
+
+test("ordenarPorNovidade: nunca vistas primeiro, depois da vista há mais tempo", () => {
+  const r = ordenarPorNovidade(["a", "b", "c", "d"], { c: "2026-10-01T00:00:00.000Z", a: "2026-11-01T00:00:00.000Z" });
+  assert.deepEqual([...r.slice(0, 2)].sort(), ["b", "d"]);
+  assert.deepEqual(r.slice(2), ["c", "a"]);
+});
+test("ordenarPorNovidade: sem vistas, todas, sem repetir", () => {
+  assert.deepEqual([...ordenarPorNovidade(["x", "y", "z"], {})].sort(), ["x", "y", "z"]);
+});
+test("sortearEquilibradoEmOrdem: respeita a ordem dentro da matéria e equilibra", () => {
+  const r = sortearEquilibradoEmOrdem([["a1", "a2", "a3"], ["b1"]], 3);
+  assert.deepEqual([...r].sort(), ["a1", "a2", "b1"]);
+  assert.equal(sortearEquilibradoEmOrdem([["a1"], ["b1"]], 10).length, 2);
 });

@@ -101,9 +101,8 @@ export function sortear<T>(candidatos: T[], quantidade: number, aleatorio: () =>
   return lista.slice(0, n);
 }
 
-/** Sorteio equilibrado entre grupos (matérias): um de cada grupo por rodada; grupo esgotado deixa a vaga para os outros. */
-export function sortearEquilibrado<T>(grupos: T[][], quantidade: number, aleatorio: () => number = Math.random): T[] {
-  const filas = sortear(grupos.filter((g) => g.length > 0), grupos.length, aleatorio).map((g) => sortear(g, g.length, aleatorio));
+/** Rodadas entre filas já prontas: uma de cada fila por rodada; fila esgotada deixa a vaga para as outras. Mistura o caderno no fim. */
+function rodadas<T>(filas: T[][], quantidade: number, aleatorio: () => number): T[] {
   const escolhidos: T[] = [];
   for (let rodada = 0; escolhidos.length < quantidade && filas.some((f) => f.length > rodada); rodada++) {
     for (const fila of filas) {
@@ -112,6 +111,25 @@ export function sortearEquilibrado<T>(grupos: T[][], quantidade: number, aleator
     }
   }
   return sortear(escolhidos, escolhidos.length, aleatorio); // mistura a ordem das matérias no caderno
+}
+
+/** Sorteio equilibrado entre grupos (matérias): um de cada grupo por rodada; grupo esgotado deixa a vaga para os outros. */
+export function sortearEquilibrado<T>(grupos: T[][], quantidade: number, aleatorio: () => number = Math.random): T[] {
+  const filas = sortear(grupos.filter((g) => g.length > 0), grupos.length, aleatorio).map((g) => sortear(g, g.length, aleatorio));
+  return rodadas(filas, quantidade, aleatorio);
+}
+
+/** Como `sortearEquilibrado`, mas mantém a ordem dentro de cada grupo (só embaralha a ordem dos grupos e o caderno final). */
+export function sortearEquilibradoEmOrdem<T>(grupos: T[][], quantidade: number, aleatorio: () => number = Math.random): T[] {
+  const filas = sortear(grupos.filter((g) => g.length > 0), grupos.length, aleatorio);
+  return rodadas(filas, quantidade, aleatorio);
+}
+
+/** Nunca vistas (embaralhadas) primeiro; depois as vistas, da data mais antiga para a mais recente (empate: id crescente). */
+export function ordenarPorNovidade(ids: string[], vistas: Record<string, string>, aleatorio: () => number = Math.random): string[] {
+  const novas = ids.filter((id) => !vistas[id]);
+  const vistasOrd = ids.filter((id) => vistas[id]).sort((a, b) => (vistas[a] < vistas[b] ? -1 : vistas[a] > vistas[b] ? 1 : a < b ? -1 : a > b ? 1 : 0));
+  return [...sortear(novas, novas.length, aleatorio), ...vistasOrd];
 }
 
 export type Situacao = "rascunho" | "agendado" | "aberto" | "encerrado";
