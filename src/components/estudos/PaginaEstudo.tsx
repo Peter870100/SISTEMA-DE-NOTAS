@@ -91,17 +91,12 @@ function ProximoPasso({ estudo, plano, extras, regras }: { estudo: EstudoTela; p
   const textoRefazer = `${quantidadeDaEtapa("refazer", regras, pendentes)} questões de ${plano.nome} que você errou ou deixou em branco. Uma chance em cada; no fim você vê a resposta certa.`;
 
   const estudoFeito = !revisar || revisar.estado === "feita";
-  if (plano.situacao === "revisar" && !estudoFeito && sugestaoDepoisDeEstudar(plano) === "refazer") {
+  const refazerAgora = plano.situacao === "revisar" && !estudoFeito && sugestaoDepoisDeEstudar(plano) === "refazer";
+  if (refazerAgora || etapa === "refazer") {
+    // Um só componente nos dois casos: o erro sobrevive ao router.refresh() que troca um caso pelo outro.
     return (
       <Cartao titulo="Agora refaça as que você errou" texto={textoRefazer}>
-        <BotaoEstudeiRefazer conteudo={plano.chave} className={css.botao} />
-      </Cartao>
-    );
-  }
-  if (etapa === "refazer") {
-    return (
-      <Cartao titulo="Agora refaça as que você errou" texto={textoRefazer}>
-        {botao}
+        <BotaoEstudeiRefazer conteudo={plano.chave} marcarAntes={refazerAgora} treinoAberto={aberto} rotulo={rotuloEtapa("refazer", regras, aberto !== null, plano.situacao, pendentes)} className={css.botao} />
       </Cartao>
     );
   }
