@@ -13,7 +13,7 @@ import type { ValorCelula } from "@/lib/status";
 import type { GrupoTurma } from "./acesso";
 import {
   acertoPorMateria, agruparAlunoEntreBimestres, atividadesDaLinha, distribuicaoMedias, fraseAluno, fraseTurma, mediaDaTurma, quantoFalta,
-  rankingTurma, resumoAulas, situacaoNoSimulado,
+  rankingTurma, resumoAulas, situacaoNoSimulado, treinosQueContam,
 } from "./calculos";
 import { mediaAprovacaoDaEscola } from "./media";
 import type {
@@ -79,7 +79,7 @@ type TurmaLida = { id: string; bimestre: string; bimestre_vigente: boolean; bime
 type Linha = { turmaId: string; bimestre: string; alunoId: string; nome: string };
 type Vinculo = { conta_id: string; aluno_id: string | null };
 type Conta = { id: string; nome: string; ultimo_acesso: string | null };
-type SimuladoLido = { id: string; titulo: string; tipo: "professor" | "treino"; status: string; abre_em: string | null; fecha_em: string | null; created_at: string };
+type SimuladoLido = { id: string; titulo: string; tipo: "professor" | "treino"; status: string; abre_em: string | null; fecha_em: string | null; created_at: string; plano_etapa?: string | null };
 type TentativaLida = {
   id: string; simulado_id: string; conta_id: string; status: string; porcentagem: number | string | null;
   iniciada_em: string; entregue_em: string | null; prazo_em: string | null; tempo_usado_seg: number;
@@ -90,7 +90,7 @@ type ProgressoLido = { conta_id: string; aula_id: string; maior_posicao_seg: num
 type RespostaLida = { materia: string | null; correta: boolean | null; anulada: boolean };
 type ColunaLida = { id: string; turma_id: string; titulo: string; tipo: string; ordem: number };
 
-const COLUNAS_SIMULADO = "id, titulo, tipo, status, abre_em, fecha_em, created_at";
+const COLUNAS_SIMULADO = "id, titulo, tipo, status, abre_em, fecha_em, created_at, plano_etapa";
 const COLUNAS_TENTATIVA = "id, simulado_id, conta_id, status, porcentagem, iniciada_em, entregue_em, prazo_em, tempo_usado_seg, saidas, tempo_fora_seg";
 
 const m10 = (m: number | null) => (m === null ? null : paraEscala10(m));
@@ -331,7 +331,7 @@ function treinosDaPessoa(e: Extras, contaId: string | null, agora: Date): LinhaS
 }
 
 function respostasDasContas(e: Extras, contaIds: Set<string>): RespostaLida[] {
-  const tents = [...e.tentProva.values(), ...e.treinos.map((x) => x.t)].filter((t) => contaIds.has(t.conta_id));
+  const tents = [...e.tentProva.values(), ...treinosQueContam(e.treinos).map((x) => x.t)].filter((t) => contaIds.has(t.conta_id));
   return tents.flatMap((t) => e.respostas.get(t.id) ?? []);
 }
 

@@ -5,6 +5,7 @@
 import { paraEscala10 } from "@/lib/analytics";
 import type { EstadoAula } from "@/lib/aulas/progresso";
 import { normalizarBusca } from "@/lib/hermes/relatorios";
+import { ehRefazer } from "@/lib/plano/refazer";
 import { MATERIAS } from "@/lib/questoes/materias";
 import type {
   AcertoMateria,
@@ -298,4 +299,9 @@ export function fraseTurma(r: Omit<RelatorioTurma, "frase">, media: number): str
     partes.push(`${r.materiasFracas.length === 1 ? "Matéria mais fraca" : "Matérias mais fracas"}: ${juntarComE(r.materiasFracas.map((m) => `${m.rotulo} (${formatarPct(m.pct)})`))}.`);
   }
   return partes.join(" ");
+}
+
+/** Treinos que entram nos números: os de "refazer as erradas" ficam de fora (o aluno já viu o gabarito). */
+export function treinosQueContam<T extends { s: { plano_etapa?: string | null } }>(treinos: T[]): T[] {
+  return treinos.filter((x) => !ehRefazer(x.s.plano_etapa));
 }

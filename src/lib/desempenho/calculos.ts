@@ -1,6 +1,7 @@
 import { MATERIAS, ehMateria } from "@/lib/questoes/materias";
 import { textoCriterio, textoRecomendacao } from "@/lib/plano/textos";
 import type { Foco } from "@/lib/plano/tipos";
+import { ehRefazer } from "@/lib/plano/refazer";
 import { REGRAS, type Regras } from "./regras";
 import type { AtividadeEvolucao, Comparacao, ConteudoDesempenho, MateriaDesempenho, PainelDesempenho, Prioridade, RespostaDesempenho, ResumoGeral, TopicoDesempenho } from "./tipos";
 
@@ -14,7 +15,7 @@ const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const porErro = (a: ConteudoDesempenho, b: ConteudoDesempenho) => b.taxaErro - a.taxaErro || b.erros - a.erros || a.nome.localeCompare(b.nome, "pt-BR");
 
 /** Prática e revisão do plano de estudo: treinos feitos depois do desempenho inicial. */
-export const ehTreinoDepois = (r: Pick<RespostaDesempenho, "planoEtapa">): boolean => r.planoEtapa === "pratica" || r.planoEtapa === "revisao";
+export const ehTreinoDepois = (r: Pick<RespostaDesempenho, "planoEtapa">): boolean => r.planoEtapa === "pratica" || r.planoEtapa === "revisao" || ehRefazer(r.planoEtapa);
 
 /** Respostas que valem como desempenho inicial (sem prática e revisão do plano). */
 export const respostasIniciais = (rs: RespostaDesempenho[]): RespostaDesempenho[] => rs.filter((r) => !ehTreinoDepois(r));
@@ -150,7 +151,7 @@ export function porMateria(cs: ConteudoDesempenho[]): MateriaDesempenho[] {
 export function evolucao(rs: RespostaDesempenho[]): AtividadeEvolucao[] {
   const grupos = new Map<string, AtividadeEvolucao>();
   for (const r of rs) {
-    if (r.anulada) continue;
+    if (r.anulada || ehRefazer(r.planoEtapa)) continue;
     const g = grupos.get(r.atividadeId) ?? { atividadeId: r.atividadeId, titulo: r.atividadeTitulo, entregueEm: r.entregueEm, acertos: 0, total: 0, pct: 0 };
     g.total += 1;
     if (acerto(r)) g.acertos += 1;

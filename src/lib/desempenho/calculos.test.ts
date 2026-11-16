@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { comparar, ehPrioritario, evolucao, focoDoConteudo, legendaErro, maisErro, montarPainel, porConteudo, prioridades, resumoGeral } from "./calculos";
+import { comparar, ehPrioritario, evolucao, focoDoConteudo, legendaErro, maisErro, montarPainel, porConteudo, prioridades, respostasIniciais, resumoGeral } from "./calculos";
 import { regrasDoPainel } from "./regras";
 import { REGRAS_PADRAO } from "@/lib/plano/regras";
 import { textoRecomendacao } from "@/lib/plano/textos";
@@ -198,4 +198,16 @@ test("porConteudo: tópicos do conteúdo com legenda, só os classificados", () 
   const rs = [r({ topicoId: "t1", topicoNome: "Juros", correta: false, alternativa: "B" }), r({ topicoId: "t1", topicoNome: "Juros" }), r()];
   const [c1] = porConteudo(rs);
   assert.deepEqual(c1.topicos.map((t) => [t.nome, t.legenda]), [["Juros", "50% de erro — 1 erro em 2 questões"]]);
+});
+
+test("refazer não conta: fora das respostas iniciais, do resumo e da evolução", () => {
+  const prof = r({ questaoId: "q1", correta: false, alternativa: "B" });
+  const refez = r({ questaoId: "q1", correta: true, tipo: "treino", atividadeId: "a-refazer", planoEtapa: "refazer" });
+  const pratica = r({ questaoId: "q9", correta: true, tipo: "treino", atividadeId: "a-pratica", planoEtapa: "pratica" });
+  const iniciais = respostasIniciais([prof, refez]);
+  assert.deepEqual(iniciais, [prof]);
+  assert.deepEqual(resumoGeral(iniciais), { respondidas: 1, acertos: 0, erros: 1, emBranco: 0, taxaAcerto: 0, refeitas: 0 });
+  const ev = evolucao([prof, refez, pratica]);
+  assert.equal(ev.some((a) => a.atividadeId === "a-refazer"), false);
+  assert.equal(ev.some((a) => a.atividadeId === "a-pratica"), true);
 });

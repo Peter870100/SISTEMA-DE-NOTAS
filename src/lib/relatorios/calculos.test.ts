@@ -13,6 +13,7 @@ import {
   rankingTurma,
   resumoAulas,
   situacaoNoSimulado,
+  treinosQueContam,
 } from "./calculos";
 import type { BimestreAluno, LinhaSimuladoAluno, RelatorioAluno, RelatorioTurma } from "./tipos";
 
@@ -376,4 +377,12 @@ test("fraseTurma: exemplo completo", () => {
   const andamento = fraseTurma({ ...r, mediaTurma: 5, mediaTurmaBase: "andamento", simulados: [...r.simulados].reverse() }, 6);
   assert.match(andamento, /média 5,0 no bimestre em andamento/);
   assert.match(andamento, /Último simulado \('Ufms 23'\)/);
+});
+
+test("treinosQueContam tira os treinos de refazer", () => {
+  const a = { s: { plano_etapa: null } };
+  const b = { s: { plano_etapa: "pratica" } };
+  const c = { s: { plano_etapa: "refazer" } };
+  const d = { s: {} };
+  assert.deepEqual(treinosQueContam([a, b, c, d]), [a, b, d]);
 });
