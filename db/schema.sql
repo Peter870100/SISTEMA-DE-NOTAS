@@ -1457,7 +1457,7 @@ alter table escolas add column if not exists regras_aprendizagem jsonb;
 
 alter table simulados add column if not exists plano_conteudo text;
 alter table simulados add column if not exists plano_etapa varchar(11)
-    check (plano_etapa in ('diagnostico', 'pratica', 'revisao'));
+    check (plano_etapa in ('diagnostico', 'pratica', 'revisao', 'refazer'));
 alter table simulados add column if not exists plano_rodada integer;
 -- os três juntos, e só em treino
 alter table simulados drop constraint if exists simulados_plano_check;

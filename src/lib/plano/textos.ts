@@ -47,7 +47,7 @@ export function textoResolucoes(n: number): string {
     : `Releia as resoluções das ${n} questões que você errou`;
 }
 
-const PREFIXO: Record<EtapaPlano, string> = { diagnostico: "Diagnóstico", pratica: "Prática", revisao: "Revisão" };
+const PREFIXO: Record<EtapaPlano, string> = { diagnostico: "Diagnóstico", pratica: "Prática", revisao: "Revisão", refazer: "Refazer" };
 
 /** Título do treino do plano, limitado a 120 caracteres. */
 export function tituloTreino(etapa: EtapaPlano, nome: string): string {

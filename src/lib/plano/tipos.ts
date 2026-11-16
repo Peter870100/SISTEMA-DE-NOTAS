@@ -1,6 +1,6 @@
 import type { ConteudoDesempenho, Prioridade } from "@/lib/desempenho/tipos";
 
-export type EtapaPlano = "diagnostico" | "pratica" | "revisao";
+export type EtapaPlano = "diagnostico" | "pratica" | "revisao" | "refazer";
 
 export type RegrasAprendizagem = {
   minQuestoesPrioridade: number;
@@ -19,11 +19,11 @@ export type RegrasAprendizagem = {
 export type Foco = { topicoId: string; nome: string; erros: number; questoes: number };
 
 /** Treino do plano (simulado tipo treino com plano_etapa), com o resultado da tentativa quando entregue. */
-export type TreinoDoPlano = { simuladoId: string; conteudo: string; etapa: EtapaPlano; rodada: number; criadoEm: string; entregueEm: string | null; acertos: number | null; total: number | null };
+export type TreinoDoPlano = { simuladoId: string; conteudo: string; etapa: EtapaPlano; rodada: number; criadoEm: string; entregueEm: string | null; acertos: number | null; total: number | null; questaoIds: string[] };
 
 export type TipoEtapa = "revisar" | EtapaPlano;
 
-export type Etapa = { tipo: TipoEtapa; estado: "feita" | "disponivel" | "aguardando"; minutos: number; disponivelEm: string | null; treinoAberto: string | null; resultado: { acertos: number; total: number } | null };
+export type Etapa = { tipo: TipoEtapa; estado: "feita" | "disponivel" | "aguardando"; minutos: number; disponivelEm: string | null; treinoAberto: string | null; resultado: { acertos: number; total: number } | null; pendentes?: number };
 
 export type ConteudoPlano = {
   chave: string; materia: string | null; materiaRotulo: string; assuntoId: string | null; nome: string;
@@ -40,5 +40,5 @@ export type Plano = {
 export type EntradaPlano = {
   conteudos: ConteudoDesempenho[]; prioridades: Prioridade[]; treinos: TreinoDoPlano[];
   revisadoEm: Record<string, string>; minutosRevisar: Record<string, number>; prerequisitos: Record<string, string[]>;
-  minutosSemana: number | null; regras: RegrasAprendizagem; agora: Date;
+  minutosSemana: number | null; regras: RegrasAprendizagem; agora: Date; refazer: Record<string, { pendentes: number }>;
 };

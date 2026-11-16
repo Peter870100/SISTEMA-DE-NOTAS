@@ -11,8 +11,8 @@ import { SeloPlano } from "./SeloPlano";
 import css from "./PlanoEstudo.module.css";
 
 const SEM_EXTRAS: ExtrasConteudo = { materiais: [], resolucoes: 0, disponiveis: null, prerequisitos: [], habilidades: [], estudo: null };
-const TITULO: Record<Etapa["tipo"], string> = { revisar: "Revisar o conteúdo", pratica: "Praticar", revisao: "Revisão", diagnostico: "Diagnóstico" };
-const ULTIMO: Record<Etapa["tipo"], string> = { revisar: "Última revisão", pratica: "Última prática", revisao: "Última revisão", diagnostico: "Último diagnóstico" };
+const TITULO: Record<Etapa["tipo"], string> = { revisar: "Revisar o conteúdo", pratica: "Praticar", revisao: "Revisão", diagnostico: "Diagnóstico", refazer: "Refazer as erradas" };
+const ULTIMO: Record<Etapa["tipo"], string> = { revisar: "Última revisão", pratica: "Última prática", revisao: "Última revisão", diagnostico: "Último diagnóstico", refazer: "Refez" };
 
 function estadoTexto(e: Etapa): string {
   if (e.estado === "feita") return "Feita ✓";

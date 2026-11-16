@@ -34,14 +34,15 @@ async function lerTreinos(contaId: string): Promise<TreinoDoPlano[]> {
     supabase.from("simulados").select("id, plano_etapa, plano_conteudo, plano_rodada, created_at")
       .eq("conta_id", contaId).not("plano_etapa", "is", null).order("id").range(de, ate));
   if (sims.length === 0) return [];
-  const tents = await lerPorIds<{ id: string; simulado_id: string; entregue_em: string | null; acertos: number | null; total: number | null; status: string }>(sims.map((s) => s.id), (bloco, de, ate) =>
-    supabase.from("tentativas").select("id, simulado_id, entregue_em, acertos, total, status").eq("conta_id", contaId).in("simulado_id", bloco).order("id").range(de, ate));
+  const tents = await lerPorIds<{ id: string; simulado_id: string; entregue_em: string | null; acertos: number | null; total: number | null; status: string; ordem: string[] | null }>(sims.map((s) => s.id), (bloco, de, ate) =>
+    supabase.from("tentativas").select("id, simulado_id, entregue_em, acertos, total, status, ordem").eq("conta_id", contaId).in("simulado_id", bloco).order("id").range(de, ate));
   const entregues = new Map(tents.filter((t) => t.status === "entregue").map((t) => [t.simulado_id, t]));
+  const ordemDe = new Map(tents.map((t) => [t.simulado_id, t.ordem ?? []]));
   return sims.flatMap((s): TreinoDoPlano[] => {
     if (!s.plano_etapa || !s.plano_conteudo) return [];
     const t = entregues.get(s.id);
     return [{ simuladoId: s.id, conteudo: s.plano_conteudo, etapa: s.plano_etapa, rodada: s.plano_rodada ?? 1, criadoEm: s.created_at,
-      entregueEm: t?.entregue_em ?? null, acertos: t?.acertos ?? null, total: t?.total ?? null }];
+      entregueEm: t?.entregue_em ?? null, acertos: t?.acertos ?? null, total: t?.total ?? null, questaoIds: ordemDe.get(s.id) ?? [] }];
   });
 }
 
@@ -261,6 +262,6 @@ export async function carregarPlano(conta: { id: string; escolaId: string }, vis
   }
 
   // O plano usa todos os conteúdos do painel; só as marcas e minutos vêm dos conteúdos do plano.
-  const plano = montarPlano({ conteudos: painel.conteudos, prioridades: painel.prioridades, treinos, revisadoEm: mat.revisadoEm, minutosRevisar: mat.minutosRevisar, prerequisitos, minutosSemana, regras, agora });
+  const plano = montarPlano({ conteudos: painel.conteudos, prioridades: painel.prioridades, treinos, revisadoEm: mat.revisadoEm, minutosRevisar: mat.minutosRevisar, prerequisitos, minutosSemana, regras, agora, refazer: {} });
   return { painel, respostas, plano, extras, regras, habilidadesAlvo };
 }

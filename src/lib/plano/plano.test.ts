@@ -13,10 +13,10 @@ const cd = (chave: string, o: Partial<ConteudoDesempenho> = {}): ConteudoDesempe
 const pri = (c: ConteudoDesempenho, tipo: Prioridade["tipo"] = "revisar"): Prioridade => ({ tipo, conteudo: c, texto: "" });
 const tr = (o: Partial<TreinoDoPlano> = {}): TreinoDoPlano => ({
   simuladoId: "s1", conteudo: "a", etapa: "pratica", rodada: 1, criadoEm: "2026-10-01T10:00:00.000Z",
-  entregueEm: null, acertos: null, total: null, ...o,
+  entregueEm: null, acertos: null, total: null, questaoIds: [], ...o,
 });
 const plano = (o: Partial<EntradaPlano> = {}): Plano =>
-  montarPlano({ conteudos: [], prioridades: [], treinos: [], revisadoEm: {}, minutosRevisar: {}, prerequisitos: {}, minutosSemana: null, regras: REGRAS_PADRAO, agora, ...o });
+  montarPlano({ conteudos: [], prioridades: [], treinos: [], revisadoEm: {}, minutosRevisar: {}, prerequisitos: {}, minutosSemana: null, regras: REGRAS_PADRAO, agora, refazer: {}, ...o });
 const todos = (p: Plano) => [...p.semana, ...p.depois, ...p.concluidos];
 /** Plano com um só conteúdo "a" (prioridade revisar); devolve esse conteúdo. */
 function so(o: Partial<EntradaPlano> = {}): ConteudoPlano {
