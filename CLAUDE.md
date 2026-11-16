@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Estado do projeto (atualizado em 2026-11-05)
+# Estado do projeto (atualizado em 2026-11-16)
 
 Plataforma escolar "Status Avalia" (Next.js 16.2, React 19, Supabase, TypeScript). Produção em
 www.statusavalia.com.br (projeto Vercel `sistema-de-notas`, deploy automático a cada push no `master`).
@@ -79,6 +79,13 @@ O Peter fala português; respostas em pt-BR.
    MCP do dono: `assuntos_para_estudo`, `salvar_material_estudo`, `ler_material_estudo`, `registrar_checagem_estudo`,
    `corrigir_exercicio_estudo`, `corrigir_texto_estudo` (só o texto de material retido por texto reprovado, uma rodada além das duas checagens), `avisos_estudo` (`src/lib/mcp/acoes/estudos.ts`). Roteiro de produção: `docs/reestudo-conteudo.md`.
    SQL: `db/2026-11-04-reestudo.sql` (colado em 2026-11-05). A situação por assunto sai de `assuntos_para_estudo`.
+   Refazer as erradas (2026-11-16; spec `docs/superpowers/specs/2026-11-16-refazer-erradas-design.md`, plano
+   `docs/superpowers/plans/2026-11-16-refazer-erradas.md`, SQL `db/2026-11-16-refazer-erradas.sql`, libera `plano_etapa = 'refazer'`):
+   depois de estudar, o plano tem a etapa "Refazer as erradas" entre Estudar e Praticar (questões erradas ou em branco nas respostas
+   iniciais do assunto, uma chance cada, até 10 por treino, só depois de "Já estudei"; não aprova nem reprova; fica fora do Meu
+   desempenho, da evolução, das médias de acerto e do acerto por matéria dos relatórios/Hermes); regras em `src/lib/plano/refazer.ts`
+   e `plano.ts`. Treinos livres e "Treinar este assunto" preferem questões nunca vistas, depois as vistas há mais tempo
+   (`ordenarPorNovidade` em `src/lib/simulados/regras.ts`).
 
 ## Próximo passo
 - **Reestudo: produzir o conteúdo por matéria**, seguindo `docs/reestudo-conteudo.md`. Em 2026-11-15 (lido no banco): Matemática 25 de 25,
@@ -88,9 +95,7 @@ O Peter fala português; respostas em pt-BR.
   Sociologia, Inglês, Espanhol, Artes e Educação Física estão em zero. 14 exercícios retidos duas vezes, que só o dono corrige no painel:
   Funções 4, Números complexos 7, Geometria espacial 10, Trigonometria 9, Morfologia 1, Ditadura militar 6, Brasil República 9,
   Imperialismo 1, 4, 5 e 8, Nacionalismo e unificações 8, Crise de 1929 9 e História da África 7. O Peter quer em todas as matérias.
-  Assunto sem material publicado segue como antes.
-  Ainda por fazer no código: depois dos 10 exercícios, voltar às questões erradas do simulado; "Treinar este assunto" não repetir as já vistas.
-- **Projeto 4 de 4 do acompanhamento da aprendizagem: IA.** Depende de crédito na API Anthropic (ver abaixo).
+  Assunto sem material publicado segue como antes.- **Projeto 4 de 4 do acompanhamento da aprendizagem: IA.** Depende de crédito na API Anthropic (ver abaixo).
 - Loja com Stripe: adiada pelo Peter em 2026-11-08 (primeiro o reestudo). Spec e plano seguem guardados; não retomar sem ele pedir.
 - Conta da API Anthropic está SEM CRÉDITO (2026-10-30): gerador do site e da Hermes falham com
   "credit balance is too low" até o Peter recarregar. A chave na Vercel foi trocada e é válida.
