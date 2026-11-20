@@ -1,8 +1,12 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { type LucideIcon, ArrowRight, CalendarClock, CircleCheck, ClipboardList, Hourglass, Layers, ListTodo, Percent, Route, Timer, Trophy } from "lucide-react";
+import { type LucideIcon, ArrowRight, CalendarClock, ChevronDown, CircleCheck, ClipboardList, Hourglass, Layers, ListTodo, Percent, Route, Timer, Trophy } from "lucide-react";
 import { PainelResumo, type ItemResumo } from "@/components/ui/PainelResumo";
 import type { DadosPlano } from "@/lib/plano/dados";
+import { agruparPorMateria, textoQuantidadeConteudos } from "@/lib/plano/grupos";
+import type { ConteudoPlano, RegrasAprendizagem } from "@/lib/plano/tipos";
+import type { ExtrasConteudo } from "@/lib/plano/extras";
+import { AbrirConteudoDoLink } from "./AbrirConteudoDoLink";
 import { formatarMinutos } from "@/lib/plano/textos";
 import { CartaoConteudoPlano } from "./CartaoConteudoPlano";
 import { TempoSemana } from "./TempoSemana";
@@ -14,6 +18,28 @@ function Secao({ id, titulo, Icone, children }: { id: string; titulo: string; Ic
       <h2 id={id} className={css.tituloSecao}><span className={css.iconeSecao} data-icone><Icone size={21} strokeWidth={2.2} aria-hidden="true" /></span>{titulo}</h2>
       {children}
     </section>
+  );
+}
+
+/** Conteúdos separados por matéria; cada matéria fica recolhida até o aluno clicar nela. */
+function ListaPorMateria({ lista, extras, regras, criterio, compacto }: {
+  lista: ConteudoPlano[]; extras: Record<string, ExtrasConteudo | undefined>; regras: RegrasAprendizagem; criterio: string; compacto?: boolean;
+}) {
+  return (
+    <div className={css.grupos}>
+      {agruparPorMateria(lista).map((g) => (
+        <details key={g.materia} className={css.grupo}>
+          <summary className={css.resumoGrupo}>
+            <span className={css.nomeGrupo}>{g.materia}</span>
+            <span className={css.qtdGrupo}>{textoQuantidadeConteudos(g.itens.length)}</span>
+            <ChevronDown className={css.setaGrupo} size={22} strokeWidth={2.4} aria-hidden="true" />
+          </summary>
+          <ul className={css.lista}>
+            {g.itens.map((c, i) => <CartaoConteudoPlano key={c.chave} c={c} extras={extras[c.chave]} regras={regras} i={i} criterio={criterio} compacto={compacto} />)}
+          </ul>
+        </details>
+      ))}
+    </div>
   );
 }
 
@@ -32,6 +58,7 @@ export function PlanoEstudo({ dados }: { dados: DadosPlano }) {
 
   return (
     <div className={css.pagina} data-largura-total>
+      <AbrirConteudoDoLink />
       <header className={`${css.cabecalho} cartao-interativo`}>
         <div className={css.cabecalhoTexto}>
           <p className={css.rotulo}>Seu caminho de estudo</p>
@@ -57,25 +84,19 @@ export function PlanoEstudo({ dados }: { dados: DadosPlano }) {
 
           {plano.semana.length > 0 && (
             <Secao id="titulo-semana" titulo="Para esta semana" Icone={CalendarClock}>
-              <ul className={css.lista}>
-                {plano.semana.map((c, i) => <CartaoConteudoPlano key={c.chave} c={c} extras={extras[c.chave]} regras={regras} i={i} criterio={plano.criterio} />)}
-              </ul>
+              <ListaPorMateria lista={plano.semana} extras={extras} regras={regras} criterio={plano.criterio} />
             </Secao>
           )}
 
           {plano.depois.length > 0 && (
             <Secao id="titulo-depois" titulo="Depois" Icone={ListTodo}>
-              <ul className={css.lista}>
-                {plano.depois.map((c, i) => <CartaoConteudoPlano key={c.chave} c={c} extras={extras[c.chave]} regras={regras} i={i} criterio={plano.criterio} compacto />)}
-              </ul>
+              <ListaPorMateria lista={plano.depois} extras={extras} regras={regras} criterio={plano.criterio} compacto />
             </Secao>
           )}
 
           {plano.concluidos.length > 0 && (
             <Secao id="titulo-concluidos" titulo="Concluídos" Icone={Trophy}>
-              <ul className={css.lista}>
-                {plano.concluidos.map((c, i) => <CartaoConteudoPlano key={c.chave} c={c} extras={extras[c.chave]} regras={regras} i={i} criterio={plano.criterio} compacto />)}
-              </ul>
+              <ListaPorMateria lista={plano.concluidos} extras={extras} regras={regras} criterio={plano.criterio} compacto />
             </Secao>
           )}
         </>

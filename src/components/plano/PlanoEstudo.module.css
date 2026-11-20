@@ -26,6 +26,20 @@
 .chip:disabled { cursor: wait; opacity: .7; }
 .chip:focus-visible { outline: 3px solid var(--color-brand-bright); outline-offset: 2px; }
 
+/* ===== Matérias recolhíveis (o aluno clica para ver os conteúdos) ===== */
+.grupos { display: flex; flex-direction: column; gap: .75rem; }
+.grupo { min-width: 0; border: 1px solid var(--color-line); border-radius: 1rem; background: white; }
+.resumoGrupo { display: flex; align-items: center; gap: .75rem; min-height: 3.25rem; padding: .75rem 1rem; border-radius: 1rem; color: var(--color-brand); cursor: pointer; list-style: none; transition: background-color 180ms ease; }
+.resumoGrupo::-webkit-details-marker { display: none; }
+.resumoGrupo:hover { background: color-mix(in srgb, var(--color-brand) 6%, #fff); }
+.resumoGrupo:focus-visible { outline: 3px solid var(--color-brand-bright); outline-offset: 2px; }
+.nomeGrupo { flex: 1 1 auto; min-width: 0; font-family: var(--font-heading), sans-serif; font-size: 1.1rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; overflow-wrap: anywhere; }
+.qtdGrupo { flex-shrink: 0; padding: .2rem .65rem; border-radius: 999px; background: var(--color-gold); color: var(--color-gold-ink); font-family: var(--font-heading), sans-serif; font-size: .8rem; font-weight: 700; }
+.setaGrupo { flex-shrink: 0; transition: transform 180ms ease; }
+.grupo[open] > .resumoGrupo { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.grupo[open] > .resumoGrupo .setaGrupo { transform: rotate(180deg); }
+.grupo > .lista { padding: 0 1rem 1rem; }
+
 /* ===== Lista de conteúdos (cartão com bloco azul à esquerda) ===== */
 .lista { display: grid; gap: 1rem; }
 .conteudo { display: grid; min-width: 0; overflow: hidden; border: 1px solid var(--color-line); border-radius: 1.1rem; background: white; animation: subir .4s ease-out backwards; animation-delay: calc(var(--i) * 45ms); }
@@ -85,7 +99,7 @@ span.material { border-style: dashed; }
 }
 
 @keyframes subir { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .cartao, .conteudo { animation: none; } .botaoPrincipal, .botaoSecundario, .chip, .material { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .cartao, .conteudo { animation: none; } .botaoPrincipal, .botaoSecundario, .chip, .material, .resumoGrupo, .setaGrupo { transition: none; } }
 @media (min-width: 640px) { .tituloPagina { font-size: 2rem; } }
 @media (min-width: 900px) { .conteudo { grid-template-columns: 15rem minmax(0, 1fr); } }
 @media (max-width: 639px) {
