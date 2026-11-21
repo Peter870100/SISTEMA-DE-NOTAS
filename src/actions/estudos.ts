@@ -1,6 +1,8 @@
 "use server";
 
 import { supabase } from "@/lib/supabase/client";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/types";
 import { getAlunoAtual, getProfessorAtual } from "@/lib/auth";
 import {
   relatarErroCom,
@@ -22,13 +24,14 @@ function inicioDoDiaSP(agora = new Date()): string {
   return new Date(`${dia}T03:00:00.000Z`).toISOString();
 }
 
-export async function responderExercicio(e: { exercicioId: string; marcada: Letra }): Promise<ResultadoResposta> {
+export async function responderExercicio(e: { exercicioId: string; marcada: Letra; tentativaId?: string }): Promise<ResultadoResposta> {
   try {
     const aluno = await getAlunoAtual();
     if (!aluno) return { ok: false, erro: "Faça login novamente." };
     if (!LETRAS.includes(e?.marcada) || typeof e?.exercicioId !== "string" || !UUID.test(e.exercicioId)) {
       return { ok: false, erro: "Resposta inválida." };
     }
+    if (e.tentativaId !== undefined && !UUID.test(e.tentativaId)) return { ok: false, erro: "Tentativa inválida." };
     const deps: DepsResposta = {
       exercicio: async (id) => {
         const { data, error } = await supabase
@@ -44,6 +47,17 @@ export async function responderExercicio(e: { exercicioId: string; marcada: Letr
         return { resposta_correta: data.resposta_correta, comentario: data.comentario, situacao: data.situacao, material_situacao: mat.situacao };
       },
       gravar: async (contaId, exercicioId, marcada, acertou) => {
+        if (e.tentativaId) {
+          const chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!chave) throw new Error("Refazer exercícios ainda não está disponível.");
+          const banco = createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, chave, { auth: { persistSession: false, autoRefreshToken: false } });
+          const { error } = await banco.from("respostas_fixacao_tentativas")
+            .upsert({ conta_id: contaId, exercicio_id: exercicioId, tentativa_id: e.tentativaId, marcada, acertou }, { onConflict: "conta_id,tentativa_id,exercicio_id", ignoreDuplicates: true });
+          if (error) throw new Error(error.message);
+          const { data, error: leitura } = await banco.from("respostas_fixacao_tentativas").select("marcada, acertou").eq("conta_id", contaId).eq("exercicio_id", exercicioId).eq("tentativa_id", e.tentativaId).single();
+          if (leitura) throw new Error(leitura.message);
+          return { marcada: data.marcada, acertou: data.acertou };
+        }
         const { error } = await supabase
           .from("respostas_fixacao")
           .upsert({ conta_id: contaId, exercicio_id: exercicioId, marcada, acertou }, { onConflict: "conta_id,exercicio_id", ignoreDuplicates: true });
