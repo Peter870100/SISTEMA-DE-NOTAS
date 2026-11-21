@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { embaralhar } from "@/lib/estudos/embaralhar";
 import { responderExercicio } from "@/actions/estudos";
 import type { ExercicioTela } from "@/lib/estudos/dados";
 import type { Letra } from "@/lib/types";
@@ -12,6 +13,9 @@ type Resposta = NonNullable<ExercicioTela["resposta"]>;
 
 /** Um exercício por vez. A correção vem do servidor; estes exercícios não contam no desempenho. */
 export function ExerciciosFixacao({ materialId, exercicios }: { materialId: string; exercicios: ExercicioTela[] }) {
+  const [ordem, setOrdem] = useState(() => exercicios.map((e) => e.id));
+  const [tentativaId, setTentativaId] = useState<string | null>(null);
+  const [resultadoAnterior, setResultadoAnterior] = useState<string | null>(null);
   const [saiu, setSaiu] = useState<ReadonlySet<string>>(new Set());
   const [respostas, setRespostas] = useState<Record<string, Resposta>>(() =>
     Object.fromEntries(exercicios.flatMap((e) => (e.resposta ? [[e.id, e.resposta]] : []))),
@@ -21,7 +25,7 @@ export function ExerciciosFixacao({ materialId, exercicios }: { materialId: stri
   const [erro, setErro] = useState<string | null>(null);
   const [avisou, setAvisou] = useState(false);
 
-  const lista = exercicios.filter((e) => !saiu.has(e.id));
+  const lista = ordem.flatMap((id) => { const e = exercicios.find((item) => item.id === id); return e && !saiu.has(id) ? [e] : []; });
   const confirmacao = avisou && <p role="status" className={css.obrigado}>Obrigado! Vamos conferir. Esse exercício saiu do ar.</p>;
   if (lista.length === 0) return <div className={css.exercicios}>{confirmacao}<p className={css.vazioEx}>Nenhum exercício disponível agora</p></div>;
 
@@ -43,7 +47,7 @@ export function ExerciciosFixacao({ materialId, exercicios }: { materialId: stri
     setPendente(true);
     setErro(null);
     try {
-      const r = await responderExercicio({ exercicioId: ex.id, marcada: letra });
+      const r = await responderExercicio({ exercicioId: ex.id, marcada: letra, ...(tentativaId ? { tentativaId } : {}) });
       if (r.ok) setRespostas((antes) => ({ ...antes, [ex.id]: { marcada: r.marcada, acertou: r.acertou, certa: r.certa, comentario: r.comentario } }));
       else setErro(r.erro);
     } catch {
@@ -51,6 +55,15 @@ export function ExerciciosFixacao({ materialId, exercicios }: { materialId: stri
     } finally {
       setPendente(false);
     }
+  }
+
+  function refazer() {
+    const embaralhada = embaralhar(lista.map((e) => e.id));
+    setResultadoAnterior(`${acertos} de ${lista.length}`);
+    setOrdem(embaralhada);
+    setRespostas({});
+    setTentativaId(crypto.randomUUID());
+    irPara(0);
   }
 
   function tirar(id: string) {
@@ -62,6 +75,7 @@ export function ExerciciosFixacao({ materialId, exercicios }: { materialId: stri
   return (
     <div className={css.exercicios}>
       {confirmacao}
+      {resultadoAnterior && <p className={css.contagem}>Tentativa anterior: {resultadoAnterior} acertos</p>}
       <p className={css.contagem}><span>{feitos} de {lista.length}</span></p>
       <div className={css.barraEx} role="progressbar" aria-label="Exercícios respondidos" aria-valuemin={0} aria-valuemax={lista.length} aria-valuenow={feitos}>
         <span style={{ transform: `scaleX(${feitos / lista.length})` }} />
@@ -115,9 +129,10 @@ export function ExerciciosFixacao({ materialId, exercicios }: { materialId: stri
       </div>
 
       {terminou && (
-        <p className={css.resumoEx} role="status">
-          Você acertou {acertos} de {lista.length}. Esses exercícios não contam no seu desempenho.
-        </p>
+        <div className={css.resumoEx}>
+          <p role="status">Você acertou {acertos} de {lista.length}. Esses exercícios não contam no seu desempenho.</p>
+          <button type="button" className={css.botao} onClick={refazer} disabled={pendente}>Refazer</button>
+        </div>
       )}
     </div>
   );

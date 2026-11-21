@@ -785,6 +785,12 @@ export type Database = {
         Update: Partial<Omit<RespostaFixacao, "respondida_em">>;
         Relationships: [];
       };
+      respostas_fixacao_tentativas: {
+        Row: RespostaFixacao & { tentativa_id: string };
+        Insert: { conta_id: string; exercicio_id: string; tentativa_id: string; marcada: Letra; acertou: boolean };
+        Update: Partial<RespostaFixacao & { tentativa_id: string }>;
+        Relationships: [];
+      };
       relatos_erro: {
         Row: RelatoErro;
         Insert: Partial<Omit<RelatoErro, "id" | "criado_em">> & { material_id: string };
